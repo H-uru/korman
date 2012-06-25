@@ -14,11 +14,11 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
-from . import exporter
+from . import exporter, render
 
 bl_info = {
     "name":        "Korman",
-    "author":      "Guild of Writers H'uru Team",
+    "author":      "Guild of Writers",
     "blender":     (2, 6, 3), # I can't be bothered to support old stuff
     "location":    "File > Import-Export",
     "description": "Exporter for Cyan Worlds' Plasma Engine",
