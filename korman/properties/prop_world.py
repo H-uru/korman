@@ -42,7 +42,7 @@ class PlasmaPage(bpy.types.PropertyGroup):
             return None
 
         for page in context.world.plasma_age.pages:
-            if page.seq_suffix == self.seq_suffix:
+            if page.seq_suffix == self.seq_suffix and page != self:
                 # Need to supress checking while we override the suffix
                 page.check_suffixes = False
                 page.seq_suffix = old
