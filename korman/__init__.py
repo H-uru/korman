@@ -15,6 +15,7 @@
 
 import bpy
 from . import exporter, render
+from . import operators, properties, ui
 
 bl_info = {
     "name":        "Korman",
@@ -31,8 +32,11 @@ def register():
     """Registers all Blender operators and GUI items in Korman"""
 
     # This will auto-magically register all blender classes for us
-    # We will define a lot of them, methinks...
     bpy.utils.register_module(__name__)
+
+    # We have to setup pointer props to our custom property groups ourselves,
+    # so let's go ahead and do that now.
+    properties.register()
 
 def unregister():
     """Unregisters all Blender operators and GUI items"""

@@ -37,7 +37,8 @@ class PlasmaExporter(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object is not None
+        if context.object is not None:
+            return context.scene.render.engine == "PLASMA_GAME"
 
     def execute(self, context):
         # TODO
@@ -54,4 +55,5 @@ class PlasmaExporter(bpy.types.Operator):
 def menu_cb(self, context):
     self.layout.operator_context = "INVOKE_DEFAULT"
     self.layout.operator(PlasmaExporter.bl_idname, text="Plasma Age (.age)")
-bpy.types.INFO_MT_file_export.append(menu_cb)
+def register():
+    bpy.types.INFO_MT_file_export.append(menu_cb)
