@@ -20,7 +20,7 @@ class AgeOperator:
     def poll(cls, context):
         return context.scene.render.engine == "PLASMA_GAME"
 
-class PlasmaPageAddOperator(AgeOperator, bpy.types.Operator):
+class PageAddOperator(AgeOperator, bpy.types.Operator):
     bl_idname = "world.plasma_page_add"
     bl_label = "Add Page"
     bl_description = "Adds a new Plasma Registry Page"
@@ -58,7 +58,7 @@ class PlasmaPageAddOperator(AgeOperator, bpy.types.Operator):
             return {"CANCELLED"}
 
 
-class PlasmaPageRemoveOperator(AgeOperator, bpy.types.Operator):
+class PageRemoveOperator(AgeOperator, bpy.types.Operator):
     bl_idname = "world.plasma_page_remove"
     bl_label = "Remove Page"
     bl_description = "Removes the selected Plasma Registry Page"
@@ -66,7 +66,21 @@ class PlasmaPageRemoveOperator(AgeOperator, bpy.types.Operator):
     def execute(self, context):
         w = context.world
         if w:
-            # ...
+            age = w.plasma_age
+            if age.active_page_index >= len(age.pages):
+                return {"CANCELLED"}
+            page = age.pages[age.active_page_index]
+
+            # Need to reassign objects in this page to the default page
+            defpg = ""
+            for i in age.pages:
+                if i.seq_suffix == 0:
+                    defpg = i.name
+                    break
+            for o in bpy.data.objects:
+                if o.plasma_object.page == page.name:
+                    o.plasma_object.page = defpg
+            age.pages.remove(age.active_page_index)
             return {"FINISHED"}
         else:
             return {"CANCELLED"}
