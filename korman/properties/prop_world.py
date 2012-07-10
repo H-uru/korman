@@ -15,6 +15,7 @@
 
 import bpy
 from bpy.props import *
+from PyHSPlasma import *
 
 class PlasmaFni(bpy.types.PropertyGroup):
     bl_idname = "world.plasma_fni"
@@ -56,8 +57,8 @@ class PlasmaPage(bpy.types.PropertyGroup):
             self.last_name = self.name
             return None
 
-        # Empty page names not allowed!
-        if self.name == "":
+        # There are some obviously bad page names
+        if self.name.lower() in ("", "builtin", "default", "textures"):
             self.make_default_name(self.seq_suffix)
             return None
 
@@ -112,3 +113,11 @@ class PlasmaAge(bpy.types.PropertyGroup):
 
     # Implementation details
     active_page_index = IntProperty(name="Active Page Index")
+
+    def export(self):
+        age = plAgeInfo()
+        age.dayLength = self.day_length
+        age.seqPrefix = self.seq_prefix
+
+        # Pages are added to the ResManager in the main exporter
+        return age

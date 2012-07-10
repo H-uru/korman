@@ -34,8 +34,8 @@ def register():
     # This will auto-magically register all blender classes for us
     bpy.utils.register_module(__name__)
 
-    # We have to setup pointer props to our custom property groups ourselves,
-    # so let's go ahead and do that now.
+    # Sigh... Blender isn't totally automated.
+    operators.register()
     properties.register()
 
 def unregister():
