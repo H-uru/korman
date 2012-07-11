@@ -17,7 +17,7 @@ import bpy
 from bpy.props import *
 
 class PlasmaObject(bpy.types.PropertyGroup):
-    def _export_changed(self, context):
+    def _enabled(self, context):
         # This makes me sad
         if not self.is_inited:
             self._init(context)
@@ -34,14 +34,14 @@ class PlasmaObject(bpy.types.PropertyGroup):
         for page in age.pages:
             if page.seq_suffix > num_layers:
                 continue
-            if o.layers[page.seq_suffix-1]:
+            if o.layers[page.seq_suffix - 1]:
                 o.plasma_object.page = page.name
                 break
 
-    export = BoolProperty(name="Export",
-                          description="Export this as a discrete object",
-                          default=False,
-                          update=_export_changed)
+    enabled = BoolProperty(name="Export",
+                           description="Export this as a discrete object",
+                           default=False,
+                           update=_enabled)
     page = StringProperty(name="Page",
                           description="Page this object will be exported to")
 

@@ -38,15 +38,17 @@ class ExportOperator(bpy.types.Operator):
     )
     optimize = bpy.props.BoolProperty(name="Optimize Age",
                                       description="Optimizes your age to run faster. This slows down export.")
+    save_state = bpy.props.BoolProperty(name="Save State",
+                                        description="Saves your age's state to the server for subsequent link ins.",
+                                        default=True)
     use_texture_page = bpy.props.BoolProperty(name="Use Texture Page",
                                               description="Exports all textures to a dedicated Textures page",
                                               default=True)
     filepath = bpy.props.StringProperty(subtype="FILE_PATH")
 
-    def _set_error(self, value):
-        self.has_reports = True
-        self.report = ({"ERROR"}, value)
-    error = property(fset=_set_error) # Can't use decorators here :(
+    @property
+    def has_reports(self):
+        return hasattr(self.report)
 
     @classmethod
     def poll(cls, context):
@@ -64,7 +66,7 @@ class ExportOperator(bpy.types.Operator):
                 try:
                     os.mkdirs(dir)
                 except os.error:
-                    self.error = "Failed to create export directory"
+                    self.report({"ERROR"}, "Failed to create export directory")
                     return {"CANCELLED"}
 
         # Separate blender operator and actual export logic for my sanity
@@ -72,7 +74,7 @@ class ExportOperator(bpy.types.Operator):
         try:
             e.run()
         except exporter.ExportError as error:
-            self.error = str(error)
+            self.report({"ERROR"}, str(error))
             return {"CANCELLED"}
         else:
             return {"FINISHED"}

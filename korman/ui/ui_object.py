@@ -29,12 +29,12 @@ class PlasmaObjectPanel(ObjectButtonsPanel, bpy.types.Panel):
     bl_label = "Plasma Object"
 
     def draw_header(self, context):
-        self.layout.prop(context.object.plasma_object, "export", text="")
+        self.layout.prop(context.object.plasma_object, "enabled", text="")
 
     def draw(self, context):
         layout = self.layout
         pl_obj = context.object.plasma_object
         pl_age = context.scene.world.plasma_age
-        layout.active = pl_obj.export
+        layout.active = pl_obj.enabled
 
         layout.prop_search(pl_obj, "page", pl_age, "pages", icon="BOOKMARKS")

@@ -28,9 +28,26 @@ class Exporter:
         self._op = op # Blender operator
 
         # This stuff doesn't need to be static
+        self._nodes = {}
         self._objects = []
         self._pages = {}
-        self.texture_page = True
+
+    def add_object(self, pl, bl=None, loc=None):
+        """Automates adding a converted Blender object to our Plasma Resource Manager"""
+        assert (bl or loc)
+        if loc:
+            location = loc
+        else:
+            location = self._pages[bl.plasma_object.page]
+        self.mgr.AddObject(location, pl)
+        node = self._nodes[location]
+        if node: # All objects must be in the scene node
+            if isinstance(pl, plSceneObject):
+                f = node.addSceneObject
+            else:
+                f = node.addPoolObject
+            f(pl.key)
+
 
     @property
     def age_name(self):
@@ -56,7 +73,10 @@ class Exporter:
                 node = plSceneNode("%s_District_%s" % (self.age_name, name))
             else:
                 node = plSceneNode("%s_%s" % (self.age_name, name))
+            self._nodes[location] = node
             self.mgr.AddObject(location, node)
+        else:
+            self._nodes[location] = None
         return location
 
     def get_textures_page(self, obj):
@@ -87,37 +107,37 @@ class Exporter:
         self._sanity_check_pages()
         self._generate_builtins() # Creates BuiltIn and Textures
 
-        # ... todo ...
+        # Step 3: Export all the things!
+        self._export_scene_objects()
 
-        # ... And finally... Write it all out!
+        # Step 4: FINALLY. Let's write the PRPs and crap.
         self.mgr.WriteAge(self._op.filepath, self._age_info)
-        dir = os.path.split(self._op.filepath)[0]
-        for name, loc in self._pages.items():
-            page = self.mgr.FindPage(loc) # not cached because it's C++ owned
-            # I know that plAgeInfo has its own way of doing this, but we'd have
-            # to do some looping and stuff. This is easier.
-            if self.version <= pvMoul:
-                chapter = "_District_"
-            else:
-                chapter = "_"
-            f = os.path.join(dir, "%s%s%s.prp" % (self.age_name, chapter, name))
-            self.mgr.WritePage(f, page)
+        self._write_fni()
+        self._write_pages()
 
     def _collect_objects(self):
         for obj in bpy.data.objects:
-            if obj.plasma_object.export:
+            if obj.plasma_object.enabled:
                 self._objects.append(obj)
 
     def _grab_age_info(self):
-        self._age_info = bpy.context.scene.world.plasma_age.export()
+        age = bpy.context.scene.world.plasma_age
+        self._age_info = plAgeInfo()
+        self._age_info.dayLength = age.day_length
+        self._age_info.lingerTime = 180 # this is fairly standard
         self._age_info.name = self.age_name
+        self._age_info.seqPrefix = age.seq_prefix
+        self._age_info.startDateTime = age.start_time
         self.mgr.AddAge(self._age_info)
 
     def _sanity_check_pages(self):
         """Ensure all objects are in valid pages and create the Default page if used"""
         for obj in self._objects:
             page = obj.plasma_object.page
-            if not page in self._pages and page == "":
+            if page in self._pages:
+                # good. keep trying.
+                continue
+            elif page == "":
                 # This object is in the default page... Init that.
                 for loc in self._pages.values():
                     if not loc.page:
@@ -143,11 +163,11 @@ class Exporter:
             _s -= 1
 
         # Grunt work...
-        if self.version <= pvMoul:
+        if self.version <= pvMoul and self._op.save_state:
             builtin = self._create_page("BuiltIn", suffixes[1], True)
             pfm = plPythonFileMod("VeryVerySpecialPythonFileMod")
             pfm.filename = self.age_name
-            self.mgr.AddObject(builtin, pfm)
+            self.mgr.AddObject(builtin, pfm) # add_object has lots of overhead
             sdlhook = plSceneObject("AgeSDLHook")
             sdlhook.addModifier(pfm.key)
             self.mgr.AddObject(builtin, sdlhook)
@@ -158,3 +178,46 @@ class Exporter:
             self._pages["Textures"] = textures
         else:
             self._pages["Textures"] = None # probably easier than looping to find it
+
+    def _export_scene_objects(self):
+        for bl_obj in self._objects:
+            # Normally, we'd pass off to the property for export logic, but we need to
+            # do meshes here, so let's stay local until it's modifier time
+            so = plSceneObject(bl_obj.name)
+            self.add_object(pl=so, bl=bl_obj)
+            # TODO: export mesh
+            # TODO: export plasma modifiers
+
+    def _write_fni(self):
+        if self.version <= pvMoul:
+            enc = plEncryptedStream.kEncXtea
+        else:
+            enc = plEncryptedStream.kEncAES
+        fname = os.path.join(os.path.split(self._op.filepath)[0], "%s.fni" % self.age_name)
+        stream = plEncryptedStream()
+        stream.open(fname, fmWrite, enc)
+
+        # Write out some stuff
+        fni = bpy.context.scene.world.plasma_fni
+        stream.writeLine("Graphics.Renderer.Fog.SetClearColor %f %f %f" % tuple(fni.clear_color))
+        if fni.fog_method != "none":
+            stream.writeLine("Graphics.Renderer.Fog.SetDefColor %f %f %f" % tuple(fni.fog_color))
+        if fni.fog_method == "linear":
+            stream.writeLine("Graphics.Renderer.Fog.SetDefLinear %f %f %f" % (fni.fog_start, fni.fog_end, fni.fog_density))
+        elif fni.fog_method == "exp2":
+            stream.writeLine("Graphics.Renderer.Fog.SetDefExp2 %f %f" % (fni.fog_end, fni.fog_density))
+        stream.writeLine("Graphics.Renderer.Setyon %f" % fni.yon)
+        stream.close()
+
+    def _write_pages(self):
+        dir = os.path.split(self._op.filepath)[0]
+        for name, loc in self._pages.items():
+            page = self.mgr.FindPage(loc) # not cached because it's C++ owned
+            # I know that plAgeInfo has its own way of doing this, but we'd have
+            # to do some looping and stuff. This is easier.
+            if self.version <= pvMoul:
+                chapter = "_District_"
+            else:
+                chapter = "_"
+            f = os.path.join(dir, "%s%s%s.prp" % (self.age_name, chapter, name))
+            self.mgr.WritePage(f, page)

@@ -32,9 +32,6 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
         layout = self.layout
         age = context.world.plasma_age
 
-        # Core age settings
-        # ...
-
         # We want a list of pages and an editor below that
         row = layout.row()
         row.template_list(age, "pages", age, "active_page_index", rows=2)
@@ -42,14 +39,23 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
         col.operator("world.plasma_page_add", icon="ZOOMIN", text="")
         col.operator("world.plasma_page_remove", icon="ZOOMOUT", text="")
 
-        # name/id editor for current selection
+        # Page Properties
         if age.active_page_index < len(age.pages):
             active_page = age.pages[age.active_page_index]
-            split = layout.split(percentage=0.65)
+            split = layout.box().split()
             col = split.column()
-            col.prop(active_page, "name")
+            col.prop(active_page, "name", text="")
+            col.prop(active_page, "auto_load")
+
             col = split.column()
             col.prop(active_page, "seq_suffix")
+            col.prop(active_page, "local_only")
+
+        # Core settings
+        row = layout.row()
+        row.prop(age, "day_length")
+        row.prop(age, "seq_prefix", text="ID")
+        layout.prop(age, "start_time")
 
 
 class PlasmaEnvironmentPanel(AgeButtonsPanel, bpy.types.Panel):
@@ -59,11 +65,23 @@ class PlasmaEnvironmentPanel(AgeButtonsPanel, bpy.types.Panel):
         layout = self.layout
         fni = context.world.plasma_fni
 
-        # Column-ize the colors
+        # basic colors
         split = layout.split()
         col = split.column()
         col.prop(fni, "fog_color")
         col = split.column()
         col.prop(fni, "clear_color")
 
+        # fog box
+        split = layout.box()
+        row = split.row().split(percentage=0.50)
+        row.column().prop_menu_enum(fni, "fog_method")
+        if fni.fog_method == "linear":
+            row.column().prop(fni, "fog_start")
+        if fni.fog_method != "none":
+            row = split.row()
+            row.prop(fni, "fog_density")
+            row.prop(fni, "fog_end")
+
+        # tacked on: draw distance
         layout.prop(fni, "yon")

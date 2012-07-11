@@ -22,8 +22,24 @@ class PlasmaFni(bpy.types.PropertyGroup):
 
     fog_color = FloatVectorProperty(name="Fog Color",
                                     description="The default fog color used in your age",
-                                    default=(0.3, 0.2, 0.05),
+                                    default=(0.4, 0.3, 0.1),
                                     subtype="COLOR")
+    fog_method = EnumProperty(name="Fog Type",
+                              items=[
+                                     ("linear", "Linear", "Linear Fog"),
+                                     ("exp2", "Exponential", "Exponential Fog"),
+                                     ("none", "None", "Use fog from the previous age")
+                                     ])
+    fog_start = FloatProperty(name="Start",
+                              description="",
+                              default= -1500.0)
+    fog_end = FloatProperty(name="End",
+                            description="",
+                            default=20000.0)
+    fog_density = FloatProperty(name="Density",
+                                description="",
+                                default=1.0,
+                                min=0.0)
     clear_color = FloatVectorProperty(name="Clear Color",
                                       description="The default background color rendered in your age",
                                       subtype="COLOR")
@@ -32,7 +48,6 @@ class PlasmaFni(bpy.types.PropertyGroup):
                       default=100000,
                       soft_min=100,
                       min=1)
-    # TODO: density
 
 class PlasmaPage(bpy.types.PropertyGroup):
     def _check_suffix(self, context):
@@ -86,6 +101,9 @@ class PlasmaPage(bpy.types.PropertyGroup):
     auto_load = BoolProperty(name="Auto Load",
                              description="Load this page on link-in",
                              default=True)
+    local_only = BoolProperty(name="Local Only",
+                              description="This page should not synchronize with the server",
+                              default=False)
 
     # Implementation details...
     last_name = StringProperty(description="INTERNAL: Cached page name",
@@ -100,9 +118,14 @@ class PlasmaPage(bpy.types.PropertyGroup):
 class PlasmaAge(bpy.types.PropertyGroup):
     day_length = FloatProperty(name="Day Length",
                                description="Length of a day (in hours) on this age",
-                               default=24.0,
+                               default=30.230000,
                                soft_min=0.1,
                                min=0.0)
+    start_time = IntProperty(name="Start Time",
+                             description="Seconds from 1/1/1970 until the first day on this age",
+                             subtype="UNSIGNED",
+                             default=672211080,
+                             min=0)
     seq_prefix = IntProperty(name="Sequence Prefix",
                              description="A unique numerical ID for this age",
                              soft_min=0, # Negative indicates global--advanced users only
@@ -113,11 +136,3 @@ class PlasmaAge(bpy.types.PropertyGroup):
 
     # Implementation details
     active_page_index = IntProperty(name="Active Page Index")
-
-    def export(self):
-        age = plAgeInfo()
-        age.dayLength = self.day_length
-        age.seqPrefix = self.seq_prefix
-
-        # Pages are added to the ResManager in the main exporter
-        return age
