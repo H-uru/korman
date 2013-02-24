@@ -73,7 +73,7 @@ class PlasmaPage(bpy.types.PropertyGroup):
             return None
 
         # There are some obviously bad page names
-        if self.name.lower() in ("", "builtin", "default", "textures"):
+        if self.name.lower() in {"", "builtin", "default", "textures"}:
             self.make_default_name(self.seq_suffix)
             return None
 
