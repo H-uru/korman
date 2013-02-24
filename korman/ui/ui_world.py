@@ -34,7 +34,8 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
 
         # We want a list of pages and an editor below that
         row = layout.row()
-        row.template_list(age, "pages", age, "active_page_index", rows=2)
+        row.template_list("UI_UL_list", "pages", age, "pages", age,
+                          "active_page_index", rows=2)
         col = row.column(align=True)
         col.operator("world.plasma_page_add", icon="ZOOMIN", text="")
         col.operator("world.plasma_page_remove", icon="ZOOMOUT", text="")
