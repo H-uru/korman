@@ -19,9 +19,8 @@ from PyHSPlasma import *
 
 class ExportError(Exception):
     def __init__(self, value="Undefined Export Error"):
-        self.value = value
-    def __str__(self):
-        return self.value
+        super(Exception, self).__init__(value)
+
 
 class Exporter:
     def __init__(self, op):
