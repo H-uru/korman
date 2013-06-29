@@ -20,13 +20,14 @@ from . import operators, properties, ui
 bl_info = {
     "name":        "Korman",
     "author":      "Guild of Writers",
-    "blender":     (2, 67, 0), # I can't be bothered to support old stuff
+    "blender":     (2, 67, 0),  # I can't be bothered to support old stuff
     "location":    "File > Import-Export",
     "description": "Exporter for Cyan Worlds' Plasma Engine",
     "warning":     "alpha",
-    "category":    "System", # Eventually, we will hide some of the default
-                             # Blender panels (think materials)
+    "category":    "System",  # Eventually, we will hide some of the default
+                              # Blender panels (think materials)
 }
+
 
 def register():
     """Registers all Blender operators and GUI items in Korman"""
@@ -37,6 +38,7 @@ def register():
     # Sigh... Blender isn't totally automated.
     operators.register()
     properties.register()
+
 
 def unregister():
     """Unregisters all Blender operators and GUI items"""
