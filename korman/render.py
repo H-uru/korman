@@ -18,7 +18,7 @@ import bpy
 class PlasmaRenderEngine(bpy.types.RenderEngine):
 
     bl_idname = "PLASMA_GAME"
-    bl_label = "Plasma Game"
+    bl_label = "Korman"
 
     pass
 
