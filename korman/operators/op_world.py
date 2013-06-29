@@ -32,19 +32,14 @@ class PageAddOperator(AgeOperator, bpy.types.Operator):
             page = age.pages.add()
 
             # Find the first non-zero ID and suggest that.
-            suffixes = []
-            for p in age.pages:
-                # Filter out pages with no-id or 
-                if p.seq_suffix:
-                    suffixes.append(p.seq_suffix)
-            if len(suffixes):
-                suffixes.sort()
-                test = set(range(suffixes[0], suffixes[-1]))
+            suffixes = {p.seq_suffix for p in age.pages}
+            if suffixes:
+                test = set(range(min(suffixes), max(suffixes)))
                 missing = test - set(suffixes)
                 try:
                     suffix = missing.pop()
                 except KeyError:
-                    suffix = suffixes[-1] + 1
+                    suffix = max(suffixes) + 1
                 page.make_default_name(suffix)
             else:
                 # Page 0 is a magic "catch-all" page. The user *may* define it
