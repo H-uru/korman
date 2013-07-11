@@ -17,6 +17,7 @@ import bpy
 from bpy.props import *
 from PyHSPlasma import *
 
+
 class PlasmaFni(bpy.types.PropertyGroup):
     bl_idname = "world.plasma_fni"
 
@@ -29,10 +30,10 @@ class PlasmaFni(bpy.types.PropertyGroup):
                                      ("linear", "Linear", "Linear Fog"),
                                      ("exp2", "Exponential", "Exponential Fog"),
                                      ("none", "None", "Use fog from the previous age")
-                                     ])
+                                    ])
     fog_start = FloatProperty(name="Start",
                               description="",
-                              default= -1500.0)
+                              default=-1500.0)
     fog_end = FloatProperty(name="End",
                             description="",
                             default=20000.0)
@@ -48,6 +49,7 @@ class PlasmaFni(bpy.types.PropertyGroup):
                       default=100000,
                       soft_min=100,
                       min=1)
+
 
 class PlasmaPage(bpy.types.PropertyGroup):
     def _check_suffix(self, context):
@@ -95,8 +97,8 @@ class PlasmaPage(bpy.types.PropertyGroup):
                           update=_rename_page)
     seq_suffix = IntProperty(name="ID",
                              description="A numerical ID for this page",
-                             soft_min=0, # Negatives indicate global--advanced users only
-                             default=0, # The add operator will autogen a default
+                             soft_min=0,  # Negatives indicate global--advanced users only
+                             default=0,  # The add operator will autogen a default
                              update=_check_suffix)
     auto_load = BoolProperty(name="Auto Load",
                              description="Load this page on link-in",
@@ -128,7 +130,7 @@ class PlasmaAge(bpy.types.PropertyGroup):
                              min=0)
     seq_prefix = IntProperty(name="Sequence Prefix",
                              description="A unique numerical ID for this age",
-                             soft_min=0, # Negative indicates global--advanced users only
+                             soft_min=0,  # Negative indicates global--advanced users only
                              default=100)
     pages = CollectionProperty(name="Pages",
                                description="Registry pages for this age",
