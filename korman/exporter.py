@@ -17,6 +17,7 @@ import bpy
 import os.path
 from PyHSPlasma import *
 
+
 class ExportError(Exception):
     def __init__(self, value="Undefined Export Error"):
         super(Exception, self).__init__(value)
@@ -24,7 +25,7 @@ class ExportError(Exception):
 
 class Exporter:
     def __init__(self, op):
-        self._op = op # Blender operator
+        self._op = op  # Blender operator
 
         # This stuff doesn't need to be static
         self._nodes = {}
@@ -40,13 +41,12 @@ class Exporter:
             location = self._pages[bl.plasma_object.page]
         self.mgr.AddObject(location, pl)
         node = self._nodes[location]
-        if node: # All objects must be in the scene node
+        if node:  # All objects must be in the scene node
             if isinstance(pl, plSceneObject):
                 f = node.addSceneObject
             else:
                 f = node.addPoolObject
             f(pl.key)
-
 
     @property
     def age_name(self):
@@ -100,11 +100,11 @@ class Exporter:
         self._collect_objects()
 
         # Step 2: Collect some age information
-        self._grab_age_info() # World Props -> plAgeInfo
+        self._grab_age_info()  # World Props -> plAgeInfo
         for page in bpy.context.scene.world.plasma_age.pages:
             self._create_page(page.name, page.seq_suffix)
         self._sanity_check_pages()
-        self._generate_builtins() # Creates BuiltIn and Textures
+        self._generate_builtins()  # Creates BuiltIn and Textures
 
         # Step 3: Export all the things!
         self._export_scene_objects()
@@ -123,7 +123,7 @@ class Exporter:
         age = bpy.context.scene.world.plasma_age
         self._age_info = plAgeInfo()
         self._age_info.dayLength = age.day_length
-        self._age_info.lingerTime = 180 # this is fairly standard
+        self._age_info.lingerTime = 180  # this is fairly standard
         self._age_info.name = self.age_name
         self._age_info.seqPrefix = age.seq_prefix
         self._age_info.startDateTime = age.start_time
@@ -152,7 +152,8 @@ class Exporter:
     def _generate_builtins(self):
         # Find the highest two available negative suffixes for BuiltIn and Textures
         # This should generally always resolve to -2 and -1
-        suffixes = []; _s = -1
+        suffixes = []
+        _s = -1
         while len(suffixes) != 2:
             for location in self._pages.values():
                 if location.page == _s:
@@ -166,7 +167,7 @@ class Exporter:
             builtin = self._create_page("BuiltIn", suffixes[1], True)
             pfm = plPythonFileMod("VeryVerySpecialPythonFileMod")
             pfm.filename = self.age_name
-            self.mgr.AddObject(builtin, pfm) # add_object has lots of overhead
+            self.mgr.AddObject(builtin, pfm)  # add_object has lots of overhead
             sdlhook = plSceneObject("AgeSDLHook")
             sdlhook.addModifier(pfm.key)
             self.mgr.AddObject(builtin, sdlhook)
@@ -176,7 +177,7 @@ class Exporter:
             textures = self._create_page("Textures", suffixes[0], True)
             self._pages["Textures"] = textures
         else:
-            self._pages["Textures"] = None # probably easier than looping to find it
+            self._pages["Textures"] = None  # probably easier than looping to find it
 
     def _export_scene_objects(self):
         for bl_obj in self._objects:
@@ -211,7 +212,7 @@ class Exporter:
     def _write_pages(self):
         dir = os.path.split(self._op.filepath)[0]
         for name, loc in self._pages.items():
-            page = self.mgr.FindPage(loc) # not cached because it's C++ owned
+            page = self.mgr.FindPage(loc)  # not cached because it's C++ owned
             # I know that plAgeInfo has its own way of doing this, but we'd have
             # to do some looping and stuff. This is easier.
             if self.version <= pvMoul:

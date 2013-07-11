@@ -18,6 +18,7 @@ import bpy
 from .prop_object import *
 from .prop_world import *
 
+
 def register():
     bpy.types.Object.plasma_object = PointerProperty(type=PlasmaObject)
     bpy.types.World.plasma_age = PointerProperty(type=PlasmaAge)

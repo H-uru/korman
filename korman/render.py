@@ -15,6 +15,7 @@
 
 import bpy
 
+
 class PlasmaRenderEngine(bpy.types.RenderEngine):
 
     bl_idname = "PLASMA_GAME"
@@ -28,6 +29,7 @@ properties_material.MATERIAL_PT_context_material.COMPAT_ENGINES.add("PLASMA_GAME
 properties_material.MATERIAL_PT_preview.COMPAT_ENGINES.add("PLASMA_GAME")
 del properties_material
 
+
 @classmethod
 def _new_poll(cls, context):
     """Nifty replacement for naughty built-in Blender poll()s"""
@@ -36,6 +38,8 @@ def _new_poll(cls, context):
     else:
         # Dear god you better save the old poll...
         return cls._old_poll(cls, context)
+
+
 def _swap_poll(cls):
     cls._old_poll = cls.poll
     cls.poll = _new_poll
