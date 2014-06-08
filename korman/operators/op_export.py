@@ -96,3 +96,6 @@ def menu_cb(self, context):
 
 def register():
     bpy.types.INFO_MT_file_export.append(menu_cb)
+
+def unregister():
+    bpy.types.INFO_MT_file_export.remove(menu_cb)

@@ -20,7 +20,7 @@ from . import operators, properties, ui
 bl_info = {
     "name":        "Korman",
     "author":      "Guild of Writers",
-    "blender":     (2, 67, 0),  # I can't be bothered to support old stuff
+    "blender":     (2, 70, 0),  # I can't be bothered to support old stuff
     "location":    "File > Import-Export",
     "description": "Exporter for Cyan Worlds' Plasma Engine",
     "warning":     "alpha",
@@ -43,6 +43,7 @@ def register():
 def unregister():
     """Unregisters all Blender operators and GUI items"""
     bpy.utils.unregister_module(__name__)
+    operators.unregister()
 
 
 if __name__ == "__main__":

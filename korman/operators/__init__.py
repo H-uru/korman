@@ -18,3 +18,6 @@ from . import op_world as world
 
 def register():
     exporter.register()
+
+def unregister():
+    exporter.unregister()
