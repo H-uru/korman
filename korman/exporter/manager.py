@@ -72,11 +72,12 @@ class ExportManager:
 
     def create_builtins(self, age, textures):
         # BuiltIn.prp
-        # FIXME: Only gen this if the artist wants it
-        builtin = self.create_page(age, "BuiltIn", -1, True)
-        pfm = self.add_object(plPythonFileMod, name="VeryVerySpecialPythonFileMod", loc=builtin)
-        sdl = self.add_object(plSceneObject, name="AgeSDLHook", loc=builtin)
-        sdl.addModifier(pfm.key)
+        if bpy.context.scene.world.plasma_age.age_sdl:
+            builtin = self.create_page(age, "BuiltIn", -1, True)
+            pfm = self.add_object(plPythonFileMod, name="VeryVerySpecialPythonFileMod", loc=builtin)
+            pfm.filename = age
+            sdl = self.add_object(plSceneObject, name="AgeSDLHook", loc=builtin)
+            sdl.addModifier(pfm.key)
 
         # Textures.prp
         if textures:

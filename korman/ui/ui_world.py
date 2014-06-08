@@ -44,20 +44,34 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
         # Page Properties
         if age.active_page_index < len(age.pages):
             active_page = age.pages[age.active_page_index]
-            split = layout.box().split()
-            col = split.column()
-            col.prop(active_page, "name", text="")
-            col.prop(active_page, "auto_load")
+
+            layout.separator()
+            box = layout.box()
+            split = box.split()
 
             col = split.column()
-            col.prop(active_page, "seq_suffix")
+            col.label("Page Flags:")
+            col.prop(active_page, "auto_load")
             col.prop(active_page, "local_only")
 
+            col = split.column()
+            col.label("Page Info:")
+            col.prop(active_page, "name", text="")
+            col.prop(active_page, "seq_suffix")
+
         # Core settings
-        row = layout.row()
-        row.prop(age, "day_length")
-        row.prop(age, "seq_prefix", text="ID")
-        layout.prop(age, "start_time")
+        layout.separator()
+        split = layout.split()
+
+        col = split.column()
+        col.label("Age Time:")
+        col.prop(age, "start_time", text="Epoch")
+        col.prop(age, "day_length")
+
+        col = split.column()
+        col.label("Age Settings:")
+        col.prop(age, "seq_prefix", text="ID")
+        col.prop(age, "age_sdl")
 
 
 class PlasmaEnvironmentPanel(AgeButtonsPanel, bpy.types.Panel):
@@ -74,16 +88,17 @@ class PlasmaEnvironmentPanel(AgeButtonsPanel, bpy.types.Panel):
         col = split.column()
         col.prop(fni, "clear_color")
 
-        # fog box
-        split = layout.box()
-        row = split.row().split(percentage=0.50)
-        row.column().prop_menu_enum(fni, "fog_method")
+        split = layout.split()
+        col = split.column()
+        col.label("Fog Settings:")
+        col.prop_menu_enum(fni, "fog_method")
+        col.separator()
         if fni.fog_method == "linear":
-            row.column().prop(fni, "fog_start")
+            col.prop(fni, "fog_start")
         if fni.fog_method != "none":
-            row = split.row()
-            row.prop(fni, "fog_density")
-            row.prop(fni, "fog_end")
+            col.prop(fni, "fog_end")
+            col.prop(fni, "fog_density")
 
-        # tacked on: draw distance
-        layout.prop(fni, "yon")
+        col = split.column()
+        col.label("Draw Settings:")
+        col.prop(fni, "yon", text="Clipping")

@@ -144,6 +144,9 @@ class PlasmaAge(bpy.types.PropertyGroup):
     pages = CollectionProperty(name="Pages",
                                description="Registry pages for this age",
                                type=PlasmaPage)
+    age_sdl = BoolProperty(name="Age Global SDL",
+                           description="This age has its own SDL file",
+                           default=False)
 
     # Implementation details
     active_page_index = IntProperty(name="Active Page Index")
