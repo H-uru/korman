@@ -20,6 +20,7 @@ from .prop_world import *
 
 
 def register():
+    bpy.types.Object.plasma_net = PointerProperty(type=PlasmaNet)
     bpy.types.Object.plasma_object = PointerProperty(type=PlasmaObject)
     bpy.types.World.plasma_age = PointerProperty(type=PlasmaAge)
     bpy.types.World.plasma_fni = PointerProperty(type=PlasmaFni)

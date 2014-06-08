@@ -18,6 +18,17 @@ from bpy.props import *
 from PyHSPlasma import *
 
 
+def SdlEnumProperty(name):
+    return bpy.props.EnumProperty(name=name,
+                                  description="{} state synchronization".format(name),
+                                  items=[
+                                      ("save", "Save to Server", "Save state on the server"),
+                                      ("volatile", "Volatile on Server", "Throw away state when the age shuts down"),
+                                      ("exclude", "Don't Send to Server", "Don't synchronize with the server"),
+                                   ],
+                                   default="save")
+
+
 class PlasmaObject(bpy.types.PropertyGroup):
     def _enabled(self, context):
         # This makes me sad
@@ -60,3 +71,17 @@ class PlasmaObject(bpy.types.PropertyGroup):
     is_inited = BoolProperty(description="INTERNAL: Init proc complete",
                              default=False,
                              options={"HIDDEN"})
+
+
+class PlasmaNet(bpy.types.PropertyGroup):
+    manual_sdl = BoolProperty(name="Override SDL",
+                              description="ADVANCED: Manually track high level states on this object",
+                              default=False)
+
+    # Some of the standard plSynchedObject states
+    agmaster = SdlEnumProperty("AGMaster")
+    layer = SdlEnumProperty("Layer")
+    physical = SdlEnumProperty("Physical")
+    responder = SdlEnumProperty("Responder")
+    sound = SdlEnumProperty("Sound")
+    xregion = SdlEnumProperty("XRegion")

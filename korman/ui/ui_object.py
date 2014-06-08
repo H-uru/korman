@@ -38,4 +38,25 @@ class PlasmaObjectPanel(ObjectButtonsPanel, bpy.types.Panel):
         pl_age = context.scene.world.plasma_age
         layout.active = pl_obj.enabled
 
+        # Which page does this object go in?
+        # If left blank, the exporter puts it in page 0 -- "Default"
         layout.prop_search(pl_obj, "page", pl_age, "pages", icon="BOOKMARKS")
+
+
+class PlasmaNetPanel(ObjectButtonsPanel, bpy.types.Panel):
+    bl_label = "Plasma Synchronization"
+
+    def draw_header(self, context):
+        self.layout.prop(context.object.plasma_net, "manual_sdl", text="")
+
+    def draw(self, context):
+        layout = self.layout
+        pl_net = context.object.plasma_net
+        layout.active = pl_net.manual_sdl
+
+        layout.prop(pl_net, "agmaster", text="Animation")
+        layout.prop(pl_net, "layer", text="Material")
+        layout.prop(pl_net, "physical")
+        layout.prop(pl_net, "responder")
+        layout.prop(pl_net, "sound")
+        layout.prop(pl_net, "xregion")
