@@ -22,9 +22,11 @@ class PlasmaRenderEngine(bpy.types.RenderEngine):
 
     pass
 
+
 # Explicitly whitelist compatible Blender panels...
 from bl_ui import properties_material
 properties_material.MATERIAL_PT_context_material.COMPAT_ENGINES.add("PLASMA_GAME")
+properties_material.MATERIAL_PT_options.COMPAT_ENGINES.add("PLASMA_GAME")
 properties_material.MATERIAL_PT_preview.COMPAT_ENGINES.add("PLASMA_GAME")
 del properties_material
 

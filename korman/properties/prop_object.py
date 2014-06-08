@@ -15,6 +15,7 @@
 
 import bpy
 from bpy.props import *
+from PyHSPlasma import *
 
 class PlasmaObject(bpy.types.PropertyGroup):
     def _enabled(self, context):
@@ -37,6 +38,15 @@ class PlasmaObject(bpy.types.PropertyGroup):
             if o.layers[page.seq_suffix - 1]:
                 o.plasma_object.page = page.name
                 break
+
+    def export(self, exporter, bl_obj):
+        """Plasma Object Export"""
+
+        # This is where the magic happens...
+        if self.enabled:
+            # TODO: Something more useful than a blank object.
+            exporter.mgr.add_object(plSceneObject, bl=bl_obj)
+
 
     enabled = BoolProperty(name="Export",
                            description="Export this as a discrete object",

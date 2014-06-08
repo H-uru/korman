@@ -35,7 +35,7 @@ class PageAddOperator(AgeOperator, bpy.types.Operator):
             suffixes = {p.seq_suffix for p in age.pages}
             if suffixes:
                 test = set(range(min(suffixes), max(suffixes)))
-                missing = test - set(suffixes)
+                missing = test - suffixes
                 try:
                     suffix = missing.pop()
                 except KeyError:

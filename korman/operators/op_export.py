@@ -57,7 +57,7 @@ class ExportOperator(bpy.types.Operator):
 
     def execute(self, context):
         # Before we begin, do some basic sanity checking...
-        if self.filepath == "":
+        if not self.filepath:
             self.error = "No file specified"
             return {"CANCELLED"}
         else:

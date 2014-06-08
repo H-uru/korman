@@ -116,6 +116,15 @@ class PlasmaPage(bpy.types.PropertyGroup):
 
 
 class PlasmaAge(bpy.types.PropertyGroup):
+    def export(self, exporter):
+        _age_info = plAgeInfo()
+        _age_info.dayLength = self.day_length
+        _age_info.lingerTime = 180 # this is fairly standard
+        _age_info.name = exporter.age_name
+        _age_info.seqPrefix = self.seq_prefix
+        _age_info.startDateTime = self.start_time
+        return _age_info
+
     day_length = FloatProperty(name="Day Length",
                                description="Length of a day (in hours) on this age",
                                default=30.230000,
