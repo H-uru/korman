@@ -15,10 +15,12 @@
 
 import bpy
 
+
 class AgeOperator:
     @classmethod
     def poll(cls, context):
         return context.scene.render.engine == "PLASMA_GAME"
+
 
 class PageAddOperator(AgeOperator, bpy.types.Operator):
     bl_idname = "world.plasma_page_add"

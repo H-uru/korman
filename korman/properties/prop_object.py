@@ -17,6 +17,7 @@ import bpy
 from bpy.props import *
 from PyHSPlasma import *
 
+
 class PlasmaObject(bpy.types.PropertyGroup):
     def _enabled(self, context):
         # This makes me sad

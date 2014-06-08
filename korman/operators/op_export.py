@@ -17,6 +17,7 @@ import bpy
 import os, os.path
 from .. import exporter
 
+
 class ExportOperator(bpy.types.Operator):
     """Exports ages for Cyan Worlds' Plasma Engine"""
 
@@ -28,7 +29,7 @@ class ExportOperator(bpy.types.Operator):
     version = bpy.props.EnumProperty(
         name="Version",
         description="Version of the Plasma Engine to target",
-        default="pvPots", # This should be changed when moul is easier to target!
+        default="pvPots",  # This should be changed when moul is easier to target!
         items=[
             ("pvPrime", "Ages Beyond Myst (63.11)", "Targets the original Uru (Live) game", 2),
             ("pvPots", "Path of the Shell (63.12)", "Targets the most recent offline expansion pack", 1),
@@ -91,5 +92,7 @@ def menu_cb(self, context):
     if context.scene.render.engine == "PLASMA_GAME":
         self.layout.operator_context = "INVOKE_DEFAULT"
         self.layout.operator(ExportOperator.bl_idname, text="Plasma Age (.age)")
+
+
 def register():
     bpy.types.INFO_MT_file_export.append(menu_cb)
