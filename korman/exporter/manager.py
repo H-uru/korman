@@ -109,12 +109,17 @@ class ExportManager:
             self._nodes[location] = None
         return location
 
-    def find_key(self, bl_obj, index):
-        """Given a blender Object and a pCre index, find an exported plKey"""
+    def find_create_key(self, bl_obj, pClass):
+        key = self.find_key(bl_obj, pClass)
+        if key is None:
+            key = self.add_object(pl=pClass, bl=bl_obj).key
+        return key
+
+    def find_key(self, bl_obj, pClass):
+        """Given a blender Object and a Plasma class, find (or create) an exported plKey"""
         location = self._pages[bl_obj.plasma_object.page]
 
-        # NOTE: may need to replace with a python side dict for faster lookups
-        #       evaluate when exporter has been fleshed out
+        index = plFactory.ClassIndex(pClass.__name__)
         for key in self.mgr.getKeys(location, index):
             if bl_obj.name == key.name:
                 return key

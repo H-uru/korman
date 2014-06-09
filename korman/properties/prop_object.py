@@ -51,14 +51,6 @@ class PlasmaObject(bpy.types.PropertyGroup):
                 o.plasma_object.page = page.name
                 break
 
-    def export(self, exporter, bl_obj):
-        """Plasma Object Export"""
-
-        # This is where the magic happens...
-        if self.enabled:
-            # TODO: Something more useful than a blank object.
-            exporter.mgr.add_object(plSceneObject, bl=bl_obj)
-
 
     enabled = BoolProperty(name="Export",
                            description="Export this as a discrete object",

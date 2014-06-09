@@ -18,7 +18,10 @@ import os.path
 from PyHSPlasma import *
 
 from . import explosions
+from . import logger
 from . import manager
+from . import mesh
+from . import utils
 
 class Exporter:
     # These are objects that we need to export as plSceneObjects
@@ -32,26 +35,34 @@ class Exporter:
         return os.path.splitext(os.path.split(self._op.filepath)[1])[0]
 
     def run(self):
-        # Step 0: Init export resmgr and stuff
-        self.mgr = manager.ExportManager(globals()[self._op.version])
+        with logger.ExportLogger("{}_export.log".format(self.age_name)) as _log:
+            # Step 0: Init export resmgr and stuff
+            self.mgr = manager.ExportManager(globals()[self._op.version])
+            self.mesh = mesh.MeshConverter()
+            self.report = logger.ExportAnalysis()
 
-        # Step 1: Gather a list of objects that we need to export
-        #         We should do this first so we can sanity check
-        #         and give accurate progress reports
-        self._collect_objects()
+            # Step 1: Gather a list of objects that we need to export
+            #         We should do this first so we can sanity check
+            #         and give accurate progress reports
+            self._collect_objects()
 
-        # Step 2: Create the age info and the pages
-        self._export_age_info()
+            # Step 2: Create the age info and the pages
+            self._export_age_info()
 
-        # Step 2.9: Ensure that all Plasma Objects are in a valid page
-        #           This creates the default page if it is used
-        self.mgr.sanity_check_object_pages(self.age_name, self._objects)
+            # Step 2.9: Ensure that all Plasma Objects are in a valid page
+            #           This creates the default page if it is used
+            self.mgr.sanity_check_object_pages(self.age_name, self._objects)
 
-        # Step 3: Export all the things!
-        self._export_scene_objects()
+            # Step 3: Export all the things!
+            self._export_scene_objects()
 
-        # Step 4: FINALLY. Let's write the PRPs and crap.
-        self.mgr.save_age(self._op.filepath)
+            # Step 4: FINALLY. Let's write the PRPs and crap.
+            self.mgr.save_age(self._op.filepath)
+
+            # Step 4.1: Save out the export report.
+            #           If the export fails and this doesn't save, we have bigger problems than
+            #           these little warnings and notices.
+            self.report.save()
 
     def _collect_objects(self):
         for obj in bpy.data.objects:
@@ -72,9 +83,75 @@ class Exporter:
             mgr.create_page(age_name, page.name, page.seq_suffix)
         mgr.create_builtins(age_name, self._op.use_texture_page)
 
+    def _export_actor(self, so, bo):
+        """Exports a Coordinate Interface if we need one"""
+        empty = bo.type in {"CAMERA", "EMPTY", "LAMP"}
+        childobj = bo.parent is not None
+
+        if empty or childobj:
+            self._export_coordinate_interface(so, bo)
+
+        # If this object has a parent, then we will need to go upstream and add ourselves to the
+        # parent's CoordinateInterface... Because life just has to be backwards.
+        if childobj:
+            parent = bo.parent
+            if parent.plasma_object.enabled:
+                print("\tAttaching to parent SceneObject '{}'".format(parent.name))
+
+                # Instead of exporting a skeleton now, we'll just make an orphaned CI.
+                # The bl_obj export will make this work.
+                parent_ci = self.mgr.find_create_key(parent, plCoordinateInterface).object
+                parent_ci.addChild(so.key)
+            else:
+                self.report.warn("oversight",
+                                 "You have parented Plasma Object '{}' to '{}', which has not been marked for export. \
+                                 The object may not appear in the correct location or animate properly.".format(
+                                    bo.name, parent.name))
+
+    def _export_coordinate_interface(self, so, bo):
+        """Ensures that the SceneObject has a CoordinateInterface"""
+        if not so.coord:
+            ci = self.mgr.find_create_key(bo, plCoordinateInterface)
+            so.coord = ci
+            ci = ci.object
+            ci.owner = so.key
+
+            # Now we have the "fun" work of filling in the CI
+            ci.worldToLocal = utils.matrix44(bo.matrix_basis)
+            ci.localToWorld = ci.worldToLocal.inverse()
+            ci.parentToLocal = utils.matrix44(bo.matrix_local)
+            ci.localToParent = ci.parentToLocal.inverse()
+
     def _export_scene_objects(self):
         for bl_obj in self._objects:
-            # Naive export all Plasma Objects. They will be responsible for calling back into the
-            # exporter to find/create drawable meshes, materials, etc. Not sure if this design will
-            # work well, but we're going to go with it for now.
-            bl_obj.plasma_object.export(self, bl_obj)
+            print("=== Exporting plSceneObject ===")
+
+            # First pass: do things specific to this object type.
+            #             note the function calls: to export a MESH, it's _export_mesh_blobj
+            export_fn = "_export_{}_blobj".format(bl_obj.type.lower())
+            try:
+                export_fn = getattr(self, export_fn)
+            except AttributeError:
+                print("WARNING: '{}' is a Plasma Object of Blender type '{}'".format(bl_obj.name, bl_obj.type))
+                print("... And I have NO IDEA what to do with that! Tossing.")
+                continue
+            print("\tBlender Object '{}' of type '{}'".format(bl_obj.name, bl_obj.type))
+
+            # Create a sceneobject if one does not exist.
+            # Before we call the export_fn, we need to determine if this object is an actor of any
+            # sort, and barf out a CI.
+            sceneobject = self.mgr.find_create_key(bl_obj, plSceneObject).object
+            self._export_actor(sceneobject, bl_obj)
+            export_fn(sceneobject, bl_obj)
+
+            # :(
+            print()
+
+    def _export_empty_blobj(self, so, bo):
+        # We don't need to do anything here. This function just makes sure we don't error out
+        # or add a silly special case :(
+        pass
+
+    def _export_mesh_blobj(self, so, bo):
+        # TODO
+        pass
