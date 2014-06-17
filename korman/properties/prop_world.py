@@ -122,6 +122,7 @@ class PlasmaAge(bpy.types.PropertyGroup):
         _age_info = plAgeInfo()
         _age_info.dayLength = self.day_length
         _age_info.lingerTime = 180 # this is fairly standard
+        _age_info.maxCapacity = 50 # the server currently ignores this
         _age_info.name = exporter.age_name
         _age_info.seqPrefix = self.seq_prefix
         _age_info.startDateTime = self.start_time
