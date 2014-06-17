@@ -199,14 +199,14 @@ class ExportManager:
 
         # Write out some stuff
         fni = bpy.context.scene.world.plasma_fni
-        stream.writeLine("Graphics.Renderer.Fog.SetClearColor %f %f %f" % tuple(fni.clear_color))
+        stream.writeLine("Graphics.Renderer.SetClearColor {} {} {}".format(*fni.clear_color))
         if fni.fog_method != "none":
-            stream.writeLine("Graphics.Renderer.Fog.SetDefColor %f %f %f" % tuple(fni.fog_color))
+            stream.writeLine("Graphics.Renderer.Fog.SetDefColor {} {} {}".format(*fni.fog_color))
         if fni.fog_method == "linear":
-            stream.writeLine("Graphics.Renderer.Fog.SetDefLinear %f %f %f" % (fni.fog_start, fni.fog_end, fni.fog_density))
+            stream.writeLine("Graphics.Renderer.Fog.SetDefLinear {} {} {}".format(fni.fog_start, fni.fog_end, fni.fog_density))
         elif fni.fog_method == "exp2":
-            stream.writeLine("Graphics.Renderer.Fog.SetDefExp2 %f %f" % (fni.fog_end, fni.fog_density))
-        stream.writeLine("Graphics.Renderer.Setyon %f" % fni.yon)
+            stream.writeLine("Graphics.Renderer.Fog.SetDefExp2 {} {}".format(fni.fog_end, fni.fog_density))
+        stream.writeLine("Graphics.Renderer.SetYon {}".format(fni.yon))
         stream.close()
 
     def _write_pages(self, path, ageName):
