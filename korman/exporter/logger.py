@@ -21,26 +21,20 @@ class ExportAnalysis:
        to look through all of the gobbledygook in the export log.
     """
 
-    _notices = {}
-    _warnings = {}
+    _porting = []
+    _warnings = []
 
     def save(self):
         # TODO
         pass
 
-    def _stash(self, _d, category, message):
-        if category not in _d:
-            _d[category] = [message,]
-        else:
-            _d[category].append(message)
+    def port(self, message):
+        self._porting.append(message)
+        print("PORTING: {}".format(message))
 
-    def note(self, category, message):
-        self._stash(self._notices, category, message)
-        print("NOTICE {}: {}".format(category, message))
-
-    def warn(self, category, message):
-        self._stash(self._warnings, category, message)
-        print("WARNING {}: {}".format(category, message))
+    def warn(self, message):
+        self._warnings.append(message)
+        print("WARNING: {}".format(message))
 
 
 class ExportLogger:

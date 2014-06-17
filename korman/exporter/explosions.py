@@ -18,6 +18,14 @@ class ExportError(Exception):
         super(Exception, self).__init__(value)
 
 
+class TooManyVerticesError(ExportError):
+    def __init__(self, mesh, matname, vertcount):
+        msg = "There are too many vertices ({}) on the mesh data '{}' associated with material '{}'".format(
+           vertcount, mesh, matname
+        )
+        super(ExportError, self).__init__(msg)
+
+
 class UndefinedPageError(ExportError):
     mistakes = {}
 

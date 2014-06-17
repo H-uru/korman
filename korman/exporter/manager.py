@@ -19,6 +19,27 @@ from PyHSPlasma import *
 
 from . import explosions
 
+# These objects have to be in the plSceneNode pool in order to be loaded...
+# NOTE: We are using Factory indices because I doubt all of these classes are implemented.
+_pool_types = (
+    plFactory.ClassIndex("plPostEffectMod"),
+    plFactory.ClassIndex("pfGUIDialogMod"),
+    plFactory.ClassIndex("plMsgForwarder"),
+    plFactory.ClassIndex("plClothingItem"),
+    plFactory.ClassIndex("plArmatureEffectFootSound"),
+    plFactory.ClassIndex("plDynaFootMgr"),
+    plFactory.ClassIndex("plDynaRippleMgr"),
+    plFactory.ClassIndex("plDynaBulletMgr"),
+    plFactory.ClassIndex("plDynaPuddleMgr"),
+    plFactory.ClassIndex("plATCAnim"),
+    plFactory.ClassIndex("plEmoteAnim"),
+    plFactory.ClassIndex("plDynaRippleVSMgr"),
+    plFactory.ClassIndex("plDynaTorpedoMgr"),
+    plFactory.ClassIndex("plDynaTorpedoVSMgr"),
+    plFactory.ClassIndex("plClusterGroup"),
+)
+
+
 class ExportManager:
     """Friendly resource-managing helper class."""
 
@@ -49,8 +70,8 @@ class ExportManager:
             location = self._pages[bl.plasma_object.page]
 
         # pl can be a class or an instance.
-        # This is one of those "sanity" things to ensure we don't suddenly
-        # passing around the key of an uninitialized object.
+        # This is one of those "sanity" things to ensure we don't suddenly startpassing around the
+        # key of an uninitialized object.
         if isinstance(pl, type(object)):
             assert name or bl
             if name is None:
@@ -62,11 +83,7 @@ class ExportManager:
         if node: # All objects must be in the scene node
             if isinstance(pl, plSceneObject):
                 node.addSceneObject(pl.key)
-            else:
-                # FIXME: determine which types belong here...
-                # Probably anything that's not a plModifier or a plBitmap...
-                # Remember that the idea is that Plasma needs to deliver refs to load the age.
-                # It's harmless to have too many refs here (though the file size will be big, heh)
+            elif pl.ClassIndex() in _pool_types:
                 node.addPoolObject(pl.key)
         return pl # we may have created it...
 
@@ -124,6 +141,14 @@ class ExportManager:
             if bl_obj.name == key.name:
                 return key
         return None
+
+    def get_location(self, bl_obj):
+        """Returns the Page Location of a given Blender Object"""
+        return self._pages[bl_obj.plasma_object.page]
+
+    def get_scene_node(self, location):
+        """Gets a Plasma Page's plSceneNode key"""
+        return self._nodes[location].key
 
     def get_textures_page(self, obj):
         """Returns the page that Blender Object obj's textures should be exported to"""

@@ -24,3 +24,7 @@ def matrix44(blmat):
         hsmat[2, i] = blmat[i][2]
         hsmat[3, i] = blmat[i][3]
     return hsmat
+
+def vector3(blvec):
+    """Converts a mathutils.Vector to an hsVector3"""
+    return hsVector3(blvec.x, blvec.y, blvec.z)

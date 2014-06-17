@@ -38,7 +38,7 @@ class Exporter:
         with logger.ExportLogger("{}_export.log".format(self.age_name)) as _log:
             # Step 0: Init export resmgr and stuff
             self.mgr = manager.ExportManager(globals()[self._op.version])
-            self.mesh = mesh.MeshConverter()
+            self.mesh = mesh.MeshConverter(self.mgr)
             self.report = logger.ExportAnalysis()
 
             # Step 1: Gather a list of objects that we need to export
@@ -55,6 +55,9 @@ class Exporter:
 
             # Step 3: Export all the things!
             self._export_scene_objects()
+
+            # Step 3.9: Finalize geometry...
+            self.mesh.finalize()
 
             # Step 4: FINALLY. Let's write the PRPs and crap.
             self.mgr.save_age(self._op.filepath)
@@ -103,8 +106,7 @@ class Exporter:
                 parent_ci = self.mgr.find_create_key(parent, plCoordinateInterface).object
                 parent_ci.addChild(so.key)
             else:
-                self.report.warn("oversight",
-                                 "You have parented Plasma Object '{}' to '{}', which has not been marked for export. \
+                self.report.warn("You have parented Plasma Object '{}' to '{}', which has not been marked for export. \
                                  The object may not appear in the correct location or animate properly.".format(
                                     bo.name, parent.name))
 
@@ -153,5 +155,4 @@ class Exporter:
         pass
 
     def _export_mesh_blobj(self, so, bo):
-        # TODO
-        pass
+        so.draw = self.mesh.export_object(bo)
