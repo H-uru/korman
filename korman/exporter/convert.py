@@ -36,6 +36,8 @@ class Exporter:
 
     def run(self):
         with logger.ExportLogger("{}_export.log".format(self.age_name)) as _log:
+            print("Exporting '{}.age'".format(self.age_name))
+
             # Step 0: Init export resmgr and stuff
             self.mgr = manager.ExportManager(globals()[self._op.version])
             self.mesh = mesh.MeshConverter(self.mgr)
@@ -126,7 +128,7 @@ class Exporter:
 
     def _export_scene_objects(self):
         for bl_obj in self._objects:
-            print("=== Exporting plSceneObject ===")
+            print("\n=== Exporting plSceneObject ===")
 
             # First pass: do things specific to this object type.
             #             note the function calls: to export a MESH, it's _export_mesh_blobj
@@ -145,9 +147,6 @@ class Exporter:
             sceneobject = self.mgr.find_create_key(bl_obj, plSceneObject).object
             self._export_actor(sceneobject, bl_obj)
             export_fn(sceneobject, bl_obj)
-
-            # :(
-            print()
 
     def _export_empty_blobj(self, so, bo):
         # We don't need to do anything here. This function just makes sure we don't error out

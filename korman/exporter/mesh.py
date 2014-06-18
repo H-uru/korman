@@ -103,9 +103,11 @@ class MeshConverter:
 
     def finalize(self):
         """Prepares all baked Plasma geometry to be flushed to the disk"""
+        print("\n=== Finalizing Geometry ===")
+
         for loc in self._dspans.values():
             for dspan in loc.values():
-                print("Finalizing DSpan: {}".format(dspan.key.name))
+                print("\tFinalizing DSpan: '{}'".format(dspan.key.name))
     
                 # This mega-function does a lot:
                 # 1. Converts SourceSpans (geospans) to Icicles and bakes geometry into plGBuffers
@@ -130,7 +132,6 @@ class MeshConverter:
             vertex.color = hsColor32(red=255, green=0, blue=0, alpha=255) # FIXME trollface.jpg testing hacks
             vertex.normal = utils.vector3(source.normal)
             vertex.position = utils.vector3(source.co)
-            print(vertex.position)
             geoverts[i] = vertex
 
         # Convert Blender faces into things we can stuff into libHSPlasma
@@ -196,6 +197,7 @@ class MeshConverter:
         _diindices = {}
         for geospan in geospans:
             dspan = self._find_create_dspan(bo, geospan.material.object)
+            print("\tExported hsGMaterial '{}' geometry into '{}'".format(geospan.material.name, dspan.key.name))
             idx = dspan.addSourceSpan(geospan)
             if dspan not in _diindices:
                 _diindices[dspan] = [idx,]
