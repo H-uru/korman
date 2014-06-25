@@ -40,7 +40,7 @@ class Exporter:
 
             # Step 0: Init export resmgr and stuff
             self.mgr = manager.ExportManager(globals()[self._op.version])
-            self.mesh = mesh.MeshConverter(self.mgr)
+            self.mesh = mesh.MeshConverter(self)
             self.report = logger.ExportAnalysis()
 
             # Step 1: Gather a list of objects that we need to export
@@ -101,7 +101,7 @@ class Exporter:
         if childobj:
             parent = bo.parent
             if parent.plasma_object.enabled:
-                print("\tAttaching to parent SceneObject '{}'".format(parent.name))
+                print("    Attaching to parent SceneObject '{}'".format(parent.name))
 
                 # Instead of exporting a skeleton now, we'll just make an orphaned CI.
                 # The bl_obj export will make this work.
@@ -139,7 +139,7 @@ class Exporter:
                 print("WARNING: '{}' is a Plasma Object of Blender type '{}'".format(bl_obj.name, bl_obj.type))
                 print("... And I have NO IDEA what to do with that! Tossing.")
                 continue
-            print("\tBlender Object '{}' of type '{}'".format(bl_obj.name, bl_obj.type))
+            print("    Blender Object '{}' of type '{}'".format(bl_obj.name, bl_obj.type))
 
             # Create a sceneobject if one does not exist.
             # Before we call the export_fn, we need to determine if this object is an actor of any
@@ -154,4 +154,7 @@ class Exporter:
         pass
 
     def _export_mesh_blobj(self, so, bo):
-        so.draw = self.mesh.export_object(bo)
+        if bo.data.materials:
+            so.draw = self.mesh.export_object(bo)
+        else:
+            print("    No material(s) on the ObData, so no drawables")

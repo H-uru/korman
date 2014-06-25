@@ -90,7 +90,7 @@ class ExportManager:
     def create_builtins(self, age, textures):
         # BuiltIn.prp
         if bpy.context.scene.world.plasma_age.age_sdl:
-            builtin = self.create_page(age, "BuiltIn", -1, True)
+            builtin = self.create_page(age, "BuiltIn", -2, True)
             pfm = self.add_object(plPythonFileMod, name="VeryVerySpecialPythonFileMod", loc=builtin)
             pfm.filename = age
             sdl = self.add_object(plSceneObject, name="AgeSDLHook", loc=builtin)
@@ -98,7 +98,7 @@ class ExportManager:
 
         # Textures.prp
         if textures:
-            self.create_page(age, "Textures", -2, True)
+            self.create_page(age, "Textures", -1, True)
 
     def create_page(self, age, name, id, builtin=False):
         location = plLocation(self.mgr.getVer())

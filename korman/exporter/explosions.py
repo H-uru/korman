@@ -18,6 +18,13 @@ class ExportError(Exception):
         super(Exception, self).__init__(value)
 
 
+class TooManyUVChannelsError(ExportError):
+    def __init__(self, obj, mat):
+        msg = "There are too many UV Textures on the material '{}' associated with object '{}'.".format(
+           mat.name, obj.name)
+        super(ExportError, self).__init__(msg)
+
+
 class TooManyVerticesError(ExportError):
     def __init__(self, mesh, matname, vertcount):
         msg = "There are too many vertices ({}) on the mesh data '{}' associated with material '{}'".format(
@@ -41,3 +48,8 @@ class UndefinedPageError(ExportError):
     def raise_if_error(self):
         if self.mistakes:
             raise self
+
+
+class UnsupportedTextureError(ExportError):
+    def __init__(self, texture, material):
+        super(ExportError, self).__init__("Cannot export texture '{}' on material '{}' -- unsupported type '{}'".format(texture.name, texture.type, material.name))

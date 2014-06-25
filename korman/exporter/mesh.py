@@ -15,8 +15,10 @@
 
 import bpy
 from PyHSPlasma import *
+import weakref
 
 from . import explosions
+from . import material
 from . import utils
 
 _MAX_VERTS_PER_SPAN = 0xFFFF
@@ -32,8 +34,13 @@ class _RenderLevel:
     _MAJOR_SHIFT = 28
     _MINOR_MASK = ((1 << _MAJOR_SHIFT) - 1)
 
-    def __init__(self):
+    def __init__(self, hsgmat, pass_index):
+        # TODO: Use hsGMaterial to determine major and minor
         self.level = 0
+
+        # We use the blender material's pass index (which we stashed in the hsGMaterial) to increment
+        # the render pass, just like it says...
+        self.level += pass_index
 
     def __hash__(self):
         return hash(self.level)
@@ -52,11 +59,11 @@ class _RenderLevel:
 
 
 class _DrawableCriteria:
-    def __init__(self, hsgmat):
+    def __init__(self, hsgmat, pass_index):
         _layer = hsgmat.layers[0].object # better doggone well have a layer...
         self.blend_span = bool(_layer.state.blendFlags & hsGMatState.kBlendMask)
         self.criteria = 0 # TODO
-        self.render_level = _RenderLevel()
+        self.render_level = _RenderLevel(hsgmat, pass_index)
 
     def __eq__(self, other):
         if not isinstance(other, _DrawableCriteria):
@@ -81,13 +88,21 @@ class MeshConverter:
     _dspans = {}
     _mesh_geospans = {}
 
-    def __init__(self, mgr):
-        self._mgr = mgr
+    def __init__(self, exporter):
+        self._exporter = weakref.ref(exporter)
+        self.material = material.MaterialConverter(exporter)
 
-    def _create_geospan(self, bo, bm, hsgmat):
+    def _create_geospan(self, bo, mesh, bm, hsgmat):
         """Initializes a plGeometrySpan from a Blender Object and an hsGMaterial"""
         geospan = plGeometrySpan()
         geospan.material = hsgmat
+
+        # GeometrySpan format
+        # For now, we really only care about the number of UVW Channels
+        numUVWchans = len(mesh.tessface_uv_textures)
+        if numUVWchans > plGeometrySpan.kUVCountMask:
+            raise explosions.TooManyUVChannelsError(bo, bm)
+        geospan.format = numUVWchans
 
         # TODO: Props
         # TODO: RunTime lights (requires libHSPlasma feature)
@@ -107,7 +122,7 @@ class MeshConverter:
 
         for loc in self._dspans.values():
             for dspan in loc.values():
-                print("\tFinalizing DSpan: '{}'".format(dspan.key.name))
+                print("    Finalizing DSpan: '{}'".format(dspan.key.name))
     
                 # This mega-function does a lot:
                 # 1. Converts SourceSpans (geospans) to Icicles and bakes geometry into plGBuffers
@@ -117,46 +132,59 @@ class MeshConverter:
                 dspan.composeGeometry(True, True)
 
     def _export_geometry(self, mesh, geospans):
-        geodata = [None] * len(mesh.materials)
-        geoverts = [None] * len(mesh.vertices)
-        for i, garbage in enumerate(geodata):
-            geodata[i] = {
-                "blender2gs": [None] * len(mesh.vertices),
-                "triangles": [],
-                "vertices": [],
-            }
-
-        # Go ahead and naively convert all vertices into TempVertices for the GeoSpans
-        for i, source in enumerate(mesh.vertices):
-            vertex = plGeometrySpan.TempVertex()
-            vertex.color = hsColor32(red=255, green=0, blue=0, alpha=255) # FIXME trollface.jpg testing hacks
-            vertex.normal = utils.vector3(source.normal)
-            vertex.position = utils.vector3(source.co)
-            geoverts[i] = vertex
+        _geodatacls = type("_GeoData",
+                       (object,),
+                       {
+                           "blender2gs": [{} for i in mesh.vertices],
+                           "triangles": [],
+                           "vertices": []
+                       })
+        geodata = [_geodatacls() for i in mesh.materials]
 
         # Convert Blender faces into things we can stuff into libHSPlasma
-        for tessface in mesh.tessfaces:
+        for i, tessface in enumerate(mesh.tessfaces):
             data = geodata[tessface.material_index]
             face_verts = []
 
             # Convert to per-material indices
-            for i in tessface.vertices:
-                if data["blender2gs"][i] is None:
-                    data["blender2gs"][i] = len(data["vertices"])
-                    data["vertices"].append(geoverts[i])
-                face_verts.append(data["blender2gs"][i])
+            for j in tessface.vertices:
+                # Unpack the UV coordinates from each UV Texture layer
+                uvws = []
+                for uvtex in mesh.tessface_uv_textures:
+                    uv = getattr(uvtex.data[i], "uv{}".format(j+1))
+                    # In Blender, UVs have no Z coordinate
+                    uvws.append((uv.x, uv.y))
+
+                # Grab VCols (TODO--defaulting to white for now)
+                # This will be finalized once the vertex color light code baking is in
+                color = (0, 0, 0, 255)
+
+                # Now, we'll index into the vertex dict using the per-face elements :(
+                # We're using tuples because lists are not hashable. The many mathutils and PyHSPlasma
+                # types are not either, and it's entirely too much work to fool with all that.
+                coluv = (color, tuple(uvws))
+                if coluv not in data.blender2gs[j]:
+                    source = mesh.vertices[j]
+                    vertex = plGeometrySpan.TempVertex()
+                    vertex.position = utils.vector3(source.co)
+                    vertex.normal = utils.vector3(source.normal)
+                    vertex.color = hsColor32(*color)
+                    vertex.uvs = [hsVector3(uv[0], 1.0-uv[1], 0.0) for uv in uvws]
+                    data.blender2gs[j][coluv] = len(data.vertices)
+                    data.vertices.append(vertex)
+                face_verts.append(data.blender2gs[j][coluv])
 
             # Convert to triangles, if need be...
             if len(face_verts) == 3:
-                data["triangles"] += face_verts
+                data.triangles += face_verts
             elif len(face_verts) == 4:
-                data["triangles"] += (face_verts[0], face_verts[1], face_verts[2])
-                data["triangles"] += (face_verts[0], face_verts[2], face_verts[3])
+                data.triangles += (face_verts[0], face_verts[1], face_verts[2])
+                data.triangles += (face_verts[0], face_verts[2], face_verts[3])
 
         # Time to finish it up...
         for i, data in enumerate(geodata):
-            geospan = geospans[i]
-            numVerts = len(data["vertices"])
+            geospan = geospans[i][0]
+            numVerts = len(data.vertices)
 
             # Soft vertex limit at 0x8000 for PotS and below. Works fine as long as it's a uint16
             # MOUL only allows signed int16s, however :/
@@ -166,8 +194,8 @@ class MeshConverter:
                 pass # FIXME
 
             # If we're still here, let's add our data to the GeometrySpan
-            geospan.indices = data["triangles"]
-            geospan.vertices = data["vertices"]
+            geospan.indices = data.triangles
+            geospan.vertices = data.vertices
 
     def export_object(self, bo):
         # Have we already exported this mesh?
@@ -195,9 +223,9 @@ class MeshConverter:
 
         # Step 3: Add plGeometrySpans to the appropriate DSpan and create indices
         _diindices = {}
-        for geospan in geospans:
-            dspan = self._find_create_dspan(bo, geospan.material.object)
-            print("\tExported hsGMaterial '{}' geometry into '{}'".format(geospan.material.name, dspan.key.name))
+        for geospan, pass_index in geospans:
+            dspan = self._find_create_dspan(bo, geospan.material.object, pass_index)
+            print("    Exported hsGMaterial '{}' geometry into '{}'".format(geospan.material.name, dspan.key.name))
             idx = dspan.addSourceSpan(geospan)
             if dspan not in _diindices:
                 _diindices[dspan] = [idx,]
@@ -213,25 +241,15 @@ class MeshConverter:
             drawables.append((dspan.key, idx))
         return drawables
 
-    def _export_material(self, bo, bm):
-        """Exports a single Material Slot as an hsGMaterial"""
-        # FIXME HACKS
-        hsgmat = self._mgr.add_object(hsGMaterial, name=bm.name, bl=bo)
-        fake_layer = self._mgr.add_object(plLayer, name="{}_AutoLayer".format(bm.name), bl=bo)
-        hsgmat.addLayer(fake_layer.key)
-        # ...
-
-        return hsgmat.key
-
     def _export_material_spans(self, bo, mesh):
         """Exports all Materials and creates plGeometrySpans"""
         geospans = [None] * len(mesh.materials)
         for i, blmat in enumerate(mesh.materials):
-            hsgmat = self._export_material(bo, blmat)
-            geospans[i] = self._create_geospan(bo, blmat, hsgmat)
+            hsgmat = self.material.export_material(bo, blmat)
+            geospans[i] = (self._create_geospan(bo, mesh, blmat, hsgmat), blmat.pass_index)
         return geospans
 
-    def _find_create_dspan(self, bo, hsgmat):
+    def _find_create_dspan(self, bo, hsgmat, pass_index):
         location = self._mgr.get_location(bo)
         if location not in self._dspans:
             self._dspans[location] = {}
@@ -241,8 +259,7 @@ class MeshConverter:
         # [... document me ...]
         # We're using pass index to do just what it was designed for. Cyan has a nicer "depends on"
         # draw component, but pass index is the Blender way, so that's what we're doing.
-        crit = _DrawableCriteria(hsgmat)
-        crit.render_level.level += bo.pass_index
+        crit = _DrawableCriteria(hsgmat, pass_index)
 
         if crit not in self._dspans[location]:
             # AgeName_[District_]_Page_RenderLevel_Crit[Blend]Spans
@@ -250,8 +267,17 @@ class MeshConverter:
             node = self._mgr.get_scene_node(location)
             name = "{}_{:08X}_{:X}{}".format(node.name, crit.render_level.level, crit.criteria, crit.span_type)
             dspan = self._mgr.add_object(pl=plDrawableSpans, name=name, loc=location)
+
+            dspan.criteria = crit.criteria
+            # TODO: props
+            dspan.renderLevel = crit.render_level.level
             dspan.sceneNode = node # AddViaNotify
+
             self._dspans[location][crit] = dspan
             return dspan
         else:
             return self._dspans[location][crit]
+
+    @property
+    def _mgr(self):
+        return self._exporter().mgr

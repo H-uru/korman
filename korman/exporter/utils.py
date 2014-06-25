@@ -15,6 +15,10 @@
 
 from PyHSPlasma import *
 
+def color(blcolor, alpha=1.0):
+    """Converts a Blender Color into an hsColorRGBA"""
+    return hsColorRGBA(blcolor.r, blcolor.g, blcolor.b, alpha)
+
 def matrix44(blmat):
     """Converts a mathutils.Matrix to an hsMatrix44"""
     hsmat = hsMatrix44()
