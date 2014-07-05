@@ -23,10 +23,10 @@ def matrix44(blmat):
     """Converts a mathutils.Matrix to an hsMatrix44"""
     hsmat = hsMatrix44()
     for i in range(4):
-        hsmat[0, i] = blmat[i][0]
-        hsmat[1, i] = blmat[i][1]
-        hsmat[2, i] = blmat[i][2]
-        hsmat[3, i] = blmat[i][3]
+        hsmat[i, 0] = blmat[i][0]
+        hsmat[i, 1] = blmat[i][1]
+        hsmat[i, 2] = blmat[i][2]
+        hsmat[i, 3] = blmat[i][3]
     return hsmat
 
 def vector3(blvec):
