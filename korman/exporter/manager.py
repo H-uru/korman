@@ -175,7 +175,7 @@ class ExportManager:
                         break
                 else:
                     # need to create default page
-                    self._pages[""] = self.create_page("Default", 0)
+                    self._pages[""] = self.create_page(age, "Default", 0)
             else:
                 error.add(page, obj.name)
         error.raise_if_error()
@@ -210,7 +210,7 @@ class ExportManager:
         stream.close()
 
     def _write_pages(self, path, ageName):
-        for name, loc in self._pages.items():
+        for loc in self._pages.values():
             page = self.mgr.FindPage(loc) # not cached because it's C++ owned
             # I know that plAgeInfo has its own way of doing this, but we'd have
             # to do some looping and stuff. This is easier.
@@ -218,5 +218,5 @@ class ExportManager:
                 chapter = "_District_"
             else:
                 chapter = "_"
-            f = os.path.join(path, "{}{}{}.prp".format(ageName, chapter, name))
+            f = os.path.join(path, "{}{}{}.prp".format(ageName, chapter, page.page))
             self.mgr.WritePage(f, page)
