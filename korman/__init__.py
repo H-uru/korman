@@ -15,7 +15,8 @@
 
 import bpy
 from . import exporter, render
-from . import operators, properties, ui
+from . import properties, ui
+from . import operators
 
 bl_info = {
     "name":        "Korman",

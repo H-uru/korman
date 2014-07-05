@@ -51,3 +51,10 @@ def _new_poll(cls, context):
 def _swap_poll(cls):
     cls._old_poll = cls.poll
     cls.poll = _new_poll
+
+# This is where we claim the physics context for our own nefarious purposes...
+# Hmm... Physics panels don't respect the supported engine thing.
+#        Metaprogramming to the rescue!
+from bl_ui import properties_physics_common
+_swap_poll(properties_physics_common.PhysicButtonsPanel)
+del properties_physics_common

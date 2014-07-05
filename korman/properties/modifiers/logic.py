@@ -14,17 +14,22 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+from PyHSPlasma import *
 
-from . import modifiers
-from .prop_object import *
-from .prop_world import *
+from .base import PlasmaModifierProperties
 
+class PlasmaSpawnPoint(PlasmaModifierProperties):
+    pl_id = "spawnpoint"
 
-def register():
-    bpy.types.Object.plasma_net = bpy.props.PointerProperty(type=PlasmaNet)
-    bpy.types.Object.plasma_object = bpy.props.PointerProperty(type=PlasmaObject)
-    bpy.types.World.plasma_age = bpy.props.PointerProperty(type=PlasmaAge)
-    bpy.types.World.plasma_fni = bpy.props.PointerProperty(type=PlasmaFni)
+    bl_category = "Logic"
+    bl_label = "Spawn Point"
+    bl_description = "Point at which avatars link into the Age"
 
-    # We have our own brand of special insanity in the modifier code, so let's handle that in there
-    modifiers.register()
+    def created(self, obj):
+        self.display_name = obj.name
+
+    def export(self, exporter, bo, so):
+        # Not much to this modifier... It's basically a flag that tells the engine, "hey, this is a
+        # place the avatar can show up." Nice to have a simple one to get started with.
+        spawn = exporter.mgr.add_object(pl=plSpawnModifier, bl=bo, name=self.display_name)
+        so.addModifier(spawn.key)

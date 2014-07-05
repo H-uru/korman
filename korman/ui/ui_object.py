@@ -15,15 +15,30 @@
 
 import bpy
 
-
 class ObjectButtonsPanel:
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
-    bl_context = "object"
+    bl_context = "physics"
 
     @classmethod
     def poll(cls, context):
         return context.object and context.scene.render.engine == "PLASMA_GAME"
+
+
+class BlenderObjectSearchPanel(ObjectButtonsPanel, bpy.types.Panel):
+    bl_label = ""
+    bl_options = {"HIDE_HEADER"}
+
+    def draw(self, context):
+        # Yes, this is stolen shamelessly from bl_ui
+        layout = self.layout
+        space = context.space_data
+
+        if space.use_pin_id:
+            layout.template_ID(space, "pin_id")
+        else:
+            row = layout.row()
+            row.template_ID(context.scene.objects, "active")
 
 
 class PlasmaObjectPanel(ObjectButtonsPanel, bpy.types.Panel):
@@ -45,6 +60,7 @@ class PlasmaObjectPanel(ObjectButtonsPanel, bpy.types.Panel):
 
 class PlasmaNetPanel(ObjectButtonsPanel, bpy.types.Panel):
     bl_label = "Plasma Synchronization"
+    bl_options = {"DEFAULT_CLOSED"}
 
     def draw_header(self, context):
         self.layout.prop(context.object.plasma_net, "manual_sdl", text="")

@@ -148,6 +148,11 @@ class Exporter:
             self._export_actor(sceneobject, bl_obj)
             export_fn(sceneobject, bl_obj)
 
+            # And now we puke out the modifiers...
+            for mod in bl_obj.plasma_modifiers.modifiers:
+                print("    Exporting '{}' modifier as '{}'".format(mod.bl_label, mod.display_name))
+                mod.export(self, bl_obj, sceneobject)
+
     def _export_empty_blobj(self, so, bo):
         # We don't need to do anything here. This function just makes sure we don't error out
         # or add a silly special case :(

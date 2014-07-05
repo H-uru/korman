@@ -13,12 +13,6 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
-from . import op_export as exporter
-from . import op_modifier as modifier
-from . import op_world as world
+def spawnpoint(modifier, layout, context):
+    layout.label(text="The Y axis indicates the direction the avatar is facing.")
 
-def register():
-    exporter.register()
-
-def unregister():
-    exporter.unregister()
