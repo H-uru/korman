@@ -101,11 +101,8 @@ static void resize_image(PyObject* image, size_t width, size_t height)
 
 // ========================================================================
 
-static void stuff_mip_level(plMipmap* mipmap, size_t level, PyObject* image, bool alphaChannel, bool calcAlpha)
+static void stuff_mip_level(plMipmap* mipmap, size_t level, PyObject* image, bool calcAlpha)
 {
-    GLint format = alphaChannel ? GL_RGBA : GL_RGB;
-    uint8_t bytesPerPixel = alphaChannel ? 4 : 3;
-
     // How big is this doggone level?
     GLint width, height;
     glGetTexLevelParameteriv(GL_TEXTURE_2D, level, GL_TEXTURE_WIDTH, &width);
@@ -113,12 +110,12 @@ static void stuff_mip_level(plMipmap* mipmap, size_t level, PyObject* image, boo
     print("    Level %d: %dx%d...", level, width, height);
 
     // Grab the stuff from the place and the things
-    size_t dataSize = width * height * bytesPerPixel;
+    size_t dataSize = width * height * 4;
     uint8_t* data = new uint8_t[dataSize]; // optimization: use stack for small images...
-    glGetTexImage(GL_TEXTURE_2D, level, format, GL_UNSIGNED_BYTE, data);
+    glGetTexImage(GL_TEXTURE_2D, level, GL_RGBA, GL_UNSIGNED_BYTE, data);
 
     // Need to calculate alpha?
-    if (alphaChannel && calcAlpha) {
+    if (calcAlpha) {
         uint8_t* ptr = data;
         uint8_t* end = data + dataSize;
         while (ptr < end) {
@@ -206,7 +203,7 @@ extern "C" PyObject* generate_mipmap(PyObject*, PyObject* args)
 
     // Step 4: Now it's a matter of looping through all the levels and exporting the image
     for (size_t i = 0; i < mipmap->getNumLevels(); ++i) {
-        stuff_mip_level(mipmap, i, blImage, alphaChannel, calcAlpha);
+        stuff_mip_level(mipmap, i, blImage, calcAlpha);
     }
 
     Py_RETURN_NONE;
