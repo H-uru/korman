@@ -110,6 +110,10 @@ class MaterialConverter:
         self._hsbitmaps[name] = bitmap
         layer.texture = bitmap.key
 
+    def _export_texture_type_none(self, bo, hsgmat, layer, texture):
+        # We'll allow this, just for sanity's sake...
+        pass
+
     @property
     def _mgr(self):
         return self._exporter().mgr
