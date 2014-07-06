@@ -43,12 +43,12 @@ _pool_types = (
 class ExportManager:
     """Friendly resource-managing helper class."""
 
-    _nodes = {}
-    _pages = {}
-
     def __init__(self, version):
         self.mgr = plResManager()
         self.mgr.setVer(version)
+
+        self._nodes = {}
+        self._pages = {}
 
         # cheap inheritance
         for i in dir(self.mgr):

@@ -85,12 +85,12 @@ class _DrawableCriteria:
 
 
 class MeshConverter:
-    _dspans = {}
-    _mesh_geospans = {}
-
     def __init__(self, exporter):
         self._exporter = weakref.ref(exporter)
         self.material = material.MaterialConverter(exporter)
+
+        self._dspans = {}
+        self._mesh_geospans = {}
 
     def _create_geospan(self, bo, mesh, bm, hsgmat):
         """Initializes a plGeometrySpan from a Blender Object and an hsGMaterial"""

@@ -22,10 +22,9 @@ from . import explosions
 from . import utils
 
 class MaterialConverter:
-    _hsbitmaps = {}
-
     def __init__(self, exporter):
         self._exporter = weakref.ref(exporter)
+        self._hsbitmaps = {}
 
     def export_material(self, bo, bm):
         """Exports a Blender Material as an hsGMaterial"""

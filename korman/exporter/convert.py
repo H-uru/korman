@@ -24,11 +24,9 @@ from . import mesh
 from . import utils
 
 class Exporter:
-    # These are objects that we need to export as plSceneObjects
-    _objects = []
-
     def __init__(self, op):
         self._op = op # Blender export operator
+        self._objects = []
 
     @property
     def age_name(self):
