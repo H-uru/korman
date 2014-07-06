@@ -157,7 +157,7 @@ class MeshConverter:
 
                 # Grab VCols (TODO--defaulting to white for now)
                 # This will be finalized once the vertex color light code baking is in
-                color = (0, 0, 0, 255)
+                color = (255, 255, 255, 255)
 
                 # Now, we'll index into the vertex dict using the per-face elements :(
                 # We're using tuples because lists are not hashable. The many mathutils and PyHSPlasma
