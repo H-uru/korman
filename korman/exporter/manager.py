@@ -83,6 +83,7 @@ class ExportManager:
         if node: # All objects must be in the scene node
             if isinstance(pl, plSceneObject):
                 node.addSceneObject(pl.key)
+                pl.sceneNode = node.key
             elif pl.ClassIndex() in _pool_types:
                 node.addPoolObject(pl.key)
 
