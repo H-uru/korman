@@ -85,7 +85,15 @@ class ExportManager:
                 node.addSceneObject(pl.key)
             elif pl.ClassIndex() in _pool_types:
                 node.addPoolObject(pl.key)
-        return pl # we may have created it...
+
+        # Make life easier for folks creating ObjInterfaces
+        if isinstance(pl, plObjInterface) and bl is not None:
+            so = self.find_key(bl, plSceneObject)
+            if so is not None:
+                pl.owner = so
+
+        # And we're done!
+        return pl
 
     def create_builtins(self, age, textures):
         # BuiltIn.prp

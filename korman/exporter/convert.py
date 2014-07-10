@@ -116,7 +116,6 @@ class Exporter:
             ci = self.mgr.find_create_key(bo, plCoordinateInterface)
             so.coord = ci
             ci = ci.object
-            ci.owner = so.key
 
             # Now we have the "fun" work of filling in the CI
             ci.worldToLocal = utils.matrix44(bo.matrix_basis)
