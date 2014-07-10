@@ -77,13 +77,6 @@ namespace korlib
         pyref attr = PyObject_GetAttrString(o, name);
         return PyLong_AsSize_t(attr);
     }
-
-    /** MSVC++ is not C99 compliant :( */
-    double log2(double v)
-    {
-        static double hack = log(2.);
-        return log(v) / hack;
-    }
 };
 
 #endif // __KORLIB_UTILS_HPP

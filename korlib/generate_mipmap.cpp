@@ -179,8 +179,8 @@ extern "C" PyObject* generate_mipmap(PyObject*, PyObject* args)
     // Step 1: Resize to POT (if needed) -- don't rely on GLU for this because it may not suppport
     //         NPOT if we're being run on some kind of dinosaur...
     imagesize_t dimensions = get_image_size(blImage);
-    size_t width = pow(2., korlib::log2(static_cast<double>(std::get<0>(dimensions))));
-    size_t height = pow(2., korlib::log2(static_cast<double>(std::get<1>(dimensions))));
+    size_t width = pow(2, log2(std::get<0>(dimensions)));
+    size_t height = pow(2, log2(std::get<1>(dimensions)));
     if (std::get<0>(dimensions) != width || std::get<1>(dimensions) != height) {
         print("\tImage is not a POT (%dx%d)... resizing to %dx%d", std::get<0>(dimensions),
               std::get<1>(dimensions), width, height);
