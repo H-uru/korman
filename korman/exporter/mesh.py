@@ -42,6 +42,9 @@ class _RenderLevel:
         # the render pass, just like it says...
         self.level += pass_index
 
+    def __eq__(self, other):
+        return self.level == other.level
+
     def __hash__(self):
         return hash(self.level)
 
