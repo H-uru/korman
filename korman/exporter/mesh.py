@@ -152,11 +152,8 @@ class MeshConverter:
             # Convert to per-material indices
             for j in tessface.vertices:
                 # Unpack the UV coordinates from each UV Texture layer
-                uvws = []
-                for uvtex in mesh.tessface_uv_textures:
-                    uv = getattr(uvtex.data[i], "uv{}".format(j+1))
-                    # In Blender, UVs have no Z coordinate
-                    uvws.append((uv.x, uv.y))
+                # NOTE: Blender has no third (W) coordinate
+                uvws = [(uvtex.data[j].uv.x, uvtex.data[j].uv.y) for uvtex in mesh.uv_layers]
 
                 # Grab VCols (TODO--defaulting to white for now)
                 # This will be finalized once the vertex color light code baking is in
