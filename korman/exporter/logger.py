@@ -57,6 +57,11 @@ class ExportLogger:
         sys.stdout = self._stdout
         sys.stderr = self._stderr
 
+    def flush(self):
+        self._file.flush()
+        self._stdout.flush()
+        self._stderr.flush()
+
     def write(self, str):
         self._file.write(str)
         self._stdout.write(str)
