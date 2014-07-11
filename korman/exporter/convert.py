@@ -16,6 +16,7 @@
 import bpy
 import os.path
 from PyHSPlasma import *
+import time
 
 from . import explosions
 from . import logger
@@ -35,6 +36,7 @@ class Exporter:
     def run(self):
         with logger.ExportLogger("{}_export.log".format(self.age_name)) as _log:
             print("Exporting '{}.age'".format(self.age_name))
+            start = time.process_time()
 
             # Step 0: Init export resmgr and stuff
             self.mgr = manager.ExportManager(globals()[self._op.version])
@@ -66,6 +68,10 @@ class Exporter:
             #           If the export fails and this doesn't save, we have bigger problems than
             #           these little warnings and notices.
             self.report.save()
+
+            # And finally we crow about how awesomely fast we are...
+            end = time.process_time()
+            print("\nExported {}.age in {:.2f} seconds".format(self.age_name, end-start))
 
     def _collect_objects(self):
         for obj in bpy.data.objects:
@@ -125,7 +131,7 @@ class Exporter:
 
     def _export_scene_objects(self):
         for bl_obj in self._objects:
-            print("\n=== Exporting plSceneObject ===")
+            print("\n[SceneObject '{}']".format(bl_obj.name))
 
             # First pass: do things specific to this object type.
             #             note the function calls: to export a MESH, it's _export_mesh_blobj

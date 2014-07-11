@@ -121,11 +121,11 @@ class MeshConverter:
 
     def finalize(self):
         """Prepares all baked Plasma geometry to be flushed to the disk"""
-        print("\n=== Finalizing Geometry ===")
+        print("\nFinalizing Geometry...")
 
         for loc in self._dspans.values():
             for dspan in loc.values():
-                print("    Finalizing DSpan: '{}'".format(dspan.key.name))
+                print("    ... {} ...".format(dspan.key.name))
     
                 # This mega-function does a lot:
                 # 1. Converts SourceSpans (geospans) to Icicles and bakes geometry into plGBuffers
