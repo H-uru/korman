@@ -31,6 +31,3 @@ pip-log.txt
 *.komodoproject
 *.project
 *.pydevproject
-
-# Korlib build
-korlib/build

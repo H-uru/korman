@@ -18,6 +18,11 @@ class ExportError(Exception):
         super(Exception, self).__init__(value)
 
 
+class GLLoadError(ExportError):
+    def __init__(self, image):
+        super(ExportError, self).__init__("Failed to load '{}' into OpenGL".format(image.name))
+
+
 class TooManyUVChannelsError(ExportError):
     def __init__(self, obj, mat):
         msg = "There are too many UV Textures on the material '{}' associated with object '{}'.".format(
