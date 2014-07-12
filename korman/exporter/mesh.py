@@ -115,8 +115,8 @@ class MeshConverter:
             geospan.localToWorld = hsMatrix44()
             geospan.worldToLocal = hsMatrix44()
         else:
-            geospan.worldToLocal = utils.matrix44(bo.matrix_basis)
-            geospan.localToWorld = geospan.worldToLocal.inverse()
+            geospan.localToWorld = utils.matrix44(bo.matrix_basis)
+            geospan.worldToLocal = geospan.localToWorld.inverse()
         return geospan
 
     def finalize(self):
