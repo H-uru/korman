@@ -58,13 +58,14 @@ class Exporter:
             # Step 3: Export all the things!
             self._export_scene_objects()
 
-            # Step 3.9: Finalize geometry...
+            # Step 4: Finalize...
+            self.mesh.material.finalize()
             self.mesh.finalize()
 
-            # Step 4: FINALLY. Let's write the PRPs and crap.
+            # Step 5: FINALLY. Let's write the PRPs and crap.
             self.mgr.save_age(self._op.filepath)
 
-            # Step 4.1: Save out the export report.
+            # Step 5.1: Save out the export report.
             #           If the export fails and this doesn't save, we have bigger problems than
             #           these little warnings and notices.
             self.report.save()

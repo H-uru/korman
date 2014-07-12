@@ -16,6 +16,7 @@
 import bpy
 import bgl
 import math
+import os.path
 from PyHSPlasma import *
 import weakref
 
@@ -71,6 +72,7 @@ class _GLTexture:
         """
         width = self._get_tex_param(bgl.GL_TEXTURE_WIDTH, level)
         height = self._get_tex_param(bgl.GL_TEXTURE_HEIGHT, level)
+        print("        Level #{}: {}x{}".format(level, width, height))
 
         # Grab the image data
         size = width * height * 4
@@ -99,10 +101,56 @@ class _GLTexture:
         return int(buf[0])
 
 
+class _Texture:
+    def __init__(self, texture):
+        self.image = texture.image
+        self.calc_alpha = texture.use_calculate_alpha
+        self.mipmap = texture.use_mipmap
+        self.use_alpha = texture.use_alpha
+
+    def __eq__(self, other):
+        if not isinstance(other, _Texture):
+            return False
+
+        if self.image == other.image:
+            if self.calc_alpha == other.calc_alpha:
+                self._update(other)
+                return True
+
+    def __hash__(self):
+        return hash(self.image.name) ^ hash(self.calc_alpha)
+
+    def __str__(self):
+        if self.mipmap:
+            name = self._change_extension(self.image.name, ".dds")
+        else:
+            name = self._change_extension(self.image.name, ".bmp")
+        if self.calc_alpha:
+            name = "ALPHAGEN_{}".format(name)
+        return name
+
+    def _change_extension(self, name, newext):
+        # Blender likes to add faux extensions such as .001 :(
+        if name.find(".") == -1:
+            return "{}{}".format(name, newext)
+        name, end = os.path.splitext(name)
+        if name.find(".") == -1:
+            return "{}{}".format(name, newext)
+        name, oldext = os.path.splitext(name)
+        return "{}{}{}".format(name, end, newext)
+
+    def _update(self, other):
+        """Update myself with any props that might be overridable from another copy of myself"""
+        if other.use_alpha:
+            self.use_alpha = True
+        if other.mipmap:
+            self.mipmap = True
+
+
 class MaterialConverter:
     def __init__(self, exporter):
         self._exporter = weakref.ref(exporter)
-        self._hsbitmaps = {}
+        self._pending = {}
 
     def export_material(self, bo, bm):
         """Exports a Blender Material as an hsGMaterial"""
@@ -161,67 +209,67 @@ class MaterialConverter:
 
         # Now, let's export the plBitmap
         # If the image is None (no image applied in Blender), we assume this is a plDynamicTextMap
-        # Otherwise, we create a plMipmap and call into korlib to export the pixel data
+        # Otherwise, we toss this layer and some info into our pending texture dict and process it
+        #     when the exporter tells us to finalize all our shit
         if texture.image is None:
             bitmap = self.add_object(plDynamicTextMap, name="{}_DynText".format(layer.key.name), bl=bo)
         else:
-            # blender likes to create lots of spurious .0000001 objects :/
-            name = texture.image.name
-            name = name[:name.find('.')]
-            if texture.use_mipmap:
-                name = "{}.dds".format(name)
+            key = _Texture(texture)
+            if key not in self._pending:
+                print("            Stashing '{}' for conversion as '{}'".format(texture.image.name, str(key)))
+                self._pending[key] = [layer,]
             else:
-                name = "{}.bmp".format(name)
-
-            if name in self._hsbitmaps:
-                # well, that was easy...
-                print("            Using '{}'".format(name))
-                layer.texture = self._hsbitmaps[name].key
-                return
-            else:
-                location = self._mgr.get_textures_page(bo)
-                bitmap = self._TEMP_export_image(bo, name, texture)
-
-        # Store the created plBitmap and toss onto the layer
-        self._hsbitmaps[name] = bitmap
-        layer.texture = bitmap.key
-
-    def _TEMP_export_image(self, bo, name, texture):
-        print("            Exporting {}".format(name))
-
-        image = texture.image
-        oWidth, oHeight = image.size
-        eWidth = int(round(pow(2, math.log(oWidth, 2))))
-        eHeight = int(round(pow(2, math.log(oHeight, 2))))
-        if (eWidth != oWidth) or (eHeight != oHeight):
-            print("                Image is not a POT ({}x{}) resizing to {}x{}".format(oWidth, oHeight, eWidth, eHeight))
-            image.scale(eWidth, eHeight)
-
-        # Basic things
-        levelHint = 0 if texture.use_mipmap else 1
-        compression = plBitmap.kDirectXCompression if texture.use_mipmap else plBitmap.kUncompressed
-        dxt = plBitmap.kDXT5 if texture.use_alpha or texture.use_calculate_alpha else plBitmap.kDXT1
-
-        # This wraps the call to plMipmap::Create
-        mipmap = plMipmap(name=name, width=eWidth, height=eHeight, numLevels=levelHint,
-                          compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
-        page = self._mgr.get_textures_page(bo)
-        self._mgr.AddObject(page, mipmap)
-
-        with _GLTexture(image) as glimage:
-            if texture.use_mipmap:
-                glimage.generate_mipmap()
-
-            stuff_func = mipmap.CompressImage if compression == plBitmap.kDirectXCompression else mipmap.setLevel
-            for i in range(mipmap.numLevels):
-                data = glimage.get_level_data(i, texture.use_calculate_alpha)
-                stuff_func(i, data)
-        return mipmap
-
+                print("            Found another user of '{}'".format(texture.image.name))
+                self._pending[key].append(layer)
 
     def _export_texture_type_none(self, bo, hsgmat, layer, texture):
         # We'll allow this, just for sanity's sake...
         pass
+
+    def finalize(self):
+        for key, layers in self._pending.items():
+            name = str(key)
+            print("\n[Mipmap '{}']".format(name))
+
+            image = key.image
+            oWidth, oHeight = image.size
+            eWidth = int(round(pow(2, math.log(oWidth, 2))))
+            eHeight = int(round(pow(2, math.log(oHeight, 2))))
+            if (eWidth != oWidth) or (eHeight != oHeight):
+                print("    Image is not a POT ({}x{}) resizing to {}x{}".format(oWidth, oHeight, eWidth, eHeight))
+                image.scale(eWidth, eHeight)
+
+            # Some basic mipmap settings. Could this be done better?
+            levelHint = 0 if key.mipmap else 1
+            compression = plBitmap.kDirectXCompression if key.mipmap else plBitmap.kUncompressed
+            dxt = plBitmap.kDXT5 if key.use_alpha or key.calc_alpha else plBitmap.kDXT1
+
+            # This wraps the call to plMipmap::Create
+            mipmap = plMipmap(name=name, width=eWidth, height=eHeight, numLevels=levelHint,
+                              compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
+
+            # Grab the image data from OpenGL and stuff it into the plBitmap
+            with _GLTexture(image) as glimage:
+                if key.mipmap:
+                    print("    Generating mip levels")
+                    glimage.generate_mipmap()
+                else:
+                    print("    Stuffing image data")
+
+                stuff_func = mipmap.CompressImage if compression == plBitmap.kDirectXCompression else mipmap.setLevel
+                for i in range(mipmap.numLevels):
+                    data = glimage.get_level_data(i, key.calc_alpha)
+                    stuff_func(i, data)
+
+            # Now we poke our new bitmap into the pending layers. Note that we have to do some funny
+            # business to account for per-page textures
+            print("    Adding to Layer(s)")
+            mgr = self._mgr
+            for layer in layers:
+                print("        {}".format(layer.key.name))
+                page = mgr.get_textures_page(layer)
+                mgr.AddObject(page, mipmap)
+                layer.texture = mipmap.key
 
     @property
     def _mgr(self):

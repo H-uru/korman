@@ -159,13 +159,13 @@ class ExportManager:
         """Gets a Plasma Page's plSceneNode key"""
         return self._nodes[location].key
 
-    def get_textures_page(self, obj):
-        """Returns the page that Blender Object obj's textures should be exported to"""
+    def get_textures_page(self, layer):
+        """Gets the appropriate page for a texture for a given plLayer"""
         # The point of this is to account for per-page textures...
         if "Textures" in self._pages:
             return self._pages["Textures"]
         else:
-            return self._pages[obj.plasma_object.page]
+            return layer.key.location
 
     def sanity_check_object_pages(self, age, objects):
         """Ensure all objects are in valid pages and create the Default page if used"""
