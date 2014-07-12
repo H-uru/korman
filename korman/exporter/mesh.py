@@ -153,12 +153,14 @@ class MeshConverter:
             data = geodata[tessface.material_index]
             face_verts = []
 
-            # Convert to per-material indices
-            for j in tessface.vertices:
-                # Unpack the UV coordinates from each UV Texture layer
-                # NOTE: Blender has no third (W) coordinate
-                uvws = [(uvtex.data[j].uv.x, uvtex.data[j].uv.y) for uvtex in mesh.uv_layers]
+            # Unpack the UV coordinates from each UV Texture layer
+            # NOTE: Blender has no third (W) coordinate
+            tessface_uvws = [uvtex.data[i].uv for uvtex in mesh.tessface_uv_textures]
+            print(tessface_uvws)
 
+            # Convert to per-material indices
+            for j, vertex in enumerate(tessface.vertices):
+                uvws = tuple([uvw[j] for uvw in tessface_uvws])
                 # Grab VCols (TODO--defaulting to white for now)
                 # This will be finalized once the vertex color light code baking is in
                 color = (255, 255, 255, 255)
@@ -166,17 +168,17 @@ class MeshConverter:
                 # Now, we'll index into the vertex dict using the per-face elements :(
                 # We're using tuples because lists are not hashable. The many mathutils and PyHSPlasma
                 # types are not either, and it's entirely too much work to fool with all that.
-                coluv = (color, tuple(uvws))
-                if coluv not in data.blender2gs[j]:
-                    source = mesh.vertices[j]
-                    vertex = plGeometrySpan.TempVertex()
-                    vertex.position = utils.vector3(source.co)
-                    vertex.normal = utils.vector3(source.normal)
-                    vertex.color = hsColor32(*color)
-                    vertex.uvs = [hsVector3(uv[0], 1.0-uv[1], 0.0) for uv in uvws]
-                    data.blender2gs[j][coluv] = len(data.vertices)
-                    data.vertices.append(vertex)
-                face_verts.append(data.blender2gs[j][coluv])
+                coluv = (color, uvws)
+                if coluv not in data.blender2gs[vertex]:
+                    source = mesh.vertices[vertex]
+                    geoVertex = plGeometrySpan.TempVertex()
+                    geoVertex.position = utils.vector3(source.co)
+                    geoVertex.normal = utils.vector3(source.normal)
+                    geoVertex.color = hsColor32(*color)
+                    geoVertex.uvs = [hsVector3(uv[0], uv[1], 0.0) for uv in uvws]
+                    data.blender2gs[vertex][coluv] = len(data.vertices)
+                    data.vertices.append(geoVertex)
+                face_verts.append(data.blender2gs[vertex][coluv])
 
             # Convert to triangles, if need be...
             if len(face_verts) == 3:
