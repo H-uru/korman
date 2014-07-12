@@ -121,11 +121,11 @@ class MeshConverter:
 
     def finalize(self):
         """Prepares all baked Plasma geometry to be flushed to the disk"""
-        print("\nFinalizing Geometry...")
 
         for loc in self._dspans.values():
             for dspan in loc.values():
-                print("    ... {} ...".format(dspan.key.name))
+                print("\n[DrawableSpans '{}']".format(dspan.key.name))
+                print("    Composing geometry data")
     
                 # This mega-function does a lot:
                 # 1. Converts SourceSpans (geospans) to Icicles and bakes geometry into plGBuffers
@@ -133,6 +133,10 @@ class MeshConverter:
                 # 3. Builds the plSpaceTree
                 # 4. Clears the SourceSpans
                 dspan.composeGeometry(True, True)
+
+                # Might as well say something else just to fascinate anyone who is playing along
+                # at home (and actually enjoys reading these lawgs)
+                print("    Bounds and SpaceTree in the saddle")
 
     def _export_geometry(self, mesh, geospans):
         _geodatacls = type("_GeoData",
