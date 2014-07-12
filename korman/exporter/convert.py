@@ -125,10 +125,10 @@ class Exporter:
             ci = ci.object
 
             # Now we have the "fun" work of filling in the CI
-            ci.worldToLocal = utils.matrix44(bo.matrix_basis)
-            ci.localToWorld = ci.worldToLocal.inverse()
-            ci.parentToLocal = utils.matrix44(bo.matrix_local)
-            ci.localToParent = ci.parentToLocal.inverse()
+            ci.localToWorld = utils.matrix44(bo.matrix_basis)
+            ci.worldToLocal = ci.localToWorld.inverse()
+            ci.localToParent = utils.matrix44(bo.matrix_local)
+            ci.parentToLocal = ci.localToParent.inverse()
 
     def _export_scene_objects(self):
         for bl_obj in self._objects:
