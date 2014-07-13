@@ -233,20 +233,16 @@ class MaterialConverter:
 
             image = key.image
             oWidth, oHeight = image.size
-            eWidth = int(round(pow(2, math.log(oWidth, 2))))
-            eHeight = int(round(pow(2, math.log(oHeight, 2))))
+            eWidth = pow(2, math.floor(math.log(oWidth, 2)))
+            eHeight = pow(2, math.floor(math.log(oHeight, 2)))
             if (eWidth != oWidth) or (eHeight != oHeight):
                 print("    Image is not a POT ({}x{}) resizing to {}x{}".format(oWidth, oHeight, eWidth, eHeight))
-                image.scale(eWidth, eHeight)
+                self._resize_image(image, eWidth, eHeight)
 
-            # Some basic mipmap settings. Could this be done better?
-            levelHint = 0 if key.mipmap else 1
+            # Some basic mipmap settings.
+            numLevels = math.floor(math.log(max(eWidth, eHeight), 2)) + 1 if key.mipmap else 1
             compression = plBitmap.kDirectXCompression if key.mipmap else plBitmap.kUncompressed
             dxt = plBitmap.kDXT5 if key.use_alpha or key.calc_alpha else plBitmap.kDXT1
-
-            # This wraps the call to plMipmap::Create
-            mipmap = plMipmap(name=name, width=eWidth, height=eHeight, numLevels=levelHint,
-                              compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
 
             # Grab the image data from OpenGL and stuff it into the plBitmap
             with _GLTexture(image) as glimage:
@@ -256,19 +252,38 @@ class MaterialConverter:
                 else:
                     print("    Stuffing image data")
 
-                stuff_func = mipmap.CompressImage if compression == plBitmap.kDirectXCompression else mipmap.setLevel
-                for i in range(mipmap.numLevels):
-                    data = glimage.get_level_data(i, key.calc_alpha)
-                    stuff_func(i, data)
+                # Hold the uncompressed level data for now. We may have to make multiple copies of
+                # this mipmap for per-page textures :(
+                data = []
+                for i in range(numLevels):
+                    data.append(glimage.get_level_data(i, key.calc_alpha))
+
+            # Be a good citizen and reset the Blender Image to pre-futzing state
+            image.reload()
 
             # Now we poke our new bitmap into the pending layers. Note that we have to do some funny
             # business to account for per-page textures
-            print("    Adding to Layer(s)")
             mgr = self._mgr
+            pages = {}
+
+            print("    Adding to Layer(s)")
             for layer in layers:
                 print("        {}".format(layer.key.name))
-                page = mgr.get_textures_page(layer)
-                mgr.AddObject(page, mipmap)
+                page = mgr.get_textures_page(layer) # Layer's page or Textures.prp
+
+                # If we haven't created this plMipmap in the page (either layer's page or Textures.prp),
+                # then we need to do that and stuff the level data. This is a little tedious, but we
+                # need to be careful to manage our resources correctly
+                if page not in pages:
+                    mipmap = plMipmap(name=name, width=eWidth, height=eHeight, numLevels=numLevels,
+                                      compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
+                    func = mipmap.CompressImage if compression == plBitmap.kDirectXCompression else mipmap.setLevel
+                    for i, level in enumerate(data):
+                        func(i, level)
+                    mgr.AddObject(page, mipmap)
+                    pages[page] = mipmap
+                else:
+                    mipmap = pages[page]
                 layer.texture = mipmap.key
 
     @property
@@ -289,3 +304,11 @@ class MaterialConverter:
         layer.preshade = utils.color(bm.diffuse_color)
         layer.runtime = utils.color(bm.diffuse_color)
         layer.specular = utils.color(bm.specular_color)
+
+    def _resize_image(self, image, width, height):
+        image.scale(width, height)
+
+        # If the image is already loaded into OpenGL, we need to refresh it to get the scaling.
+        if image.bindcode != 0:
+            image.gl_free()
+            image.gl_load()
