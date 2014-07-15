@@ -22,6 +22,7 @@ from . import explosions
 from . import logger
 from . import manager
 from . import mesh
+from . import physics
 from . import utils
 
 class Exporter:
@@ -42,6 +43,7 @@ class Exporter:
             self.mgr = manager.ExportManager(globals()[self._op.version])
             self.mesh = mesh.MeshConverter(self)
             self.report = logger.ExportAnalysis()
+            self.physics = physics.PhysicsConverter(self)
 
             # Step 1: Gather a list of objects that we need to export
             #         We should do this first so we can sanity check

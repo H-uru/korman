@@ -29,6 +29,10 @@ def matrix44(blmat):
         hsmat[i, 3] = blmat[i][3]
     return hsmat
 
+def quaternion(blquat):
+    """Converts a mathutils.Quaternion to an hsQuat"""
+    return hsQuat(blquat.x, blquat.y, blquat.z, blquat.w)
+
 def vector3(blvec):
     """Converts a mathutils.Vector to an hsVector3"""
     return hsVector3(blvec.x, blvec.y, blvec.z)

@@ -18,6 +18,7 @@ import inspect
 
 from .base import PlasmaModifierProperties
 from .logic import *
+from .physics import *
 
 class PlasmaModifiers(bpy.types.PropertyGroup):
     def determine_next_id(self):
