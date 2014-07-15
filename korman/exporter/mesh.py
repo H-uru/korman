@@ -111,7 +111,7 @@ class MeshConverter:
         # TODO: RunTime lights (requires libHSPlasma feature)
 
         # If this object has a CI, we don't need xforms here...
-        if self._mgr.find_key(bo, plCoordinateInterface) is not None:
+        if self._mgr.has_coordiface(bo):
             geospan.localToWorld = hsMatrix44()
             geospan.worldToLocal = hsMatrix44()
         else:
@@ -270,7 +270,7 @@ class MeshConverter:
         if crit not in self._dspans[location]:
             # AgeName_[District_]_Page_RenderLevel_Crit[Blend]Spans
             # Just because it's nice to be consistent
-            node = self._mgr.get_scene_node(location)
+            node = self._mgr.get_scene_node(location=location)
             name = "{}_{:08X}_{:X}{}".format(node.name, crit.render_level.level, crit.criteria, crit.span_type)
             dspan = self._mgr.add_object(pl=plDrawableSpans, name=name, loc=location)
 

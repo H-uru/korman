@@ -95,16 +95,13 @@ class Exporter:
 
     def _export_actor(self, so, bo):
         """Exports a Coordinate Interface if we need one"""
-        empty = bo.type in {"CAMERA", "EMPTY", "LAMP"}
-        childobj = bo.parent is not None
-
-        if empty or childobj:
+        if self.mgr.has_coordiface(bo):
             self._export_coordinate_interface(so, bo)
 
         # If this object has a parent, then we will need to go upstream and add ourselves to the
         # parent's CoordinateInterface... Because life just has to be backwards.
-        if childobj:
-            parent = bo.parent
+        parent = bo.parent
+        if parent is not None:
             if parent.plasma_object.enabled:
                 print("    Attaching to parent SceneObject '{}'".format(parent.name))
 
@@ -120,6 +117,8 @@ class Exporter:
     def _export_coordinate_interface(self, so, bo):
         """Ensures that the SceneObject has a CoordinateInterface"""
         if not so.coord:
+            print("    Exporting CoordinateInterface")
+
             ci = self.mgr.find_create_key(bo, plCoordinateInterface)
             so.coord = ci
             ci = ci.object

@@ -33,3 +33,7 @@ class PlasmaSpawnPoint(PlasmaModifierProperties):
         # place the avatar can show up." Nice to have a simple one to get started with.
         spawn = exporter.mgr.add_object(pl=plSpawnModifier, bl=bo, name=self.display_name)
         so.addModifier(spawn.key)
+
+    @property
+    def requires_actor(self):
+        return True

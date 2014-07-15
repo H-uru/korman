@@ -28,6 +28,11 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
     def enabled(self):
         return self.display_order >= 0
 
+    @property
+    def requires_actor(self):
+        """Indicates if this modifier requires the object to be a movable actor"""
+        return False
+
     # Guess what?
     # You can't register properties on a base class--Blender isn't smart enough to do inheritance,
     # you see... So, we'll store our definitions in a dict and make those properties on each subclass

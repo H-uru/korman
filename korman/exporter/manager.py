@@ -151,12 +151,16 @@ class ExportManager:
                 return key
         return None
 
-    def get_location(self, bl_obj):
+    def get_location(self, bl):
         """Returns the Page Location of a given Blender Object"""
-        return self._pages[bl_obj.plasma_object.page]
+        return self._pages[bl.plasma_object.page]
 
-    def get_scene_node(self, location):
+    def get_scene_node(self, location=None, bl=None):
         """Gets a Plasma Page's plSceneNode key"""
+        assert (location is not None) ^ (bl is not None)
+
+        if location is None:
+            location = self._pages[bl.plasma_object.page]
         return self._nodes[location].key
 
     def get_textures_page(self, layer):
@@ -166,6 +170,18 @@ class ExportManager:
             return self._pages["Textures"]
         else:
             return layer.key.location
+
+    def has_coordiface(self, bo):
+        if bo.type in {"CAMERA", "EMPTY", "LAMP"}:
+            return True
+        if bo.parent is not None:
+            return True
+
+        for mod in bo.plasma_modifiers.modifiers:
+            if mod.enabled:
+                if mod.requires_actor:
+                    return True
+        return False
 
     def sanity_check_object_pages(self, age, objects):
         """Ensure all objects are in valid pages and create the Default page if used"""

@@ -22,7 +22,7 @@ def _fetch_modifiers():
     items = []
 
     mapping = modifiers.modifier_mapping()
-    for i in mapping.keys():
+    for i in sorted(mapping.keys()):
         items.append(("", i, ""))
         items.extend(mapping[i])
         #yield ("", i, "")
