@@ -36,7 +36,7 @@ class PlasmaModifiers(bpy.types.PropertyGroup):
            NOTE: We do not promise to return modifiers in their display_order!
         """
         for i in dir(self):
-            attr = getattr(self, i)
+            attr = getattr(self, i, None)
             # Assumes each modifier is a single pointer to PlasmaModifierProperties
             if isinstance(attr, PlasmaModifierProperties):
                 if attr.enabled:
