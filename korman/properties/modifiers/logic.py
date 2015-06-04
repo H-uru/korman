@@ -31,8 +31,7 @@ class PlasmaSpawnPoint(PlasmaModifierProperties):
     def export(self, exporter, bo, so):
         # Not much to this modifier... It's basically a flag that tells the engine, "hey, this is a
         # place the avatar can show up." Nice to have a simple one to get started with.
-        spawn = exporter.mgr.add_object(pl=plSpawnModifier, bl=bo, name=self.display_name)
-        so.addModifier(spawn.key)
+        spawn = exporter.mgr.add_object(pl=plSpawnModifier, so=so, name=self.display_name)
 
     @property
     def requires_actor(self):

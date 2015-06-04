@@ -13,6 +13,10 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
-from .logic import *
-from .physics import *
-from .region import *
+def paniclink(modifier, layout, context):
+    split = layout.split()
+    col = split.column()
+
+    col.prop(modifier, "exact_bounds")
+    col = split.column()
+    col.prop(modifier, "play_anim")

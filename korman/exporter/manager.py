@@ -61,11 +61,13 @@ class ExportManager:
         self._age_info = info
         self.mgr.AddAge(info)
 
-    def add_object(self, pl, name=None, bl=None, loc=None):
+    def add_object(self, pl, name=None, bl=None, loc=None, so=None):
         """Automates adding a converted Blender object to our Plasma Resource Manager"""
-        assert (bl or loc)
-        if loc:
+        assert (bl or loc or so)
+        if loc is not None:
             location = loc
+        elif so is not None:
+            location = so.key.location
         else:
             location = self._pages[bl.plasma_object.page]
 
@@ -87,11 +89,13 @@ class ExportManager:
             elif pl.ClassIndex() in _pool_types:
                 node.addPoolObject(pl.key)
 
-        # Make life easier for folks creating ObjInterfaces
-        if isinstance(pl, plObjInterface) and bl is not None:
-            so = self.find_key(bl, plSceneObject)
-            if so is not None:
-                pl.owner = so
+        if isinstance(pl, plObjInterface):
+            if so is None:
+                pl.owner = self.find_key(bl, plSceneObject)
+            else:
+                pl.owner = so.key
+        elif isinstance(pl, plModifier):
+            so.addModifier(pl.key)
 
         # And we're done!
         return pl
@@ -100,10 +104,9 @@ class ExportManager:
         # BuiltIn.prp
         if bpy.context.scene.world.plasma_age.age_sdl:
             builtin = self.create_page(age, "BuiltIn", -2, True)
-            pfm = self.add_object(plPythonFileMod, name="VeryVerySpecialPythonFileMod", loc=builtin)
-            pfm.filename = age
             sdl = self.add_object(plSceneObject, name="AgeSDLHook", loc=builtin)
-            sdl.addModifier(pfm.key)
+            pfm = self.add_object(plPythonFileMod, name="VeryVerySpecialPythonFileMod", so=sdl)
+            pfm.filename = age
 
         # Textures.prp
         if textures:
@@ -196,7 +199,7 @@ class ExportManager:
                 # This object is in the default page... Init that.
                 for loc in self._pages.values():
                     if not loc.page:
-                        self.mgr._pages[""] = loc
+                        self._pages[""] = loc
                         break
                 else:
                     # need to create default page
