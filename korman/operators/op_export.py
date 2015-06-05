@@ -70,6 +70,10 @@ class ExportOperator(bpy.types.Operator):
                     self.report({"ERROR"}, "Failed to create export directory")
                     return {"CANCELLED"}
 
+        # We need to back out of edit mode--this ensures that all changes are committed
+        if context.mode != "OBJECT":
+            bpy.ops.object.mode_set(mode="OBJECT")
+
         # Separate blender operator and actual export logic for my sanity
         e = exporter.Exporter(self)
         try:
