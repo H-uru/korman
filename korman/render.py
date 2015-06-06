@@ -31,11 +31,23 @@ properties_material.MATERIAL_PT_options.COMPAT_ENGINES.add("PLASMA_GAME")
 properties_material.MATERIAL_PT_preview.COMPAT_ENGINES.add("PLASMA_GAME")
 del properties_material
 
+from bl_ui import properties_data_mesh
+properties_data_mesh.DATA_PT_uv_texture.COMPAT_ENGINES.add("PLASMA_GAME")
+properties_data_mesh.DATA_PT_vertex_colors.COMPAT_ENGINES.add("PLASMA_GAME")
+del properties_data_mesh
+
+def _whitelist_all(mod):
+    for i in dir(mod):
+        attr = getattr(mod, i)
+        if hasattr(attr, "COMPAT_ENGINES"):
+            getattr(attr, "COMPAT_ENGINES").add("PLASMA_GAME")
+
+from bl_ui import properties_render
+_whitelist_all(properties_render)
+del properties_render
+
 from bl_ui import properties_texture
-for i in dir(properties_texture):
-    attr = getattr(properties_texture, i)
-    if hasattr(attr, "COMPAT_ENGINES"):
-        getattr(attr, "COMPAT_ENGINES").add("PLASMA_GAME")
+_whitelist_all(properties_texture)
 del properties_texture
 
 @classmethod
