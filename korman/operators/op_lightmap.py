@@ -16,14 +16,20 @@
 import bpy
 from ..helpers import GoodNeighbor
 
-class _LightmapOperator:
+class _LightingOperator:
     @classmethod
     def poll(cls, context):
         if context.object is not None:
             return context.scene.render.engine == "PLASMA_GAME"
 
+    def _hide_textures(self, mesh, toggle):
+        for mat in mesh.materials:
+            for tex in mat.texture_slots:
+                if tex is not None and tex.use:
+                    toggle.track(tex, "use", False)
 
-class LightmapAutobakeOperator(_LightmapOperator, bpy.types.Operator):
+
+class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
     bl_idname = "object.plasma_lightmap_autobake"
     bl_label = "Bake Lightmap"
     bl_options = {"INTERNAL"}
@@ -76,10 +82,9 @@ class LightmapAutobakeOperator(_LightmapOperator, bpy.types.Operator):
             toggle.track(render, "bake_type", "FULL")
             toggle.track(render, "use_bake_to_vertex_color", False)
 
-            for mat in obj.data.materials:
-                for tex in mat.texture_slots:
-                    if tex is not None and tex.use:
-                        toggle.track(tex, "use", False)
+            # If we run a full render with our textures enabled, guess what we will get in our LM?
+            # Yeah, textures. Mutter mutter mutter.
+            self._hide_textures(obj.data, toggle)
 
             # Now, we *finally* bake the lightmap...
             # FIXME: Don't bake Plasma RT lights
@@ -89,7 +94,7 @@ class LightmapAutobakeOperator(_LightmapOperator, bpy.types.Operator):
         return {"FINISHED"}
 
 
-class LightmapAutobakePreviewOperator(_LightmapOperator, bpy.types.Operator):
+class LightmapAutobakePreviewOperator(_LightingOperator, bpy.types.Operator):
     bl_idname = "object.plasma_lightmap_preview"
     bl_label = "Preview Lightmap"
     bl_options = {"INTERNAL"}
@@ -103,4 +108,36 @@ class LightmapAutobakePreviewOperator(_LightmapOperator, bpy.types.Operator):
         tex.extension = "CLIP"
         tex.image = bpy.data.images["{}_LIGHTMAPGEN".format(context.active_object.name)]
 
+        return {"FINISHED"}
+
+
+class VertexColorLightingOperator(_LightingOperator, bpy.types.Operator):
+    bl_idname = "object.plasma_vertexlight_autobake"
+    bl_label = "Bake Vertex Color Lighting"
+    bl_options = {"INTERNAL"}
+
+    def execute(self, context):
+        with GoodNeighbor() as toggle:
+            mesh = context.active_object.data
+            mesh.update()
+
+            # Find the "autocolor" vertex color layer
+            autocolor = mesh.vertex_colors.get("autocolor")
+            if autocolor is None:
+                mesh.vertex_colors.new("autocolor")
+            toggle.track(mesh.vertex_colors, "active", autocolor)
+
+            # Prepare to bake...
+            self._hide_textures(mesh, toggle)
+            # TODO: don't bake runtime lights
+
+            # Bake settings
+            render = context.scene.render
+            toggle.track(render, "bake_type", "FULL")
+            toggle.track(render, "use_bake_to_vertex_color", True)
+
+            # Bake
+            bpy.ops.object.bake_image()
+
+        # And done!
         return {"FINISHED"}

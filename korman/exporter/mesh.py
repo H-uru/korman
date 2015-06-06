@@ -24,6 +24,8 @@ from . import utils
 _MAX_VERTS_PER_SPAN = 0xFFFF
 _WARN_VERTS_PER_SPAN = 0x8000
 
+_VERTEX_COLOR_LAYERS = {"col", "color", "colour"}
+
 class _RenderLevel:
     MAJOR_OPAQUE = 0
     MAJOR_FRAMEBUF = 1
@@ -148,6 +150,17 @@ class MeshConverter:
                        })
         geodata = [_geodatacls() for i in mesh.materials]
 
+        # Locate relevant vertex color layers now...
+        color, alpha = None, None
+        for vcol_layer in mesh.tessface_vertex_colors:
+            name = vcol_layer.name.lower()
+            if name in _VERTEX_COLOR_LAYERS:
+                color = vcol_layer.data
+            elif name == "autocolor" and color is None:
+                color = vcol_layer.data
+            elif name == "alpha":
+                alpha = vcol_layer.data
+
         # Convert Blender faces into things we can stuff into libHSPlasma
         for i, tessface in enumerate(mesh.tessfaces):
             data = geodata[tessface.material_index]
@@ -157,24 +170,42 @@ class MeshConverter:
             # NOTE: Blender has no third (W) coordinate
             tessface_uvws = [uvtex.data[i].uv for uvtex in mesh.tessface_uv_textures]
 
+            # Unpack colors
+            if color is None:
+                tessface_colors = ((1.0, 1.0, 1.0), (1.0, 1.0, 1.0), (1.0, 1.0, 1.0), (1.0, 1.0, 1.0))
+            else:
+                src = color[i]
+                tessface_colors = (src.color1, src.color2, src.color3, src.color4)
+
+            # Unpack alpha values
+            if alpha is None:
+                tessface_alphas = (1.0, 1.0, 1.0, 1.0)
+            else:
+                src = alpha[i]
+                # average color becomes the alpha value
+                tessface_alphas = (((src.color1[0] + src.color1[1] + src.color1[2]) / 3),
+                                   ((src.color2[0] + src.color2[1] + src.color2[2]) / 3),
+                                   ((src.color3[0] + src.color3[1] + src.color3[2]) / 3),
+                                   ((src.color4[0] + src.color4[1] + src.color4[2]) / 3))
+
             # Convert to per-material indices
             for j, vertex in enumerate(tessface.vertices):
                 uvws = tuple([uvw[j] for uvw in tessface_uvws])
 
-                # Grab VCols (TODO--defaulting to white for now)
-                # This will be finalized once the vertex color light code baking is in
-                color = (255, 255, 255, 255)
+                # Grab VCols
+                vertex_color = (int(tessface_colors[j][0] * 255), int(tessface_colors[j][1] * 255),
+                                int(tessface_colors[j][2] * 255), int(tessface_alphas[j] * 255))
 
                 # Now, we'll index into the vertex dict using the per-face elements :(
                 # We're using tuples because lists are not hashable. The many mathutils and PyHSPlasma
                 # types are not either, and it's entirely too much work to fool with all that.
-                coluv = (color, uvws)
+                coluv = (vertex_color, uvws)
                 if coluv not in data.blender2gs[vertex]:
                     source = mesh.vertices[vertex]
                     geoVertex = plGeometrySpan.TempVertex()
                     geoVertex.position = utils.vector3(source.co)
                     geoVertex.normal = utils.vector3(source.normal)
-                    geoVertex.color = hsColor32(*color)
+                    geoVertex.color = hsColor32(*vertex_color)
                     geoVertex.uvs = [hsVector3(uv[0], uv[1], 0.0) for uv in uvws]
                     data.blender2gs[vertex][coluv] = len(data.vertices)
                     data.vertices.append(geoVertex)
@@ -217,15 +248,10 @@ class MeshConverter:
         return diface.key
 
     def _export_mesh(self, bo):
-        # Step 0.8: If this mesh wants to be light mapped, we need to go ahead and generate it.
-        if bo.plasma_modifiers.lightmap.enabled:
-            print("    Baking lightmap...")
-            print("====")
-            bpy.context.scene.objects.active = bo
-            bpy.ops.object.plasma_lightmap_autobake()
-            print("====")
+        # Step 0.8: If this mesh wants to be lit, we need to go ahead and generate it.
+        self._export_static_lighting(bo)
 
-        # Step 0.9: Update the mesh
+        # Step 0.9: Update the mesh such that we can do things and schtuff...
         mesh = bo.data
         mesh.update(calc_tessface=True)
 
@@ -262,6 +288,23 @@ class MeshConverter:
             hsgmat = self.material.export_material(bo, blmat)
             geospans[i] = (self._create_geospan(bo, mesh, blmat, hsgmat), blmat.pass_index)
         return geospans
+
+    def _export_static_lighting(self, bo):
+        if bo.plasma_modifiers.lightmap.enabled:
+            print("    Baking lightmap...")
+            print("====")
+            bpy.context.scene.objects.active = bo
+            bpy.ops.object.plasma_lightmap_autobake()
+            print("====")
+        else:
+            for vcol_layer in bo.data.vertex_colors:
+                name = vcol_layer.name.lower()
+                if name in _VERTEX_COLOR_LAYERS:
+                    break
+            else:
+                print("    Baking crappy vertex color lighting...")
+                bpy.ops.object.plasma_vertexlight_autobake()
+
 
     def _find_create_dspan(self, bo, hsgmat, pass_index):
         location = self._mgr.get_location(bo)
