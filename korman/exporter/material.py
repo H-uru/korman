@@ -102,11 +102,19 @@ class _GLTexture:
 
 
 class _Texture:
-    def __init__(self, texture):
-        self.image = texture.image
-        self.calc_alpha = texture.use_calculate_alpha
-        self.mipmap = texture.use_mipmap
-        self.use_alpha = texture.use_alpha
+    def __init__(self, texture=None, image=None):
+        assert (texture or image)
+
+        if texture is not None:
+            self.image = texture.image
+            self.calc_alpha = texture.use_calculate_alpha
+            self.mipmap = texture.use_mipmap
+            self.use_alpha = texture.use_alpha
+        if image is not None:
+            self.image = image
+            self.calc_alpha = False
+            self.mipmap = False
+            self.use_alpha = image.use_alpha
 
     def __eq__(self, other):
         if not isinstance(other, _Texture):
@@ -121,10 +129,7 @@ class _Texture:
         return hash(self.image.name) ^ hash(self.calc_alpha)
 
     def __str__(self):
-        if self.mipmap:
-            name = self._change_extension(self.image.name, ".dds")
-        else:
-            name = self._change_extension(self.image.name, ".bmp")
+        name = self._change_extension(self.image.name, ".dds")
         if self.calc_alpha:
             name = "ALPHAGEN_{}".format(name)
         return name
@@ -149,6 +154,7 @@ class _Texture:
 
 class MaterialConverter:
     def __init__(self, exporter):
+        self._obj2mat = {}
         self._exporter = weakref.ref(exporter)
         self._pending = {}
 
@@ -165,6 +171,12 @@ class MaterialConverter:
             layer = self._mgr.add_object(plLayer, name="{}_AutoLayer".format(bm.name), bl=bo)
             self._propagate_material_settings(bm, layer)
             hsgmat.addLayer(layer.key)
+
+        # Cache this material for later
+        if bo in self._obj2mat:
+            self._obj2mat[bo].append(hsgmat.key)
+        else:
+            self._obj2mat[bo] = [hsgmat.key]
 
         # Looks like we're done...
         return hsgmat.key
@@ -214,7 +226,7 @@ class MaterialConverter:
         if texture.image is None:
             bitmap = self.add_object(plDynamicTextMap, name="{}_DynText".format(layer.key.name), bl=bo)
         else:
-            key = _Texture(texture)
+            key = _Texture(texture=texture)
             if key not in self._pending:
                 print("            Stashing '{}' for conversion as '{}'".format(texture.image.name, str(key)))
                 self._pending[key] = [layer,]
@@ -225,6 +237,16 @@ class MaterialConverter:
     def _export_texture_type_none(self, bo, hsgmat, layer, texture):
         # We'll allow this, just for sanity's sake...
         pass
+
+    def export_prepared_layer(self, layer, image):
+        """This exports an externally prepared layer and image"""
+        key = _Texture(image=image)
+        if key not in self._pending:
+            print("        Stashing '{}' for conversion as '{}'".format(image.name, str(key)))
+            self._pending[key] = [layer,]
+        else:
+            print("        Found another user of '{}'".format(image.name))
+            self._pending[key].append(layer)
 
     def finalize(self):
         for key, layers in self._pending.items():
@@ -241,7 +263,7 @@ class MaterialConverter:
 
             # Some basic mipmap settings.
             numLevels = math.floor(math.log(max(eWidth, eHeight), 2)) + 1 if key.mipmap else 1
-            compression = plBitmap.kDirectXCompression if key.mipmap else plBitmap.kUncompressed
+            compression = plBitmap.kDirectXCompression
             dxt = plBitmap.kDXT5 if key.use_alpha or key.calc_alpha else plBitmap.kDXT1
 
             # Grab the image data from OpenGL and stuff it into the plBitmap
@@ -285,6 +307,9 @@ class MaterialConverter:
                 else:
                     mipmap = pages[page]
                 layer.texture = mipmap.key
+
+    def get_materials(self, bo):
+        return self._obj2mat[bo]
 
     @property
     def _mgr(self):

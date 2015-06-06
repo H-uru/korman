@@ -13,7 +13,17 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
-from .logic import *
-from .physics import *
-from .region import *
-from .render import *
+class GoodNeighbor:
+    """Leave Things the Way You Found Them! (TM)"""
+
+    def __enter__(self):
+        self._tracking = {}
+        return self
+
+    def track(self, cls, attr, value):
+        self._tracking[(cls, attr)] = getattr(cls, attr)
+        setattr(cls, attr, value)
+
+    def __exit__(self, type, value, traceback):
+        for (cls, attr), value in self._tracking.items():
+            setattr(cls, attr, value)

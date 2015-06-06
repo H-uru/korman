@@ -217,7 +217,15 @@ class MeshConverter:
         return diface.key
 
     def _export_mesh(self, bo):
-        # First, we need to grab the object's mesh...
+        # Step 0.8: If this mesh wants to be light mapped, we need to go ahead and generate it.
+        if bo.plasma_modifiers.lightmap.enabled:
+            print("    Baking lightmap...")
+            print("====")
+            bpy.context.scene.objects.active = bo
+            bpy.ops.object.plasma_lightmap_autobake()
+            print("====")
+
+        # Step 0.9: Update the mesh
         mesh = bo.data
         mesh.update(calc_tessface=True)
 

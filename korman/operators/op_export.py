@@ -23,7 +23,6 @@ class ExportOperator(bpy.types.Operator):
 
     bl_idname = "export.plasma_age"
     bl_label = "Export Age"
-    bl_options = {"BLOCKING"}
 
     # Export specific props
     version = bpy.props.EnumProperty(

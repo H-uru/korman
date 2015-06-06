@@ -14,6 +14,7 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 from . import op_export as exporter
+from . import op_lightmap as lightmap
 from . import op_modifier as modifier
 from . import op_world as world
 
