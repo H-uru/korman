@@ -109,8 +109,12 @@ class MeshConverter:
             raise explosions.TooManyUVChannelsError(bo, bm)
         geospan.format = numUVWchans
 
-        # TODO: Props
-        # TODO: RunTime lights (requires libHSPlasma feature)
+        # Harvest lights
+        permaLights, permaProjs = self._exporter().light.find_material_light_keys(bo, bm)
+        for i in permaLights:
+            geospan.addPermaLight(i)
+        for i in permaProjs:
+            geospan.addPermaProjs(i)
 
         # If this object has a CI, we don't need xforms here...
         if self._mgr.has_coordiface(bo):
@@ -245,7 +249,6 @@ class MeshConverter:
         diface = self._mgr.add_object(pl=plDrawInterface, bl=bo)
         for dspan_key, idx in drawables:
             diface.addDrawable(dspan_key, idx)
-        return diface.key
 
     def _export_mesh(self, bo):
         # Step 0.8: If this mesh wants to be lit, we need to go ahead and generate it.
@@ -290,10 +293,10 @@ class MeshConverter:
         return geospans
 
     def _export_static_lighting(self, bo):
+        bpy.context.scene.objects.active = bo
         if bo.plasma_modifiers.lightmap.enabled:
             print("    Baking lightmap...")
             print("====")
-            bpy.context.scene.objects.active = bo
             bpy.ops.object.plasma_lightmap_autobake()
             print("====")
         else:

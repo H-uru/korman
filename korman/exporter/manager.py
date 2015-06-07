@@ -91,9 +91,29 @@ class ExportManager:
 
         if isinstance(pl, plObjInterface):
             if so is None:
-                pl.owner = self.find_key(bl, plSceneObject)
+                key = self.find_key(bl, plSceneObject)
+                # prevent race conditions
+                if key is None:
+                    so = self.add_object(plSceneObject, name=name, loc=location)
+                    key = so.key
+                else:
+                    so = key.object
+                pl.owner = key
             else:
                 pl.owner = so.key
+
+            # The things I do to make life easy...
+            # This is something of a God function now.
+            if isinstance(pl, plAudioInterface):
+                so.audio = pl.key
+            elif isinstance(pl, plCoordinateInterface):
+                so.coord = pl.key
+            elif isinstance(pl, plDrawInterface):
+                so.draw = pl.key
+            elif isinstance(pl, plSimulationInterface):
+                so.sim = pl.key
+            else:
+                so.addInterface(pl.key)
         elif isinstance(pl, plModifier):
             so.addModifier(pl.key)
 
@@ -138,15 +158,18 @@ class ExportManager:
             self._nodes[location] = None
         return location
 
-    def find_create_key(self, bl_obj, pClass):
-        key = self.find_key(bl_obj, pClass)
+    def find_create_key(self, bl_obj, pClass, so=None):
+        key = self.find_key(bl_obj, pClass, so=so)
         if key is None:
-            key = self.add_object(pl=pClass, bl=bl_obj).key
+            key = self.add_object(pl=pClass, bl=bl_obj, so=so).key
         return key
 
-    def find_key(self, bl_obj, pClass):
+    def find_key(self, bl_obj, pClass, so=None):
         """Given a blender Object and a Plasma class, find (or create) an exported plKey"""
-        location = self._pages[bl_obj.plasma_object.page]
+        if so is None:
+            location = self._pages[bl_obj.plasma_object.page]
+        else:
+            location = so.key.location
 
         index = plFactory.ClassIndex(pClass.__name__)
         for key in self.mgr.getKeys(location, index):

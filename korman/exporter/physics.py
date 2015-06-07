@@ -63,7 +63,6 @@ class PhysicsConverter:
             simIface = self._mgr.add_object(pl=plSimulationInterface, bl=bo)
             physical = self._mgr.add_object(pl=plGenericPhysical, bl=bo, name=name)
 
-            so.sim = simIface.key
             simIface.physical = physical.key
             physical.object = so.key
             physical.sceneNode = self._mgr.get_scene_node(bl=bo)

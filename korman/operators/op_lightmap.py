@@ -16,11 +16,42 @@
 import bpy
 from ..helpers import GoodNeighbor
 
+def _fetch_lamp_objects():
+    for obj in bpy.data.objects:
+        if obj.type == "LAMP":
+            yield obj
+
 class _LightingOperator:
+    def __init__(self):
+        self._old_lightgroups = {}
+
     @classmethod
     def poll(cls, context):
         if context.object is not None:
             return context.scene.render.engine == "PLASMA_GAME"
+
+    def _generate_lightgroups(self, mesh):
+        """Makes a new light group for the baking process that excludes all Plasma RT lamps"""
+        shouldibake = False
+
+        for material in mesh.materials:
+            lg = material.light_group
+            self._old_lightgroups[material] = lg
+
+            # TODO: faux-lightgroup caching for the entire export process. you dig?
+            if lg is None or len(lg.objects) == 0:
+                source = _fetch_lamp_objects()
+            else:
+                source = lg.objects
+            dest = bpy.data.groups.new("_LIGHTMAPGEN_{}".format(material.name))
+    
+            for obj in source:
+                if obj.plasma_object.enabled:
+                    continue
+                dest.objects.link(obj)
+                shouldibake = True
+            material.light_group = dest
+        return shouldibake
 
     def _hide_textures(self, mesh, toggle):
         for mat in mesh.materials:
@@ -28,11 +59,23 @@ class _LightingOperator:
                 if tex is not None and tex.use:
                     toggle.track(tex, "use", False)
 
+    def _pop_lightgroups(self):
+        for material, lg in self._old_lightgroups.items():
+            _fake = material.light_group
+            if _fake is not None:
+                _fake.user_clear()
+                bpy.data.groups.remove(_fake)
+            material.light_group = lg
+        self._old_lightgroups.clear()
+
 
 class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
     bl_idname = "object.plasma_lightmap_autobake"
     bl_label = "Bake Lightmap"
     bl_options = {"INTERNAL"}
+
+    def __init__(self):
+        super().__init__()
 
     def execute(self, context):
         with GoodNeighbor() as toggle:
@@ -74,6 +117,8 @@ class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
             bpy.ops.object.mode_set(mode="OBJECT")
     
             # Associate the image with all the new UVs
+            # NOTE: no toggle here because it's the artist's problem if they are looking at our
+            #       super swagalicious LIGHTMAPGEN uvtexture...
             for i in mesh.uv_textures.active.data:
                 i.image = im
     
@@ -87,8 +132,9 @@ class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
             self._hide_textures(obj.data, toggle)
 
             # Now, we *finally* bake the lightmap...
-            # FIXME: Don't bake Plasma RT lights
-            bpy.ops.object.bake_image()
+            if self._generate_lightgroups(mesh):
+                bpy.ops.object.bake_image()
+            self._pop_lightgroups()
 
         # Done!
         return {"FINISHED"}
@@ -98,6 +144,9 @@ class LightmapAutobakePreviewOperator(_LightingOperator, bpy.types.Operator):
     bl_idname = "object.plasma_lightmap_preview"
     bl_label = "Preview Lightmap"
     bl_options = {"INTERNAL"}
+
+    def __init__(self):
+        super().__init__()
 
     def execute(self, context):
         bpy.ops.object.plasma_lightmap_autobake()
@@ -116,6 +165,9 @@ class VertexColorLightingOperator(_LightingOperator, bpy.types.Operator):
     bl_label = "Bake Vertex Color Lighting"
     bl_options = {"INTERNAL"}
 
+    def __init__(self):
+        super().__init__()
+
     def execute(self, context):
         with GoodNeighbor() as toggle:
             mesh = context.active_object.data
@@ -129,7 +181,6 @@ class VertexColorLightingOperator(_LightingOperator, bpy.types.Operator):
 
             # Prepare to bake...
             self._hide_textures(mesh, toggle)
-            # TODO: don't bake runtime lights
 
             # Bake settings
             render = context.scene.render
@@ -137,7 +188,9 @@ class VertexColorLightingOperator(_LightingOperator, bpy.types.Operator):
             toggle.track(render, "use_bake_to_vertex_color", True)
 
             # Bake
-            bpy.ops.object.bake_image()
+            if self._generate_lightgroups(mesh):
+                bpy.ops.object.bake_image()
+            self._pop_lightgroups()
 
         # And done!
         return {"FINISHED"}

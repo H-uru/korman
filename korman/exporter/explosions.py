@@ -18,6 +18,11 @@ class ExportError(Exception):
         super(Exception, self).__init__(value)
 
 
+class BlenderOptionNotSupportedError(ExportError):
+    def __init__(self, opt):
+        super(ExportError, self).__init__("Unsupported Blender Option: '{}'".format(opt))
+
+
 class GLLoadError(ExportError):
     def __init__(self, image):
         super(ExportError, self).__init__("Failed to load '{}' into OpenGL".format(image.name))

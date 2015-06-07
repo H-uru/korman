@@ -42,6 +42,10 @@ def _whitelist_all(mod):
         if hasattr(attr, "COMPAT_ENGINES"):
             getattr(attr, "COMPAT_ENGINES").add("PLASMA_GAME")
 
+from bl_ui import properties_data_lamp
+_whitelist_all(properties_data_lamp)
+del properties_data_lamp
+
 from bl_ui import properties_render
 _whitelist_all(properties_render)
 del properties_render

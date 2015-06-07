@@ -23,6 +23,7 @@ from . import logger
 from . import manager
 from . import mesh
 from . import physics
+from . import rtlight
 from . import utils
 
 class Exporter:
@@ -44,6 +45,7 @@ class Exporter:
             self.mesh = mesh.MeshConverter(self)
             self.report = logger.ExportAnalysis()
             self.physics = physics.PhysicsConverter(self)
+            self.light = rtlight.LightConverter(self)
 
             # Step 1: Gather a list of objects that we need to export
             #         We should do this first so we can sanity check
@@ -120,10 +122,7 @@ class Exporter:
         """Ensures that the SceneObject has a CoordinateInterface"""
         if not so.coord:
             print("    Exporting CoordinateInterface")
-
-            ci = self.mgr.find_create_key(bo, plCoordinateInterface)
-            so.coord = ci
-            ci = ci.object
+            ci = self.mgr.find_create_key(bo, plCoordinateInterface).object
 
             # Now we have the "fun" work of filling in the CI
             ci.localToWorld = utils.matrix44(bo.matrix_basis)
@@ -163,8 +162,12 @@ class Exporter:
         # or add a silly special case :(
         pass
 
+    def _export_lamp_blobj(self, so, bo):
+        # We'll just redirect this to the RT Light converter...
+        self.light.export_rtlight(so, bo)
+
     def _export_mesh_blobj(self, so, bo):
         if bo.data.materials:
-            so.draw = self.mesh.export_object(bo)
+            self.mesh.export_object(bo)
         else:
             print("    No material(s) on the ObData, so no drawables")
