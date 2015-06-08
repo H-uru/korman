@@ -19,6 +19,41 @@ from PyHSPlasma import *
 
 from .base import PlasmaModifierProperties
 
+footstep_surface_ids = {
+    "dirt": 0,
+    # 1 = NULL
+    "puddle": 2,
+    # 3 = tile (NULL in MOUL)
+    "metal": 4,
+    "woodbridge": 5,
+    "rope": 6,
+    "grass": 7,
+    # 8 = NULL
+    "woodfloor": 9,
+    "rug": 10,
+    "stone": 11,
+    # 12 = NULL
+    # 13 = metal ladder (dupe of metal)
+    "woodladder": 14,
+    "water": 15,
+    # 16 = maintainer's glass (NULL in PotS)
+    # 17 = maintainer's metal grating (NULL in PotS)
+    # 18 = swimming (why would you want this?)
+}
+
+footstep_surfaces = [("dirt", "Dirt", "Dirt"),
+                     ("grass", "Grass", "Grass"),
+                     ("metal", "Metal", "Metal Catwalk"),
+                     ("puddle", "Puddle", "Shallow Water"),
+                     ("rope", "Rope", "Rope Ladder"),
+                     ("rug", "Rug", "Carpet Rug"),
+                     ("stone", "Stone", "Stone Tile"),
+                     ("water", "Water", "Deep Water"),
+                     ("woodbridge", "Wood Bridge", "Wood Bridge"),
+                     ("woodfloor", "Wood Floor", "Wood Floor"),
+                     ("woodladder", "Wood Ladder", "Wood Ladder")]
+
+
 class PlasmaPanicLinkRegion(PlasmaModifierProperties):
     pl_id = "paniclink"
 

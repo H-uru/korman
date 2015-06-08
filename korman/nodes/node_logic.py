@@ -13,14 +13,19 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
-from . import op_export as exporter
-from . import op_lightmap as lightmap
-from . import op_modifier as modifier
-from . import op_nodes as node
-from . import op_world as world
+import bpy
 
-def register():
-    exporter.register()
+from .node_core import *
 
-def unregister():
-    exporter.unregister()
+class PlasmaLogicTriggerNode(PlasmaNodeBase, bpy.types.Node):
+    bl_category = "LOGIC"
+    bl_idname = "PlasmaLogicTriggerNode"
+    bl_label = "Logic Trigger"
+
+    def init(self, context):
+        self.inputs.new("PlasmaConditionSocket", "Condition", "condition")
+        self.outputs.new("PlasmaRespTriggerSocket", "Trigger", "trigger")
+
+
+class PlasmaRespTriggerSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
+    bl_color = (0.384, 0.239, 0.239, 1.0)
