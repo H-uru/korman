@@ -13,6 +13,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+import abc
 import bpy
 from bpy.props import *
 
@@ -48,3 +49,17 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
                                          "default": True,
                                          "options": {"HIDDEN"}})
     }
+
+
+class PlasmaModifierLogicWiz:
+    @property
+    def node_tree(self):
+        name = "LOGICWIZ_{}".format(self.display_name)
+        try:
+            return bpy.data.node_groups[name]
+        except LookupError:
+            return bpy.data.node_groups.new(name, "PlasmaNodeTree")
+
+    @abc.abstractmethod
+    def logicwiz(self, bo):
+        pass

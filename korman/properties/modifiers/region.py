@@ -17,7 +17,8 @@ import bpy
 from bpy.props import *
 from PyHSPlasma import *
 
-from .base import PlasmaModifierProperties
+from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz
+from .physics import bounds_types
 
 footstep_surface_ids = {
     "dirt": 0,
@@ -52,6 +53,56 @@ footstep_surfaces = [("dirt", "Dirt", "Dirt"),
                      ("woodbridge", "Wood Bridge", "Wood Bridge"),
                      ("woodfloor", "Wood Floor", "Wood Floor"),
                      ("woodladder", "Wood Ladder", "Wood Ladder")]
+
+class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
+    pl_id = "footstep"
+
+    bl_category = "Region"
+    bl_label = "Footstep"
+    bl_description = "Footstep Region"
+
+    surface = EnumProperty(name="Surface",
+                           description="What kind of surface are we walking on?",
+                           items=footstep_surfaces,
+                           default="stone")
+    bounds = EnumProperty(name="Region Bounds",
+                          description="Physical object's bounds",
+                          items=bounds_types,
+                          default="hull")
+
+
+    def created(self, obj):
+        self.display_name = "{}_FootRgn".format(obj.name)
+
+    def logicwiz(self, bo):
+        tree = self.node_tree
+        nodes = tree.nodes
+        nodes.clear()
+
+        # Region Sensor
+        volsens = nodes.new("PlasmaVolumeSensorNode")
+        volsens.region = bo.data.name
+        volsens.bounds = self.bounds
+        volsens.find_input_socket("enter").allow = True
+        volsens.find_input_socket("exit").allow = True
+
+        # LogicMod
+        logicmod = nodes.new("PlasmaLogicTriggerNode")
+        logicmod.link_input(tree, volsens, "satisfies", "condition")
+
+        # Responder
+        respmod = nodes.new("PlasmaResponderNode")
+        respmod.link_input(tree, logicmod, "trigger", "whodoneit")
+        respstate = nodes.new("PlasmaResponderStateNode")
+        respstate.link_input(tree, respmod, "states", "whodoneit")
+        respstate.find_input_socket("whodoneit").default_state = True
+        respcmd = nodes.new("PlasmaResponderCommandNode")
+        respcmd.link_input(tree, respstate, "cmds", "whodoneit")
+
+        # ArmatureEffectStateMsg
+        msg = nodes.new("PlasmaFootstepSoundMsgNode")
+        msg.link_input(tree, respcmd, "msg", "sender")
+        msg.surface = self.surface
 
 
 class PlasmaPanicLinkRegion(PlasmaModifierProperties):

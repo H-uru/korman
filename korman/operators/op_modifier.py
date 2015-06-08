@@ -15,6 +15,7 @@
 
 import bpy
 from bpy.props import *
+import time
 
 from ..properties import modifiers
 
@@ -122,4 +123,28 @@ class ModifierMoveDownOperator(ModifierMoveOperator, bpy.types.Operator):
         last = max([mod.display_order for mod in plmods.modifiers])
         if self.active_modifier < last:
             self.swap_modifier_ids(plmods, self.active_modifier, self.active_modifier+1)
+        return {"FINISHED"}
+
+
+class ModifierLogicWizOperator(ModifierOperator, bpy.types.Operator):
+    bl_idname = "object.plasma_logicwiz"
+    bl_label = "Plasma LogicWiz"
+    bl_description = "Generates logic nodes from a given modifier on the active object"
+
+    modifier = StringProperty(name="Modifier", default="footstep")
+
+    def execute(self, context):
+        obj = context.active_object
+        mod = getattr(obj.plasma_modifiers, self.modifier)
+
+        print("--- Plasma LogicWiz ---")
+        print("Object: '{}'".format(obj.name))
+        print("Modifier: '{}'".format(self.modifier))
+        if not mod.enabled:
+            print("WRN: This modifier is not actually enabled!")
+
+        start = time.process_time()
+        mod.logicwiz(obj)
+        end = time.process_time()
+        print("\nLogicWiz finished in {:.2f} seconds".format(end-start))
         return {"FINISHED"}
