@@ -51,19 +51,44 @@ class PlasmaNodeBase:
 
     def link_input(self, tree, node, out_key, in_key):
         """Links a given Node's output socket to a given input socket on this Node"""
-        in_socket = self.find_input_socket(in_key)
-        out_socket = node.find_output_socket(out_key)
+        if isinstance(in_key, str):
+            in_socket = self.find_input_socket(in_key)
+        else:
+            in_socket = in_key
+        if isinstance(out_key, str):
+            out_socket = node.find_output_socket(out_key)
+        else:
+            out_socket = out_key
         link = tree.links.new(in_socket, out_socket)
 
     def link_output(self, tree, node, out_key, in_key):
         """Links a given Node's input socket to a given output socket on this Node"""
-        in_socket = node.find_input_socket(in_key)
-        out_socket = self.find_output_socket(out_key)
+        if isinstance(in_key, str):
+            in_socket = node.find_input_socket(in_key)
+        else:
+            in_socket = in_key
+        if isinstance(out_key, str):
+            out_socket = self.find_output_socket(out_key)
+        else:
+            out_socket = out_key
         link = tree.links.new(in_socket, out_socket)
 
     @classmethod
     def poll(cls, context):
         return (context.bl_idname == "PlasmaNodeTree")
+
+
+class PlasmaNodeVariableInput(PlasmaNodeBase):
+    def ensure_sockets(self, idname, name, identifier=None):
+        """Ensures there is one (and only one) empty input socket"""
+        empty = [i for i in self.inputs if i.bl_idname == idname and not i.links]
+        if not empty:
+            if identifier is None:
+                self.inputs.new(idname, name)
+            else:
+                self.inputs.new(idname, name, identifier)
+        while len(empty) > 1:
+            self.inputs.remove(empty.pop())
 
 
 class PlasmaNodeSocketBase:

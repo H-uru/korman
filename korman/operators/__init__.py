@@ -16,7 +16,6 @@
 from . import op_export as exporter
 from . import op_lightmap as lightmap
 from . import op_modifier as modifier
-from . import op_nodes as node
 from . import op_world as world
 
 def register():

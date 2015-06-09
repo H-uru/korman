@@ -94,8 +94,8 @@ class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         respmod = nodes.new("PlasmaResponderNode")
         respmod.link_input(tree, logicmod, "trigger", "whodoneit")
         respstate = nodes.new("PlasmaResponderStateNode")
-        respstate.link_input(tree, respmod, "states", "whodoneit")
-        respstate.find_input_socket("whodoneit").default_state = True
+        respstate.link_input(tree, respmod, "states", respstate.inputs.new("PlasmaRespStateSocket", "Responder"))
+        respstate.default_state = True
         respcmd = nodes.new("PlasmaResponderCommandNode")
         respcmd.link_input(tree, respstate, "cmds", "whodoneit")
 
