@@ -24,6 +24,17 @@ class PlasmaResponderNode(PlasmaNodeVariableInput, bpy.types.Node):
     bl_category = "LOGIC"
     bl_idname = "PlasmaResponderNode"
     bl_label = "Responder"
+    bl_width_default = 145
+
+    detect_trigger = BoolProperty(name="Detect Trigger",
+                                  description="When notified, trigger the Responder",
+                                  default=True)
+    detect_untrigger = BoolProperty(name="Detect UnTrigger",
+                                    description="When notified, untrigger the Responder",
+                                    default=False)
+    no_ff_sounds = BoolProperty(name="Don't F-Fwd Sounds",
+                                description="When fast-forwarding, play sound effects",
+                                default=False)
 
     def init(self, context):
         self.inputs.new("PlasmaConditionSocket", "Condition", "condition")
@@ -32,6 +43,10 @@ class PlasmaResponderNode(PlasmaNodeVariableInput, bpy.types.Node):
     def draw_buttons(self, context, layout):
         self.ensure_sockets("PlasmaConditionSocket", "Condition", "condition")
 
+        layout.prop(self, "detect_trigger")
+        layout.prop(self, "detect_untrigger")
+        layout.prop(self, "no_ff_sounds")
+
     def get_key(self, exporter, tree, so):
         return exporter.mgr.find_create_key(plResponderModifier, name=self.create_key_name(tree), so=so)
 
@@ -39,6 +54,13 @@ class PlasmaResponderNode(PlasmaNodeVariableInput, bpy.types.Node):
         responder = self.get_key(exporter, tree, so).object
         if not bo.plasma_net.manual_sdl:
             responder.setExclude("Responder")
+
+        if self.detect_trigger:
+            responder.flags |= plResponderModifier.kDetectTrigger
+        if self.detect_untrigger:
+            responder.flags |= plResponderModifier.kDetectUnTrigger
+        if self.no_ff_sounds:
+            responder.flags |= plResponderModifier.kSkipFFSound
 
         class ResponderStateMgr:
             def __init__(self, respNode, respMod):
