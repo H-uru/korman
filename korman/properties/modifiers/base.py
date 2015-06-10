@@ -54,7 +54,7 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
 class PlasmaModifierLogicWiz:
     @property
     def node_tree(self):
-        name = "LOGICWIZ_{}".format(self.display_name)
+        name = self.display_name
         try:
             return bpy.data.node_groups[name]
         except LookupError:

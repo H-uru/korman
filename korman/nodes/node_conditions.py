@@ -15,6 +15,7 @@
 
 import bpy
 from bpy.props import *
+from PyHSPlasma import *
 
 from .node_core import PlasmaNodeBase, PlasmaNodeSocketBase
 from ..properties.modifiers.physics import bounds_types
@@ -31,6 +32,7 @@ class PlasmaVolumeReportNode(PlasmaNodeBase, bpy.types.Node):
     report_when = EnumProperty(name="When",
                                description="When the region should trigger",
                                items=[("each", "Each Event", "The region will trigger on every enter/exit"),
+                                      ("first", "First Event", "The region will trigger on the first event only"),
                                       ("count", "Population", "When the region has a certain number of objects inside it")])
     threshold = IntProperty(name="Threshold",
                     description="How many objects should be in the region for it to trigger",
@@ -77,8 +79,86 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
         layout.prop(self, "report_on")
 
         # Okay, if they changed the name of the ObData, that's THEIR problem...
-        layout.prop_search(self, "region", bpy.data, "meshes", icon="MESH_DATA")
+        layout.prop_search(self, "region", bpy.data, "objects", icon="MESH_DATA")
         layout.prop(self, "bounds")
+
+    def export(self, exporter, tree, bo, so):
+        interface = exporter.mgr.add_object(plInterfaceInfoModifier, name=self.create_key_name(tree), so=so)
+
+        # Region Enters
+        enter_simple = self.find_input_socket("enter").allow
+        enter_settings = self.find_input("enter", "PlasmaVolumeReportNode")
+        if enter_simple or enter_settings is not None:
+            key = self._export_volume_event(exporter, tree, bo, so, plVolumeSensorConditionalObject.kTypeEnter, enter_settings)
+            interface.addIntfKey(key)
+
+        # Region Exits
+        exit_simple = self.find_input_socket("exit").allow
+        exit_settings = self.find_input("exit", "PlasmaVolumeReportNode")
+        if exit_simple or exit_settings is not None:
+            key = self._export_volume_event(exporter, tree, bo, so, plVolumeSensorConditionalObject.kTypeExit, exit_settings)
+            interface.addIntfKey(key)
+
+        # Don't forget to export the physical object itself!
+        # [trollface.jpg]
+        simIface, physical = exporter.physics.generate_physical(bo, so, "{}_VolumeSensor".format(bo.name))
+        phys_bo = bpy.data.objects[self.region]
+        exporter.physics.export(phys_bo, physical, self.bounds)
+
+        physical.memberGroup = plSimDefs.kGroupDetector
+        if "avatar" in self.report_on:
+            physical.reportGroup |= 1 << plSimDefs.kGroupAvatar
+        if "dynamics" in self.report_on:
+            physical.reportGroup |= 1 << plSimDefs.kGroupDynamic
+
+    def _export_volume_event(self, exporter, tree, bo, so, event, settings):
+        if event == plVolumeSensorConditionalObject.kTypeEnter:
+            suffix = "Enter"
+        else:
+            suffix = "Exit"
+
+        theName = "{}_{}_{}".format(tree.name, self.name, suffix)
+        print("        [LogicModifier '{}']".format(theName))
+        logicKey = exporter.mgr.find_create_key(plLogicModifier, name=theName, so=so)
+        logicmod = logicKey.object
+        logicmod.setLogicFlag(plLogicModifier.kMultiTrigger, True)
+
+        # LogicMod notification... This is one of the cases where the linked node needs to match
+        # exactly one key...
+        notify = plNotifyMsg()
+        notify.BCastFlags = (plMessage.kNetPropagate | plMessage.kLocalPropagate)
+        for i in self.find_outputs("satisfies"):
+            key = i.get_key(exporter, tree, so)
+            if key is None:
+                print("            WARNING: '{}' Node '{}' doesn't expose a key. It won't be triggered!".format(i.bl_idname, i.name))
+            else:
+                notify.addReceiver(key)
+        logicmod.notify = notify
+
+        # Now, the detector objects
+        print("        [ObjectInVolumeDetector '{}']".format(theName))
+        detKey = exporter.mgr.find_create_key(plObjectInVolumeDetector, name=theName, so=so)
+        det = detKey.object
+
+        print("        [VolumeSensorConditionalObject '{}']".format(theName))
+        volKey = exporter.mgr.find_create_key(plVolumeSensorConditionalObject, name=theName, so=so)
+        volsens = volKey.object
+
+        volsens.type = event
+        if settings is not None:
+            if settings.report_when == "first":
+                volsens.first = True
+            elif settings.report_when == "threshold":
+                volsens.trigNum = settings.threshold
+
+        # There appears to be a mandatory order for these keys...
+        det.addReceiver(volKey)
+        det.addReceiver(logicKey)
+
+        # End mandatory order
+        logicmod.addCondition(volKey)
+        return logicKey
+
 
 
 class PlasmaVolumeSettingsSocket(PlasmaNodeSocketBase):

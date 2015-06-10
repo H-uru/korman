@@ -20,14 +20,17 @@ import uuid
 
 from .node_core import *
 
-class PlasmaResponderNode(PlasmaNodeBase, bpy.types.Node):
+class PlasmaResponderNode(PlasmaNodeVariableInput, bpy.types.Node):
     bl_category = "LOGIC"
     bl_idname = "PlasmaResponderNode"
     bl_label = "Responder"
 
     def init(self, context):
-        self.inputs.new("PlasmaRespTriggerSocket", "Trigger", "whodoneit")
+        self.inputs.new("PlasmaConditionSocket", "Condition", "condition")
         self.outputs.new("PlasmaRespStateSocket", "States", "states")
+
+    def draw_buttons(self, context, layout):
+        self.ensure_sockets("PlasmaConditionSocket", "Condition", "condition")
 
     def get_key(self, exporter, tree, so):
         return exporter.mgr.find_create_key(plResponderModifier, name=self.create_key_name(tree), so=so)
@@ -74,13 +77,14 @@ class PlasmaResponderStateNode(PlasmaNodeVariableInput, bpy.types.Node):
                                  default=False)
 
     def init(self, context):
+        self.inputs.new("PlasmaRespStateSocket", "Condition", "condition")
         self.outputs.new("PlasmaRespCommandSocket", "Commands", "cmds")
         self.outputs.new("PlasmaRespStateSocket", "Trigger", "gotostate").link_limit = 1
 
     def draw_buttons(self, context, layout):
         # This actually draws nothing, but it makes sure we have at least one empty input slot
         # We need this because it's possible that multiple OTHER states can call us
-        self.ensure_sockets("PlasmaRespStateSocket", "Condition")
+        self.ensure_sockets("PlasmaRespStateSocket", "Condition", "condition")
 
         # Now draw a prop
         layout.prop(self, "default_state")

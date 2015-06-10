@@ -88,20 +88,18 @@ class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
 
         # Region Sensor
         volsens = nodes.new("PlasmaVolumeSensorNode")
-        volsens.region = bo.data.name
+        volsens.name = "RegionSensor"
+        volsens.region = bo.name
         volsens.bounds = self.bounds
         volsens.find_input_socket("enter").allow = True
         volsens.find_input_socket("exit").allow = True
 
-        # LogicMod
-        logicmod = nodes.new("PlasmaLogicTriggerNode")
-        logicmod.link_input(tree, volsens, "satisfies", "condition")
-
         # Responder
         respmod = nodes.new("PlasmaResponderNode")
-        respmod.link_input(tree, logicmod, "trigger", "whodoneit")
+        respmod.name = "Resp"
+        respmod.link_input(tree, volsens, "satisfies", "condition")
         respstate = nodes.new("PlasmaResponderStateNode")
-        respstate.link_input(tree, respmod, "states", respstate.inputs.new("PlasmaRespStateSocket", "Responder"))
+        respstate.link_input(tree, respmod, "states", "condition")
         respstate.default_state = True
         respcmd = nodes.new("PlasmaResponderCommandNode")
         respcmd.link_input(tree, respstate, "cmds", "whodoneit")
