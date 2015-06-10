@@ -15,6 +15,7 @@
 
 import bpy
 from bpy.props import *
+from PyHSPlasma import *
 
 from .node_core import *
 from ..properties.modifiers.region import footstep_surfaces, footstep_surface_ids
@@ -38,3 +39,8 @@ class PlasmaFootstepSoundMsgNode(PlasmaNodeBase, bpy.types.Node):
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "surface")
+
+    def convert_message(self, exporter):
+        msg = plArmatureEffectStateMsg()
+        msg.surface = footstep_surface_ids[self.surface]
+        return msg

@@ -13,9 +13,19 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+import abc
 import bpy
 
 class PlasmaNodeBase:
+    def create_key_name(self, tree):
+        return "{}_{}".format(tree.name, self.name)
+
+    def get_key(self, exporter, tree, so):
+        return None
+
+    def export(self, exporter, tree, bo, so):
+        pass
+
     def find_input(self, key, idname=None):
         for i in self.inputs:
             if i.identifier == key:
@@ -32,6 +42,18 @@ class PlasmaNodeBase:
         for i in self.inputs:
             if i.identifier == key:
                 return i
+        raise KeyError(key)
+
+    def find_output(self, key, idname=None):
+        for i in self.outputs:
+            if i.identifier == key:
+                if i.links:
+                    node = i.links[0].to_node
+                    if idname is not None and idname != node.bl_idname:
+                        return None
+                    return node
+                else:
+                    return None
         raise KeyError(key)
 
     def find_outputs(self, key, idname=None):
@@ -106,6 +128,11 @@ class PlasmaNodeTree(bpy.types.NodeTree):
     bl_idname = "PlasmaNodeTree"
     bl_label = "Plasma"
     bl_icon = "NODETREE"
+
+    def export(self, exporter, bo, so):
+        # just pass it off to each node
+        for node in self.nodes:
+            node.export(exporter, self, bo, so)
 
     @classmethod
     def poll(cls, context):

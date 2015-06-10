@@ -74,6 +74,13 @@ class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     def created(self, obj):
         self.display_name = "{}_FootRgn".format(obj.name)
 
+    def export(self, exporter, bo, so):
+        # Generate the logic nodes now
+        self.logicwiz(bo)
+
+        # Now, export the node tree
+        self.node_tree.export(exporter, bo, so)
+
     def logicwiz(self, bo):
         tree = self.node_tree
         nodes = tree.nodes

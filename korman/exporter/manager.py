@@ -91,7 +91,7 @@ class ExportManager:
 
         if isinstance(pl, plObjInterface):
             if so is None:
-                key = self.find_key(bl, plSceneObject)
+                key = self.find_key(plSceneObject, bl)
                 # prevent race conditions
                 if key is None:
                     so = self.add_object(plSceneObject, name=name, loc=location)
@@ -158,22 +158,26 @@ class ExportManager:
             self._nodes[location] = None
         return location
 
-    def find_create_key(self, bl_obj, pClass, so=None):
-        key = self.find_key(bl_obj, pClass, so=so)
+    def find_create_key(self, pClass, bl=None, name=None, so=None):
+        key = self.find_key(pClass, bl, name, so)
         if key is None:
-            key = self.add_object(pl=pClass, bl=bl_obj, so=so).key
+            key = self.add_object(pl=pClass, name=name, bl=bl, so=so).key
         return key
 
-    def find_key(self, bl_obj, pClass, so=None):
+    def find_key(self, pClass, bl=None, name=None, so=None):
         """Given a blender Object and a Plasma class, find (or create) an exported plKey"""
+        assert (bl or name) and (bl or so)
+
         if so is None:
-            location = self._pages[bl_obj.plasma_object.page]
+            location = self._pages[bl.plasma_object.page]
         else:
             location = so.key.location
+        if name is None:
+            name = bl.name
 
         index = plFactory.ClassIndex(pClass.__name__)
         for key in self.mgr.getKeys(location, index):
-            if bl_obj.name == key.name:
+            if name == key.name:
                 return key
         return None
 
