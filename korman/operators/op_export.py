@@ -14,8 +14,11 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+from bpy.props import *
 import os, os.path
+
 from .. import exporter
+from ..properties.prop_world import PlasmaAge
 
 
 class ExportOperator(bpy.types.Operator):
@@ -24,27 +27,42 @@ class ExportOperator(bpy.types.Operator):
     bl_idname = "export.plasma_age"
     bl_label = "Export Age"
 
-    # Export specific props
-    version = bpy.props.EnumProperty(
-        name="Version",
-        description="Version of the Plasma Engine to target",
-        default="pvPots",  # This should be changed when moul is easier to target!
-        items=[
-            ("pvPrime", "Ages Beyond Myst (63.11)", "Targets the original Uru (Live) game", 2),
-            ("pvPots", "Path of the Shell (63.12)", "Targets the most recent offline expansion pack", 1),
-            ("pvMoul", "Myst Online: Uru Live (70)", "Targets the most recent online game", 0),
-            # I see no reason to even offer Myst 5...
-        ]
-    )
-    optimize = bpy.props.BoolProperty(name="Optimize Age",
-                                      description="Optimizes your age to run faster. This slows down export.")
-    save_state = bpy.props.BoolProperty(name="Save State",
-                                        description="Saves your age's state to the server for subsequent link ins.",
-                                        default=True)
-    use_texture_page = bpy.props.BoolProperty(name="Use Texture Page",
-                                              description="Exports all textures to a dedicated Textures page",
-                                              default=True)
-    filepath = bpy.props.StringProperty(subtype="FILE_PATH")
+    # Here's the rub: we define the properties in this dict. We're going to register them as a seekrit
+    # over on the PlasmaAge world properties. We've got a helper so we can access them like they're actually on us...
+    # If you want a volatile property, register it directly on this operator!
+    _properties = {
+        "version": (EnumProperty, {"name": "Version",
+                                   "description": "Version of the Plasma Engine to target",
+                                   "default": "pvPots",  # This should be changed when moul is easier to target!
+                                   "items": [("pvPrime", "Ages Beyond Myst (63.11)", "Targets the original Uru (Live) game", 2),
+                                             ("pvPots", "Path of the Shell (63.12)", "Targets the most recent offline expansion pack", 1),
+                                             ("pvMoul", "Myst Online: Uru Live (70)", "Targets the most recent online game", 0)]}),
+
+        "save_state": (BoolProperty, {"name": "Save State",
+                                      "description": "Saves your age's state to the server for subsequent link ins",
+                                      "default": True}),
+
+        "use_texture_page": (BoolProperty, {"name": "Use Textures Page",
+                                            "description": "Exports all textures to a dedicated Textures page",
+                                            "default": True}),
+    }
+
+    # This wigs out and very bad things happen if it's not directly on the operator...
+    filepath = StringProperty(subtype="FILE_PATH")
+
+    def draw(self, context):
+        layout = self.layout
+        age = context.scene.world.plasma_age
+
+        # The crazy mess we're doing with props on the fly means we have to explicitly draw them :(
+        layout.prop(age, "version")
+        layout.prop(age, "save_state")
+        layout.prop(age, "use_texture_page")
+
+    def __getattr__(self, attr):
+        if attr in self._properties:
+            return getattr(bpy.context.scene.world.plasma_age, attr)
+        raise AttributeError(attr)
 
     @property
     def has_reports(self):
@@ -88,6 +106,18 @@ class ExportOperator(bpy.types.Operator):
         # We will prompt them for the export info, then call execute()
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
+
+    @classmethod
+    def register(cls):
+        # BEGIN MAJICK
+        # Register the exporter properties such that they will persist
+        for name, (prop, options) in cls._properties.items():
+            # Hide these settings from being seen on the age properties
+            age_options = dict(options)
+            age_options["options"] = {"HIDDEN"}
+
+            # Now do the majick
+            setattr(PlasmaAge, name, prop(**age_options))
 
 
 # Add the export operator to the Export menu :)
