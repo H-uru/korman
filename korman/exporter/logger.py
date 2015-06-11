@@ -13,6 +13,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+import os.path
 import sys
 
 class ExportAnalysis:
@@ -40,9 +41,12 @@ class ExportAnalysis:
 class ExportLogger:
     """Yet Another Logger(TM)"""
 
-    def __init__(self, fn):
-        self._stdout = sys.stdout
-        self._stderr = sys.stderr
+    def __init__(self, ageFile):
+        # Make the log file name from the age file path -- this ensures we're not trying to write
+        # the log file to the same directory Blender.exe is in, which might be a permission error
+        path, ageFile = os.path.split(ageFile)
+        ageName, _crap = os.path.splitext(ageFile)
+        fn = os.path.join(path, "{}_export.log".format(ageName))
         self._file = open(fn, "w")
 
         for i in dir(self._file):
@@ -50,8 +54,8 @@ class ExportLogger:
                 setattr(self, i, getattr(self._file, i))
 
     def __enter__(self):
-        sys.stdout = self._file
-        sys.stderr = self._file
+        self._stdout, sys.stdout = sys.stdout, self._file
+        self._stderr, sys.stderr = sys.stderr, self._file
 
     def __exit__(self, type, value, traceback):
         sys.stdout = self._stdout

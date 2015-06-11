@@ -36,7 +36,7 @@ class Exporter:
         return os.path.splitext(os.path.split(self._op.filepath)[1])[0]
 
     def run(self):
-        with logger.ExportLogger("{}_export.log".format(self.age_name)) as _log:
+        with logger.ExportLogger(self._op.filepath) as _log:
             print("Exporting '{}.age'".format(self.age_name))
             start = time.process_time()
 
