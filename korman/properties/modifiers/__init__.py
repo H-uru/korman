@@ -45,6 +45,23 @@ class PlasmaModifiers(bpy.types.PropertyGroup):
                 if attr.enabled:
                     yield attr
 
+    @classmethod
+    def register(cls):
+        # Okay, so we have N plasma modifer property groups...
+        # Rather than have (dis)organized chaos on the Blender Object, we will collect all of the
+        #     property groups of type PlasmaModifierProperties and generate on-the-fly a PlasmaModifier
+        #     property group to rule them all. The class attribute 'pl_id' will determine the name of
+        #     the property group in PlasmaModifiers.
+        # Also, just to spite us, Blender doesn't seem to handle PropertyGroup inheritance... at all.
+        #     So, we're going to have to create our base properties on all of the PropertyGroups.
+        #     It's times like these that make me wonder about life...
+        # Enjoy!
+        for i in modifier_definitions():
+            for name, (prop, kwargs) in PlasmaModifierProperties._subprops.items():
+                setattr(i, name, prop(**kwargs))
+            setattr(cls, i.pl_id, bpy.props.PointerProperty(type=i))
+        bpy.types.Object.plasma_modifiers = bpy.props.PointerProperty(type=cls)
+
 
 def _is_plasma_modifier(hClass):
     if inspect.isclass(hClass):
@@ -75,19 +92,3 @@ def modifier_mapping():
         else:
             d[mod.bl_category].append(tup)
     return d
-
-def register():
-    # Okay, so we have N plasma modifer property groups...
-    # Rather than have (dis)organized chaos on the Blender Object, we will collect all of the
-    #     property groups of type PlasmaModifierProperties and generate on-the-fly a PlasmaModifier
-    #     property group to rule them all. The class attribute 'pl_id' will determine the name of
-    #     the property group in PlasmaModifiers.
-    # Also, just to spite us, Blender doesn't seem to handle PropertyGroup inheritance... at all.
-    #     So, we're going to have to create our base properties on all of the PropertyGroups.
-    #     It's times like these that make me wonder about life...
-    # Enjoy!
-    for i in modifier_definitions():
-        for name, (prop, kwargs) in PlasmaModifierProperties._subprops.items():
-            setattr(i, name, prop(**kwargs))
-        setattr(PlasmaModifiers, i.pl_id, bpy.props.PointerProperty(type=i))
-    bpy.types.Object.plasma_modifiers = bpy.props.PointerProperty(type=PlasmaModifiers)

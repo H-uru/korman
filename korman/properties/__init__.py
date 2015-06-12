@@ -25,6 +25,3 @@ def register():
     bpy.types.Object.plasma_object = bpy.props.PointerProperty(type=PlasmaObject)
     bpy.types.World.plasma_age = bpy.props.PointerProperty(type=PlasmaAge)
     bpy.types.World.plasma_fni = bpy.props.PointerProperty(type=PlasmaFni)
-
-    # We have our own brand of special insanity in the modifier code, so let's handle that in there
-    modifiers.register()
