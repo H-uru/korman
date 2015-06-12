@@ -201,10 +201,14 @@ class MaterialConverter:
                 print("            No UVMap specified... Blindly using the first one, maybe it exists :|")
 
             # General texture flags and such
-            texture = slot.texture
-            # ...
+            state = layer.state
+            if slot.blend_type == "ADD":
+                state.blendFlags |= hsGMatState.kBlendAdd
+            elif slot.blend_type == "MULTIPLY":
+                state.blendFlags |= hsGMatState.kBlendMult
 
             # Export the specific texture type
+            texture = slot.texture
             export_fn = "_export_texture_type_{}".format(texture.type.lower())
             if not hasattr(self, export_fn):
                 raise explosions.UnsupportedTextureError(texture, bm)
@@ -218,6 +222,8 @@ class MaterialConverter:
         state = layer.state
         if texture.invert_alpha:
             state.blendFlags |= hsGMatState.kBlendInvertAlpha
+        if texture.extension == "CLIP":
+            state.clampFlags |= hsGMatState.kClampTexture
 
         # Now, let's export the plBitmap
         # If the image is None (no image applied in Blender), we assume this is a plDynamicTextMap
