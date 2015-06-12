@@ -111,7 +111,7 @@ class Exporter:
 
                 # Instead of exporting a skeleton now, we'll just make an orphaned CI.
                 # The bl_obj export will make this work.
-                parent_ci = self.mgr.find_create_key(parent, plCoordinateInterface).object
+                parent_ci = self.mgr.find_create_key(plCoordinateInterface, bl=bo, so=so).object
                 parent_ci.addChild(so.key)
             else:
                 self.report.warn("You have parented Plasma Object '{}' to '{}', which has not been marked for export. \
@@ -122,7 +122,7 @@ class Exporter:
         """Ensures that the SceneObject has a CoordinateInterface"""
         if not so.coord:
             print("    Exporting CoordinateInterface")
-            ci = self.mgr.find_create_key(bo, plCoordinateInterface).object
+            ci = self.mgr.find_create_key(plCoordinateInterface, bl=bo, so=so).object
 
             # Now we have the "fun" work of filling in the CI
             ci.localToWorld = utils.matrix44(bo.matrix_basis)
@@ -148,7 +148,7 @@ class Exporter:
             # Create a sceneobject if one does not exist.
             # Before we call the export_fn, we need to determine if this object is an actor of any
             # sort, and barf out a CI.
-            sceneobject = self.mgr.find_create_key(bl_obj, plSceneObject).object
+            sceneobject = self.mgr.find_create_key(plSceneObject, bl=bl_obj).object
             self._export_actor(sceneobject, bl_obj)
             export_fn(sceneobject, bl_obj)
 

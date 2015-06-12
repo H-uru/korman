@@ -16,6 +16,7 @@
 import bpy
 from . import exporter, render
 from . import properties, ui
+from . import nodes
 from . import operators
 
 bl_info = {
@@ -37,6 +38,7 @@ def register():
     bpy.utils.register_module(__name__)
 
     # Sigh... Blender isn't totally automated.
+    nodes.register()
     operators.register()
     properties.register()
 
@@ -44,6 +46,7 @@ def register():
 def unregister():
     """Unregisters all Blender operators and GUI items"""
     bpy.utils.unregister_module(__name__)
+    nodes.unregister()
     operators.unregister()
 
 

@@ -92,7 +92,7 @@ class LightConverter:
     def _create_light_key(self, bo, bl_light, so):
         try:
             xlate = _BL2PL[bl_light.type]
-            return self.mgr.find_create_key(bo, xlate, so=so)
+            return self.mgr.find_create_key(xlate, bl=bo, so=so)
         except LookupError:
             raise BlenderOptionNotSupported("Object ('{}') lamp type '{}'".format(bo.name, bl_light.type))
 

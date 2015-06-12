@@ -14,9 +14,28 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+from bpy.props import *
 from PyHSPlasma import *
 
 from .base import PlasmaModifierProperties
+
+class PlasmaAdvancedLogic(PlasmaModifierProperties):
+    pl_id = "advanced_logic"
+
+    bl_category = "Logic"
+    bl_label = "Advanced"
+    bl_description = "Plasma Logic Nodes"
+    bl_icon = "NODETREE"
+
+    tree_name = StringProperty(name="Node Tree", description="Plasma Logic Nodes")
+
+    def created(self, obj):
+        self.display_name = "Advanced Logic"
+
+    def export(self, exporter, bo, so):
+        tree = bpy.data.node_groups[self.tree_name]
+        tree.export(exporter, bo, so)
+
 
 class PlasmaSpawnPoint(PlasmaModifierProperties):
     pl_id = "spawnpoint"

@@ -13,6 +13,11 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+import bpy
+
+def advanced_logic(modifier, layout, context):
+    layout.prop_search(modifier, "tree_name", bpy.data, "node_groups", icon="NODETREE")
+
 def spawnpoint(modifier, layout, context):
     layout.label(text="The Y axis indicates the direction the avatar is facing.")
 
