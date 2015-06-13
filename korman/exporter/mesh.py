@@ -293,7 +293,15 @@ class MeshConverter:
         return geospans
 
     def _export_static_lighting(self, bo):
-        context = {"active_object": bo, "object": bo}
+        context = {"active_object": bo,
+                   "area": bpy.context.area,
+                   "blend_data": bpy.context.blend_data,
+                   "object": bo,
+                   "region": bpy.context.region,
+                   "scene": bpy.context.scene,
+                   "screen": bpy.context.screen,
+                   "window": bpy.context.window}
+
         if bo.plasma_modifiers.lightmap.enabled:
             print("    Baking lightmap...")
             print("====")

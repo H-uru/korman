@@ -105,11 +105,15 @@ class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
             for uvtex in mesh.uv_textures:
                 if uvtex.name == "LIGHTMAPGEN":
                     toggle.track(mesh.uv_textures, "active", uvtex)
+                    toggle.track(uvtex, "active_render", True)
                     break
+                else:
+                    toggle.track(uvtex, "active_render", False)
             else:
                 # Gotta make it
                 uvtex = mesh.uv_textures.new("LIGHTMAPGEN")
                 toggle.track(mesh.uv_textures, "active", uvtex)
+                toggle.track(uvtex, "active_render", True)
     
             # Now, enter edit mode on this mesh and unwrap.
             bpy.ops.object.mode_set(mode="EDIT")
@@ -176,6 +180,11 @@ class VertexColorLightingOperator(_LightingOperator, bpy.types.Operator):
             if autocolor is None:
                 mesh.vertex_colors.new("autocolor")
             toggle.track(mesh.vertex_colors, "active", autocolor)
+
+            # Mark "autocolor" as our active render layer
+            for vcol_layer in mesh.vertex_colors:
+                autocol = vcol_layer.name == "autocolor"
+                toggle.track(vcol_layer, "active_render", autocol)
 
             # Bake settings
             render = context.scene.render
