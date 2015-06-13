@@ -144,7 +144,7 @@ class MeshConverter:
                 # at home (and actually enjoys reading these lawgs)
                 print("    Bounds and SpaceTree in the saddle")
 
-    def _export_geometry(self, mesh, geospans):
+    def _export_geometry(self, bo, mesh, geospans):
         _geodatacls = type("_GeoData",
                        (object,),
                        {
@@ -160,7 +160,7 @@ class MeshConverter:
             name = vcol_layer.name.lower()
             if name in _VERTEX_COLOR_LAYERS:
                 color = vcol_layer.data
-            elif name == "autocolor" and color is None:
+            elif name == "autocolor" and color is None and not bo.plasma_modifiers.lightmap.enabled:
                 color = vcol_layer.data
             elif name == "alpha":
                 alpha = vcol_layer.data
@@ -262,7 +262,7 @@ class MeshConverter:
         geospans = self._export_material_spans(bo, mesh)
 
         # Step 2: Export Blender mesh data to Plasma GeometrySpans
-        self._export_geometry(mesh, geospans)
+        self._export_geometry(bo, mesh, geospans)
 
         # Step 3: Add plGeometrySpans to the appropriate DSpan and create indices
         _diindices = {}
