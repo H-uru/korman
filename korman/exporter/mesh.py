@@ -293,11 +293,11 @@ class MeshConverter:
         return geospans
 
     def _export_static_lighting(self, bo):
-        bpy.context.scene.objects.active = bo
+        context = {"active_object": bo, "object": bo}
         if bo.plasma_modifiers.lightmap.enabled:
             print("    Baking lightmap...")
             print("====")
-            bpy.ops.object.plasma_lightmap_autobake()
+            bpy.ops.object.plasma_lightmap_autobake(context)
             print("====")
         else:
             for vcol_layer in bo.data.vertex_colors:
@@ -306,7 +306,7 @@ class MeshConverter:
                     break
             else:
                 print("    Baking crappy vertex color lighting...")
-                bpy.ops.object.plasma_vertexlight_autobake()
+                bpy.ops.object.plasma_vertexlight_autobake(context)
 
 
     def _find_create_dspan(self, bo, hsgmat, pass_index):
