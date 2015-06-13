@@ -134,6 +134,7 @@ class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
             # Now, we *finally* bake the lightmap...
             if self._generate_lightgroups(mesh):
                 bpy.ops.object.bake_image()
+                im.pack(as_png=True)
             self._pop_lightgroups()
 
         # Done!
