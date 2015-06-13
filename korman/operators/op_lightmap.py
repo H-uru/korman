@@ -30,6 +30,13 @@ class _LightingOperator:
         if context.object is not None:
             return context.scene.render.engine == "PLASMA_GAME"
 
+    def _apply_render_settings(self, render, toggle):
+        toggle.track(render, "use_textures", False)
+        toggle.track(render, "use_shadows", True)
+        toggle.track(render, "use_envmaps", False)
+        toggle.track(render, "use_raytrace", True)
+        toggle.track(render, "bake_type", "FULL")
+
     def _generate_lightgroups(self, mesh):
         """Makes a new light group for the baking process that excludes all Plasma RT lamps"""
         shouldibake = False
@@ -52,12 +59,6 @@ class _LightingOperator:
                 shouldibake = True
             material.light_group = dest
         return shouldibake
-
-    def _hide_textures(self, mesh, toggle):
-        for mat in mesh.materials:
-            for tex in mat.texture_slots:
-                if tex is not None and tex.use:
-                    toggle.track(tex, "use", False)
 
     def _pop_lightgroups(self):
         for material, lg in self._old_lightgroups.items():
@@ -124,12 +125,8 @@ class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
     
             # Bake settings
             render = context.scene.render
-            toggle.track(render, "bake_type", "FULL")
             toggle.track(render, "use_bake_to_vertex_color", False)
-
-            # If we run a full render with our textures enabled, guess what we will get in our LM?
-            # Yeah, textures. Mutter mutter mutter.
-            self._hide_textures(obj.data, toggle)
+            self._apply_render_settings(render, toggle)
 
             # Now, we *finally* bake the lightmap...
             if self._generate_lightgroups(mesh):
@@ -180,13 +177,10 @@ class VertexColorLightingOperator(_LightingOperator, bpy.types.Operator):
                 mesh.vertex_colors.new("autocolor")
             toggle.track(mesh.vertex_colors, "active", autocolor)
 
-            # Prepare to bake...
-            self._hide_textures(mesh, toggle)
-
             # Bake settings
             render = context.scene.render
-            toggle.track(render, "bake_type", "FULL")
             toggle.track(render, "use_bake_to_vertex_color", True)
+            self._apply_render_settings(render, toggle)
 
             # Bake
             if self._generate_lightgroups(mesh):
