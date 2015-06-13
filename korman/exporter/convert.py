@@ -79,16 +79,9 @@ class Exporter:
             print("\nExported {}.age in {:.2f} seconds".format(self.age_name, end-start))
 
     def _collect_objects(self):
-        apply_xform = bpy.ops.object.transform_apply
         for obj in bpy.data.objects:
             if obj.plasma_object.enabled:
                 self._objects.append(obj)
-
-            # For our own sanity, we should apply any scale transform this object has.
-            # Physicals often have issues with unapplied scale transforms. Other transforms
-            # will be saved to the DSpan or CoordInterface.
-            context = {"object": obj, "selected_editable_objects": [obj]}
-            apply_xform(context, scale=True)
 
     def _export_age_info(self):
         # Make life slightly easier...

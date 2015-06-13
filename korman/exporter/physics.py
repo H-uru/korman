@@ -32,9 +32,14 @@ class PhysicsConverter:
         physical.rot = utils.quaternion(mat.to_quaternion())
         physical.pos = utils.vector3(mat.to_translation())
 
-        # Vertices are simple. Note that all scale transforms were applied by the exporter long
-        # before we got here. Yay!
-        vertices = [hsVector3(i.co.x, i.co.y, i.co.z) for i in mesh.vertices]
+        # Physicals can't have scale...
+        scale = mat.to_scale()
+        if scale[0] == 1.0 and scale[1] == 1.0 and scale[2] == 1.0:
+            # Whew, don't need to do any math!
+            vertices = [hsVector3(i.co.x, i.co.y, i.co.z) for i in mesh.vertices]
+        else:
+            # Dagnabbit...
+            vertices = [hsVector3(i.co.x * scale.x, i.co.y * scale.y, i.co.z * scale.z) for i in mesh.vertices]
 
         if indices:
             indices = []
