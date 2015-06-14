@@ -17,18 +17,6 @@ import bpy
 from bpy.props import *
 from PyHSPlasma import *
 
-
-def SdlEnumProperty(name):
-    return bpy.props.EnumProperty(name=name,
-                                  description="{} state synchronization".format(name),
-                                  items=[
-                                      ("save", "Save to Server", "Save state on the server"),
-                                      ("volatile", "Volatile on Server", "Throw away state when the age shuts down"),
-                                      ("exclude", "Don't Send to Server", "Don't synchronize with the server"),
-                                   ],
-                                   default="save")
-
-
 class PlasmaObject(bpy.types.PropertyGroup):
     def _enabled(self, context):
         # This makes me sad
@@ -69,11 +57,80 @@ class PlasmaNet(bpy.types.PropertyGroup):
     manual_sdl = BoolProperty(name="Override SDL",
                               description="ADVANCED: Manually track high level states on this object",
                               default=False)
+    sdl_names = set()
 
-    # Some of the standard plSynchedObject states
-    agmaster = SdlEnumProperty("AGMaster")
-    layer = SdlEnumProperty("Layer")
-    physical = SdlEnumProperty("Physical")
-    responder = SdlEnumProperty("Responder")
-    sound = SdlEnumProperty("Sound")
-    xregion = SdlEnumProperty("XRegion")
+    def export(self, bo, so):
+        volatile, exclude = set(), set()
+        if self.manual_sdl:
+            for attr in self.sdl_names:
+                value = getattr(self, attr)
+                if value == "volatile":
+                    volatile.add(attr)
+                elif value == "exclude":
+                    exclude.add(attr)
+        else:
+            # Is this a kickable?
+            if so.sim is not None:
+                phys = so.sim.object.physical.object
+                has_kickable = (phys.memberGroup == plSimDefs.kGroupDynamic)
+            else:
+                has_kickable = False
+
+            # Is there a PythonFileMod?
+            for modKey in so.modifiers:
+                if isinstance(modKey.object, plPythonFileMod):
+                    has_pfm = True
+                    break
+            else:
+                has_pfm = False
+
+            # If we have either a kickable or a PFM, the PlasmaMax default is to exclude all the
+            # logic-type stuff for higher level processing (namely, python)
+            if has_kickable or has_pfm:
+                exclude.add("AGMaster")
+                exclude.add("Layer")
+                exclude.add("Responder")
+                exclude.add("Sound")
+                exclude.add("XRegion")
+            else:
+                so.synchFlags |= plSynchedObject.kExcludeAllPersistentState
+
+        # Inspect and apply volatile states, if any
+        if len(volatile) == len(self.sdl_names):
+            so.synchFlags |= plSynchedObject.kAllStateIsVolatile
+        elif volatile:
+            so.synchFlags |= plSynchedObject.kHasVolatileState
+            so.volatiles = sorted(volatile)
+
+        # Inspect and apply exclude states, if any
+        if len(exclude) == len(self.sdl_names):
+            so.synchFlags |= plSynchedObject.kExcludeAllPersistentState
+        elif exclude:
+            so.synchFlags |= plSynchedObject.kExcludePersistentState
+            so.excludes = sorted(exclude)
+
+    @classmethod
+    def register(cls):
+        def SdlEnumProperty(name):
+            value = bpy.props.EnumProperty(name=name,
+                                           description="{} state synchronization".format(name),
+                                           items=[
+                                               ("save", "Save to Server", "Save state on the server"),
+                                               ("volatile", "Volatile on Server", "Throw away state when the age shuts down"),
+                                               ("exclude", "Don't Send to Server", "Don't synchronize with the server"),
+                                            ],
+                                            default="exclude")
+            setattr(PlasmaNet, name, value)
+            PlasmaNet.sdl_names.add(name)
+        agmaster = SdlEnumProperty("AGMaster")
+        avatar = SdlEnumProperty("Avatar")
+        avatar_phys = SdlEnumProperty("AvatarPhysical")
+        clone = SdlEnumProperty("CloneMessage")
+        clothing = SdlEnumProperty("Clothing")
+        layer = SdlEnumProperty("Layer")
+        morph = SdlEnumProperty("MorphSequence")
+        particle = SdlEnumProperty("ParticleSystem")
+        physical = SdlEnumProperty("Physical")
+        responder = SdlEnumProperty("Responder")
+        sound = SdlEnumProperty("Sound")
+        xregion = SdlEnumProperty("XRegion")

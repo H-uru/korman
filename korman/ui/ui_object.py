@@ -70,9 +70,5 @@ class PlasmaNetPanel(ObjectButtonsPanel, bpy.types.Panel):
         pl_net = context.object.plasma_net
         layout.active = pl_net.manual_sdl
 
-        layout.prop(pl_net, "agmaster", text="Animation")
-        layout.prop(pl_net, "layer", text="Material")
-        layout.prop(pl_net, "physical")
-        layout.prop(pl_net, "responder")
-        layout.prop(pl_net, "sound")
-        layout.prop(pl_net, "xregion")
+        for i in sorted(pl_net.sdl_names):
+            layout.prop(pl_net, i)

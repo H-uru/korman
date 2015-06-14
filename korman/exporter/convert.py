@@ -157,6 +157,9 @@ class Exporter:
                 print("    Exporting '{}' modifier as '{}'".format(mod.bl_label, mod.display_name))
                 mod.export(self, bl_obj, sceneobject)
 
+            # Last, but not least, apply synch settings
+            bl_obj.plasma_net.export(bl_obj, sceneobject)
+
     def _export_empty_blobj(self, so, bo):
         # We don't need to do anything here. This function just makes sure we don't error out
         # or add a silly special case :(
