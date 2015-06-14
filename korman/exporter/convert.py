@@ -24,6 +24,7 @@ from . import manager
 from . import mesh
 from . import physics
 from . import rtlight
+from . import sumfile
 from . import utils
 
 class Exporter:
@@ -41,11 +42,12 @@ class Exporter:
             start = time.process_time()
 
             # Step 0: Init export resmgr and stuff
-            self.mgr = manager.ExportManager(globals()[self._op.version])
+            self.mgr = manager.ExportManager(self)
             self.mesh = mesh.MeshConverter(self)
             self.report = logger.ExportAnalysis()
             self.physics = physics.PhysicsConverter(self)
             self.light = rtlight.LightConverter(self)
+            self.sumfile = sumfile.SumFile()
 
             # Step 1: Gather a list of objects that we need to export
             #         We should do this first so we can sanity check

@@ -16,6 +16,7 @@
 import bpy
 import os.path
 from PyHSPlasma import *
+import weakref
 
 from . import explosions
 
@@ -43,9 +44,10 @@ _pool_types = (
 class ExportManager:
     """Friendly resource-managing helper class."""
 
-    def __init__(self, version):
+    def __init__(self, exporter):
+        self._exporter = weakref.ref(exporter)
         self.mgr = plResManager()
-        self.mgr.setVer(version)
+        self.mgr.setVer(globals()[exporter._op.version])
 
         self._nodes = {}
         self._pages = {}
@@ -238,10 +240,16 @@ class ExportManager:
     def save_age(self, path):
         relpath, ageFile = os.path.split(path)
         ageName = os.path.splitext(ageFile)[0]
+        sumfile = self._exporter().sumfile
 
+        sumfile.append(path)
         self.mgr.WriteAge(path, self._age_info)
         self._write_fni(relpath, ageName)
         self._write_pages(relpath, ageName)
+
+        if self.getVer() != pvMoul:
+            sumpath = os.path.join(relpath, "{}.sum".format(ageName))
+            sumfile.write(sumpath, self.getVer())
 
     def _write_fni(self, path, ageName):
         if self.mgr.getVer() <= pvMoul:
@@ -249,20 +257,18 @@ class ExportManager:
         else:
             enc = plEncryptedStream.kEncAES
         fname = os.path.join(path, "{}.fni".format(ageName))
-        stream = plEncryptedStream()
-        stream.open(fname, fmWrite, enc)
 
-        # Write out some stuff
-        fni = bpy.context.scene.world.plasma_fni
-        stream.writeLine("Graphics.Renderer.SetClearColor {} {} {}".format(*fni.clear_color))
-        if fni.fog_method != "none":
-            stream.writeLine("Graphics.Renderer.Fog.SetDefColor {} {} {}".format(*fni.fog_color))
-        if fni.fog_method == "linear":
-            stream.writeLine("Graphics.Renderer.Fog.SetDefLinear {} {} {}".format(fni.fog_start, fni.fog_end, fni.fog_density))
-        elif fni.fog_method == "exp2":
-            stream.writeLine("Graphics.Renderer.Fog.SetDefExp2 {} {}".format(fni.fog_end, fni.fog_density))
-        stream.writeLine("Graphics.Renderer.SetYon {}".format(fni.yon))
-        stream.close()
+        with plEncryptedStream(self.mgr.getVer()).open(fname, fmWrite, enc) as stream:
+            fni = bpy.context.scene.world.plasma_fni
+            stream.writeLine("Graphics.Renderer.SetClearColor {} {} {}".format(*fni.clear_color))
+            if fni.fog_method != "none":
+                stream.writeLine("Graphics.Renderer.Fog.SetDefColor {} {} {}".format(*fni.fog_color))
+            if fni.fog_method == "linear":
+                stream.writeLine("Graphics.Renderer.Fog.SetDefLinear {} {} {}".format(fni.fog_start, fni.fog_end, fni.fog_density))
+            elif fni.fog_method == "exp2":
+                stream.writeLine("Graphics.Renderer.Fog.SetDefExp2 {} {}".format(fni.fog_end, fni.fog_density))
+            stream.writeLine("Graphics.Renderer.SetYon {}".format(fni.yon))
+        self._exporter().sumfile.append(fname)
 
     def _write_pages(self, path, ageName):
         for loc in self._pages.values():
@@ -275,3 +281,4 @@ class ExportManager:
                 chapter = "_"
             f = os.path.join(path, "{}{}{}.prp".format(ageName, chapter, page.page))
             self.mgr.WritePage(f, page)
+            self._exporter().sumfile.append(f)
