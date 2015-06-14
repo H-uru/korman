@@ -36,6 +36,9 @@ class PlasmaLightMapGen(PlasmaModifierProperties):
                                   ("1024", "1024px", "1024x1024 pixels"),
                             ])
 
+    light_group = StringProperty(name="Light Group",
+                                 description="Group that defines the collection of lights to bake")
+
     def created(self, obj):
         self.display_name = "{}_LIGHTMAPGEN".format(obj.name)
 

@@ -302,10 +302,11 @@ class MeshConverter:
                    "screen": bpy.context.screen,
                    "window": bpy.context.window}
 
-        if bo.plasma_modifiers.lightmap.enabled:
+        lm = bo.plasma_modifiers.lightmap
+        if lm.enabled:
             print("    Baking lightmap...")
             print("====")
-            bpy.ops.object.plasma_lightmap_autobake(context)
+            bpy.ops.object.plasma_lightmap_autobake(context, light_group=lm.light_group)
             print("====")
         else:
             for vcol_layer in bo.data.vertex_colors:

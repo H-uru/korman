@@ -16,9 +16,10 @@
 import bpy
 
 def lightmap(modifier, layout, context):
-    col = layout.column(align=True)
-    col.row(align=True).prop(modifier, "quality", expand=True)
-    col.operator("object.plasma_lightmap_preview", "Preview Lightmap", icon="RENDER_STILL")
+    layout.row(align=True).prop(modifier, "quality", expand=True)
+    layout.prop_search(modifier, "light_group", bpy.data, "groups", icon="GROUP")
+    operator = layout.operator("object.plasma_lightmap_preview", "Preview Lightmap", icon="RENDER_STILL")
+    operator.light_group = modifier.light_group
 
     # Kind of clever stuff to show the user a preview...
     # We can't show images, so we make a hidden ImageTexture called LIGHTMAPGEN_PREVIEW. We check

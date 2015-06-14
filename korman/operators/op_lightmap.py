@@ -14,6 +14,7 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+from bpy.props import *
 from ..helpers import GoodNeighbor
 
 def _fetch_lamp_objects():
@@ -37,26 +38,30 @@ class _LightingOperator:
         toggle.track(render, "use_raytrace", True)
         toggle.track(render, "bake_type", "FULL")
 
-    def _generate_lightgroups(self, mesh):
+    def _generate_lightgroups(self, mesh, user_lg=None):
         """Makes a new light group for the baking process that excludes all Plasma RT lamps"""
-        shouldibake = False
+        shouldibake = (user_lg and user_lg.objects)
 
         for material in mesh.materials:
             lg = material.light_group
             self._old_lightgroups[material] = lg
 
-            # TODO: faux-lightgroup caching for the entire export process. you dig?
-            if lg is None or len(lg.objects) == 0:
-                source = _fetch_lamp_objects()
+            if user_lg is None:
+                # TODO: faux-lightgroup caching for the entire export process. you dig?
+                if not lg or len(lg.objects) == 0:
+                    source = _fetch_lamp_objects()
+                else:
+                    source = lg.objects
+                dest = bpy.data.groups.new("_LIGHTMAPGEN_{}".format(material.name))
+
+                # Only use non-RT lights
+                for obj in source:
+                    if obj.plasma_object.enabled:
+                        continue
+                    dest.objects.link(obj)
+                    shouldibake = True
             else:
-                source = lg.objects
-            dest = bpy.data.groups.new("_LIGHTMAPGEN_{}".format(material.name))
-    
-            for obj in source:
-                if obj.plasma_object.enabled:
-                    continue
-                dest.objects.link(obj)
-                shouldibake = True
+                dest = user_lg
             material.light_group = dest
         return shouldibake
 
@@ -76,6 +81,8 @@ class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
     bl_idname = "object.plasma_lightmap_autobake"
     bl_label = "Bake Lightmap"
     bl_options = {"INTERNAL"}
+
+    light_group = StringProperty(name="Light Group")
 
     def __init__(self):
         super().__init__()
@@ -135,7 +142,8 @@ class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
             self._apply_render_settings(render, toggle)
 
             # Now, we *finally* bake the lightmap...
-            if self._generate_lightgroups(mesh):
+            light_group = bpy.data.groups[self.light_group] if self.light_group else None
+            if self._generate_lightgroups(mesh, light_group):
                 bpy.ops.object.bake_image()
                 im.pack(as_png=True)
             self._pop_lightgroups()
@@ -149,11 +157,13 @@ class LightmapAutobakePreviewOperator(_LightingOperator, bpy.types.Operator):
     bl_label = "Preview Lightmap"
     bl_options = {"INTERNAL"}
 
+    light_group = StringProperty(name="Light Group")
+
     def __init__(self):
         super().__init__()
 
     def execute(self, context):
-        bpy.ops.object.plasma_lightmap_autobake()
+        bpy.ops.object.plasma_lightmap_autobake(light_group=self.light_group)
 
         tex = bpy.data.textures.get("LIGHTMAPGEN_PREVIEW")
         if tex is None:
