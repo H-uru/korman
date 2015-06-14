@@ -18,6 +18,7 @@ from PyHSPlasma import *
 import weakref
 
 from . import explosions
+from .. import helpers
 from . import material
 from . import utils
 
@@ -293,20 +294,12 @@ class MeshConverter:
         return geospans
 
     def _export_static_lighting(self, bo):
-        context = {"active_object": bo,
-                   "area": bpy.context.area,
-                   "blend_data": bpy.context.blend_data,
-                   "object": bo,
-                   "region": bpy.context.region,
-                   "scene": bpy.context.scene,
-                   "screen": bpy.context.screen,
-                   "window": bpy.context.window}
-
+        helpers.make_active_selection(bo)
         lm = bo.plasma_modifiers.lightmap
         if lm.enabled:
             print("    Baking lightmap...")
             print("====")
-            bpy.ops.object.plasma_lightmap_autobake(context, light_group=lm.light_group)
+            bpy.ops.object.plasma_lightmap_autobake(light_group=lm.light_group)
             print("====")
         else:
             for vcol_layer in bo.data.vertex_colors:
@@ -315,7 +308,7 @@ class MeshConverter:
                     break
             else:
                 print("    Baking crappy vertex color lighting...")
-                bpy.ops.object.plasma_vertexlight_autobake(context)
+                bpy.ops.object.plasma_vertexlight_autobake()
 
 
     def _find_create_dspan(self, bo, hsgmat, pass_index):

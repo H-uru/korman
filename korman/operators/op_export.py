@@ -92,14 +92,15 @@ class ExportOperator(bpy.types.Operator):
             bpy.ops.object.mode_set(mode="OBJECT")
 
         # Separate blender operator and actual export logic for my sanity
-        e = exporter.Exporter(self)
-        try:
-            e.run()
-        except exporter.ExportError as error:
-            self.report({"ERROR"}, str(error))
-            return {"CANCELLED"}
-        else:
-            return {"FINISHED"}
+        with _UiHelper() as _ui:
+            e = exporter.Exporter(self)
+            try:
+                e.run()
+            except exporter.ExportError as error:
+                self.report({"ERROR"}, str(error))
+                return {"CANCELLED"}
+            else:
+                return {"FINISHED"}
 
     def invoke(self, context, event):
         # Called when a user hits "export" from the menu
@@ -118,6 +119,18 @@ class ExportOperator(bpy.types.Operator):
 
             # Now do the majick
             setattr(PlasmaAge, name, prop(**age_options))
+
+
+class _UiHelper:
+    """This fun little helper makes sure that we don't wreck the UI"""
+    def __enter__(self):
+        self.active_object = bpy.context.object
+        self.selected_objects = bpy.context.selected_objects
+
+    def __exit__(self, type, value, traceback):
+        for i in bpy.data.objects:
+            i.select = (i in self.selected_objects)
+        bpy.context.scene.objects.active = self.active_object
 
 
 # Add the export operator to the Export menu :)

@@ -13,6 +13,8 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+import bpy
+
 class GoodNeighbor:
     """Leave Things the Way You Found Them! (TM)"""
 
@@ -27,3 +29,13 @@ class GoodNeighbor:
     def __exit__(self, type, value, traceback):
         for (cls, attr), value in self._tracking.items():
             setattr(cls, attr, value)
+
+
+def make_active_selection(bo):
+    """Selects a single Blender Object and makes it active"""
+    for i in bpy.data.objects:
+        if i == bo:
+            bpy.context.scene.objects.active = i
+            i.select = True
+        else:
+            i.select = False

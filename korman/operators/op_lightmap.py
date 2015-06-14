@@ -103,39 +103,38 @@ class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
                 im.user_clear()
                 data_images.remove(im)
                 im = data_images.new(im_name, width=size, height=size)
-    
+
             # This just wraps Blender's internal lightmap UV whatchacallit...
             # We want to ensure that we use the UV Layer "LIGHTMAPGEN" and fetch the size from
             #     the lightmap modifier. What fun...
             mesh = context.active_object.data
-            mesh.update()
-    
+
             # Search for LIGHTMAPGEN
-            for uvtex in mesh.uv_textures:
-                if uvtex.name == "LIGHTMAPGEN":
-                    toggle.track(mesh.uv_textures, "active", uvtex)
-                    toggle.track(uvtex, "active_render", True)
+            for i in mesh.uv_textures:
+                if i.name == "LIGHTMAPGEN":
+                    uvtex = i
                     break
                 else:
-                    toggle.track(uvtex, "active_render", False)
+                    toggle.track(i, "active_render", False)
             else:
-                # Gotta make it
                 uvtex = mesh.uv_textures.new("LIGHTMAPGEN")
-                toggle.track(mesh.uv_textures, "active", uvtex)
-                toggle.track(uvtex, "active_render", True)
-    
+                uvtex.active_render = False
+            toggle.track(mesh.uv_textures, "active", uvtex)
+            toggle.track(uvtex, "active_render", True)
+
             # Now, enter edit mode on this mesh and unwrap.
             bpy.ops.object.mode_set(mode="EDIT")
             bpy.ops.mesh.select_all(action="SELECT")
             bpy.ops.uv.lightmap_pack(PREF_CONTEXT="ALL_FACES", PREF_IMG_PX_SIZE=size)
             bpy.ops.object.mode_set(mode="OBJECT")
-    
+            mesh.update()
+
             # Associate the image with all the new UVs
             # NOTE: no toggle here because it's the artist's problem if they are looking at our
             #       super swagalicious LIGHTMAPGEN uvtexture...
             for i in mesh.uv_textures.active.data:
                 i.image = im
-    
+
             # Bake settings
             render = context.scene.render
             toggle.track(render, "use_bake_to_vertex_color", False)
@@ -185,7 +184,6 @@ class VertexColorLightingOperator(_LightingOperator, bpy.types.Operator):
     def execute(self, context):
         with GoodNeighbor() as toggle:
             mesh = context.active_object.data
-            mesh.update()
 
             # Find the "autocolor" vertex color layer
             autocolor = mesh.vertex_colors.get("autocolor")
@@ -197,6 +195,7 @@ class VertexColorLightingOperator(_LightingOperator, bpy.types.Operator):
             for vcol_layer in mesh.vertex_colors:
                 autocol = vcol_layer.name == "autocolor"
                 toggle.track(vcol_layer, "active_render", autocol)
+            mesh.update()
 
             # Bake settings
             render = context.scene.render
