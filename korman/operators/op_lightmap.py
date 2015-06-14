@@ -68,7 +68,9 @@ class _LightingOperator:
     def _pop_lightgroups(self):
         for material, lg in self._old_lightgroups.items():
             _fake = material.light_group
-            if _fake is not None:
+            if _fake is not None and _fake.name.startswith("_LIGHTMAPGEN"):
+                for i in _fake.objects:
+                    _fake.objects.unlink(i)
                 _fake.user_clear()
                 bpy.data.groups.remove(_fake)
             material.light_group = lg
