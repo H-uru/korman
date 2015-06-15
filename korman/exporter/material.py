@@ -23,8 +23,9 @@ import weakref
 from . import explosions
 from . import utils
 
-# BGL doesn't know about this as of Blender 2.71
+# BGL doesn't know about this as of Blender 2.74
 bgl.GL_GENERATE_MIPMAP = 0x8191
+bgl.GL_BGRA = 0x80E1
 
 class _GLTexture:
     def __init__(self, blimg):
@@ -66,7 +67,7 @@ class _GLTexture:
         # It will simplify our state tracking a bit.
         bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_GENERATE_MIPMAP, 1)
 
-    def get_level_data(self, level, calc_alpha=False):
+    def get_level_data(self, level, calc_alpha=False, bgra=False):
         """Gets the uncompressed pixel data for a requested mip level, optionally calculating the alpha
            channel from the image color data
         """
@@ -77,9 +78,12 @@ class _GLTexture:
         # Grab the image data
         size = width * height * 4
         buf = bgl.Buffer(bgl.GL_BYTE, size)
-        bgl.glGetTexImage(bgl.GL_TEXTURE_2D, level, bgl.GL_RGBA, bgl.GL_UNSIGNED_BYTE, buf);
+        fmt = bgl.GL_BGRA if bgra else bgl.GL_RGBA
+        bgl.glGetTexImage(bgl.GL_TEXTURE_2D, level, fmt, bgl.GL_UNSIGNED_BYTE, buf);
 
         # Calculate le alphas
+        # NOTE: the variable names are correct for GL_RGBA. We'll still get the right values for
+        # BGRA, obviously, but red will suddenly be... blue. Yeah.
         if calc_alpha:
             for i in range(size, 4):
                 base = i*4
@@ -129,7 +133,10 @@ class _Texture:
         return hash(self.image.name) ^ hash(self.calc_alpha)
 
     def __str__(self):
-        name = self._change_extension(self.image.name, ".dds")
+        if self.mipmap:
+            name = self._change_extension(self.image.name, ".dds")
+        else:
+            name = self._change_extension(self.image.name, ".bmp")
         if self.calc_alpha:
             name = "ALPHAGEN_{}".format(name)
         return name
@@ -266,7 +273,7 @@ class MaterialConverter:
 
             # Some basic mipmap settings.
             numLevels = math.floor(math.log(max(eWidth, eHeight), 2)) + 1 if key.mipmap else 1
-            compression = plBitmap.kDirectXCompression
+            compression = plBitmap.kDirectXCompression if key.mipmap else plBitmap.kUncompressed
             dxt = plBitmap.kDXT5 if key.use_alpha or key.calc_alpha else plBitmap.kDXT1
 
             # Major Workaround Ahoy
@@ -292,11 +299,14 @@ class MaterialConverter:
                 else:
                     print("    Stuffing image data")
 
+                # Uncompressed bitmaps are BGRA
+                fmt = compression == plBitmap.kUncompressed
+
                 # Hold the uncompressed level data for now. We may have to make multiple copies of
                 # this mipmap for per-page textures :(
                 data = []
                 for i in range(numLevels):
-                    data.append(glimage.get_level_data(i, key.calc_alpha))
+                    data.append(glimage.get_level_data(i, key.calc_alpha, fmt))
 
             # Be a good citizen and reset the Blender Image to pre-futzing state
             image.reload()
