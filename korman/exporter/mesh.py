@@ -298,9 +298,7 @@ class MeshConverter:
         lm = bo.plasma_modifiers.lightmap
         if lm.enabled:
             print("    Baking lightmap...")
-            print("====")
             bpy.ops.object.plasma_lightmap_autobake(light_group=lm.light_group)
-            print("====")
         else:
             for vcol_layer in bo.data.vertex_colors:
                 name = vcol_layer.name.lower()

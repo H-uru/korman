@@ -37,6 +37,7 @@ class _LightingOperator:
         toggle.track(render, "use_envmaps", False)
         toggle.track(render, "use_raytrace", True)
         toggle.track(render, "bake_type", "FULL")
+        toggle.track(render, "use_bake_clear", True)
 
     def _generate_lightgroups(self, mesh, user_lg=None):
         """Makes a new light group for the baking process that excludes all Plasma RT lamps"""
@@ -87,13 +88,32 @@ class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
     def __init__(self):
         super().__init__()
 
+    def _associate_image_with_uvtex(self, uvtex, im):
+        # Associate the image with all the new UVs
+        # NOTE: no toggle here because it's the artist's problem if they are looking at our
+        #       super swagalicious LIGHTMAPGEN uvtexture...
+        for i in uvtex.data:
+            i.image = im
+
+    def _get_base_uvtex(self, mesh, modifier):
+        if modifier.uv_map:
+            return mesh.uv_textures[modifier.uv_map]
+        for i in mesh.uv_textures:
+            if i.name != "LIGHTMAPGEN":
+                return i
+        return None
+
     def execute(self, context):
+        obj = context.active_object
+        mesh = obj.data
+        modifier = obj.plasma_modifiers.lightmap
+        uv_textures = mesh.uv_textures
+
         with GoodNeighbor() as toggle:
             # We need to ensure that we bake onto the "BlahObject_LIGHTMAPGEN" image
-            obj = context.active_object
             data_images = bpy.data.images
-            im_name = "{}_LIGHTMAPGEN".format(obj.name)
-            size = obj.plasma_modifiers.lightmap.resolution
+            im_name = "{}_LIGHTMAPGEN.png".format(obj.name)
+            size = modifier.resolution
 
             im = data_images.get(im_name)
             if im is None:
@@ -104,36 +124,42 @@ class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
                 data_images.remove(im)
                 im = data_images.new(im_name, width=size, height=size)
 
-            # This just wraps Blender's internal lightmap UV whatchacallit...
-            # We want to ensure that we use the UV Layer "LIGHTMAPGEN" and fetch the size from
-            #     the lightmap modifier. What fun...
-            mesh = context.active_object.data
+            # If there is a cached LIGHTMAPGEN uvtexture, nuke it
+            uvtex = uv_textures.get("LIGHTMAPGEN", None)
+            if uvtex is not None:
+                uv_textures.remove(uvtex)
 
-            # Search for LIGHTMAPGEN
-            for i in mesh.uv_textures:
-                if i.name == "LIGHTMAPGEN":
-                    uvtex = i
-                    break
-                else:
-                    toggle.track(i, "active_render", False)
+            # Originally, we used the lightmap unpack UV operator to make our UV texture, however,
+            # this tended to create sharp edges. There was already a discussion about this on the
+            # Guild of Writers forum, so I'm implementing a code version of dendwaler's process,
+            # as detailed here: http://forum.guildofwriters.org/viewtopic.php?p=62572#p62572
+            uv_base = self._get_base_uvtex(mesh, modifier)
+            if uv_base is not None:
+                uv_textures.active = uv_base
+                # this will copy the UVs to the new UV texture
+                uvtex = uv_textures.new("LIGHTMAPGEN")
+                uv_textures.active = uvtex
+                self._associate_image_with_uvtex(uvtex, im)
+                # here we go...
+                bpy.ops.object.mode_set(mode="EDIT")
+                bpy.ops.mesh.select_all(action="SELECT")
+                bpy.ops.uv.average_islands_scale()
+                bpy.ops.uv.pack_islands()
             else:
-                uvtex = mesh.uv_textures.new("LIGHTMAPGEN")
-                uvtex.active_render = False
-            toggle.track(mesh.uv_textures, "active", uvtex)
-            toggle.track(uvtex, "active_render", True)
-
-            # Now, enter edit mode on this mesh and unwrap.
-            bpy.ops.object.mode_set(mode="EDIT")
-            bpy.ops.mesh.select_all(action="SELECT")
-            bpy.ops.uv.lightmap_pack(PREF_CONTEXT="ALL_FACES", PREF_IMG_PX_SIZE=size)
+                # same thread, see Sirius's suggestion RE smart unwrap. this seems to yield good
+                # results in my tests. it will be good enough for quick exports.
+                uvtex = uv_textures.new("LIGHTMAPGEN")
+                self._associate_image_with_uvtex(uvtex, im)
+                bpy.ops.object.mode_set(mode="EDIT")
+                bpy.ops.mesh.select_all(action="SELECT")
+                bpy.ops.uv.smart_project()
             bpy.ops.object.mode_set(mode="OBJECT")
-            mesh.update()
 
-            # Associate the image with all the new UVs
-            # NOTE: no toggle here because it's the artist's problem if they are looking at our
-            #       super swagalicious LIGHTMAPGEN uvtexture...
-            for i in mesh.uv_textures.active.data:
-                i.image = im
+            # Now, set the new LIGHTMAPGEN uv layer as what we want to render to...
+            for i in uv_textures:
+                value = i.name == "LIGHTMAPGEN"
+                i.active = value
+                i.active_render = value
 
             # Bake settings
             render = context.scene.render
@@ -168,7 +194,7 @@ class LightmapAutobakePreviewOperator(_LightingOperator, bpy.types.Operator):
         if tex is None:
             tex = bpy.data.textures.new("LIGHTMAPGEN_PREVIEW", "IMAGE")
         tex.extension = "CLIP"
-        tex.image = bpy.data.images["{}_LIGHTMAPGEN".format(context.active_object.name)]
+        tex.image = bpy.data.images["{}_LIGHTMAPGEN.png".format(context.active_object.name)]
 
         return {"FINISHED"}
 

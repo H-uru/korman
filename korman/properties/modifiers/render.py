@@ -39,13 +39,16 @@ class PlasmaLightMapGen(PlasmaModifierProperties):
     light_group = StringProperty(name="Light Group",
                                  description="Group that defines the collection of lights to bake")
 
+    uv_map = StringProperty(name="UV Texture",
+                            description="UV Texture used as the basis for the lightmap")
+
     def created(self, obj):
         self.display_name = "{}_LIGHTMAPGEN".format(obj.name)
 
     def export(self, exporter, bo, so):
         mat_mgr = exporter.mesh.material
         materials = mat_mgr.get_materials(bo)
-        lightmap_im = bpy.data.images.get("{}_LIGHTMAPGEN".format(bo.name))
+        lightmap_im = bpy.data.images.get("{}_LIGHTMAPGEN.png".format(bo.name))
 
         # Find the stupid UVTex
         uvw_src = 0

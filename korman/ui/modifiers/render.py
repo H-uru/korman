@@ -18,6 +18,8 @@ import bpy
 def lightmap(modifier, layout, context):
     layout.row(align=True).prop(modifier, "quality", expand=True)
     layout.prop_search(modifier, "light_group", bpy.data, "groups", icon="GROUP")
+    layout.prop_search(modifier, "uv_map", context.active_object.data, "uv_textures")
+
     operator = layout.operator("object.plasma_lightmap_preview", "Preview Lightmap", icon="RENDER_STILL")
     operator.light_group = modifier.light_group
 
@@ -27,6 +29,6 @@ def lightmap(modifier, layout, context):
     # well... It was nice knowing you!
     tex = bpy.data.textures.get("LIGHTMAPGEN_PREVIEW")
     if tex is not None:
-        im_name = "{}_LIGHTMAPGEN".format(context.active_object.name)
+        im_name = "{}_LIGHTMAPGEN.png".format(context.active_object.name)
         if tex.image.name == im_name:
             layout.template_preview(tex, show_buttons=False)

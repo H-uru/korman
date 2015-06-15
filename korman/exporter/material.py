@@ -139,10 +139,7 @@ class _Texture:
         if name.find(".") == -1:
             return "{}{}".format(name, newext)
         name, end = os.path.splitext(name)
-        if name.find(".") == -1:
-            return "{}{}".format(name, newext)
-        name, oldext = os.path.splitext(name)
-        return "{}{}{}".format(name, end, newext)
+        return "{}{}".format(name, newext)
 
     def _update(self, other):
         """Update myself with any props that might be overridable from another copy of myself"""
