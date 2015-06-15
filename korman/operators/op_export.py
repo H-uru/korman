@@ -38,10 +38,6 @@ class ExportOperator(bpy.types.Operator):
                                              ("pvPots", "Path of the Shell (63.12)", "Targets the most recent offline expansion pack", 1),
                                              ("pvMoul", "Myst Online: Uru Live (70)", "Targets the most recent online game", 0)]}),
 
-        "save_state": (BoolProperty, {"name": "Save State",
-                                      "description": "Saves your age's state to the server for subsequent link ins",
-                                      "default": True}),
-
         "use_texture_page": (BoolProperty, {"name": "Use Textures Page",
                                             "description": "Exports all textures to a dedicated Textures page",
                                             "default": True}),
@@ -56,7 +52,6 @@ class ExportOperator(bpy.types.Operator):
 
         # The crazy mess we're doing with props on the fly means we have to explicitly draw them :(
         layout.prop(age, "version")
-        layout.prop(age, "save_state")
         layout.prop(age, "use_texture_page")
 
     def __getattr__(self, attr):

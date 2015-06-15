@@ -49,17 +49,12 @@ class Exporter:
             self.light = rtlight.LightConverter(self)
             self.sumfile = sumfile.SumFile()
 
-            # Step 1: Gather a list of objects that we need to export
-            #         We should do this first so we can sanity check
-            #         and give accurate progress reports
-            self._collect_objects()
-
-            # Step 2: Create the age info and the pages
+            # Step 1: Create the age info and the pages
             self._export_age_info()
 
-            # Step 2.9: Ensure that all Plasma Objects are in a valid page
-            #           This creates the default page if it is used
-            self.mgr.sanity_check_object_pages(self.age_name, self._objects)
+            # Step 2: Gather a list of objects that we need to export, given what the user has told
+            #         us to export (both in the Age and Object Properties)... fun
+            self._collect_objects()
 
             # Step 3: Export all the things!
             self._export_scene_objects()
@@ -81,9 +76,41 @@ class Exporter:
             print("\nExported {}.age in {:.2f} seconds".format(self.age_name, end-start))
 
     def _collect_objects(self):
+        # Grab a naive listing of enabled pages
+        age = bpy.context.scene.world.plasma_age
+        pages_enabled = frozenset([page.name for page in age.pages if page.enabled])
+        all_pages = frozenset([page.name for page in age.pages])
+
+        # Because we can have an unnamed or a named default page, we need to see if that is enabled...
+        for page in age.pages:
+            if page.seq_suffix == 0:
+                default_enabled = page.enabled
+                default_inited = True
+                break
+        else:
+            default_enabled = True
+            default_inited = False
+
+        # Now we loop through the objects with some considerations:
+        #     - The default page may or may not be defined. If it is, it can be disabled. If not, it
+        #       can only ever be enabled.
+        #     - Don't create the Default page unless it is used (implicit or explicit). It is a failure
+        #       to export a useless file.
+        #     - Any arbitrary page can be disabled, so check our frozenset.
+        #     - Also, someone might have specified an invalid page, so keep track of that.
+        error = explosions.UndefinedPageError()
         for obj in bpy.data.objects:
             if obj.plasma_object.enabled:
-                self._objects.append(obj)
+                page = obj.plasma_object.page
+                if not page and not default_inited:
+                    self.mgr.create_page(self.age_name, "Default", 0)
+                    default_inited = True
+
+                if (default_enabled and not page) or (page in pages_enabled):
+                    self._objects.append(obj)
+                elif page not in all_pages:
+                    error.add(page, obj.name)
+        error.raise_if_error()
 
     def _export_age_info(self):
         # Make life slightly easier...
@@ -96,7 +123,8 @@ class Exporter:
 
         # Create all the pages we need
         for page in age_info.pages:
-            mgr.create_page(age_name, page.name, page.seq_suffix)
+            if page.enabled:
+                mgr.create_page(age_name, page.name, page.seq_suffix)
         mgr.create_builtins(age_name, self._op.use_texture_page)
 
     def _export_actor(self, so, bo):

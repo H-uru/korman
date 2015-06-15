@@ -106,6 +106,9 @@ class PlasmaPage(bpy.types.PropertyGroup):
     local_only = BoolProperty(name="Local Only",
                               description="This page should not synchronize with the server",
                               default=False)
+    enabled = BoolProperty(name="Export Page",
+                           description="Export this page",
+                           default=True)
 
     # Implementation details...
     last_name = StringProperty(description="INTERNAL: Cached page name",

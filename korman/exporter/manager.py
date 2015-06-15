@@ -142,6 +142,11 @@ class ExportManager:
         location.page = id
         self._pages[name] = location
 
+        # If the page ID is 0, this is the default page... Any page with an empty string name
+        # is the default, so bookmark it!
+        if id == 0:
+            self._pages[""] = location
+
         info = plPageInfo()
         info.age = age
         info.page = name
@@ -214,28 +219,6 @@ class ExportManager:
                 if mod.requires_actor:
                     return True
         return False
-
-    def sanity_check_object_pages(self, age, objects):
-        """Ensure all objects are in valid pages and create the Default page if used"""
-
-        error = explosions.UndefinedPageError()
-        for obj in objects:
-            page = obj.plasma_object.page
-            if page in self._pages:
-                # good. keep trying.
-                continue
-            elif page == "":
-                # This object is in the default page... Init that.
-                for loc in self._pages.values():
-                    if not loc.page:
-                        self._pages[""] = loc
-                        break
-                else:
-                    # need to create default page
-                    self._pages[""] = self.create_page(age, "Default", 0)
-            else:
-                error.add(page, obj.name)
-        error.raise_if_error()
 
     def save_age(self, path):
         relpath, ageFile = os.path.split(path)

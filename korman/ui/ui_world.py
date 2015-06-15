@@ -26,6 +26,12 @@ class AgeButtonsPanel:
         return context.world and context.scene.render.engine == "PLASMA_GAME"
 
 
+class PlasmaPageList(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+        layout.prop(item, "name", text="", emboss=False, icon="BOOKMARKS")
+        layout.prop(item, "enabled", text="")
+
+
 class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
     bl_label = "Plasma Age"
 
@@ -35,7 +41,7 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
 
         # We want a list of pages and an editor below that
         row = layout.row()
-        row.template_list("UI_UL_list", "pages", age, "pages", age,
+        row.template_list("PlasmaPageList", "pages", age, "pages", age,
                           "active_page_index", rows=2)
         col = row.column(align=True)
         col.operator("world.plasma_page_add", icon="ZOOMIN", text="")

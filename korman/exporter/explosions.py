@@ -57,6 +57,8 @@ class UndefinedPageError(ExportError):
 
     def raise_if_error(self):
         if self.mistakes:
+            # Better give them some idea of what happened...
+            print(repr(self.mistakes))
             raise self
 
 
