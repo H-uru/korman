@@ -90,6 +90,13 @@ class _DrawableCriteria:
             return "Spans"
 
 
+class _GeoData:
+    def __init__(self, numVtxs):
+        self.blender2gs = [{} for i in range(numVtxs)]
+        self.triangles = []
+        self.vertices = []
+
+
 class MeshConverter:
     def __init__(self, exporter):
         self._exporter = weakref.ref(exporter)
@@ -146,14 +153,7 @@ class MeshConverter:
                 print("    Bounds and SpaceTree in the saddle")
 
     def _export_geometry(self, bo, mesh, geospans):
-        _geodatacls = type("_GeoData",
-                       (object,),
-                       {
-                           "blender2gs": [{} for i in mesh.vertices],
-                           "triangles": [],
-                           "vertices": []
-                       })
-        geodata = [_geodatacls() for i in mesh.materials]
+        geodata = [_GeoData(len(mesh.vertices)) for i in mesh.materials]
 
         # Locate relevant vertex color layers now...
         color, alpha = None, None
