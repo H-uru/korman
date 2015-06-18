@@ -37,9 +37,12 @@ class _RenderLevel:
     _MAJOR_SHIFT = 28
     _MINOR_MASK = ((1 << _MAJOR_SHIFT) - 1)
 
-    def __init__(self, hsgmat, pass_index):
-        # TODO: Use hsGMaterial to determine major and minor
+    def __init__(self, hsgmat, pass_index, blendSpan=False):
         self.level = 0
+
+        # Naive... BlendSpans (any blending on the first layer) are MAJOR_BLEND
+        if blendSpan:
+            self.major = self.MAJOR_BLEND
 
         # We use the blender material's pass index (which we stashed in the hsGMaterial) to increment
         # the render pass, just like it says...
@@ -52,15 +55,15 @@ class _RenderLevel:
         return hash(self.level)
 
     def _get_major(self):
-        return self.level >> _MAJOR_SHIFT
+        return self.level >> self._MAJOR_SHIFT
     def _set_major(self, value):
-        self.level = ((value << _MAJOR_SHIFT) & 0xFFFFFFFF) | self.minor
+        self.level = ((value << self._MAJOR_SHIFT) & 0xFFFFFFFF) | self.minor
     major = property(_get_major, _set_major)
 
     def _get_minor(self):
-        return self.level & _MINOR_MASK
+        return self.level & self._MINOR_MASK
     def _set_minor(self, value):
-        self.level = ((self.major << _MAJOR_SHIFT) & 0xFFFFFFFF) | value
+        self.level = ((self.major << self._MAJOR_SHIFT) & 0xFFFFFFFF) | value
     minor = property(_get_minor, _set_minor)
 
 
@@ -69,7 +72,7 @@ class _DrawableCriteria:
         _layer = hsgmat.layers[0].object # better doggone well have a layer...
         self.blend_span = bool(_layer.state.blendFlags & hsGMatState.kBlendMask)
         self.criteria = 0 # TODO
-        self.render_level = _RenderLevel(hsgmat, pass_index)
+        self.render_level = _RenderLevel(hsgmat, pass_index, self.blend_span)
 
     def __eq__(self, other):
         if not isinstance(other, _DrawableCriteria):
@@ -105,10 +108,10 @@ class MeshConverter:
         self._dspans = {}
         self._mesh_geospans = {}
 
-    def _create_geospan(self, bo, mesh, bm, hsgmat):
+    def _create_geospan(self, bo, mesh, bm, hsgmatKey):
         """Initializes a plGeometrySpan from a Blender Object and an hsGMaterial"""
         geospan = plGeometrySpan()
-        geospan.material = hsgmat
+        geospan.material = hsgmatKey
 
         # GeometrySpan format
         # For now, we really only care about the number of UVW Channels
@@ -289,8 +292,8 @@ class MeshConverter:
         """Exports all Materials and creates plGeometrySpans"""
         geospans = [None] * len(mesh.materials)
         for i, blmat in enumerate(mesh.materials):
-            hsgmat = self.material.export_material(bo, blmat)
-            geospans[i] = (self._create_geospan(bo, mesh, blmat, hsgmat), blmat.pass_index)
+            matKey = self.material.export_material(bo, blmat)
+            geospans[i] = (self._create_geospan(bo, mesh, blmat, matKey), blmat.pass_index)
         return geospans
 
     def _export_static_lighting(self, bo):

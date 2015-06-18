@@ -110,15 +110,16 @@ class _Texture:
         assert (texture or image)
 
         if texture is not None:
-            self.image = texture.image
+            if image is None:
+                image = texture.image
             self.calc_alpha = texture.use_calculate_alpha
             self.mipmap = texture.use_mipmap
-            self.use_alpha = texture.use_alpha
-        if image is not None:
-            self.image = image
+        else:
             self.calc_alpha = False
             self.mipmap = False
-            self.use_alpha = image.use_alpha
+
+        self.image = image
+        self.use_alpha = (image.channels == 4 and image.use_alpha)
 
     def __eq__(self, other):
         if not isinstance(other, _Texture):
@@ -222,10 +223,15 @@ class MaterialConverter:
     def _export_texture_type_image(self, bo, hsgmat, layer, texture):
         """Exports a Blender ImageTexture to a plLayer"""
 
+        # Does the image have any alpha at all?
+        has_alpha = (texture.image.channels == 4 and texture.image.use_alpha) or texture.use_calculate_alpha
+
         # First, let's apply any relevant flags
         state = layer.state
-        if texture.invert_alpha:
+        if texture.invert_alpha and has_alpha:
             state.blendFlags |= hsGMatState.kBlendInvertAlpha
+        if texture.use_alpha and has_alpha:
+            state.blendFlags |= hsGMatState.kBlendAlpha
         if texture.extension == "CLIP":
             state.clampFlags |= hsGMatState.kClampTexture
 
