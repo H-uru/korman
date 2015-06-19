@@ -43,7 +43,7 @@ class LightConverter:
         self._convert_shared_pointspot(bl, pl)
 
         # Spot lights have a few more things...
-        spot_size = bl.spot_size 
+        spot_size = bl.spot_size
         pl.spotOuter = spot_size
 
         blend = max(0.001, bl.spot_blend)
@@ -57,28 +57,28 @@ class LightConverter:
     def _convert_shared_pointspot(self, bl, pl):
         # So sue me, this was taken from pyprp2...
         dist = bl.distance
-        if lamp.falloff_type == "LINEAR_QUADRATIC_WEIGHTED":
+        if bl.falloff_type == "LINEAR_QUADRATIC_WEIGHTED":
             print("        Attenuation: Linear Quadratic Weighted")
-            pl.attenQuadratic = lamp.quadratic_attenuation / dist
-            pl.attenLinear = lamp.linear_attenuation / dist
+            pl.attenQuadratic = bl.quadratic_attenuation / dist
+            pl.attenLinear = bl.linear_attenuation / dist
             pl.attenConst = 1.0
-        elif lamp.falloff_type == "CONSTANT":
+        elif bl.falloff_type == "CONSTANT":
             print("        Attenuation: Konstant")
             pl.attenQuadratic = 0.0
             pl.attenLinear = 0.0
             pl.attenConst = 1.0
-        elif lamp.falloff_type == "INVERSE_SQUARE":
+        elif bl.falloff_type == "INVERSE_SQUARE":
             print("        Attenuation: Inverse Square")
-            pl.attenQuadratic = lamp.quadratic_attenuation / dist
+            pl.attenQuadratic = bl.quadratic_attenuation / dist
             pl.attenLinear = 0.0
             pl.attenConst = 1.0
-        elif lamp.falloff_type == "INVERSE_LINEAR":
+        elif bl.falloff_type == "INVERSE_LINEAR":
             print("        Attenuation: Inverse Linear")
             pl.attenQuadratic = 0.0
-            pl.attenLinear = lamp.quadratic_attenuation / dist
+            pl.attenLinear = bl.quadratic_attenuation / dist
             pl.attenConst = 1.0
         else:
-            raise BlenderOptionNotSupportedError(lamp.falloff_type)
+            raise BlenderOptionNotSupportedError(bl.falloff_type)
 
         if bl.use_sphere:
             print("        Sphere Cutoff: {}".format(dist))
