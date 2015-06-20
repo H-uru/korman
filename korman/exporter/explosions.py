@@ -64,4 +64,4 @@ class UndefinedPageError(ExportError):
 
 class UnsupportedTextureError(ExportError):
     def __init__(self, texture, material):
-        super(ExportError, self).__init__("Cannot export texture '{}' on material '{}' -- unsupported type '{}'".format(texture.name, texture.type, material.name))
+        super(ExportError, self).__init__("Cannot export texture '{}' on material '{}' -- unsupported type '{}'".format(texture.name, material.name, texture.type))
