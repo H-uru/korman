@@ -55,3 +55,33 @@ class PlasmaSpawnPoint(PlasmaModifierProperties):
     @property
     def requires_actor(self):
         return True
+
+class PlasmaMaintainersMarker(PlasmaModifierProperties):
+    pl_id = "maintainersmarker"
+
+    bl_category = "Logic"
+    bl_label = "Maintainer's Marker"
+    bl_description = "Designates an object as the D'ni coordinate origin point of the Age."
+    bl_icon = "OUTLINER_DATA_EMPTY"
+
+    calibration = EnumProperty(name="Calibration",
+                               description="State of repair for the Marker",
+                               items=[
+                                  ("kBroken", "Broken",
+                                   "A marker which reports scrambled coordinates to the KI."),
+                                  ("kRepaired", "Repaired",
+                                   "A marker which reports blank coordinates to the KI."),
+                                  ("kCalibrated", "Calibrated",
+                                   "A marker which reports accurate coordinates to the KI.")
+                               ])
+
+    def created(self, obj):
+        self.display_name = obj.name
+
+    def export(self, exporter, bo, so):
+        maintmark = exporter.mgr.add_object(pl=plMaintainersMarkerModifier, so=so, name=self.display_name)
+        maintmark.calibration = getattr(plMaintainersMarkerModifier, self.calibration)
+
+    @property
+    def requires_actor(self):
+        return True

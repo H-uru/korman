@@ -21,3 +21,6 @@ def advanced_logic(modifier, layout, context):
 def spawnpoint(modifier, layout, context):
     layout.label(text="The Y axis indicates the direction the avatar is facing.")
 
+def maintainersmarker(modifier, layout, context):
+    layout.label(text="Positive Y is North, positive Z is up.")
+    layout.prop(modifier, "calibration")
