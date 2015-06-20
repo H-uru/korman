@@ -238,8 +238,10 @@ class MaterialConverter:
                 pl_env = plDynamicEnvMap
             pl_env = self._export_dynamic_env(bo, hsgmat, layer, bl_env, pl_env)
         else:
-            raise NotSupportedError()
-
+            # We should really export a CubicEnvMap here, but we have a good setup for DynamicEnvMaps
+            # that create themselves when the explorer links in, so really... who cares about CEMs?
+            self._exporter().report.warn("IMAGE EnvironmentMaps are not supported. '{}' will not be exported!".format(layer.key.name))
+            pl_env = None
         layer.texture = pl_env
 
     def _export_dynamic_env(self, bo, hsgmat, layer, bl_env, pl_class):
