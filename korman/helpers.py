@@ -14,6 +14,7 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+import math
 
 class GoodNeighbor:
     """Leave Things the Way You Found Them! (TM)"""
@@ -30,6 +31,9 @@ class GoodNeighbor:
         for (cls, attr), value in self._tracking.items():
             setattr(cls, attr, value)
 
+
+def ensure_power_of_two(value):
+    return pow(2, math.floor(math.log(value, 2)))
 
 def make_active_selection(bo):
     """Selects a single Blender Object and makes it active"""

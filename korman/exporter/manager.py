@@ -93,7 +93,7 @@ class ExportManager:
 
         if isinstance(pl, plObjInterface):
             if so is None:
-                key = self.find_key(plSceneObject, bl)
+                key = self.find_key(plSceneObject, bl, name)
                 # prevent race conditions
                 if key is None:
                     so = self.add_object(plSceneObject, name=name, loc=location)

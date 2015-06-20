@@ -143,7 +143,7 @@ class MeshConverter:
             for dspan in loc.values():
                 print("\n[DrawableSpans '{}']".format(dspan.key.name))
                 print("    Composing geometry data")
-    
+
                 # This mega-function does a lot:
                 # 1. Converts SourceSpans (geospans) to Icicles and bakes geometry into plGBuffers
                 # 2. Calculates the Icicle bounds

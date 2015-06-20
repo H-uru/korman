@@ -130,7 +130,7 @@ class Exporter:
     def _export_actor(self, so, bo):
         """Exports a Coordinate Interface if we need one"""
         if self.mgr.has_coordiface(bo):
-            self._export_coordinate_interface(so, bo)
+            self.export_coordinate_interface(so, bo)
 
         # If this object has a parent, then we will need to go upstream and add ourselves to the
         # parent's CoordinateInterface... Because life just has to be backwards.
@@ -148,16 +148,15 @@ class Exporter:
                                  The object may not appear in the correct location or animate properly.".format(
                                     bo.name, parent.name))
 
-    def _export_coordinate_interface(self, so, bo):
+    def export_coordinate_interface(self, so, bl, name=None):
         """Ensures that the SceneObject has a CoordinateInterface"""
         if not so.coord:
-            print("    Exporting CoordinateInterface")
-            ci = self.mgr.find_create_key(plCoordinateInterface, bl=bo, so=so).object
+            ci = self.mgr.find_create_key(plCoordinateInterface, bl=bl, so=so, name=name).object
 
             # Now we have the "fun" work of filling in the CI
-            ci.localToWorld = utils.matrix44(bo.matrix_basis)
+            ci.localToWorld = utils.matrix44(bl.matrix_basis)
             ci.worldToLocal = ci.localToWorld.inverse()
-            ci.localToParent = utils.matrix44(bo.matrix_local)
+            ci.localToParent = utils.matrix44(bl.matrix_local)
             ci.parentToLocal = ci.localToParent.inverse()
 
     def _export_scene_objects(self):
