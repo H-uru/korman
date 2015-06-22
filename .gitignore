@@ -31,3 +31,7 @@ pip-log.txt
 *.komodoproject
 *.project
 *.pydevproject
+
+# Installer Stuff
+installer/Files
+installer/korman.exe
