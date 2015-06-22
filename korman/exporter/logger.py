@@ -29,12 +29,14 @@ class ExportAnalysis:
         # TODO
         pass
 
-    def port(self, message):
+    def port(self, message, indent=0):
         self._porting.append(message)
+        print("    " * indent, end="")
         print("PORTING: {}".format(message))
 
-    def warn(self, message):
+    def warn(self, message, indent=0):
         self._warnings.append(message)
+        print("    " * indent, end="")
         print("WARNING: {}".format(message))
 
 

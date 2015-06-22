@@ -67,13 +67,14 @@ class _GLTexture:
         # It will simplify our state tracking a bit.
         bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_GENERATE_MIPMAP, 1)
 
-    def get_level_data(self, level, calc_alpha=False, bgra=False):
+    def get_level_data(self, level=0, calc_alpha=False, bgra=False, quiet=False):
         """Gets the uncompressed pixel data for a requested mip level, optionally calculating the alpha
            channel from the image color data
         """
         width = self._get_tex_param(bgl.GL_TEXTURE_WIDTH, level)
         height = self._get_tex_param(bgl.GL_TEXTURE_HEIGHT, level)
-        print("        Level #{}: {}x{}".format(level, width, height))
+        if not quiet:
+            print("        Level #{}: {}x{}".format(level, width, height))
 
         # Grab the image data
         size = width * height * 4
@@ -106,7 +107,7 @@ class _GLTexture:
 
 
 class _Texture:
-    def __init__(self, texture=None, image=None):
+    def __init__(self, texture=None, image=None, use_alpha=None):
         assert (texture or image)
 
         if texture is not None:
@@ -118,8 +119,12 @@ class _Texture:
             self.calc_alpha = False
             self.mipmap = False
 
+        if use_alpha is None:
+            self.use_alpha = (image.channels == 4 and image.use_alpha)
+        else:
+            self.use_alpha = use_alpha
+
         self.image = image
-        self.use_alpha = (image.channels == 4 and image.use_alpha)
 
     def __eq__(self, other):
         if not isinstance(other, _Texture):
@@ -162,6 +167,7 @@ class MaterialConverter:
         self._obj2mat = {}
         self._exporter = weakref.ref(exporter)
         self._pending = {}
+        self._alphatest = {}
 
     def export_material(self, bo, bm):
         """Exports a Blender Material as an hsGMaterial"""
@@ -224,7 +230,10 @@ class MaterialConverter:
         """Exports a Blender ImageTexture to a plLayer"""
 
         # Does the image have any alpha at all?
-        has_alpha = (texture.image.channels == 4 and texture.image.use_alpha) or texture.use_calculate_alpha
+        has_alpha = texture.use_calculate_alpha or self._test_image_alpha(texture.image)
+        if (texture.image.use_alpha and texture.use_alpha) and not has_alpha:
+            warning = "'{}' wants to use alpha, but '{}' is opaque".format(texture.name, texture.image.name)
+            self._exporter().report.warn(warning, indent=3)
 
         # First, let's apply any relevant flags
         state = layer.state
@@ -242,7 +251,7 @@ class MaterialConverter:
         if texture.image is None:
             bitmap = self.add_object(plDynamicTextMap, name="{}_DynText".format(layer.key.name), bl=bo)
         else:
-            key = _Texture(texture=texture)
+            key = _Texture(texture=texture, use_alpha=has_alpha)
             if key not in self._pending:
                 print("            Stashing '{}' for conversion as '{}'".format(texture.image.name, str(key)))
                 self._pending[key] = [layer,]
@@ -371,3 +380,29 @@ class MaterialConverter:
         if image.bindcode != 0:
             image.gl_free()
             image.gl_load()
+
+    def _test_image_alpha(self, image):
+        """Tests to see if this image has any alpha data"""
+
+        # In the interest of speed, let's see if we've already done this one...
+        result = self._alphatest.get(image, None)
+        if result is not None:
+            return result
+
+        if image.channels != 4:
+            result = False
+        elif not image.use_alpha:
+            result = False
+        else:
+            # Using bpy.types.Image.pixels is VERY VERY VERY slow...
+            with _GLTexture(image) as glimage:
+                data = glimage.get_level_data(quiet=True)
+                for i in range(3, len(data), 4):
+                    if data[i] != 255:
+                        result = True
+                        break
+                else:
+                    result = False
+
+        self._alphatest[image] = result
+        return result
