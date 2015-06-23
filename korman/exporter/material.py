@@ -21,6 +21,7 @@ from PyHSPlasma import *
 import weakref
 
 from . import explosions
+from .. import helpers
 from . import utils
 
 # BGL doesn't know about this as of Blender 2.74
@@ -226,6 +227,103 @@ class MaterialConverter:
             getattr(self, export_fn)(bo, hsgmat, layer, texture)
             hsgmat.addLayer(layer.key)
 
+    def _export_texture_type_environment_map(self, bo, hsgmat, layer, texture):
+        """Exports a Blender EnvironmentMapTexture to a plLayer"""
+
+        bl_env = texture.environment_map
+        if bl_env.source in {"STATIC", "ANIMATED"}:
+            if bl_env.mapping == "PLANE" and self._mgr.getVer() >= pvMoul:
+                pl_env = plDynamicCamMap
+            else:
+                pl_env = plDynamicEnvMap
+            pl_env = self._export_dynamic_env(bo, hsgmat, layer, bl_env, pl_env)
+        else:
+            # We should really export a CubicEnvMap here, but we have a good setup for DynamicEnvMaps
+            # that create themselves when the explorer links in, so really... who cares about CEMs?
+            self._exporter().report.warn("IMAGE EnvironmentMaps are not supported. '{}' will not be exported!".format(layer.key.name))
+            pl_env = None
+        layer.texture = pl_env
+
+    def _export_dynamic_env(self, bo, hsgmat, layer, bl_env, pl_class):
+        # To protect the user from themselves, let's check to make sure that a DEM/DCM matching this
+        # viewpoint object has not already been exported...
+        viewpt = bl_env.viewpoint_object
+        name = "{}_DynEnvMap".format(viewpt.name)
+        pl_env = self._mgr.find_key(pl_class, bl=bo, name=name)
+        if pl_env is not None:
+            print("            EnvMap for viewpoint {} already exported... NOTE: Your settings here will be overridden by the previous object!".format(viewpt.name))
+            pl_env_obj = pl_env.object
+            if isinstance(pl_env_obj, plDynamicCamMap):
+                dcm.addTargetNode(self._mgr.find_key(plSceneObject, bl=bo))
+                dcm.addMatLayer(layer.key)
+            return pl_env
+
+        # It matters not whether or not the viewpoint object is a Plasma Object, it is exported as at
+        # least a SceneObject and CoordInterface so that we can touch it...
+        root = self._mgr.find_create_key(plSceneObject, bl=bo, name=viewpt.name)
+        self._exporter().export_coordinate_interface(root.object, bl=bo, name=viewpt.name)
+        # FIXME: DynamicCamMap Camera
+
+        # Ensure POT
+        oRes = bl_env.resolution
+        eRes = helpers.ensure_power_of_two(oRes)
+        if oRes != eRes:
+            print("            Overriding EnvMap size to ({}x{}) -- POT".format(eRes, eRes))
+
+        # And now for the general ho'hum-ness
+        pl_env = self._mgr.add_object(pl_class, bl=bo, name=name)
+        pl_env.hither = bl_env.clip_start
+        pl_env.yon = bl_env.clip_end
+        pl_env.refreshRate = 0.01 if bl_env.source == "ANIMATED" else 0.0
+        pl_env.incCharacters = True
+        pl_env.rootNode = root # FIXME: DCM camera
+
+        # Perhaps the DEM/DCM fog should be separately configurable at some point?
+        pl_fog = bpy.context.scene.world.plasma_fni
+        pl_env.color = utils.color(pl_fog.fog_color)
+        pl_env.fogStart = pl_fog.fog_start
+
+        if isinstance(pl_env, plDynamicCamMap):
+            faces = (pl_env,)
+
+            pl_env.addTargetNode(self._mgr.find_key(plSceneObject, bl=bo))
+            pl_env.addMatLayer(layer.key)
+
+            # This is really just so we don't raise any eyebrows if anyone is looking at the files.
+            # If you're disabling DCMs, then you're obviuously trolling!
+            # Cyan generates a single color image, but we'll just set the layer colors and go away.
+            fake_layer = self._mgr.add_object(plLayer, bl=bo, name="{}_DisabledDynEnvMap".format(viewpt.name))
+            fake_layer.ambient = layer.ambient
+            fake_layer.preshade = layer.preshade
+            fake_layer.runtime = layer.runtime
+            fake_layer.specular = layer.specular
+            pl_env.disableTexture = fake_layer.key
+
+            if pl_env.camera is None:
+                layer.UVWSrc = plLayerInterface.kUVWPosition
+                layer.state.miscFlags |= (hsGMatState.kMiscCam2Screen | hsGMatState.kMiscPerspProjection)
+        else:
+            faces = pl_env.faces + (pl_env,)
+
+            layer.UVWSrc = plLayerInterface.kUVWReflect
+            layer.state.miscFlags |= hsGMatState.kMiscUseRefractionXform
+
+        # Because we might be working with a multi-faced env map. It's even worse than have two faces...
+        for i in faces:
+            i.setConfig(plBitmap.kRGB8888)
+            i.flags |= plBitmap.kIsTexture
+            i.flags &= ~plBitmap.kAlphaChannelFlag
+            i.width = eRes
+            i.height = eRes
+            i.proportionalViewport = False
+            i.viewportLeft = 0
+            i.viewportTop = 0
+            i.viewportRight = eRes
+            i.viewportBottom = eRes
+            i.ZDepth = 24
+
+        return pl_env.key
+
     def _export_texture_type_image(self, bo, hsgmat, layer, texture):
         """Exports a Blender ImageTexture to a plLayer"""
 
@@ -280,8 +378,8 @@ class MaterialConverter:
 
             image = key.image
             oWidth, oHeight = image.size
-            eWidth = pow(2, math.floor(math.log(oWidth, 2)))
-            eHeight = pow(2, math.floor(math.log(oHeight, 2)))
+            eWidth = helpers.ensure_power_of_two(oWidth)
+            eHeight = helpers.ensure_power_of_two(oHeight)
             if (eWidth != oWidth) or (eHeight != oHeight):
                 print("    Image is not a POT ({}x{}) resizing to {}x{}".format(oWidth, oHeight, eWidth, eHeight))
                 self._resize_image(image, eWidth, eHeight)
