@@ -13,10 +13,12 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+import bpy
 import mathutils
 from PyHSPlasma import *
 import weakref
 
+from ..helpers import TemporaryObject
 from . import utils
 
 class PhysicsConverter:
@@ -24,35 +26,44 @@ class PhysicsConverter:
         self._exporter = weakref.ref(exporter)
 
     def _convert_mesh_data(self, bo, physical, indices=True):
-        mesh = bo.data
-        mesh.update(calc_tessface=indices)
-
-        # Yes, we have to have transform data here, even if we have a CoordInterface
+        mesh = bo.to_mesh(bpy.context.scene, True, "RENDER")
         mat = bo.matrix_world
-        physical.rot = utils.quaternion(mat.to_quaternion())
-        physical.pos = utils.vector3(mat.to_translation())
 
-        # Physicals can't have scale...
-        scale = mat.to_scale()
-        if scale[0] == 1.0 and scale[1] == 1.0 and scale[2] == 1.0:
-            # Whew, don't need to do any math!
-            vertices = [hsVector3(i.co.x, i.co.y, i.co.z) for i in mesh.vertices]
-        else:
-            # Dagnabbit...
-            vertices = [hsVector3(i.co.x * scale.x, i.co.y * scale.y, i.co.z * scale.z) for i in mesh.vertices]
+        with TemporaryObject(mesh, bpy.data.meshes.remove) as mesh:
+            # We can only use the plPhysical xforms if there is a CI...
+            if self._mgr.has_coordiface(bo):
+                mesh.update(calc_tessface=indices)
+                physical.pos = utils.vector3(mat.to_translation())
+                quat = mat.to_quaternion()
+                quat.normalize()
+                physical.rot = utils.quaternion(quat)
 
-        if indices:
-            indices = []
-            for face in mesh.tessfaces:
-                v = face.vertices
-                if len(v) == 3:
-                    indices += v
-                elif len(v) == 4:
-                    indices += (v[0], v[1], v[2],)
-                    indices += (v[0], v[2], v[3],)
-            return (vertices, indices)
-        else:
-            return vertices
+                # Physicals can't have scale...
+                scale = mat.to_scale()
+                if scale[0] == 1.0 and scale[1] == 1.0 and scale[2] == 1.0:
+                    # Whew, don't need to do any math!
+                    vertices = [hsVector3(i.co.x, i.co.y, i.co.z) for i in mesh.vertices]
+                else:
+                    # Dagnabbit...
+                    vertices = [hsVector3(i.co.x * scale.x, i.co.y * scale.y, i.co.z * scale.z) for i in mesh.vertices]
+            else:
+                # apply the transform to the physical itself
+                mesh.transform(mat)
+                mesh.update(calc_tessface=indices)
+                vertices = [hsVector3(i.co.x, i.co.y, i.co.z) for i in mesh.vertices]
+
+            if indices:
+                indices = []
+                for face in mesh.tessfaces:
+                    v = face.vertices
+                    if len(v) == 3:
+                        indices += v
+                    elif len(v) == 4:
+                        indices += (v[0], v[1], v[2],)
+                        indices += (v[0], v[2], v[3],)
+                return (vertices, indices)
+            else:
+                return vertices
 
     def generate_physical(self, bo, so, name=None):
         """Generates a physical object for the given object pair"""

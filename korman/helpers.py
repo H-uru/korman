@@ -32,6 +32,22 @@ class GoodNeighbor:
             setattr(cls, attr, value)
         bpy.context.scene.update()
 
+
+class TemporaryObject:
+    def __init__(self, obj, remove_func):
+        self._obj = obj
+        self._remove_func = remove_func
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self._remove_func(self._obj)
+
+    def __getattr__(self, attr):
+        return getattr(self._obj, attr)
+
+
 def ensure_object_can_bake(bo, toggle):
     """Ensures that we can use Blender's baking operators on this object. Side effect: also ensures
        that the object will enter edit mode when requested."""
