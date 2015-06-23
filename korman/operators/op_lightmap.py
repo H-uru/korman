@@ -15,7 +15,7 @@
 
 import bpy
 from bpy.props import *
-from ..helpers import GoodNeighbor
+from ..helpers import *
 
 def _fetch_lamp_objects():
     for obj in bpy.data.objects:
@@ -141,7 +141,7 @@ class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
                 uv_textures.active = uvtex
                 self._associate_image_with_uvtex(uvtex, im)
                 # here we go...
-                bpy.ops.object.mode_set(mode="EDIT")
+                enter_edit_mode(obj, toggle)
                 bpy.ops.mesh.select_all(action="SELECT")
                 bpy.ops.uv.average_islands_scale()
                 bpy.ops.uv.pack_islands()
@@ -150,10 +150,10 @@ class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
                 # results in my tests. it will be good enough for quick exports.
                 uvtex = uv_textures.new("LIGHTMAPGEN")
                 self._associate_image_with_uvtex(uvtex, im)
-                bpy.ops.object.mode_set(mode="EDIT")
+                enter_edit_mode(obj, toggle)
                 bpy.ops.mesh.select_all(action="SELECT")
                 bpy.ops.uv.smart_project()
-            bpy.ops.object.mode_set(mode="OBJECT")
+            exit_edit_mode()
 
             # Now, set the new LIGHTMAPGEN uv layer as what we want to render to...
             for i in uv_textures:

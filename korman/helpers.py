@@ -30,10 +30,21 @@ class GoodNeighbor:
     def __exit__(self, type, value, traceback):
         for (cls, attr), value in self._tracking.items():
             setattr(cls, attr, value)
+        bpy.context.scene.update()
 
+
+def enter_edit_mode(bo, toggle):
+    """Ensures an object is placed in edit mode"""
+    scene = bpy.context.scene
+    toggle.track(scene, "layers", bo.layers)
+    scene.update()
+    bpy.ops.object.mode_set(mode="EDIT")
 
 def ensure_power_of_two(value):
     return pow(2, math.floor(math.log(value, 2)))
+
+def exit_edit_mode():
+    bpy.ops.object.mode_set(mode="OBJECT")
 
 def make_active_selection(bo):
     """Selects a single Blender Object and makes it active"""
