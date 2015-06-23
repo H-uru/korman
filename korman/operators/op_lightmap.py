@@ -129,6 +129,10 @@ class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
             if uvtex is not None:
                 uv_textures.remove(uvtex)
 
+            # Make sure the object can be baked to. NOTE this also makes sure we can enter edit mode
+            # TROLLING LOL LOL LOL
+            ensure_object_can_bake(obj, toggle)
+
             # Originally, we used the lightmap unpack UV operator to make our UV texture, however,
             # this tended to create sharp edges. There was already a discussion about this on the
             # Guild of Writers forum, so I'm implementing a code version of dendwaler's process,
@@ -141,7 +145,7 @@ class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
                 uv_textures.active = uvtex
                 self._associate_image_with_uvtex(uvtex, im)
                 # here we go...
-                enter_edit_mode(obj, toggle)
+                bpy.ops.object.mode_set(mode="EDIT")
                 bpy.ops.mesh.select_all(action="SELECT")
                 bpy.ops.uv.average_islands_scale()
                 bpy.ops.uv.pack_islands()
@@ -150,10 +154,10 @@ class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
                 # results in my tests. it will be good enough for quick exports.
                 uvtex = uv_textures.new("LIGHTMAPGEN")
                 self._associate_image_with_uvtex(uvtex, im)
-                enter_edit_mode(obj, toggle)
+                bpy.ops.object.mode_set(mode="EDIT")
                 bpy.ops.mesh.select_all(action="SELECT")
                 bpy.ops.uv.smart_project()
-            exit_edit_mode()
+            bpy.ops.object.mode_set(mode="OBJECT")
 
             # Now, set the new LIGHTMAPGEN uv layer as what we want to render to...
             for i in uv_textures:
@@ -209,7 +213,8 @@ class VertexColorLightingOperator(_LightingOperator, bpy.types.Operator):
 
     def execute(self, context):
         with GoodNeighbor() as toggle:
-            mesh = context.active_object.data
+            obj = context.active_object
+            mesh = obj.data
             vcols = mesh.vertex_colors
 
             # I have heard tale of some moar "No valid image to bake to" boogs if there is a really
@@ -217,7 +222,6 @@ class VertexColorLightingOperator(_LightingOperator, bpy.types.Operator):
             autocolor = vcols.get("autocolor")
             if autocolor is not None:
                 vcols.remove(autocolor)
-
             autocolor = vcols.new("autocolor")
             toggle.track(vcols, "active", autocolor)
 
@@ -225,12 +229,16 @@ class VertexColorLightingOperator(_LightingOperator, bpy.types.Operator):
             for vcol_layer in mesh.vertex_colors:
                 autocol = vcol_layer.name == "autocolor"
                 toggle.track(vcol_layer, "active_render", autocol)
+                toggle.track(vcol_layer, "active", autocol)
             mesh.update()
 
             # Bake settings
             render = context.scene.render
             toggle.track(render, "use_bake_to_vertex_color", True)
             self._apply_render_settings(render, toggle)
+
+            # Really and truly make sure we can bake...
+            ensure_object_can_bake(obj, toggle)
 
             # Bake
             if self._generate_lightgroups(mesh):

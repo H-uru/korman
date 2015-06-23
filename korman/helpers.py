@@ -32,19 +32,18 @@ class GoodNeighbor:
             setattr(cls, attr, value)
         bpy.context.scene.update()
 
-
-def enter_edit_mode(bo, toggle):
-    """Ensures an object is placed in edit mode"""
+def ensure_object_can_bake(bo, toggle):
+    """Ensures that we can use Blender's baking operators on this object. Side effect: also ensures
+       that the object will enter edit mode when requested."""
     scene = bpy.context.scene
     toggle.track(scene, "layers", bo.layers)
+    toggle.track(bo, "hide", False)
+    toggle.track(bo, "hide_render", False)
+    toggle.track(bo, "hide_select", False)
     scene.update()
-    bpy.ops.object.mode_set(mode="EDIT")
 
 def ensure_power_of_two(value):
     return pow(2, math.floor(math.log(value, 2)))
-
-def exit_edit_mode():
-    bpy.ops.object.mode_set(mode="OBJECT")
 
 def make_active_selection(bo):
     """Selects a single Blender Object and makes it active"""
