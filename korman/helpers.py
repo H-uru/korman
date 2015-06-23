@@ -30,7 +30,6 @@ class GoodNeighbor:
     def __exit__(self, type, value, traceback):
         for (cls, attr), value in self._tracking.items():
             setattr(cls, attr, value)
-        bpy.context.scene.update()
 
 
 class TemporaryObject:
@@ -59,7 +58,6 @@ def ensure_object_can_bake(bo, toggle):
     toggle.track(bo, "hide", False)
     toggle.track(bo, "hide_render", False)
     toggle.track(bo, "hide_select", False)
-    scene.update()
 
 def ensure_power_of_two(value):
     return pow(2, math.floor(math.log(value, 2)))
