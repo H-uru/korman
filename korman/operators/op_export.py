@@ -121,11 +121,16 @@ class _UiHelper:
     def __enter__(self):
         self.active_object = bpy.context.object
         self.selected_objects = bpy.context.selected_objects
+        self.layers = tuple(bpy.context.scene.layers)
 
     def __exit__(self, type, value, traceback):
         for i in bpy.data.objects:
             i.select = (i in self.selected_objects)
-        bpy.context.scene.objects.active = self.active_object
+
+        scene = bpy.context.scene
+        scene.objects.active = self.active_object
+        scene.layers = self.layers
+        scene.update()
 
 
 # Add the export operator to the Export menu :)
