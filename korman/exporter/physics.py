@@ -26,7 +26,7 @@ class PhysicsConverter:
         self._exporter = weakref.ref(exporter)
 
     def _convert_mesh_data(self, bo, physical, indices=True):
-        mesh = bo.to_mesh(bpy.context.scene, True, "RENDER")
+        mesh = bo.to_mesh(bpy.context.scene, True, "RENDER", calc_tessface=False)
         mat = bo.matrix_world
 
         with TemporaryObject(mesh, bpy.data.meshes.remove) as mesh:
