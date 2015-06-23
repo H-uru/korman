@@ -244,9 +244,8 @@ class MeshConverter:
 
     def export_object(self, bo):
         # Have we already exported this mesh?
-        try:
-            drawables = self._mesh_geospans[bo.data]
-        except LookupError:
+        drawables = self._mesh_geospans.get(bo.data, None)
+        if drawables is None:
             drawables = self._export_mesh(bo)
 
         # Create the DrawInterface
