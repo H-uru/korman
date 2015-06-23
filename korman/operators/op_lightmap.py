@@ -210,12 +210,16 @@ class VertexColorLightingOperator(_LightingOperator, bpy.types.Operator):
     def execute(self, context):
         with GoodNeighbor() as toggle:
             mesh = context.active_object.data
+            vcols = mesh.vertex_colors
 
-            # Find the "autocolor" vertex color layer
-            autocolor = mesh.vertex_colors.get("autocolor")
-            if autocolor is None:
-                mesh.vertex_colors.new("autocolor")
-            toggle.track(mesh.vertex_colors, "active", autocolor)
+            # I have heard tale of some moar "No valid image to bake to" boogs if there is a really
+            # old copy of the autocolor layer on the mesh. Nuke it.
+            autocolor = vcols.get("autocolor")
+            if autocolor is not None:
+                vcols.remove(autocolor)
+
+            autocolor = vcols.new("autocolor")
+            toggle.track(vcols, "active", autocolor)
 
             # Mark "autocolor" as our active render layer
             for vcol_layer in mesh.vertex_colors:
