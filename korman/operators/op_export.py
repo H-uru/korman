@@ -15,7 +15,9 @@
 
 import bpy
 from bpy.props import *
+import cProfile
 import os, os.path
+import pstats
 
 from .. import exporter
 from ..properties.prop_world import PlasmaAge
@@ -31,6 +33,10 @@ class ExportOperator(bpy.types.Operator):
     # over on the PlasmaAge world properties. We've got a helper so we can access them like they're actually on us...
     # If you want a volatile property, register it directly on this operator!
     _properties = {
+        "profile_export": (BoolProperty, {"name": "Profile",
+                                          "description": "Profiles the exporter using cProfile",
+                                          "default": False}),
+
         "version": (EnumProperty, {"name": "Version",
                                    "description": "Version of the Plasma Engine to target",
                                    "default": "pvPots",  # This should be changed when moul is easier to target!
@@ -53,6 +59,7 @@ class ExportOperator(bpy.types.Operator):
         # The crazy mess we're doing with props on the fly means we have to explicitly draw them :(
         layout.prop(age, "version")
         layout.prop(age, "use_texture_page")
+        layout.prop(age, "profile_export")
 
     def __getattr__(self, attr):
         if attr in self._properties:
@@ -90,11 +97,21 @@ class ExportOperator(bpy.types.Operator):
         with _UiHelper() as _ui:
             e = exporter.Exporter(self)
             try:
-                e.run()
+                if self.profile_export:
+                    profile = "{}_cProfile".format(os.path.splitext(self.filepath)[0])
+                    cProfile.runctx("e.run()", globals(), locals(), profile)
+                else:
+                    e.run()
             except exporter.ExportError as error:
                 self.report({"ERROR"}, str(error))
                 return {"CANCELLED"}
             else:
+                if self.profile_export:
+                    stats_out = "{}_profile.log".format(os.path.splitext(self.filepath)[0])
+                    with open(stats_out, "w") as out:
+                        stats = pstats.Stats(profile, stream=out)
+                        stats = stats.sort_stats("time", "calls")
+                        stats.print_stats()
                 return {"FINISHED"}
 
     def invoke(self, context, event):
