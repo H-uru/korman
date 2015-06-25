@@ -352,10 +352,10 @@ class MaterialConverter:
             key = _Texture(texture=texture, use_alpha=has_alpha)
             if key not in self._pending:
                 print("            Stashing '{}' for conversion as '{}'".format(texture.image.name, str(key)))
-                self._pending[key] = [layer,]
+                self._pending[key] = [layer.key,]
             else:
                 print("            Found another user of '{}'".format(texture.image.name))
-                self._pending[key].append(layer)
+                self._pending[key].append(layer.key)
 
     def _export_texture_type_none(self, bo, hsgmat, layer, texture):
         # We'll allow this, just for sanity's sake...
@@ -431,7 +431,7 @@ class MaterialConverter:
 
             print("    Adding to Layer(s)")
             for layer in layers:
-                print("        {}".format(layer.key.name))
+                print("        {}".format(layer.name))
                 page = mgr.get_textures_page(layer) # Layer's page or Textures.prp
 
                 # If we haven't created this plMipmap in the page (either layer's page or Textures.prp),
@@ -447,7 +447,7 @@ class MaterialConverter:
                     pages[page] = mipmap
                 else:
                     mipmap = pages[page]
-                layer.texture = mipmap.key
+                layer.object.texture = mipmap.key
 
     def get_materials(self, bo):
         return self._obj2mat[bo]
