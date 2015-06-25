@@ -200,13 +200,13 @@ class ExportManager:
             location = self._pages[bl.plasma_object.page]
         return self._nodes[location].key
 
-    def get_textures_page(self, layer):
+    def get_textures_page(self, key):
         """Gets the appropriate page for a texture for a given plLayer"""
         # The point of this is to account for per-page textures...
         if "Textures" in self._pages:
             return self._pages["Textures"]
         else:
-            return layer.key.location
+            return key.location
 
     def has_coordiface(self, bo):
         if bo.type in {"CAMERA", "EMPTY", "LAMP"}:

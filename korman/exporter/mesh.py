@@ -42,7 +42,7 @@ class _RenderLevel:
 
         # Naive... BlendSpans (any blending on the first layer) are MAJOR_BLEND
         if blendSpan:
-            self.major = self.MAJOR_BLEND
+            self.major = self.MAJOR_DEFAULT
 
         # We use the blender material's pass index (which we stashed in the hsGMaterial) to increment
         # the render pass, just like it says...
@@ -69,8 +69,12 @@ class _RenderLevel:
 
 class _DrawableCriteria:
     def __init__(self, hsgmat, pass_index):
-        _layer = hsgmat.layers[0].object # better doggone well have a layer...
-        self.blend_span = bool(_layer.state.blendFlags & hsGMatState.kBlendMask)
+        for layer in hsgmat.layers:
+            if layer.object.state.blendFlags & hsGMatState.kBlendMask:
+                self.blend_span = True
+                break
+        else:
+            self.blend_span = False
         self.criteria = 0 # TODO
         self.render_level = _RenderLevel(hsgmat, pass_index, self.blend_span)
 
