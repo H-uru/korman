@@ -405,10 +405,10 @@ class MaterialConverter:
         key = _Texture(image=image)
         if key not in self._pending:
             print("        Stashing '{}' for conversion as '{}'".format(image.name, str(key)))
-            self._pending[key] = [layer,]
+            self._pending[key] = [layer.key,]
         else:
             print("        Found another user of '{}'".format(image.name))
-            self._pending[key].append(layer)
+            self._pending[key].append(layer.key)
 
     def finalize(self):
         for key, layers in self._pending.items():
