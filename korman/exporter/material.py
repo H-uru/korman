@@ -107,7 +107,7 @@ class _GLTexture:
 
 
 class _Texture:
-    def __init__(self, texture=None, image=None, use_alpha=None):
+    def __init__(self, texture=None, image=None, use_alpha=None, force_calc_alpha=False):
         assert (texture or image)
 
         if texture is not None:
@@ -119,7 +119,10 @@ class _Texture:
             self.calc_alpha = False
             self.mipmap = False
 
-        if use_alpha is None:
+        if force_calc_alpha or self.calc_alpha:
+            self.calc_alpha = True
+            self.use_alpha  = True
+        elif use_alpha is None:
             self.use_alpha = (image.channels == 4 and image.use_alpha)
         else:
             self.use_alpha = use_alpha
@@ -168,13 +171,25 @@ class MaterialConverter:
         self._exporter = weakref.ref(exporter)
         self._pending = {}
         self._alphatest = {}
+        self._tex_exporters = {
+            "ENVRIONMENT_MAP": self._export_texture_type_environment_map,
+            "IMAGE": self._export_texture_type_image,
+            "NONE": self._export_texture_type_none,
+        }
 
     def export_material(self, bo, bm):
         """Exports a Blender Material as an hsGMaterial"""
         print("    Exporting Material '{}'".format(bm.name))
 
         hsgmat = self._mgr.add_object(hsGMaterial, name=bm.name, bl=bo)
-        self._export_texture_slots(bo, bm, hsgmat)
+        slots = [slot for slot in bm.texture_slots if slot is not None and slot.use and
+                 slot.texture is not None and slot.texture.type in self._tex_exporters]
+
+        # Okay, I know this isn't Pythonic... But we're doing it this way because we might actually
+        # export many slots in one go. Think stencils.
+        i = 0
+        while i < len(slots):
+            i += self._export_texture_slot(bo, bm, hsgmat, slots, i)
 
         # Plasma makes several assumptions that every hsGMaterial has at least one layer. If this
         # material had no Textures, we will need to initialize a default layer
@@ -192,43 +207,64 @@ class MaterialConverter:
         # Looks like we're done...
         return hsgmat.key
 
-    def _export_texture_slots(self, bo, bm, hsgmat):
-        for slot in bm.texture_slots:
-            if slot is None or not slot.use:
-                continue
+    def _export_texture_slot(self, bo, bm, hsgmat, slots, idx):
+        slot = slots[idx]
+        num_exported = 1
 
-            name = "{}_{}".format(bm.name, slot.name)
-            print("        Exporting Plasma Layer '{}'".format(name))
-            layer = self._mgr.add_object(plLayer, name=name, bl=bo)
-            self._propagate_material_settings(bm, layer)
+        name = "{}_{}".format(bm.name, slot.name)
+        print("        Exporting Plasma Layer '{}'".format(name))
+        layer = self._mgr.add_object(plLayer, name=name, bl=bo)
+        self._propagate_material_settings(bm, layer)
 
-            # UVW Channel
-            for i, uvchan in enumerate(bo.data.tessface_uv_textures):
-                if uvchan.name == slot.uv_layer:
-                    layer.UVWSrc = i
-                    print("            Using UV Map #{} '{}'".format(i, name))
-                    break
-            else:
-                print("            No UVMap specified... Blindly using the first one, maybe it exists :|")
+        # UVW Channel
+        for i, uvchan in enumerate(bo.data.tessface_uv_textures):
+            if uvchan.name == slot.uv_layer:
+                layer.UVWSrc = i
+                print("            Using UV Map #{} '{}'".format(i, name))
+                break
+        else:
+            print("            No UVMap specified... Blindly using the first one, maybe it exists :|")
 
-            # General texture flags and such
-            state = layer.state
+        state = layer.state
+        if slot.use_stencil:
+            hsgmat.compFlags |= hsGMaterial.kCompNeedsBlendChannel
+            state.blendFlags |= hsGMatState.kBlendAlpha | hsGMatState.kBlendAlphaMult | hsGMatState.kBlendNoTexColor
+            state.clampFlags |= hsGMatState.kClampTexture
+            state.ZFlags |= hsGMatState.kZNoZWrite
+            layer.ambient = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
+
+            # Plasma actually wants the next layer first, so let's export him
+            nextIdx = idx + 1
+            if len(slots) == nextIdx:
+                raise ExportError("Texture Slot '{}' wants to be a stencil, but there are no more TextureSlots.".format(slot.name))
+            print("            --- BEGIN STENCIL ---")
+            self._export_texture_slot(bo, bm, hsgmat, slots, nextIdx)
+            print("            ---  END STENCIL  ---")
+            num_exported += 1
+
+            # Now that we've exported the bugger, flag him as binding with this texture
+            prev_layer = hsgmat.layers[-1].object
+            prev_state = prev_layer.state
+            prev_state.miscFlags |= hsGMatState.kMiscBindNext | hsGMatState.kMiscRestartPassHere
+            if not prev_state.blendFlags & hsGMatState.kBlendMask:
+                prev_state.blendFlags |= hsGMatState.kBlendAlpha
+        else:
+            # Standard layer flags ahoy
             if slot.blend_type == "ADD":
                 state.blendFlags |= hsGMatState.kBlendAdd
             elif slot.blend_type == "MULTIPLY":
                 state.blendFlags |= hsGMatState.kBlendMult
 
-            # Export the specific texture type
-            texture = slot.texture
-            export_fn = "_export_texture_type_{}".format(texture.type.lower())
-            if not hasattr(self, export_fn):
-                raise explosions.UnsupportedTextureError(texture, bm)
-            getattr(self, export_fn)(bo, hsgmat, layer, texture)
-            hsgmat.addLayer(layer.key)
+        # Export the specific texture type
+        texture = slot.texture
+        self._tex_exporters[texture.type](bo, hsgmat, layer, slot)
+        hsgmat.addLayer(layer.key)
+        return num_exported
 
-    def _export_texture_type_environment_map(self, bo, hsgmat, layer, texture):
+    def _export_texture_type_environment_map(self, bo, hsgmat, layer, slot):
         """Exports a Blender EnvironmentMapTexture to a plLayer"""
 
+        texture = slot.texture
         bl_env = texture.environment_map
         if bl_env.source in {"STATIC", "ANIMATED"}:
             if bl_env.mapping == "PLANE" and self._mgr.getVer() >= pvMoul:
@@ -323,21 +359,25 @@ class MaterialConverter:
 
         return pl_env.key
 
-    def _export_texture_type_image(self, bo, hsgmat, layer, texture):
+    def _export_texture_type_image(self, bo, hsgmat, layer, slot):
         """Exports a Blender ImageTexture to a plLayer"""
+        texture = slot.texture
 
         # Does the image have any alpha at all?
-        has_alpha = texture.use_calculate_alpha or self._test_image_alpha(texture.image)
+        has_alpha = texture.use_calculate_alpha or slot.use_stencil or self._test_image_alpha(texture.image)
         if (texture.image.use_alpha and texture.use_alpha) and not has_alpha:
             warning = "'{}' wants to use alpha, but '{}' is opaque".format(texture.name, texture.image.name)
             self._exporter().report.warn(warning, indent=3)
 
         # First, let's apply any relevant flags
         state = layer.state
-        if texture.invert_alpha and has_alpha:
-            state.blendFlags |= hsGMatState.kBlendInvertAlpha
-        if texture.use_alpha and has_alpha:
-            state.blendFlags |= hsGMatState.kBlendAlpha
+        if not slot.use_stencil:
+            # mutually exclusive blend flags
+            if texture.use_alpha and has_alpha:
+                state.blendFlags |= hsGMatState.kBlendAlpha
+
+            if texture.invert_alpha and has_alpha:
+                state.blendFlags |= hsGMatState.kBlendInvertAlpha
         if texture.extension == "CLIP":
             state.clampFlags |= hsGMatState.kClampTexture
 
@@ -348,7 +388,7 @@ class MaterialConverter:
         if texture.image is None:
             bitmap = self.add_object(plDynamicTextMap, name="{}_DynText".format(layer.key.name), bl=bo)
         else:
-            key = _Texture(texture=texture, use_alpha=has_alpha)
+            key = _Texture(texture=texture, use_alpha=has_alpha, force_calc_alpha=slot.use_stencil)
             if key not in self._pending:
                 print("            Stashing '{}' for conversion as '{}'".format(texture.image.name, str(key)))
                 self._pending[key] = [layer.key,]
