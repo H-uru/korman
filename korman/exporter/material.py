@@ -87,10 +87,9 @@ class _GLTexture:
         # NOTE: the variable names are correct for GL_RGBA. We'll still get the right values for
         # BGRA, obviously, but red will suddenly be... blue. Yeah.
         if calc_alpha:
-            for i in range(size, 4):
-                base = i*4
-                r, g, b = buf[base:base+2]
-                buf[base+3] = int((r + g + b) / 3)
+            for i in range(0, size, 4):
+                r, g, b = buf[i:i+3]
+                buf[i+3] = int((r + g + b) / 3)
         return bytes(buf)
 
     def _get_integer(self, arg):
