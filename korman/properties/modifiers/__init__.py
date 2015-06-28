@@ -17,6 +17,7 @@ import bpy
 import inspect
 
 from .base import PlasmaModifierProperties
+from .avatar import *
 from .logic import *
 from .physics import *
 from .region import *

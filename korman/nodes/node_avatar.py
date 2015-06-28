@@ -18,6 +18,7 @@ from bpy.props import *
 from PyHSPlasma import *
 
 from .node_core import PlasmaNodeBase, PlasmaNodeSocketBase
+from ..properties.modifiers.avatar import sitting_approach_flags
 
 class PlasmaSittingBehaviorNode(PlasmaNodeBase, bpy.types.Node):
     bl_category = "AVATAR"
@@ -27,10 +28,7 @@ class PlasmaSittingBehaviorNode(PlasmaNodeBase, bpy.types.Node):
 
     approach = EnumProperty(name="Approach",
                             description="Directions an avatar can approach the seat from",
-                            items=[("kApproachFront", "Front", "Approach from the font"),
-                                   ("kApproachLeft", "Left", "Approach from the left"),
-                                   ("kApproachRight", "Right", "Approach from the right"),
-                                   ("kApproachRear", "Rear", "Approach from the rear guard")],
+                            items=sitting_approach_flags,
                             default={"kApproachFront", "kApproachLeft", "kApproachRight"},
                             options={"ENUM_FLAG"})
 

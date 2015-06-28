@@ -62,6 +62,14 @@ def ensure_object_can_bake(bo, toggle):
 def ensure_power_of_two(value):
     return pow(2, math.floor(math.log(value, 2)))
 
+def find_modifier(boname, modid):
+    """Given a Blender Object name, finds a given modifier and returns it or None"""
+    bo = bpy.data.objects.get(boname, None)
+    if bo is not None:
+        # if they give us the wrong modid, it is a bug and an AttributeError
+        return getattr(bo.plasma_modifiers, modid)
+    return None
+
 def make_active_selection(bo):
     """Selects a single Blender Object and makes it active"""
     for i in bpy.data.objects:
