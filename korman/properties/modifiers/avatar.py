@@ -102,3 +102,7 @@ class PlasmaSittingBehavior(PlasmaModifierProperties, PlasmaModifierLogicWiz):
             # this socket must be explicitly disabled, otherwise it automatically generates a default
             # facing target conditional for us. isn't that nice?
             clickable.find_input_socket("facing").allow_simple = False
+
+    @property
+    def requires_actor(self):
+        return self.facing_enabled

@@ -97,6 +97,11 @@ class PlasmaClickableNode(PlasmaNodeBase, bpy.types.Node):
         face_target = self.find_input_socket("facing")
         face_target.convert_subcondition(exporter, tree, clickable_bo, clickable_so, logicmod)
 
+    @property
+    def requires_actor(self):
+        face_target = self.find_input_socket("facing")
+        return face_target.enable_condition
+
 
 class PlasmaClickableRegionNode(PlasmaNodeBase, bpy.types.Node):
     bl_category = "CONDITIONS"
@@ -178,6 +183,10 @@ class PlasmaFacingTargetNode(PlasmaNodeBase, bpy.types.Node):
         layout.prop(self, "directional")
         layout.prop(self, "tolerance")
 
+    @property
+    def requires_actor(self):
+        return True
+
 
 class PlasmaFacingTargetSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
     bl_color = (0.0, 0.267, 0.247, 1.0)
@@ -209,10 +218,6 @@ class PlasmaFacingTargetSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
         else:
             # This is a programmer failure, so we need a traceback.
             raise RuntimeError("Tried to export an unused PlasmaFacingTargetSocket")
-
-        # Plasma internally depends on a CoordinateInterface. Since we're a node, we don't actually
-        # flag that in the exporter. Ensure it is generated now.
-        exporter.export_coordinate_interface(so, bo)
 
         facing_key = exporter.mgr.find_create_key(plFacingConditionalObject, name=name, so=so)
         facing = facing_key.object

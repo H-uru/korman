@@ -111,6 +111,10 @@ class PlasmaNodeBase:
     def poll(cls, context):
         return (context.bl_idname == "PlasmaNodeTree")
 
+    @property
+    def requires_actor(self):
+        return False
+
 
 class PlasmaNodeVariableInput(PlasmaNodeBase):
     def ensure_sockets(self, idname, name, identifier=None):
@@ -149,3 +153,10 @@ class PlasmaNodeTree(bpy.types.NodeTree):
     @classmethod
     def poll(cls, context):
         return (context.scene.render.engine == "PLASMA_GAME")
+
+    @property
+    def requires_actor(self):
+        for node in self.nodes:
+            if node.requires_actor:
+                return True
+        return False

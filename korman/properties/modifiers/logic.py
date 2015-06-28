@@ -36,6 +36,11 @@ class PlasmaAdvancedLogic(PlasmaModifierProperties):
         tree = bpy.data.node_groups[self.tree_name]
         tree.export(exporter, bo, so)
 
+    @property
+    def requires_actor(self):
+        tree = bpy.data.node_groups[self.tree_name]
+        return tree.requires_actor
+
 
 class PlasmaSpawnPoint(PlasmaModifierProperties):
     pl_id = "spawnpoint"
