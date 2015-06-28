@@ -66,13 +66,13 @@ class PlasmaCollider(PlasmaModifierProperties):
         physical.restitution = self.restitution
 
         # Collision groups and such
-        if not self.avatar_blocker:
-            physical.collideGroup = plSimDefs.kGroupLOSOnly
-
         if self.dynamic:
             physical.memberGroup = plSimDefs.kGroupDynamic
             physical.mass = self.mass
             _set_phys_prop(plSimulationInterface.kStartInactive, simIface, physical, value=self.start_asleep)
+        elif not self.avatar_blocker:
+            # the UI is kind of misleading on this count. oh well.
+            physical.memberGroup = plSimDefs.kGroupLOSOnly
         else:
             physical.memberGroup = plSimDefs.kGroupStatic
 
