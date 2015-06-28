@@ -19,6 +19,7 @@ from nodeitems_utils import NodeCategory, NodeItem
 import nodeitems_utils
 
 # Put all Korman node modules here...
+from .node_avatar import *
 from .node_conditions import *
 from .node_core import *
 from .node_messages import *
@@ -37,6 +38,7 @@ class PlasmaNodeCategory(NodeCategory):
 #     the class name. Otherwise, absolutely fascinating things will happen. Don't expect for me
 #     to come and rescue you from it, either.
 _kategory_names = {
+    "AVATAR": "Avatar",
     "CONDITIONS": "Conditions",
     "LOGIC": "Logic",
     "MSG": "Message",

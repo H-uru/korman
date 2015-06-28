@@ -15,13 +15,221 @@
 
 import bpy
 from bpy.props import *
+import math
 from PyHSPlasma import *
 
 from .node_core import PlasmaNodeBase, PlasmaNodeSocketBase
 from ..properties.modifiers.physics import bounds_types
 
+class PlasmaClickableNode(PlasmaNodeBase, bpy.types.Node):
+    bl_category = "CONDITIONS"
+    bl_idname = "PlasmaClickableNode"
+    bl_label = "Clickable"
+    bl_width_default = 160
+
+    clickable = StringProperty(name="Clickable",
+                               description="Mesh that is clickable")
+    bounds = EnumProperty(name="Bounds",
+                          description="Clickable's bounds (NOTE: only used if your clickable is not a collider)",
+                          items=bounds_types,
+                          default="hull")
+
+    def init(self, context):
+        self.inputs.new("PlasmaClickableRegionSocket", "Avatar Inside Region", "region")
+        self.inputs.new("PlasmaFacingTargetSocket", "Avatar Facing Target", "facing")
+        self.outputs.new("PlasmaConditionSocket", "Satisfies", "satisfies")
+
+    def draw_buttons(self, context, layout):
+        layout.prop_search(self, "clickable", bpy.data, "objects", icon="MESH_DATA")
+        layout.prop(self, "bounds")
+
+    def export(self, exporter, tree, parent_bo, parent_so):
+        # First: look up the clickable mesh. if it is not specified, then it's this BO.
+        # We do this because we might be exporting from a BO that is not actually the clickable object.
+        # Case: sitting modifier (exports from sit position empty)
+        if self.clickable:
+            clickable_bo = bpy.data.objects[self.clickable]
+            clickable_so = exporter.mgr.find_create_key(plSceneObject, bl=clickable_bo).object
+        else:
+            clickable_bo = parent_bo
+            clickable_so = parent_so
+
+        name = self.create_key_name(tree)
+        interface = exporter.mgr.find_create_key(plInterfaceInfoModifier, name=name, so=clickable_so).object
+        logicmod = exporter.mgr.find_create_key(plLogicModifier, name=name, so=clickable_so)
+        interface.addIntfKey(logicmod)
+        # Matches data seen in Cyan's PRPs...
+        interface.addIntfKey(logicmod)
+        logicmod = logicmod.object
+
+        # Try to figure out the appropriate bounds type for the clickable....
+        phys_mod = clickable_bo.plasma_modifiers.collision
+        bounds = phys_mod.bounds if phys_mod.enabled else self.bounds
+
+        # The actual physical object that does the cursor LOS
+        made_the_phys = (clickable_so.sim is None)
+        phys_name = "{}_ClickableLOS".format(clickable_bo.name)
+        simIface, physical = exporter.physics.generate_physical(clickable_bo, clickable_so, bounds, phys_name)
+        simIface.setProperty(plSimulationInterface.kPinned, True)
+        if made_the_phys:
+            # we assume that the collision modifier will do this if they want it to be intangible
+            physical.memberGroup = plSimDefs.kGroupLOSOnly
+        physical.LOSDBs |= plSimDefs.kLOSDBUIItems
+
+        # Picking Detector -- detect when the physical is clicked
+        detector = exporter.mgr.find_create_key(plPickingDetector, name=name, so=clickable_so).object
+        detector.addReceiver(logicmod.key)
+
+        # Clickable
+        activator = exporter.mgr.find_create_key(plActivatorConditionalObject, name=name, so=clickable_so).object
+        activator.addActivator(detector.key)
+        logicmod.addCondition(activator.key)
+        logicmod.setLogicFlag(plLogicModifier.kLocalElement, True)
+        logicmod.cursor = plCursorChangeMsg.kCursorPoised
+        logicmod.notify = self.generate_notify_msg(exporter, tree, parent_so, "satisfies")
+
+        # If we have a region attached, let it convert.
+        region = self.find_input("region", "PlasmaClickableRegionNode")
+        if region is not None:
+            region.convert_subcondition(exporter, tree, clickable_bo, clickable_so, logicmod)
+
+        # Hand things off to the FaceTarget socket which does things nicely for us
+        face_target = self.find_input_socket("facing")
+        face_target.convert_subcondition(exporter, tree, clickable_bo, clickable_so, logicmod)
+
+
+class PlasmaClickableRegionNode(PlasmaNodeBase, bpy.types.Node):
+    bl_category = "CONDITIONS"
+    bl_idname = "PlasmaClickableRegionNode"
+    bl_label = "Clickable Region Settings"
+    bl_width_default = 200
+
+    region = StringProperty(name="Region",
+                            description="Object that defines the region mesh")
+    bounds = EnumProperty(name="Bounds",
+                          description="Physical object's bounds (NOTE: only used if your clickable is not a collider)",
+                          items=bounds_types,
+                          default="hull")
+
+    def init(self, context):
+        self.outputs.new("PlasmaClickableRegionSocket", "Satisfies", "satisfies")
+
+    def draw_buttons(self, context, layout):
+        layout.prop_search(self, "region", bpy.data, "objects", icon="MESH_DATA")
+        layout.prop(self, "bounds")
+
+    def convert_subcondition(self, exporter, tree, parent_bo, parent_so, logicmod):
+        # REMEMBER: parent_so doesn't have to be the actual region scene object...
+        region_bo = bpy.data.objects[self.region]
+        region_so = exporter.mgr.find_create_key(plSceneObject, bl=region_bo).object
+
+        # Try to figure out the appropriate bounds type for the region....
+        phys_mod = region_bo.plasma_modifiers.collision
+        bounds = phys_mod.bounds if phys_mod.enabled else self.bounds
+
+        # Our physical is a detector and it only detects avatars...
+        phys_name = "{}_ClickableAvRegion".format(region_bo.name)
+        simIface, physical = exporter.physics.generate_physical(region_bo, region_so, bounds, phys_name)
+        physical.memberGroup = plSimDefs.kGroupDetector
+        physical.reportGroup |= 1 << plSimDefs.kGroupAvatar
+
+        # I'm glad this crazy mess made sense to someone at Cyan...
+        # ObjectInVolumeDetector can notify multiple logic mods. This implies we could share this
+        # one detector for many unrelated logic mods. However, LogicMods and Conditions appear to
+        # assume they pwn each other... so we need a unique detector. This detector must be attached
+        # as a modifier to the region's SO however.
+        name = self.create_key_name(tree)
+        detector_key = exporter.mgr.find_create_key(plObjectInVolumeDetector, name=name, so=region_so)
+        detector = detector_key.object
+        detector.addReceiver(logicmod.key)
+        detector.type = plObjectInVolumeDetector.kTypeAny
+
+        # Now, the conditional object. At this point, these seem very silly. At least it's not a plModifier.
+        # All they really do is hold a satisfied boolean...
+        objinbox_key = exporter.mgr.find_create_key(plObjectInBoxConditionalObject, name=name, so=parent_so)
+        objinbox_key.object.satisfied = True
+        logicmod.addCondition(objinbox_key)
+
+
+class PlasmaClickableRegionSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
+    bl_color = (0.412, 0.0, 0.055, 1.0)
+
+
 class PlasmaConditionSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
     bl_color = (0.188, 0.086, 0.349, 1.0)
+
+
+class PlasmaFacingTargetNode(PlasmaNodeBase, bpy.types.Node):
+    bl_category = "CONDITIONS"
+    bl_idname = "PlasmaFacingTargetNode"
+    bl_label = "Facing Target"
+
+    directional = BoolProperty(name="Directional",
+                               description="TODO",
+                               default=True)
+    tolerance = IntProperty(name="Degrees",
+                            description="How far away from the target the avatar can turn (in degrees)",
+                            min=-180, max=180, default=45)
+
+    def init(self, context):
+        self.outputs.new("PlasmaFacingTargetSocket", "Satisfies", "satisfies")
+
+    def draw_buttons(self, context, layout):
+        layout.prop(self, "directional")
+        layout.prop(self, "tolerance")
+
+
+class PlasmaFacingTargetSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
+    bl_color = (0.0, 0.267, 0.247, 1.0)
+
+    allow_simple = BoolProperty(name="Facing Target",
+                           description="Avatar must be facing the target object",
+                           default=True)
+
+    def draw(self, context, layout, node, text):
+        if self.simple_mode:
+            layout.prop(self, "allow_simple", text="")
+        layout.label(text)
+
+    def convert_subcondition(self, exporter, tree, bo, so, logicmod):
+        assert not self.is_output
+        if not self.enable_condition:
+            return
+
+        # First, gather the schtuff from the appropriate blah blah blah
+        if self.simple_mode:
+            directional = True
+            tolerance = 45
+            name = "{}_SimpleFacing".format(self.node.create_key_name(tree))
+        elif self.is_linked:
+            node = self.links[0].from_node
+            directional = node.directional
+            tolerance = node.tolerance
+            name = node.create_key_name(tree)
+        else:
+            # This is a programmer failure, so we need a traceback.
+            raise RuntimeError("Tried to export an unused PlasmaFacingTargetSocket")
+
+        # Plasma internally depends on a CoordinateInterface. Since we're a node, we don't actually
+        # flag that in the exporter. Ensure it is generated now.
+        exporter.export_coordinate_interface(so, bo)
+
+        facing_key = exporter.mgr.find_create_key(plFacingConditionalObject, name=name, so=so)
+        facing = facing_key.object
+        facing.directional = directional
+        facing.satisfied = True
+        facing.tolerance = math.radians(tolerance)
+        logicmod.addCondition(facing_key)
+
+    @property
+    def enable_condition(self):
+        return ((self.simple_mode and self.allow_simple) or self.is_linked)
+
+    @property
+    def simple_mode(self):
+        """Simple mode allows a user to click a button on input sockets to automatically generate a
+           Facing Target condition"""
+        return (not self.is_linked and not self.is_output)
 
 
 class PlasmaVolumeReportNode(PlasmaNodeBase, bpy.types.Node):
@@ -121,18 +329,7 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
         logicKey = exporter.mgr.find_create_key(plLogicModifier, name=theName, so=so)
         logicmod = logicKey.object
         logicmod.setLogicFlag(plLogicModifier.kMultiTrigger, True)
-
-        # LogicMod notification... This is one of the cases where the linked node needs to match
-        # exactly one key...
-        notify = plNotifyMsg()
-        notify.BCastFlags = (plMessage.kNetPropagate | plMessage.kLocalPropagate)
-        for i in self.find_outputs("satisfies"):
-            key = i.get_key(exporter, tree, so)
-            if key is None:
-                print("            WARNING: '{}' Node '{}' doesn't expose a key. It won't be triggered!".format(i.bl_idname, i.name))
-            else:
-                notify.addReceiver(key)
-        logicmod.notify = notify
+        logicmod.notify = self.generate_notify_msg(exporter, tree, so, "satisfies")
 
         # Now, the detector objects
         print("        [ObjectInVolumeDetector '{}']".format(theName))
@@ -157,7 +354,6 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
         # End mandatory order
         logicmod.addCondition(volKey)
         return logicKey
-
 
 
 class PlasmaVolumeSettingsSocket(PlasmaNodeSocketBase):
