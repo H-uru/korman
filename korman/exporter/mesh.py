@@ -255,19 +255,27 @@ class MeshConverter:
                 drawables = self._export_mesh(bo)
 
         # Create the DrawInterface
-        diface = self._mgr.add_object(pl=plDrawInterface, bl=bo)
-        for dspan_key, idx in drawables:
-            diface.addDrawable(dspan_key, idx)
+        if drawables:
+            diface = self._mgr.add_object(pl=plDrawInterface, bl=bo)
+            for dspan_key, idx in drawables:
+                diface.addDrawable(dspan_key, idx)
 
     def _export_mesh(self, bo):
-        # Step 0.8: If this mesh wants to be lit, we need to go ahead and generate it.
+        # Step 0.7: Update the mesh such that we can do things and schtuff...
+        mesh = bo.to_mesh(bpy.context.scene, True, "RENDER", calc_tessface=True)
+
+        # Step 0.8: Figure out which materials are attached to this object. Because Blender is backwards,
+        #           we can actually have materials that are None. gotdawgit!!!
+        materials = [i for i in mesh.materials if i is not None]
+        if not materials:
+            return None
+
+        # Step 0.9: If this mesh wants to be lit, we need to go ahead and generate it.
         self._export_static_lighting(bo)
 
-        # Step 0.9: Update the mesh such that we can do things and schtuff...
-        mesh = bo.to_mesh(bpy.context.scene, True, "RENDER", calc_tessface=True)
         with helpers.TemporaryObject(mesh, bpy.data.meshes.remove):
             # Step 1: Export all of the doggone materials.
-            geospans = self._export_material_spans(bo, mesh)
+            geospans = self._export_material_spans(bo, mesh, materials)
 
             # Step 2: Export Blender mesh data to Plasma GeometrySpans
             self._export_geometry(bo, mesh, geospans)
@@ -292,10 +300,10 @@ class MeshConverter:
                 drawables.append((dspan.key, idx))
             return drawables
 
-    def _export_material_spans(self, bo, mesh):
+    def _export_material_spans(self, bo, mesh, materials):
         """Exports all Materials and creates plGeometrySpans"""
-        geospans = [None] * len(mesh.materials)
-        for i, blmat in enumerate(mesh.materials):
+        geospans = [None] * len(materials)
+        for i, blmat in enumerate(materials):
             matKey = self.material.export_material(bo, blmat)
             geospans[i] = (self._create_geospan(bo, mesh, blmat, matKey), blmat.pass_index)
         return geospans

@@ -44,6 +44,10 @@ class _LightingOperator:
         shouldibake = (user_lg and user_lg.objects)
 
         for material in mesh.materials:
+            if material is None:
+                # material is not assigned to this material... (why is this even a thing?)
+                continue
+
             lg = material.light_group
             self._old_lightgroups[material] = lg
 
