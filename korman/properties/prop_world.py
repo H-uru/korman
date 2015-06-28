@@ -24,6 +24,8 @@ class PlasmaFni(bpy.types.PropertyGroup):
     fog_color = FloatVectorProperty(name="Fog Color",
                                     description="The default fog color used in your age",
                                     default=(0.4, 0.3, 0.1),
+                                    min=0.0,
+                                    max=1.0,
                                     subtype="COLOR")
     fog_method = EnumProperty(name="Fog Type",
                               items=[
@@ -43,6 +45,8 @@ class PlasmaFni(bpy.types.PropertyGroup):
                                 min=0.0)
     clear_color = FloatVectorProperty(name="Clear Color",
                                       description="The default background color rendered in your age",
+                                      min=0.0,
+                                      max=1.0,
                                       subtype="COLOR")
     yon = IntProperty(name="Draw Distance",
                       description="The distance (in feet) Plasma will draw",
