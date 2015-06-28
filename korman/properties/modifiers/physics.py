@@ -42,7 +42,7 @@ class PlasmaCollider(PlasmaModifierProperties):
     bl_icon = "MOD_PHYSICS"
     bl_description = "Simple physical collider"
 
-    bounds = EnumProperty(name="Bounds Type", description="", items=bounds_types)
+    bounds = EnumProperty(name="Bounds Type", description="", items=bounds_types, default="hull")
 
     avatar_blocker = BoolProperty(name="Blocks Avatars", description="Object blocks avatars", default=True)
     camera_blocker = BoolProperty(name="Blocks Camera", description="Object blocks the camera", default=True)
