@@ -120,20 +120,13 @@ class PlasmaPanicLinkRegion(PlasmaModifierProperties):
     play_anim = BoolProperty(name="Play Animation",
                              description="Play the link-out animation when panic linking",
                              default=True)
-    exact_bounds = BoolProperty(name="Exact Bounds",
-                                description="Use exact (triangle mesh) bounds -- only use if your mesh is not convex",
-                                default=False)
 
     def created(self, obj):
         self.display_name = "{}_PanicLinkRgn".format(obj.name)
 
     def export(self, exporter, bo, so):
-        # Generate the base physical object
-        if self.exact_bounds:
-            bounds = "trimesh"
-        else:
-            bounds = "hull"
-        simIface, physical = exporter.physics.generate_physical(bo, so, bounds, self.display_name)
+        phys_mod = bo.plasma_modifiers.collision
+        simIface, physical = exporter.physics.generate_physical(bo, so, phys_mod.bounds, self.display_name)
 
         # Now setup the region detector properties
         physical.memberGroup = plSimDefs.kGroupDetector

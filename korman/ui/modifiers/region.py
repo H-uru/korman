@@ -18,9 +18,6 @@ def footstep(modifier, layout, context):
     layout.prop(modifier, "surface")
 
 def paniclink(modifier, layout, context):
-    split = layout.split()
-    col = split.column()
-
-    col.prop(modifier, "exact_bounds")
-    col = split.column()
-    col.prop(modifier, "play_anim")
+    phys_mod = context.object.plasma_modifiers.collision
+    layout.prop(phys_mod, "bounds")
+    layout.prop(modifier, "play_anim")
