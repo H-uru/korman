@@ -101,9 +101,8 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
 
         # Don't forget to export the physical object itself!
         # [trollface.jpg]
-        simIface, physical = exporter.physics.generate_physical(bo, so, "{}_VolumeSensor".format(bo.name))
         phys_bo = bpy.data.objects[self.region]
-        exporter.physics.export(phys_bo, physical, self.bounds)
+        simIface, physical = exporter.physics.generate_physical(phys_bo, so, self.bounds, "{}_VolumeSensor".format(bo.name))
 
         physical.memberGroup = plSimDefs.kGroupDetector
         if "avatar" in self.report_on:

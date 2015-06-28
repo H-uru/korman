@@ -65,7 +65,7 @@ class PhysicsConverter:
             else:
                 return vertices
 
-    def generate_physical(self, bo, so, name=None):
+    def generate_physical(self, bo, so, bounds, name=None):
         """Generates a physical object for the given object pair"""
         if so.sim is None:
             if name is None:
@@ -77,6 +77,8 @@ class PhysicsConverter:
             simIface.physical = physical.key
             physical.object = so.key
             physical.sceneNode = self._mgr.get_scene_node(bl=bo)
+
+            getattr(self, "_export_{}".format(bounds))(bo, physical)
         else:
             simIface = so.sim.object
             physical = simIface.physical.object
@@ -84,9 +86,6 @@ class PhysicsConverter:
                 physical.key.name = name
 
         return (simIface, physical)
-
-    def export(self, bo, physical, bounds):
-        getattr(self, "_export_{}".format(bounds))(bo, physical)
 
     def _export_box(self, bo, physical):
         """Exports box bounds based on the object"""

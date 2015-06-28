@@ -59,7 +59,7 @@ class PlasmaCollider(PlasmaModifierProperties):
         self.display_name = "{}_Collision".format(obj.name)
 
     def export(self, exporter, bo, so):
-        simIface, physical = exporter.physics.generate_physical(bo, so, self.display_name)
+        simIface, physical = exporter.physics.generate_physical(bo, so, self.bounds, self.display_name)
 
         # Common props
         physical.friction = self.friction
@@ -83,9 +83,6 @@ class PlasmaCollider(PlasmaModifierProperties):
             _set_phys_prop(plSimulationInterface.kCameraAvoidObject, simIface, physical)
         if self.terrain:
             physical.LOSDBs |= plSimDefs.kLOSDBAvatarWalkable
-
-        # Pass this off to the PhysicsConverter to export the meat
-        exporter.physics.export(bo, physical, self.bounds)
 
     @property
     def requires_actor(self):

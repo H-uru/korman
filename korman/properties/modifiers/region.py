@@ -129,12 +129,11 @@ class PlasmaPanicLinkRegion(PlasmaModifierProperties):
 
     def export(self, exporter, bo, so):
         # Generate the base physical object
-        simIface, physical = exporter.physics.generate_physical(bo, so, self.display_name)
         if self.exact_bounds:
             bounds = "trimesh"
         else:
             bounds = "hull"
-        exporter.physics.export(bo, physical, bounds)
+        simIface, physical = exporter.physics.generate_physical(bo, so, bounds, self.display_name)
 
         # Now setup the region detector properties
         physical.memberGroup = plSimDefs.kGroupDetector
