@@ -15,10 +15,22 @@
 
 import abc
 import bpy
+from PyHSPlasma import plMessage, plNotifyMsg
 
 class PlasmaNodeBase:
     def create_key_name(self, tree):
         return "{}_{}".format(tree.name, self.name)
+
+    def generate_notify_msg(self, exporter, tree, so, socket_id, idname=None):
+        notify = plNotifyMsg()
+        notify.BCastFlags = (plMessage.kNetPropagate | plMessage.kLocalPropagate)
+        for i in self.find_outputs(socket_id, idname):
+            key = i.get_key(exporter, tree, so)
+            if key is None:
+                exporter.report.warn(" '{}' Node '{}' doesn't expose a key. It won't be triggered by '{}'!".format(i.bl_idname, i.name, self.name), indent=3)
+            else:
+                notify.addReceiver(key)
+        return notify
 
     def get_key(self, exporter, tree, so):
         return None
