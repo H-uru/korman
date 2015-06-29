@@ -19,7 +19,7 @@ def advanced_logic(modifier, layout, context):
     layout.prop_search(modifier, "tree_name", bpy.data, "node_groups", icon="NODETREE")
 
 def spawnpoint(modifier, layout, context):
-    layout.label(text="The Y axis indicates the direction the avatar is facing.")
+    layout.label(text="Avatar faces negative Y.")
 
 def maintainersmarker(modifier, layout, context):
     layout.label(text="Positive Y is North, positive Z is up.")
