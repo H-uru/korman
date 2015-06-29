@@ -13,7 +13,26 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
-from .ui_modifiers import *
-from .ui_object import *
-from .ui_toolbox import *
-from .ui_world import *
+import bpy
+
+class ToolboxPanel:
+    bl_category = "Tools"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.scene.render.engine == "PLASMA_GAME"
+
+
+class PlasmaToolboxPanel(ToolboxPanel, bpy.types.Panel):
+    bl_context = "objectmode"
+    bl_label = "Plasma"
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column(align=True)
+
+        col.label("Enable All:")
+        col.operator("object.plasma_enable_all_objects", icon="OBJECT_DATA")
+        col.operator("texture.plasma_enable_all_textures", icon="TEXTURE")
