@@ -36,3 +36,6 @@ class PlasmaToolboxPanel(ToolboxPanel, bpy.types.Panel):
         col.label("Enable All:")
         col.operator("object.plasma_enable_all_objects", icon="OBJECT_DATA")
         col.operator("texture.plasma_enable_all_textures", icon="TEXTURE")
+
+        col.label("Convert All:")
+        col.operator("texture.plasma_convert_layer_opacities", icon="IMAGE_RGB_ALPHA")
