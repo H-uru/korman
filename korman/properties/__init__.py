@@ -17,11 +17,13 @@ import bpy
 
 from . import modifiers
 from .prop_object import *
+from .prop_texture import *
 from .prop_world import *
 
 
 def register():
     bpy.types.Object.plasma_net = bpy.props.PointerProperty(type=PlasmaNet)
     bpy.types.Object.plasma_object = bpy.props.PointerProperty(type=PlasmaObject)
+    bpy.types.Texture.plasma_layer = bpy.props.PointerProperty(type=PlasmaLayer)
     bpy.types.World.plasma_age = bpy.props.PointerProperty(type=PlasmaAge)
     bpy.types.World.plasma_fni = bpy.props.PointerProperty(type=PlasmaFni)

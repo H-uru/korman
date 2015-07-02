@@ -13,8 +13,15 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
-from .ui_modifiers import *
-from .ui_object import *
-from .ui_texture import *
-from .ui_toolbox import *
-from .ui_world import *
+import bpy
+from bpy.props import *
+
+class PlasmaLayer(bpy.types.PropertyGroup):
+    bl_idname = "texture.plasma_layer"
+
+    opacity = FloatProperty(name="Layer Opacity",
+                                  description="Opacity of the texture",
+                                  default=100,
+                                  min=0,
+                                  max=100,
+                                  subtype="PERCENTAGE")

@@ -13,8 +13,20 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
-from .ui_modifiers import *
-from .ui_object import *
-from .ui_texture import *
-from .ui_toolbox import *
-from .ui_world import *
+import bpy
+
+class TextureButtonsPanel:
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "texture"
+
+    @classmethod
+    def poll(cls, context):
+        return context.texture and context.scene.render.engine == "PLASMA_GAME"
+
+class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
+    bl_label = "Plasma Layer Options"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(context.texture.plasma_layer, "opacity")

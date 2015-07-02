@@ -48,3 +48,22 @@ class PlasmaEnableTexturesOperator(ToolboxOperator, bpy.types.Operator):
                         continue
                     slot.use = True
         return {"FINISHED"}
+
+class PlasmaConvertLayerOpacitiesOperator(ToolboxOperator, bpy.types.Operator):
+    bl_idname = "texture.plasma_convert_layer_opacities"
+    bl_label = "Layer Opacities"
+    bl_description = "Convert layer opacities from diffuse color factor"
+
+    def execute(self, context):
+        for mesh in bpy.data.meshes:
+            for material in mesh.materials:
+                if material is None:
+                    continue
+
+                for slot in material.texture_slots:
+                    if slot is None:
+                        continue
+
+                    slot.texture.plasma_layer.opacity = slot.diffuse_color_factor * 100
+                    slot.diffuse_color_factor = 1.0
+        return {"FINISHED"}

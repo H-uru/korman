@@ -255,8 +255,11 @@ class MaterialConverter:
             elif slot.blend_type == "MULTIPLY":
                 state.blendFlags |= hsGMatState.kBlendMult
 
-        # Export the specific texture type
+        # Apply custom layer properties
         texture = slot.texture
+        layer.opacity = texture.plasma_layer.opacity / 100
+
+        # Export the specific texture type
         self._tex_exporters[texture.type](bo, hsgmat, layer, slot)
         hsgmat.addLayer(layer.key)
         return num_exported
