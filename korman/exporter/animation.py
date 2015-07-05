@@ -15,25 +15,16 @@
 
 import bpy
 import math
+import mathutils
 from PyHSPlasma import *
 import weakref
+
+from . import utils
 
 class AnimationConverter:
     def __init__(self, exporter):
         self._exporter = weakref.ref(exporter)
         self._bl_fps = bpy.context.scene.render.fps
-
-    def _check_scalar_subcontrollers(self, ctrl, default_xform):
-        """Ensures that all scalar subcontrollers have at least one keyframe in the default state"""
-        for i in ("X", "Y", "Z"):
-            sub = getattr(ctrl, i)
-            if not sub.hasKeys():
-                keyframe = hsScalarKey()
-                keyframe.frame = 0
-                keyframe.frameTime = 0.0
-                keyframe.type = hsKeyFrame.kScalarKeyFrame
-                keyframe.value = getattr(default_xform, i.lower())
-                sub.keys = ([keyframe,], hsKeyFrame.kScalarKeyFrame)
 
     def convert_action2tm(self, action, default_xform):
         """Converts a Blender Action to a plCompoundController."""
@@ -49,70 +40,176 @@ class AnimationConverter:
         tm.Z = self.make_scale_controller(fcurves, default_xform)
         return tm
 
-    def _is_bezier_curve(self, keyframes):
-        for i in keyframes:
-            if i.interpolation == "BEZIER":
-                return True
-        return False
-
     def make_pos_controller(self, fcurves, default_xform):
         pos_curves = (i for i in fcurves if i.data_path == "location" and i.keyframe_points)
-        ctrl = self.make_scalar_controller(pos_curves)
-        if ctrl is not None and default_xform is not None:
-            self._check_scalar_subcontrollers(ctrl, default_xform.to_transpose())
+        keyframes, bez_chans = self._process_keyframes(pos_curves)
+        if not keyframes:
+            return None
+
+        # At one point, I had some... insanity here to try to crush bezier channels and hand off to
+        # blah blah blah... As it turns out, point3 keyframe's tangents are vector3s :)
+        ctrl = self._make_point3_controller(keyframes, bez_chans, default_xform.to_translation())
+        return ctrl
 
     def make_rot_controller(self, fcurves, default_xform):
+        # TODO: support rotation_quaternion
         rot_curves = (i for i in fcurves if i.data_path == "rotation_euler" and i.keyframe_points)
-        ctrl = self.make_scalar_controller(rot_curves)
-        if ctrl is not None and default_xform is not None:
-            self._check_scalar_subcontrollers(ctrl, default_xform.to_euler("XYZ"))
+        keyframes, bez_chans = self._process_keyframes(rot_curves)
+        if not keyframes:
+            return None
+
+        # Ugh. Unfortunately, it appears Blender's default interpolation is bezier. So who knows if
+        # many users will actually see the benefit here? Makes me sad.
+        if bez_chans:
+            ctrl = self._make_scalar_controller(keyframes, bez_chans, default_xform.to_euler("XYZ"))
+        else:
+            ctrl = self._make_quat_controller(keyframes, default_xform.to_euler("XYZ"))
         return ctrl
+
 
     def make_scale_controller(self, fcurves, default_xform):
         # ... TODO ...
         # who needs this anyway?
         return None
 
-    def make_scalar_controller(self, fcurves):
+    def _make_point3_controller(self, keyframes, bezier, default_xform):
+        ctrl = plLeafController()
+        subctrls = ("X", "Y", "Z")
+        keyframe_type = hsKeyFrame.kBezPoint3KeyFrame if bezier else hsKeyFrame.kPoint3KeyFrame
+        exported_frames = []
+        last_xform = [default_xform[0], default_xform[1], default_xform[2]]
+
+        for keyframe in keyframes:
+            exported = hsPoint3Key()
+            exported.frame = keyframe.frame_num
+            exported.frameTime = keyframe.frame_time
+            exported.type = keyframe_type
+
+            in_tan = hsVector3()
+            out_tan = hsVector3()
+            value = hsVector3()
+            for i, subctrl in enumerate(subctrls):
+                fkey = keyframe.values.get(i, None)
+                if fkey is not None:
+                    v = fkey.co[1]
+                    last_xform[i] = v
+                    setattr(value, subctrl, v)
+                    setattr(in_tan, subctrl, keyframe.in_tans[i])
+                    setattr(out_tan, subctrl, keyframe.out_tans[i])
+                else:
+                    setattr(value, subctrl, last_xform[i])
+                    setattr(in_tan, subctrl, 0.0)
+                    setattr(out_tan, subctrl, 0.0)
+            exported.inTan = in_tan
+            exported.outTan = out_tan
+            exported.value = value
+            exported_frames.append(exported)
+        ctrl.keys = (exported_frames, keyframe_type)
+        return ctrl
+
+    def _make_quat_controller(self, keyframes, default_xform):
+        ctrl = plLeafController()
+        keyframe_type = hsKeyFrame.kQuatKeyFrame
+        exported_frames = []
+        last_xform = [default_xform[0], default_xform[1], default_xform[2]]
+
+        for keyframe in keyframes:
+            exported = hsQuatKey()
+            exported.frame = keyframe.frame_num
+            exported.frameTime = keyframe.frame_time
+            exported.type = keyframe_type
+            # NOTE: quat keyframes don't do bezier nonsense
+
+            value = mathutils.Euler(last_xform, default_xform.order)
+            for i in range(3):
+                fkey = keyframe.values.get(i, None)
+                if fkey is not None:
+                    v = fkey.co[1]
+                    last_xform[i] = v
+                    value[i] = v
+            quat = value.to_quaternion()
+            exported.value = utils.quaternion(quat)
+            exported_frames.append(exported)
+        ctrl.keys = (exported_frames, keyframe_type)
+        return ctrl
+
+    def _make_scalar_controller(self, keyframes, bez_chans, default_xform):
         ctrl = plCompoundController()
-        subctls = ("X", "Y", "Z")
-
-        # this ensures that all subcontrollers are populated -- otherwise KABLOOEY!
-        for i in subctls:
+        subctrls = ("X", "Y", "Z")
+        for i in subctrls:
             setattr(ctrl, i, plLeafController())
+        exported_frames = ([], [], [])
 
+        for keyframe in keyframes:
+            for i, subctrl in enumerate(subctrls):
+                fkey = keyframe.values.get(i, None)
+                if fkey is not None:
+                    keyframe_type = hsKeyFrame.kBezScalarKeyFrame if i in bez_chans else hsKeyFrame.kScalarKeyFrame
+                    exported = hsScalarKey()
+                    exported.frame = keyframe.frame_num
+                    exported.frameTime = keyframe.frame_time
+                    exported.inTan = keyframe.in_tans[i]
+                    exported.outTan = keyframe.out_tans[i]
+                    exported.type = keyframe_type
+                    exported.value = fkey.co[1]
+                    exported_frames[i].append(exported)
+        for i, subctrl in enumerate(subctrls):
+            my_keyframes = exported_frames[i]
+
+            # ensure this controller has at least ONE keyframe
+            if not my_keyframes:
+                hack_frame = hsScalarKey()
+                hack_frame.frame = 0
+                hack_frame.frameTime = 0.0
+                hack_frame.type = hsKeyFrame.kScalarKeyFrame
+                hack_frame.value = default_xform[i]
+                my_keyframes.append(hack_frame)
+            getattr(ctrl, subctrl).keys = (my_keyframes, my_keyframes[0].type)
+        return ctrl
+
+    def _process_keyframes(self, fcurves):
+        """Groups all FCurves for the same frame together"""
+        keyframe_data = type("KeyFrameData", (), {})
+        fps = self._bl_fps
+        pi = math.pi
+
+        keyframes = {}
+        bez_chans = set()
         for fcurve in fcurves:
             fcurve.update()
-            if self._is_bezier_curve(fcurve.keyframe_points):
-                key_type = hsKeyFrame.kScalarKeyFrame
-            else:
-                key_type = hsKeyFrame.kBezScalarKeyFrame
-            frames = []
-            pi = math.pi
-            fps = self._bl_fps
-
-            for i in fcurve.keyframe_points:
-                bl_frame_num, value = i.co
-                frame = hsScalarKey()
-                if i.interpolation == "BEZIER":
-                    frame.inTan = -(value - i.handle_left[1])  / (bl_frame_num - i.handle_left[0])  / fps / (2 * pi)
-                    frame.outTan = (value - i.handle_right[1]) / (bl_frame_num - i.handle_right[0]) / fps / (2 * pi)
+            for fkey in fcurve.keyframe_points:
+                frame_num, value = fkey.co
+                if fps == 30.0:
+                    # hope you don't have a frame 29.9 and frame 30.0...
+                    frame_num = int(frame_num)
                 else:
-                    frame.inTan = 0.0
-                    frame.outTan = 0.0
-                frame.type = key_type
-                frame.frame = int(bl_frame_num * (30.0 / fps))
-                frame.frameTime = bl_frame_num / fps
-                frame.value = value
-                frames.append(frame)
-            controller = plLeafController()
-            getattr(ctrl, subctls[fcurve.array_index]).keys = (frames, key_type)
+                    frame_num = int(frame_num * (30.0 / fps))
+                keyframe = keyframes.get(frame_num, None)
+                if keyframe is None:
+                    keyframe = keyframe_data()
+                    keyframe.frame_num = frame_num
+                    keyframe.frame_time = frame_num / fps
+                    keyframe.in_tans = {}
+                    keyframe.out_tans = {}
+                    keyframe.values = {}
+                    keyframes[frame_num] = keyframe
+                idx = fcurve.array_index
+                keyframe.values[idx] = fkey
 
-        # Compact this bamf
-        if not ctrl.X.hasKeys() and not ctrl.Y.hasKeys() and not ctrl.Z.hasKeys():
-            return None
-        else:
-            return ctrl
+                # Calculate the bezier interpolation nonsense
+                if fkey.interpolation == "BEZIER":
+                    og_frame = fkey.co[0]
+                    keyframe.in_tans[idx] = -(value - fkey.handle_left[1])  / (og_frame - fkey.handle_left[0])  / fps / (2 * pi)
+                    keyframe.out_tans[idx] = (value - fkey.handle_right[1]) / (og_frame - fkey.handle_right[0]) / fps / (2 * pi)
+                else:
+                    keyframe.in_tans[idx] = 0.0
+                    keyframe.out_tans[idx] = 0.0
+                if keyframe.in_tans[idx] != 0.0 or keyframe.out_tans[idx] != 0.0:
+                    bez_chans.add(idx)
+
+        # Return the keyframes in a sequence sorted by frame number
+        final_keyframes = [keyframes[i] for i in sorted(keyframes)]
+        return (final_keyframes, bez_chans)
 
     @property
     def _mgr(self):
