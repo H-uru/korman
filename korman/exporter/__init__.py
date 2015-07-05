@@ -19,3 +19,4 @@ from PyHSPlasma import *
 
 from .convert import *
 from .explosions import *
+from . import utils
