@@ -138,7 +138,12 @@ class _UiHelper:
     def __enter__(self):
         self.active_object = bpy.context.object
         self.selected_objects = bpy.context.selected_objects
-        self.layers = tuple(bpy.context.scene.layers)
+
+        scene = bpy.context.scene
+        self.layers = tuple(scene.layers)
+        self.frame_num = scene.frame_current
+        scene.frame_set(scene.frame_start)
+        scene.update()
 
     def __exit__(self, type, value, traceback):
         for i in bpy.data.objects:
@@ -147,6 +152,7 @@ class _UiHelper:
         scene = bpy.context.scene
         scene.objects.active = self.active_object
         scene.layers = self.layers
+        scene.frame_set(self.frame_num)
         scene.update()
 
 
