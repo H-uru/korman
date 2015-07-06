@@ -246,11 +246,10 @@ class AnimationConverter:
                     og_frame = fkey.co[0]
                     keyframe.in_tans[idx] = -(value - fkey.handle_left[1])  / (og_frame - fkey.handle_left[0])  / fps / (2 * pi)
                     keyframe.out_tans[idx] = (value - fkey.handle_right[1]) / (og_frame - fkey.handle_right[0]) / fps / (2 * pi)
+                    bez_chans.add(idx)
                 else:
                     keyframe.in_tans[idx] = 0.0
                     keyframe.out_tans[idx] = 0.0
-                if keyframe.in_tans[idx] != 0.0 or keyframe.out_tans[idx] != 0.0:
-                    bez_chans.add(idx)
 
         # Return the keyframes in a sequence sorted by frame number
         final_keyframes = [keyframes[i] for i in sorted(keyframes)]
