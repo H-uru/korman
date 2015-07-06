@@ -88,6 +88,7 @@ class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
     bl_options = {"INTERNAL"}
 
     light_group = StringProperty(name="Light Group")
+    force = BoolProperty(name="Force Lightmap Generation", default=False)
 
     def __init__(self):
         super().__init__()
@@ -122,11 +123,15 @@ class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
             im = data_images.get(im_name)
             if im is None:
                 im = data_images.new(im_name, width=size, height=size)
-            elif im.size != (size, size):
+            elif im.size[0] != size:
                 # Force delete and recreate the image because the size is out of date
                 im.user_clear()
                 data_images.remove(im)
                 im = data_images.new(im_name, width=size, height=size)
+            elif not (context.scene.world.plasma_age.regenerate_lightmaps or self.force):
+                # we have a lightmap that matches our specs, so what gives???
+                # this baking process is one slow thing. only do it if the user wants us to!
+                return {"CANCELLED"}
 
             # If there is a cached LIGHTMAPGEN uvtexture, nuke it
             uvtex = uv_textures.get("LIGHTMAPGEN", None)
@@ -196,7 +201,7 @@ class LightmapAutobakePreviewOperator(_LightingOperator, bpy.types.Operator):
         super().__init__()
 
     def execute(self, context):
-        bpy.ops.object.plasma_lightmap_autobake(light_group=self.light_group)
+        bpy.ops.object.plasma_lightmap_autobake(light_group=self.light_group, force=True)
 
         tex = bpy.data.textures.get("LIGHTMAPGEN_PREVIEW")
         if tex is None:

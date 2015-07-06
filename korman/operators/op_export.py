@@ -37,6 +37,10 @@ class ExportOperator(bpy.types.Operator):
                                           "description": "Profiles the exporter using cProfile",
                                           "default": False}),
 
+        "regenerate_lightmaps": (BoolProperty, {"name": "Regenerate Lightmaps",
+                                                "description": "(Re-)Bake all lightmaps on export",
+                                                "default": True}),
+
         "version": (EnumProperty, {"name": "Version",
                                    "description": "Version of the Plasma Engine to target",
                                    "default": "pvPots",  # This should be changed when moul is easier to target!
@@ -58,6 +62,7 @@ class ExportOperator(bpy.types.Operator):
 
         # The crazy mess we're doing with props on the fly means we have to explicitly draw them :(
         layout.prop(age, "version")
+        layout.prop(age, "regenerate_lightmaps")
         layout.prop(age, "use_texture_page")
         layout.prop(age, "profile_export")
 
