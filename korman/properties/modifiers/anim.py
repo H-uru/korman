@@ -128,6 +128,15 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
         agmaster = exporter.mgr.add_object(plAGMasterMod, so=so, name=self.display_name)
         agmaster.addPrivateAnim(atcanim.key)
 
+    def post_export(self, exporter, bo, so):
+        # If this object has a physical, we need to tell the simulation iface that it can be animated
+        sim = so.sim
+        if sim is not None:
+            sim = sim.object
+            sim.setProperty(plSimulationInterface.kPhysAnim, True)
+            phys = sim.physical.object
+            phys.setProperty(plSimulationInterface.kPhysAnim, True)
+
 
 class LoopMarker(bpy.types.PropertyGroup):
     loop_name = StringProperty(name="Loop Name",

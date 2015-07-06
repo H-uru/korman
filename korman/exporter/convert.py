@@ -61,6 +61,10 @@ class Exporter:
             # Step 3: Export all the things!
             self._export_scene_objects()
 
+            # Step 3.1: Now that all Plasma Objects (save Mipmaps) are exported, we do any post
+            #          processing that needs to inspect those objects
+            self._post_process_scene_objects()
+
             # Step 4: Finalize...
             self.mesh.material.finalize()
             self.mesh.finalize()
@@ -188,9 +192,6 @@ class Exporter:
                 print("    Exporting '{}' modifier as '{}'".format(mod.bl_label, mod.display_name))
                 mod.export(self, bl_obj, sceneobject)
 
-            # Last, but not least, apply synch settings
-            bl_obj.plasma_net.export(bl_obj, sceneobject)
-
     def _export_empty_blobj(self, so, bo):
         # We don't need to do anything here. This function just makes sure we don't error out
         # or add a silly special case :(
@@ -205,3 +206,16 @@ class Exporter:
             self.mesh.export_object(bo)
         else:
             print("    No material(s) on the ObData, so no drawables")
+
+    def _post_process_scene_objects(self):
+        print("\nPostprocessing SceneObjects...")
+        for bl_obj in self._objects:
+            sceneobject = self.mgr.find_key(plSceneObject, bl=bl_obj).object
+            bl_obj.plasma_net.export(bl_obj, sceneobject)
+
+            # Modifiers don't have to expose post-processing, but if they do, run it
+            for mod in bl_obj.plasma_modifiers.modifiers:
+                proc = getattr(mod, "post_export", None)
+                if proc is not None:
+                    print("    '{}' modifier '{}'".format(bl_obj.name, mod.display_name))
+                    proc(self, bl_obj, sceneobject)
