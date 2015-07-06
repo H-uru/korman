@@ -52,6 +52,13 @@ class ModifierAddOperator(ModifierOperator, bpy.types.Operator):
 
         theMod.display_order = plmods.determine_next_id()
         theMod.created(context.object)
+
+        # Determine if this modifier has any dependencies and make sure they're enabled
+        deps = getattr(theMod, "pl_depends", set())
+        for dep in deps:
+            depMod = getattr(plmods, dep)
+            if not depMod.enabled:
+                bpy.ops.object.plasma_modifier_add(types=dep)
         return {"FINISHED"}
 
 

@@ -140,6 +140,7 @@ class LoopMarker(bpy.types.PropertyGroup):
 
 class PlasmaAnimationLoopModifier(PlasmaModifierProperties):
     pl_id = "animation_loop"
+    pl_depends = {"animation"}
 
     bl_category = "Animation"
     bl_label = "Loop Markers"
