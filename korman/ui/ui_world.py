@@ -78,6 +78,7 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
         col.label("Age Settings:")
         col.prop(age, "seq_prefix", text="ID")
         col.prop(age, "age_sdl")
+        col.prop(age, "use_texture_page")
 
 
 class PlasmaEnvironmentPanel(AgeButtonsPanel, bpy.types.Panel):

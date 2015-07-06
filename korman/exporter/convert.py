@@ -127,7 +127,7 @@ class Exporter:
         for page in age_info.pages:
             if page.enabled:
                 mgr.create_page(age_name, page.name, page.seq_suffix)
-        mgr.create_builtins(age_name, self._op.use_texture_page)
+        mgr.create_builtins(age_name, age_info.use_texture_page)
 
     def _export_actor(self, so, bo):
         """Exports a Coordinate Interface if we need one"""

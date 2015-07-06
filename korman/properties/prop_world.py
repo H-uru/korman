@@ -155,6 +155,9 @@ class PlasmaAge(bpy.types.PropertyGroup):
     age_sdl = BoolProperty(name="Age Global SDL",
                            description="This age has its own SDL file",
                            default=False)
+    use_texture_page = BoolProperty(name="Use Textures Page",
+                                    description="Exports all textures to a dedicated Textures page",
+                                    default=True)
 
     # Implementation details
     active_page_index = IntProperty(name="Active Page Index")

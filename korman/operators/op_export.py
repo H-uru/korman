@@ -47,10 +47,6 @@ class ExportOperator(bpy.types.Operator):
                                    "items": [("pvPrime", "Ages Beyond Myst (63.11)", "Targets the original Uru (Live) game", 2),
                                              ("pvPots", "Path of the Shell (63.12)", "Targets the most recent offline expansion pack", 1),
                                              ("pvMoul", "Myst Online: Uru Live (70)", "Targets the most recent online game", 0)]}),
-
-        "use_texture_page": (BoolProperty, {"name": "Use Textures Page",
-                                            "description": "Exports all textures to a dedicated Textures page",
-                                            "default": True}),
     }
 
     # This wigs out and very bad things happen if it's not directly on the operator...
@@ -63,7 +59,6 @@ class ExportOperator(bpy.types.Operator):
         # The crazy mess we're doing with props on the fly means we have to explicitly draw them :(
         layout.prop(age, "version")
         layout.prop(age, "regenerate_lightmaps")
-        layout.prop(age, "use_texture_page")
         layout.prop(age, "profile_export")
 
     def __getattr__(self, attr):
