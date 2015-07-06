@@ -18,6 +18,7 @@ import os.path
 from PyHSPlasma import *
 import time
 
+from . import animation
 from . import explosions
 from . import logger
 from . import manager
@@ -47,6 +48,7 @@ class Exporter:
             self.report = logger.ExportAnalysis()
             self.physics = physics.PhysicsConverter(self)
             self.light = rtlight.LightConverter(self)
+            self.animation = animation.AnimationConverter(self)
             self.sumfile = sumfile.SumFile()
 
             # Step 1: Create the age info and the pages
