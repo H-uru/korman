@@ -113,9 +113,12 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
         # All that's missing now is something like "(c) 1998 HeadSpin" oh wait...
         affine = hsAffineParts()
         affine.T = utils.vector3(matrix.to_translation())
-        affine.Q = utils.quaternion(matrix.to_quaternion())
         affine.K = utils.vector3(matrix.to_scale())
         affine.F = -1.0 if matrix.determinant() < 0.0 else 1.0
+        rot = matrix.to_quaternion()
+        affine.Q = utils.quaternion(rot)
+        rot.normalize()
+        affine.U = utils.quaternion(rot)
         channel.affine = affine
 
         # We need both an AGModifier and an AGMasterMod

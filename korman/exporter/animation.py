@@ -66,11 +66,15 @@ class AnimationConverter:
             ctrl = self._make_quat_controller(keyframes, default_xform.to_euler("XYZ"))
         return ctrl
 
-
     def make_scale_controller(self, fcurves, default_xform):
-        # ... TODO ...
-        # who needs this anyway?
-        return None
+        scale_curves = (i for i in fcurves if i.data_path == "scale" and i.keyframe_points)
+        keyframes, bez_chans = self._process_keyframes(scale_curves)
+        if not keyframes:
+            return None
+
+        # There is no such thing as a compound scale controller... in Plasma, anyway.
+        ctrl = self._make_scale_value_controller(keyframes, bez_chans, default_xform)
+        return ctrl
 
     def _make_point3_controller(self, keyframes, bezier, default_xform):
         ctrl = plLeafController()
@@ -165,6 +169,47 @@ class AnimationConverter:
                 hack_frame.value = default_xform[i]
                 my_keyframes.append(hack_frame)
             getattr(ctrl, subctrl).keys = (my_keyframes, my_keyframes[0].type)
+        return ctrl
+
+    def _make_scale_value_controller(self, keyframes, bez_chans, default_xform):
+        subctrls = ("X", "Y", "Z")
+        keyframe_type = hsKeyFrame.kBezScaleKeyFrame if bez_chans else hsKeyFrame.kScaleKeyFrame
+        exported_frames = []
+
+        _scale = default_xform.to_scale()
+        last_xform = [_scale[0], _scale[1], _scale[2]]
+        unit_quat = default_xform.to_quaternion()
+        unit_quat.normalize()
+        unit_quat = utils.quaternion(unit_quat)
+
+        for keyframe in keyframes:
+            exported = hsScaleKey()
+            exported.frame = keyframe.frame_num
+            exported.frameTime = keyframe.frame_time
+            exported.type = keyframe_type
+
+            in_tan = hsVector3()
+            out_tan = hsVector3()
+            value = hsVector3()
+            for i, subctrl in enumerate(subctrls):
+                fkey = keyframe.values.get(i, None)
+                if fkey is not None:
+                    v = fkey.co[1]
+                    last_xform[i] = v
+                    setattr(value, subctrl, v)
+                    setattr(in_tan, subctrl, keyframe.in_tans[i])
+                    setattr(out_tan, subctrl, keyframe.out_tans[i])
+                else:
+                    setattr(value, subctrl, last_xform[i])
+                    setattr(in_tan, subctrl, 0.0)
+                    setattr(out_tan, subctrl, 0.0)
+            exported.inTan = in_tan
+            exported.outTan = out_tan
+            exported.value = (value, unit_quat)
+            exported_frames.append(exported)
+
+        ctrl = plLeafController()
+        ctrl.keys = (exported_frames, keyframe_type)
         return ctrl
 
     def _process_keyframes(self, fcurves):
