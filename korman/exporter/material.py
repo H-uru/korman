@@ -172,7 +172,7 @@ class MaterialConverter:
         self._pending = {}
         self._alphatest = {}
         self._tex_exporters = {
-            "ENVRIONMENT_MAP": self._export_texture_type_environment_map,
+            "ENVIRONMENT_MAP": self._export_texture_type_environment_map,
             "IMAGE": self._export_texture_type_image,
             "NONE": self._export_texture_type_none,
         }
