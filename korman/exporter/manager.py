@@ -188,6 +188,18 @@ class ExportManager:
                 return key
         return None
 
+    def find_create_object(self, pClass, bl=None, name=None, so=None):
+        key = self.find_key(pClass, bl, name, so)
+        if key is None:
+            return self.add_object(pl=pClass, name=name, bl=bl, so=so)
+        return key.object
+
+    def find_object(self, pClass, bl=None, name=None, so=None):
+        key = self.find_key(pClass, bl, name, so)
+        if key is not None:
+            return key.object
+        return None
+
     def get_location(self, bl):
         """Returns the Page Location of a given Blender Object"""
         return self._pages[bl.plasma_object.page]

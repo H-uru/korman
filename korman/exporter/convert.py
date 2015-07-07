@@ -147,7 +147,7 @@ class Exporter:
 
                 # Instead of exporting a skeleton now, we'll just make an orphaned CI.
                 # The bl_obj export will make this work.
-                parent_ci = self.mgr.find_create_key(plCoordinateInterface, bl=bo, so=so).object
+                parent_ci = self.mgr.find_create_object(plCoordinateInterface, bl=bo, so=so)
                 parent_ci.addChild(so.key)
             else:
                 self.report.warn("You have parented Plasma Object '{}' to '{}', which has not been marked for export. \
@@ -157,7 +157,7 @@ class Exporter:
     def export_coordinate_interface(self, so, bl, name=None):
         """Ensures that the SceneObject has a CoordinateInterface"""
         if not so.coord:
-            ci = self.mgr.find_create_key(plCoordinateInterface, bl=bl, so=so, name=name).object
+            ci = self.mgr.find_create_object(plCoordinateInterface, bl=bl, so=so, name=name)
 
             # Now we have the "fun" work of filling in the CI
             ci.localToWorld = utils.matrix44(bl.matrix_basis)
@@ -183,7 +183,7 @@ class Exporter:
             # Create a sceneobject if one does not exist.
             # Before we call the export_fn, we need to determine if this object is an actor of any
             # sort, and barf out a CI.
-            sceneobject = self.mgr.find_create_key(plSceneObject, bl=bl_obj).object
+            sceneobject = self.mgr.find_create_object(plSceneObject, bl=bl_obj)
             self._export_actor(sceneobject, bl_obj)
             export_fn(sceneobject, bl_obj)
 
@@ -210,7 +210,7 @@ class Exporter:
     def _post_process_scene_objects(self):
         print("\nPostprocessing SceneObjects...")
         for bl_obj in self._objects:
-            sceneobject = self.mgr.find_key(plSceneObject, bl=bl_obj).object
+            sceneobject = self.mgr.find_object(plSceneObject, bl=bl_obj)
             bl_obj.plasma_net.export(bl_obj, sceneobject)
 
             # Modifiers don't have to expose post-processing, but if they do, run it
