@@ -178,6 +178,7 @@ class MaterialConverter:
         }
         self._animation_exporters = {
             "opacityCtl": self._export_layer_opacity_animation,
+            "transformCtl": self._export_layer_transform_animation,
         }
 
     def export_material(self, bo, bm):
@@ -336,6 +337,14 @@ class MaterialConverter:
     def _export_layer_opacity_animation(self, bm, tex_slot, fcurves):
         opacity_fcurve = next((i for i in fcurves if i.data_path == "plasma_layer.opacity" and i.keyframe_points), None)
         ctrl = self._exporter().animation.make_scalar_leaf_controller(opacity_fcurve)
+        return ctrl
+
+    def _export_layer_transform_animation(self, bm, tex_slot, fcurves):
+        pos_fcurves = (i for i in fcurves if i.data_path.find("offset") != -1)
+        scale_fcurves = (i for i in fcurves if i.data_path.find("scale") != -1)
+
+        # Plasma uses the controller to generate a matrix44... so we have to produce a leaf controller
+        ctrl = self._exporter().animation.make_matrix44_controller(pos_fcurves, scale_fcurves, tex_slot.offset, tex_slot.scale)
         return ctrl
 
     def _export_texture_type_environment_map(self, bo, hsgmat, layer, slot):
