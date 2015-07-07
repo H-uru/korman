@@ -229,6 +229,12 @@ class MaterialConverter:
         else:
             print("            No UVMap specified... Blindly using the first one, maybe it exists :|")
 
+        # Transform
+        xform = hsMatrix44()
+        xform.setTranslate(hsVector3(*slot.offset))
+        xform.setScale(hsVector3(*slot.scale))
+        layer.transform = xform
+
         state = layer.state
         if slot.use_stencil:
             hsgmat.compFlags |= hsGMaterial.kCompNeedsBlendChannel
