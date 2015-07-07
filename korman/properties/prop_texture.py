@@ -25,3 +25,10 @@ class PlasmaLayer(bpy.types.PropertyGroup):
                                   min=0,
                                   max=100,
                                   subtype="PERCENTAGE")
+
+    anim_auto_start = BoolProperty(name="Auto Start",
+                                   description="Automatically start layer animation",
+                                   default=True)
+    anim_loop = BoolProperty(name="Loop",
+                             description="Loop layer animation",
+                             default=True)

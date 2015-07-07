@@ -176,6 +176,9 @@ class MaterialConverter:
             "IMAGE": self._export_texture_type_image,
             "NONE": self._export_texture_type_none,
         }
+        self._animation_exporters = {
+            "opacityCtl": self._export_layer_opacity_animation,
+        }
 
     def export_material(self, bo, bm):
         """Exports a Blender Material as an hsGMaterial"""
@@ -261,8 +264,79 @@ class MaterialConverter:
 
         # Export the specific texture type
         self._tex_exporters[texture.type](bo, hsgmat, layer, slot)
+
+        # Export any layer animations
+        layer = self._export_layer_animations(bo, bm, slot, idx, hsgmat, layer)
+
         hsgmat.addLayer(layer.key)
         return num_exported
+
+    def _export_layer_animations(self, bo, bm, tex_slot, idx, hsgmat, base_layer):
+        """Exports animations on this texture and chains the Plasma layers as needed"""
+
+        def harvest_fcurves(bl_id, collection, data_path=None):
+            anim = bl_id.animation_data
+            if anim is not None:
+                action = anim.action
+                if action is not None:
+                    if data_path is None:
+                        collection.extend(action.fcurves)
+                    else:
+                        collection.extend([i for i in action.fcurves if i.data_path.startswith(data_path)])
+                    return action
+            return None
+
+        # First, we must gather relevant FCurves from both the material and the texture itself
+        # Because, you know, that totally makes sense...
+        fcurves = []
+        mat_action = harvest_fcurves(bm, fcurves, "texture_slots[{}]".format(idx))
+        tex_action = harvest_fcurves(tex_slot.texture, fcurves)
+
+        # No fcurves, no animation
+        if not fcurves:
+            return base_layer
+
+        # Okay, so we have some FCurves. We'll loop through our known layer animation converters
+        # and chain this biotch up as best we can.
+        layer_animation = None
+        for attr, converter in self._animation_exporters.items():
+            ctrl = converter(bm, tex_slot, fcurves)
+            if ctrl is not None:
+                if layer_animation is None:
+                    name = "{}_LayerAnim".format(base_layer.key.name)
+                    layer_animation = self._mgr.add_object(plLayerAnimation, bl=bo, name=name)
+                setattr(layer_animation, attr, ctrl)
+
+        # Alrighty, if we exported any controllers, layer_animation is a plLayerAnimation. We need to do
+        # the common schtuff now.
+        if layer_animation is not None:
+            layer_animation.underLay = base_layer.key
+
+            fps = bpy.context.scene.render.fps
+            atc = layer_animation.timeConvert
+            if tex_action is not None:
+                start, end = tex_action.frame_range
+            else:
+                start, end = mat_action.frame_range
+            atc.begin = start / fps
+            atc.end = end / fps
+
+            layer_props = tex_slot.texture.plasma_layer
+            if not layer_props.anim_auto_start:
+                atc.flags |= plAnimTimeConvert.kStopped
+            if layer_props.anim_loop:
+                atc.flags |= plAnimTimeConvert.kLoop
+                atc.loopBegin = atc.begin
+                atc.loopEnd = atc.end
+            return layer_animation
+
+        # Well, we had some FCurves but they were garbage... Too bad.
+        return base_layer
+
+    def _export_layer_opacity_animation(self, bm, tex_slot, fcurves):
+        opacity_fcurve = next((i for i in fcurves if i.data_path == "plasma_layer.opacity" and i.keyframe_points), None)
+        ctrl = self._exporter().animation.make_scalar_leaf_controller(opacity_fcurve)
+        return ctrl
 
     def _export_texture_type_environment_map(self, bo, hsgmat, layer, slot):
         """Exports a Blender EnvironmentMapTexture to a plLayer"""

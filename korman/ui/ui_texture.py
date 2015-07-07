@@ -28,5 +28,17 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
     bl_label = "Plasma Layer Options"
 
     def draw(self, context):
+        layer_props = context.texture.plasma_layer
         layout = self.layout
-        layout.prop(context.texture.plasma_layer, "opacity")
+
+        split = layout.split()
+        col = split.column()
+        col.label("Animation:")
+        col.enabled = context.texture.animation_data is not None or \
+                      context.material.animation_data is not None
+        col.prop(layer_props, "anim_auto_start")
+        col.prop(layer_props, "anim_loop")
+
+        col = split.column()
+        col.label("General:")
+        col.prop(layer_props, "opacity", text="Opacity")

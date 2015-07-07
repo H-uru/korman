@@ -61,7 +61,7 @@ class AnimationConverter:
         # Ugh. Unfortunately, it appears Blender's default interpolation is bezier. So who knows if
         # many users will actually see the benefit here? Makes me sad.
         if bez_chans:
-            ctrl = self._make_scalar_controller(rot_curves, keyframes, bez_chans, default_xform.to_euler())
+            ctrl = self._make_scalar_compound_controller(rot_curves, keyframes, bez_chans, default_xform.to_euler())
         else:
             ctrl = self._make_quat_controller(rot_curves, keyframes, default_xform.to_euler())
         return ctrl
@@ -74,6 +74,14 @@ class AnimationConverter:
 
         # There is no such thing as a compound scale controller... in Plasma, anyway.
         ctrl = self._make_scale_value_controller(scale_curves, keyframes, bez_chans, default_xform)
+        return ctrl
+
+    def make_scalar_leaf_controller(self, fcurve):
+        keyframes, bezier = self._process_fcurve(fcurve)
+        if not keyframes:
+            return None
+
+        ctrl = self._make_scalar_leaf_controller(keyframes, bezier)
         return ctrl
 
     def _make_point3_controller(self, fcurves, keyframes, bezier, default_xform):
@@ -141,7 +149,7 @@ class AnimationConverter:
         ctrl.keys = (exported_frames, keyframe_type)
         return ctrl
 
-    def _make_scalar_controller(self, fcurves, keyframes, bez_chans, default_xform):
+    def _make_scalar_compound_controller(self, fcurves, keyframes, bez_chans, default_xform):
         ctrl = plCompoundController()
         subctrls = ("X", "Y", "Z")
         for i in subctrls:
@@ -174,6 +182,23 @@ class AnimationConverter:
                 hack_frame.value = default_xform[i]
                 my_keyframes.append(hack_frame)
             getattr(ctrl, subctrl).keys = (my_keyframes, my_keyframes[0].type)
+        return ctrl
+
+    def _make_scalar_leaf_controller(self, keyframes, bezier):
+        ctrl = plLeafController()
+        keyframe_type = hsKeyFrame.kBezScalarKeyFrame if bezier else hsKeyFrame.kScalarKeyFrame
+        exported_frames = []
+
+        for keyframe in keyframes:
+            exported = hsScalarKey()
+            exported.frame = keyframe.frame_num
+            exported.frameTime = keyframe.frame_time
+            exported.inTan = keyframe.in_tan
+            exported.outTan = keyframe.out_tan
+            exported.type = keyframe_type
+            exported.value = keyframe.value
+            exported_frames.append(exported)
+        ctrl.keys = (exported_frames, keyframe_type)
         return ctrl
 
     def _make_scale_value_controller(self, fcurves, keyframes, bez_chans, default_xform):
@@ -217,6 +242,35 @@ class AnimationConverter:
         ctrl = plLeafController()
         ctrl.keys = (exported_frames, keyframe_type)
         return ctrl
+
+    def _process_fcurve(self, fcurve):
+        """Like _process_keyframes, but for one fcurve"""
+        keyframe_data = type("KeyFrameData", (), {})
+        fps = self._bl_fps
+        pi = math.pi
+
+        keyframes = {}
+        bezier = False
+        fcurve.update()
+        for fkey in fcurve.keyframe_points:
+            keyframe = keyframe_data()
+            frame_num, value = fkey.co
+            if fps == 30.0:
+                keyframe.frame_num = int(frame_num)
+            else:
+                keyframe.frame_num = int(frame_num * (30.0 / fps))
+            keyframe.frame_time = frame_num / fps
+            if fkey.interpolation == "BEZIER":
+                keyframe.in_tan = -(value - fkey.handle_left[1])  / (frame_num - fkey.handle_left[0])  / fps / (2 * pi)
+                keyframe.out_tan = (value - fkey.handle_right[1]) / (frame_num - fkey.handle_right[0]) / fps / (2 * pi)
+                bezier = True
+            else:
+                keyframe.in_tan = 0.0
+                keyframe.out_tan = 0.0
+            keyframe.value = value
+            keyframes[frame_num] = keyframe
+        final_keyframes = [keyframes[i] for i in sorted(keyframes)]
+        return (final_keyframes, bezier)
 
     def _process_keyframes(self, fcurves):
         """Groups all FCurves for the same frame together"""
