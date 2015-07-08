@@ -458,10 +458,13 @@ class MaterialConverter:
         texture = slot.texture
 
         # Does the image have any alpha at all?
-        has_alpha = texture.use_calculate_alpha or slot.use_stencil or self._test_image_alpha(texture.image)
-        if (texture.image.use_alpha and texture.use_alpha) and not has_alpha:
-            warning = "'{}' wants to use alpha, but '{}' is opaque".format(texture.name, texture.image.name)
-            self._exporter().report.warn(warning, indent=3)
+        if texture.image is not None:
+            has_alpha = texture.use_calculate_alpha or slot.use_stencil or self._test_image_alpha(texture.image)
+            if (texture.image.use_alpha and texture.use_alpha) and not has_alpha:
+                warning = "'{}' wants to use alpha, but '{}' is opaque".format(texture.name, texture.image.name)
+                self._exporter().report.warn(warning, indent=3)
+        else:
+            has_alpha = True
 
         # First, let's apply any relevant flags
         state = layer.state
@@ -480,7 +483,7 @@ class MaterialConverter:
         # Otherwise, we toss this layer and some info into our pending texture dict and process it
         #     when the exporter tells us to finalize all our shit
         if texture.image is None:
-            bitmap = self.add_object(plDynamicTextMap, name="{}_DynText".format(layer.key.name), bl=bo)
+            bitmap = self._mgr.add_object(plDynamicTextMap, name="{}_DynText".format(layer.key.name), bl=bo)
         else:
             key = _Texture(texture=texture, use_alpha=has_alpha, force_calc_alpha=slot.use_stencil)
             if key not in self._pending:
