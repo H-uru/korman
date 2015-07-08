@@ -341,9 +341,11 @@ class MaterialConverter:
         return base_layer
 
     def _export_layer_opacity_animation(self, bm, tex_slot, fcurves):
-        opacity_fcurve = next((i for i in fcurves if i.data_path == "plasma_layer.opacity" and i.keyframe_points), None)
-        ctrl = self._exporter().animation.make_scalar_leaf_controller(opacity_fcurve)
-        return ctrl
+        for i in fcurves:
+            if i.data_path == "plasma_layer.opacity":
+                ctrl = self._exporter().animation.make_scalar_leaf_controller(i)
+                return ctrl
+        return None
 
     def _export_layer_transform_animation(self, bm, tex_slot, fcurves):
         pos_fcurves = (i for i in fcurves if i.data_path.find("offset") != -1)
