@@ -43,6 +43,8 @@ class AnimationConverter:
     def make_matrix44_controller(self, pos_fcurves, scale_fcurves, default_pos, default_scale):
         pos_keyframes, pos_bez = self._process_keyframes(pos_fcurves)
         scale_keyframes, scale_bez = self._process_keyframes(scale_fcurves)
+        if not pos_keyframes and not scale_keyframes:
+            return None
 
         # Matrix keyframes cannot do bezier schtuff
         if pos_bez or scale_bez:
