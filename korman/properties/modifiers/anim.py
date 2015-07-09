@@ -72,7 +72,7 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
         # Simple start and loop info
         initial_marker = markers.get(self.initial_marker)
         if initial_marker is not None:
-            atcanim.initial = _convert_fame_time(initial_marker.frame)
+            atcanim.initial = _convert_frame_time(initial_marker.frame)
         else:
             atcanim.initial = -1.0
         if self.loop:
