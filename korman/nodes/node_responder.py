@@ -71,10 +71,10 @@ class PlasmaResponderNode(PlasmaNodeVariableInput, bpy.types.Node):
             def get_state(self, node):
                 for idx, (theNode, theState) in enumerate(self.states):
                     if theNode == node:
-                        return (idx, theState)
+                        return (idx, theState, True)
                 state = plResponderModifier_State()
                 self.states.append((node, state))
-                return (len(self.states) - 1, state)
+                return (len(self.states) - 1, state, False)
 
             def save(self):
                 resp = self.responder
@@ -112,7 +112,7 @@ class PlasmaResponderStateNode(PlasmaNodeVariableInput, bpy.types.Node):
         layout.prop(self, "default_state")
 
     def convert_state(self, exporter, tree, so, stateMgr):
-        idx, state = stateMgr.get_state(self)
+        idx, state, converted = stateMgr.get_state(self)
 
         # No sanity checking here. Hopefully nothing crazy has happened in the UI.
         if self.default_state:
@@ -123,8 +123,10 @@ class PlasmaResponderStateNode(PlasmaNodeVariableInput, bpy.types.Node):
         if toStateNode is None:
             state.switchToState = idx
         else:
-            toIdx, toState = stateMgr.get_state(toStateNode)
+            toIdx, toState, converted = stateMgr.get_state(toStateNode)
             state.switchToState = toIdx
+            if not converted:
+                toStateNode.convert_state(exporter, tree, so, stateMgr)
 
         class CommandMgr:
             def __init__(self):
