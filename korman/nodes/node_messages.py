@@ -34,6 +34,161 @@ class PlasmaMessageNode(PlasmaNodeBase):
         return False
 
 
+class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
+    bl_category = "MSG"
+    bl_idname = "PlasmaAnimCmdMsgNode"
+    bl_label = "Animation Command"
+    bl_width_default = 190
+
+    anim_type = EnumProperty(name="Type",
+                             description="Animation type to affect",
+                             items=[("OBJECT", "Object", "Mesh Action"),
+                                    ("TEXTURE", "Texture", "Texture Action")],
+                             default="OBJECT")
+    object_name = StringProperty(name="Object",
+                                 description="Target object name")
+    material_name = StringProperty(name="Material",
+                                   description="Target material name")
+    texture_name = StringProperty(name="Texture",
+                                  description="Target texture slot name")
+
+    go_to = EnumProperty(name="Go To",
+                         description="Where should the animation start?",
+                         items=[("kGoToBegin", "Beginning", "The beginning"),
+                                ("kGoToLoopBegin", "Loop Beginning", "The beginning of the active loop"),
+                                ("CURRENT", "(Don't Change)", "The current position"),
+                                ("kGoToEnd", "Ending", "The end"),
+                                ("kGoToLoopEnd", "Loop Ending", "The end of the active loop")],
+                         default="CURRENT")
+    action = EnumProperty(name="Action",
+                          description="What do you want the animation to do?",
+                          items=[("kContinue", "Play", "Plays the animation"),
+                                 ("kPlayToPercent", "Play to Percent", "Plays the animation until a given percent is complete"),
+                                 ("kPlayToTime", "Play to Frame", "Plays the animation up to a given frame number"),
+                                 ("kStop", "Stop", "Stops the animation",),
+                                 ("kToggleState", "Toggle", "Toggles between Play and Stop"),
+                                 ("CURRENT", "(Don't Change)", "Don't change the animation's playing state")],
+                          default="CURRENT")
+    play_direction = EnumProperty(name="Direction",
+                                  description="Which direction do you want to play from?",
+                                  items=[("kSetForwards", "Forward", "Play forwards"),
+                                         ("kSetBackwards", "Backwards", "Play backwards"),
+                                         ("CURRENT", "(Don't Change)", "Don't change the  play direction")],
+                                  default="CURRENT")
+    play_to_percent = IntProperty(name="Play To",
+                                  description="Percentage at which to stop the animation",
+                                  subtype="PERCENTAGE",
+                                  min=0, max=100, default=50)
+    play_to_frame = IntProperty(name="Play To",
+                                  description="Frame at which to stop the animation",
+                                  min=0)
+
+    def _set_loop_name(self, context):
+        """Updates loop_begin and loop_end when the loop name is changed"""
+        pass
+
+    looping = EnumProperty(name="Looping",
+                           description="Is the animation looping?",
+                           items=[("kSetLooping", "Yes", "The animation is looping",),
+                                  ("CURRENT", "(Don't Change)", "Don't change the loop status"),
+                                  ("kSetUnLooping", "No", "The animation is NOT looping")],
+                           default="CURRENT")
+    loop_name = StringProperty(name="Active Loop",
+                               description="Name of the active loop",
+                               update=_set_loop_name)
+    loop_begin = IntProperty(name="Loop Begin",
+                             description="Frame number at which the loop begins",
+                             min=0)
+    loop_end = IntProperty(name="Loop End",
+                           description="Frame number at which the loop ends",
+                           min=0)
+
+    def init(self, context):
+        self.inputs.new("PlasmaMessageSocket", "Sender", "sender")
+
+    def draw_buttons(self, context, layout):
+        layout.prop(self, "anim_type")
+        if self.anim_type == "OBJECT":
+            layout.prop_search(self, "object_name", bpy.data, "objects")
+        else:
+            layout.prop_search(self, "material_name", bpy.data, "materials")
+            material = bpy.data.materials.get(self.material_name, None)
+            if material is not None:
+                layout.prop_search(self, "texture_name", material, "texture_slots")
+
+        layout.prop(self, "go_to")
+        layout.prop(self, "action")
+        layout.prop(self, "play_direction")
+        if self.action == "kPlayToPercent":
+            layout.prop(self, "play_to_percent")
+        elif self.action == "kPlayToTime":
+            layout.prop(self, "play_to_frame")
+
+        layout.prop(self, "looping")
+        col = layout.column()
+        col.enabled = self.looping != "CURRENT"
+        if self.anim_type != "OBJECT":
+            loops = None
+        else:
+            obj = bpy.data.objects.get(self.object_name, None)
+            loops = None if obj is None else obj.plasma_modifiers.animation_loop
+        if loops is not None and loops.enabled:
+            layout.prop_search(self, "loop_name", loops, "loops", icon="PMARKER_ACT")
+        else:
+            layout.prop(self, "loop_begin")
+            layout.prop(self, "loop_end")
+
+    def convert_message(self, exporter, tree, so, respKey, wait):
+        msg = plAnimCmdMsg()
+
+        # We're either sending this off to an AGMasterMod or a LayerAnim
+        error = ExportError("Node '{}' in '{}' specifies an invalid animation".format(self.name, tree.name))
+        if self.anim_type == "OBJECT":
+            obj = bpy.data.objects.get(self.object_name, None)
+            if obj is None:
+                raise error
+            anim = obj.plasma_modifiers.animation
+            if not anim.enabled:
+                raise error
+            target = exporter.mgr.find_create_key(plAGMasterMod, bl=obj, name=anim.display_name)
+        else:
+            material = bpy.data.materials.get(self.material_name, None)
+            if material is None:
+                raise error
+            tex_slot = material.texture_slots.get(self.texture_name, None)
+            if tex_slot is None:
+                raise error
+            name = "{}_{}_LayerAnim".format(self.material_name, self.texture_name)
+            target = exporter.mgr.find_create_key(plLayerAnimation, name=name, so=so)
+        if target is None:
+            raise error
+        msg.addReceiver(target)
+
+        # Check the enum properties to see what commands we need to add
+        for prop in (self.go_to, self.action, self.play_direction, self.looping):
+            cmd = getattr(plAnimCmdMsg, prop, None)
+            if cmd is not None:
+                msg.setCmd(cmd, True)
+
+        # Easier part starts here???
+        fps = bpy.context.scene.render.fps
+        if self.action == "kPlayToPercent":
+            msg.time = self.play_to_percent
+        elif self.action == "kPlayToTime":
+            msg.time = self.play_to_frame / fps
+
+        # Implicit s better than explicit, I guess...
+        if self.loop_begin != self.loop_end:
+            # NOTE: loop name is not used in the engine AFAICT
+            msg.setCmd(plAnimCmdMsg.kSetLoopBegin, True)
+            msg.setCmd(plAnimCmdMsg.kSetLoopEnd, True)
+            msg.loopBegin = self.loop_begin / fps
+            msg.loopEnd = self.loop_end / fps
+
+        # Whew, this was crazy
+        return msg
+
+
 class PlasmaOneShotMsgNode(PlasmaMessageNode, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaOneShotMsgNode"
