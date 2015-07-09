@@ -265,9 +265,13 @@ class MaterialConverter:
             elif slot.blend_type == "MULTIPLY":
                 state.blendFlags |= hsGMatState.kBlendMult
 
-        # Apply custom layer properties
         texture = slot.texture
-        layer.opacity = texture.plasma_layer.opacity / 100
+
+        # Apply custom layer properties
+        layer_props = texture.plasma_layer
+        layer.opacity = layer_props.opacity / 100
+        if layer_props.opacity < 100:
+            state.blendFlags |= hsGMatState.kBlendAlpha
 
         # Export the specific texture type
         self._tex_exporters[texture.type](bo, hsgmat, layer, slot)
@@ -372,6 +376,7 @@ class MaterialConverter:
             # that create themselves when the explorer links in, so really... who cares about CEMs?
             self._exporter().report.warn("IMAGE EnvironmentMaps are not supported. '{}' will not be exported!".format(layer.key.name))
             pl_env = None
+        layer.state.shadeFlags |= hsGMatState.kShadeEnvironMap
         layer.texture = pl_env
 
     def _export_dynamic_env(self, bo, hsgmat, layer, bl_env, pl_class):
