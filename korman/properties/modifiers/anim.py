@@ -66,7 +66,7 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
         atcanim.autoStart = self.auto_start
         atcanim.loop = self.loop
         atcanim.name = "(Entire Animation)"
-        atcanim.start = 0.0
+        atcanim.start = _convert_frame_time(action.frame_range[0])
         atcanim.end = _convert_frame_time(action.frame_range[1])
 
         # Simple start and loop info
@@ -80,7 +80,7 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
             if loop_start is not None:
                 atcanim.loopStart = _convert_frame_time(loop_start.frame)
             else:
-                atcanim.loopStart = 0.0
+                atcanim.loopStart = _convert_frame_time(action.frame_range[0])
             loop_end = markers.get(self.loop_end)
             if loop_end is not None:
                 atcanim.loopEnd = _convert_frame_time(loop_end.frame)
