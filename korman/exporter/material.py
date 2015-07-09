@@ -349,8 +349,8 @@ class MaterialConverter:
         return None
 
     def _export_layer_transform_animation(self, bm, tex_slot, base_layer, fcurves):
-        pos_fcurves = (i for i in fcurves if i.data_path.find("offset") != -1)
-        scale_fcurves = (i for i in fcurves if i.data_path.find("scale") != -1)
+        pos_fcurves = [i for i in fcurves if i.data_path.find("offset") != -1]
+        scale_fcurves = [i for i in fcurves if i.data_path.find("scale") != -1]
 
         # Plasma uses the controller to generate a matrix44... so we have to produce a leaf controller
         ctrl = self._exporter().animation.make_matrix44_controller(pos_fcurves, scale_fcurves, tex_slot.offset, tex_slot.scale)

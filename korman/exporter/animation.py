@@ -14,6 +14,7 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+import itertools
 import math
 import mathutils
 from PyHSPlasma import *
@@ -54,8 +55,12 @@ class AnimationConverter:
         # a lot of temporary objects, but until I see profiling results that this is terrible, I prefer
         # to have code that makes sense.
         keyframes = []
-        for pos, scale in zip(pos_keyframes, scale_keyframes):
-            if pos.frame_num == scale.frame_num:
+        for pos, scale in itertools.zip_longest(pos_keyframes, scale_keyframes, fillvalue=None):
+            if pos is None:
+                keyframes.append((None, scale))
+            elif scale is None:
+                keyframes.append((pos, scale))
+            elif pos.frame_num == scale.frame_num:
                 keyframes.append((pos, scale))
             elif pos.frame_num < scale.frame_num:
                 keyframes.append((pos, None))
