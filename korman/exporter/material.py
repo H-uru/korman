@@ -307,7 +307,7 @@ class MaterialConverter:
         # and chain this biotch up as best we can.
         layer_animation = None
         for attr, converter in self._animation_exporters.items():
-            ctrl = converter(bm, tex_slot, fcurves)
+            ctrl = converter(bm, tex_slot, base_layer, fcurves)
             if ctrl is not None:
                 if layer_animation is None:
                     name = "{}_LayerAnim".format(base_layer.key.name)
@@ -340,14 +340,15 @@ class MaterialConverter:
         # Well, we had some FCurves but they were garbage... Too bad.
         return base_layer
 
-    def _export_layer_opacity_animation(self, bm, tex_slot, fcurves):
+    def _export_layer_opacity_animation(self, bm, tex_slot, base_layer, fcurves):
         for i in fcurves:
             if i.data_path == "plasma_layer.opacity":
+                base_layer.state.blendFlags |= hsGMatState.kBlendAlpha
                 ctrl = self._exporter().animation.make_scalar_leaf_controller(i)
                 return ctrl
         return None
 
-    def _export_layer_transform_animation(self, bm, tex_slot, fcurves):
+    def _export_layer_transform_animation(self, bm, tex_slot, base_layer, fcurves):
         pos_fcurves = (i for i in fcurves if i.data_path.find("offset") != -1)
         scale_fcurves = (i for i in fcurves if i.data_path.find("scale") != -1)
 
