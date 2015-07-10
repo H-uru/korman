@@ -74,6 +74,10 @@ class PhysicsConverter:
             simIface = self._mgr.add_object(pl=plSimulationInterface, bl=bo)
             physical = self._mgr.add_object(pl=plGenericPhysical, bl=bo, name=name)
 
+            # libHSPlasma's default mass is evil. The issue is that CWE will only do PhysAnim
+            # aka non dynamic animated physicals if the mass != 0. The user can override this.
+            physical.mass = 1.0
+
             simIface.physical = physical.key
             physical.object = so.key
             physical.sceneNode = self._mgr.get_scene_node(bl=bo)
