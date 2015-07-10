@@ -180,18 +180,18 @@ class PlasmaResponderCommandNode(PlasmaNodeBase, bpy.types.Node):
         if msgNode is not None:
             idx, command = commandMgr.add_command(self, waitOn)
 
+            # Finally, convert our message...
+            msg = msgNode.convert_message(exporter, tree, so)
+            self._finalize_message(exporter, responder, msg)
+
             # If we have child commands, we need to make sure that we support chaining this message as a callback
             # If not, we'll export our children and tell them to not actually wait on us.
             haveChildren = self.find_output("trigger", "PlasmaResponderCommandNode") is not None
             if haveChildren and msgNode.has_callbacks:
                 childWaitOn = commandMgr.add_wait(idx)
+                msgNode.convert_callback_message(exporter, tree, so, msg, responder.key, childWaitOn)
             else:
                 childWaitOn = -1
-
-            # Finally, convert our message...
-            msg = msgNode.convert_message(exporter, tree, so, responder.key, childWaitOn)
-            self._finalize_message(exporter, responder, msg)
-
             command.msg = msg
         else:
             childWaitOn = -1

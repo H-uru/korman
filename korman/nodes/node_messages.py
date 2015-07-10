@@ -27,11 +27,17 @@ class PlasmaMessageSocket(PlasmaMessageSocketBase, bpy.types.NodeSocket):
     pass
 
 
-class PlasmaMessageNode(PlasmaNodeBase):
+class PlasmaMessageNode(PlasmaNodeVariableInput):
     @property
     def has_callbacks(self):
         """This message has callbacks that can be waited on by a Responder"""
         return False
+
+    def init(self, context):
+        self.inputs.new("PlasmaMessageSocket", "Sender", "sender")
+
+    def update(self):
+        self.ensure_sockets("PlasmaMessageSocket", "Sender", "sender")
 
 
 class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
@@ -103,8 +109,12 @@ class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
                            description="Frame number at which the loop ends",
                            min=0)
 
-    def init(self, context):
-        self.inputs.new("PlasmaMessageSocket", "Sender", "sender")
+    event = EnumProperty(name="Callback",
+                         description="Event upon which to callback the Responder",
+                         items=[("kEnd", "End", "When the action ends"),
+                                ("NONE", "(None)", "Don't notify the Responder at all"),
+                                ("kStop", "Stop", "When the action is stopped by a message")],
+                         default="kEnd")
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "anim_type")
@@ -138,7 +148,16 @@ class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
             layout.prop(self, "loop_begin")
             layout.prop(self, "loop_end")
 
-    def convert_message(self, exporter, tree, so, respKey, wait):
+        layout.prop(self, "event")
+
+    def convert_callback_message(self, exporter, tree, so, msg, target, wait):
+        cb = plEventCallbackMsg()
+        cb.addReceiver(target)
+        cb.event = globals()[self.event]
+        cb.user = wait
+        msg.addCallback(cb)
+
+    def convert_message(self, exporter, tree, so):
         msg = plAnimCmdMsg()
 
         # We're either sending this off to an AGMasterMod or a LayerAnim
@@ -188,6 +207,10 @@ class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
         # Whew, this was crazy
         return msg
 
+    @property
+    def has_callbacks(self):
+        return self.event != "NONE"
+
 
 class PlasmaOneShotMsgNode(PlasmaMessageNode, bpy.types.Node):
     bl_category = "MSG"
@@ -206,6 +229,8 @@ class PlasmaOneShotMsgNode(PlasmaMessageNode, bpy.types.Node):
 
     animation = StringProperty(name="Animation",
                                description="Name of the animation the avatar should execute")
+    marker = StringProperty(name="Marker",
+                                     description="Name of the marker specifying when to notify the Responder")
     drivable = BoolProperty(name="Drivable",
                             description="Player retains control of the avatar during the OneShot",
                             default=False)
@@ -213,19 +238,17 @@ class PlasmaOneShotMsgNode(PlasmaMessageNode, bpy.types.Node):
                               description="Player can reverse the OneShot",
                               default=False)
 
-    def init(self, context):
-        self.inputs.new("PlasmaOneShotMsgSocket", "Sender", "sender")
+    def convert_callback_message(self, exporter, tree, so, msg, target, wait):
+        msg.addCallback(self.marker, target, wait)
 
-    def convert_message(self, exporter, tree, so, respKey, wait):
+    def convert_message(self, exporter, tree, so):
         msg = plOneShotMsg()
         msg.addReceiver(self.get_key(exporter, tree, so))
-        cb = self.find_input_socket("sender")
-        if cb.marker:
-            msg.addCallback(cb.marker, respKey, wait)
         return msg
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "animation", text="Anim")
+        layout.prop(self, "marker")
         row = layout.row()
         row.prop(self, "drivable")
         row.prop(self, "reversable")
@@ -254,19 +277,15 @@ class PlasmaOneShotMsgNode(PlasmaMessageNode, bpy.types.Node):
 
     @property
     def has_callbacks(self):
-        cb = self.find_input_socket("sender")
-        return bool(cb.marker)
+        return bool(self.marker)
 
 
-class PlasmaOneShotMsgSocket(PlasmaMessageSocketBase, bpy.types.NodeSocket):
+class PlasmaOneShotCallbackSocket(PlasmaMessageSocketBase, bpy.types.NodeSocket):
     marker = StringProperty(name="Marker",
-                            description="Name of the marker specifying the time to send a callback message")
+                            description="Marker specifying the time at which to send a callback to this Responder")
 
     def draw(self, context, layout, node, text):
-        if self.is_linked:
-            layout.prop(self, "marker")
-        else:
-            layout.label(text)
+        layout.prop(self, "marker")
 
 
 class PlasmaFootstepSoundMsgNode(PlasmaMessageNode, bpy.types.Node):
@@ -285,7 +304,7 @@ class PlasmaFootstepSoundMsgNode(PlasmaMessageNode, bpy.types.Node):
     def draw_buttons(self, context, layout):
         layout.prop(self, "surface")
 
-    def convert_message(self, exporter, tree, so, respKey, wait):
+    def convert_message(self, exporter, tree, so):
         msg = plArmatureEffectStateMsg()
         msg.surface = footstep_surface_ids[self.surface]
         return msg
