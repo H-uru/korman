@@ -21,7 +21,7 @@ import pstats
 
 from .. import exporter
 from ..properties.prop_world import PlasmaAge
-
+from ..properties.modifiers.logic import game_versions
 
 class ExportOperator(bpy.types.Operator):
     """Exports ages for Cyan Worlds' Plasma Engine"""
@@ -44,9 +44,7 @@ class ExportOperator(bpy.types.Operator):
         "version": (EnumProperty, {"name": "Version",
                                    "description": "Version of the Plasma Engine to target",
                                    "default": "pvPots",  # This should be changed when moul is easier to target!
-                                   "items": [("pvPrime", "Ages Beyond Myst (63.11)", "Targets the original Uru (Live) game", 2),
-                                             ("pvPots", "Path of the Shell (63.12)", "Targets the most recent offline expansion pack", 1),
-                                             ("pvMoul", "Myst Online: Uru Live (70)", "Targets the most recent online game", 0)]}),
+                                   "items": game_versions}),
     }
 
     # This wigs out and very bad things happen if it's not directly on the operator...

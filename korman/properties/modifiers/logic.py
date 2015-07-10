@@ -18,6 +18,28 @@ from bpy.props import *
 from PyHSPlasma import *
 
 from .base import PlasmaModifierProperties
+from ...exporter import ExportError
+
+game_versions = [("pvPrime", "Ages Beyond Myst (63.11)", "Targets the original Uru (Live) game"),
+                 ("pvPots", "Path of the Shell (63.12)", "Targets the most recent offline expansion pack"),
+                 ("pvMoul", "Myst Online: Uru Live (70)", "Targets the most recent online game")]
+
+class PlasmaVersionedNodeTree(bpy.types.PropertyGroup):
+    name = StringProperty(name="Name")
+    version = EnumProperty(name="Version",
+                           description="Plasma versions this node tree exports under",
+                           items=game_versions,
+                           options={"ENUM_FLAG"},
+                           default=set(list(zip(*game_versions))[0]))
+    node_tree_name = StringProperty(name="Node Tree",
+                                    description="Node Tree to export")
+
+    @property
+    def node_tree(self):
+        try:
+            return bpy.data.node_groups[self.node_tree_name]
+        except KeyError:
+            raise ExportError("Node Tree {} does not exist!".format(self.node_tree_name))
 
 class PlasmaAdvancedLogic(PlasmaModifierProperties):
     pl_id = "advanced_logic"
@@ -27,19 +49,25 @@ class PlasmaAdvancedLogic(PlasmaModifierProperties):
     bl_description = "Plasma Logic Nodes"
     bl_icon = "NODETREE"
 
-    tree_name = StringProperty(name="Node Tree", description="Plasma Logic Nodes")
+    logic_groups = CollectionProperty(type=PlasmaVersionedNodeTree)
+    active_group_index = IntProperty(options={"HIDDEN"})
 
     def created(self, obj):
         self.display_name = "Advanced Logic"
 
     def export(self, exporter, bo, so):
-        tree = bpy.data.node_groups[self.tree_name]
-        tree.export(exporter, bo, so)
+        version = exporter.mgr.getVer()
+        for i in self.logic_groups:
+            our_versions = [globals()[j] for j in i.version]
+            if version in our_versions:
+                i.node_tree.export(exporter, bo, so)
 
     @property
     def requires_actor(self):
-        tree = bpy.data.node_groups[self.tree_name]
-        return tree.requires_actor
+        for i in self.logic_groups:
+            if i.node_tree.requires_actor:
+                return True
+        return False
 
 
 class PlasmaSpawnPoint(PlasmaModifierProperties):

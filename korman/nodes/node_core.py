@@ -56,6 +56,16 @@ class PlasmaNodeBase:
                 return i
         raise KeyError(key)
 
+    def find_input_sockets(self, key, idname=None):
+        for i in self.inputs:
+            if i.identifier == key:
+                if idname is None:
+                    yield i
+                elif i.links:
+                    node = i.links[0].from_node
+                    if idname == node.bl_idname:
+                        yield i
+
     def find_output(self, key, idname=None):
         for i in self.outputs:
             if i.identifier == key:

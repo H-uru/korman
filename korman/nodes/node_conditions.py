@@ -49,7 +49,9 @@ class PlasmaClickableNode(PlasmaNodeBase, bpy.types.Node):
         # Case: sitting modifier (exports from sit position empty)
         if self.clickable:
             clickable_bo = bpy.data.objects[self.clickable]
-            clickable_so = exporter.mgr.find_create_key(plSceneObject, bl=clickable_bo).object
+            clickable_so = exporter.mgr.find_create_object(plSceneObject, bl=clickable_bo)
+            # We're deep inside a potentially unrelated node tree...
+            exporter.export_coordinate_interface(clickable_so, clickable_bo)
         else:
             clickable_bo = parent_bo
             clickable_so = parent_so

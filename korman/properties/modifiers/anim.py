@@ -123,9 +123,9 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
 
         # We need both an AGModifier and an AGMasterMod
         # TODO: grouped animations (eg one door, two objects)
-        agmod = exporter.mgr.add_object(plAGModifier, so=so, name=self.display_name)
+        agmod = exporter.mgr.find_create_object(plAGModifier, so=so, name=self.display_name)
         agmod.channelName = bo.name
-        agmaster = exporter.mgr.add_object(plAGMasterMod, so=so, name=self.display_name)
+        agmaster = exporter.mgr.find_create_object(plAGMasterMod, so=so, name=self.display_name)
         agmaster.addPrivateAnim(atcanim.key)
 
     def post_export(self, exporter, bo, so):
