@@ -178,7 +178,7 @@ class PlasmaResponderCommandNode(PlasmaNodeBase, bpy.types.Node):
 
     def init(self, context):
         self.inputs.new("PlasmaRespCommandSocket", "Condition", "whodoneit")
-        self.outputs.new("PlasmaMessageSocket", "Message", "msg")
+        self.outputs.new("PlasmaMessageSocket", "Message", "msg").link_limit = 1
         self.outputs.new("PlasmaRespCommandSocket", "Trigger", "trigger")
 
     def convert_command(self, exporter, tree, so, responder, commandMgr, waitOn=-1):
