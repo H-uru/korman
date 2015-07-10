@@ -370,7 +370,7 @@ class MaterialConverter:
                 pl_env = plDynamicCamMap
             else:
                 pl_env = plDynamicEnvMap
-            pl_env = self._export_dynamic_env(bo, hsgmat, layer, bl_env, pl_env)
+            pl_env = self._export_dynamic_env(bo, hsgmat, layer, texture, pl_env)
         else:
             # We should really export a CubicEnvMap here, but we have a good setup for DynamicEnvMaps
             # that create themselves when the explorer links in, so really... who cares about CEMs?
@@ -379,9 +379,10 @@ class MaterialConverter:
         layer.state.shadeFlags |= hsGMatState.kShadeEnvironMap
         layer.texture = pl_env
 
-    def _export_dynamic_env(self, bo, hsgmat, layer, bl_env, pl_class):
+    def _export_dynamic_env(self, bo, hsgmat, layer, texture, pl_class):
         # To protect the user from themselves, let's check to make sure that a DEM/DCM matching this
         # viewpoint object has not already been exported...
+        bl_env = texture.environment_map
         viewpt = bl_env.viewpoint_object
         name = "{}_DynEnvMap".format(viewpt.name)
         pl_env = self._mgr.find_key(pl_class, bl=bo, name=name)
@@ -415,7 +416,7 @@ class MaterialConverter:
 
         # Perhaps the DEM/DCM fog should be separately configurable at some point?
         pl_fog = bpy.context.scene.world.plasma_fni
-        pl_env.color = utils.color(pl_fog.fog_color)
+        pl_env.color = utils.color(texture.plasma_layer.envmap_color)
         pl_env.fogStart = pl_fog.fog_start
 
         if isinstance(pl_env, plDynamicCamMap):

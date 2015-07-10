@@ -26,6 +26,13 @@ class PlasmaLayer(bpy.types.PropertyGroup):
                                   max=100,
                                   subtype="PERCENTAGE")
 
+    envmap_color = FloatVectorProperty(name="Environment Map Color",
+                                       description="The default background color rendered onto the Environment Map",
+                                       min=0.0,
+                                       max=1.0,
+                                       default=(1.0, 1.0, 1.0),
+                                       subtype="COLOR")
+
     anim_auto_start = BoolProperty(name="Auto Start",
                                    description="Automatically start layer animation",
                                    default=True)

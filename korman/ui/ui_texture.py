@@ -28,7 +28,8 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
     bl_label = "Plasma Layer Options"
 
     def draw(self, context):
-        layer_props = context.texture.plasma_layer
+        texture = context.texture
+        layer_props = texture.plasma_layer
         layout = self.layout
 
         split = layout.split()
@@ -42,3 +43,6 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
         col = split.column()
         col.label("General:")
         col.prop(layer_props, "opacity", text="Opacity")
+        col = col.column()
+        col.enabled = texture.type == "ENVIRONMENT_MAP"
+        col.prop(layer_props, "envmap_color")
