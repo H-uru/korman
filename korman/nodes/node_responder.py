@@ -41,8 +41,6 @@ class PlasmaResponderNode(PlasmaNodeVariableInput, bpy.types.Node):
         self.outputs.new("PlasmaRespStateSocket", "States", "states")
 
     def draw_buttons(self, context, layout):
-        self.ensure_sockets("PlasmaConditionSocket", "Condition", "condition")
-
         layout.prop(self, "detect_trigger")
         layout.prop(self, "detect_untrigger")
         layout.prop(self, "no_ff_sounds")
@@ -88,6 +86,9 @@ class PlasmaResponderNode(PlasmaNodeVariableInput, bpy.types.Node):
             stateNode.convert_state(exporter, tree, so, stateMgr)
         stateMgr.save()
 
+    def update(self):
+        self.ensure_sockets("PlasmaConditionSocket", "Condition", "condition")
+
 
 class PlasmaResponderStateNode(PlasmaNodeVariableInput, bpy.types.Node):
     bl_category = "LOGIC"
@@ -104,11 +105,6 @@ class PlasmaResponderStateNode(PlasmaNodeVariableInput, bpy.types.Node):
         self.outputs.new("PlasmaRespStateSocket", "Trigger", "gotostate").link_limit = 1
 
     def draw_buttons(self, context, layout):
-        # This actually draws nothing, but it makes sure we have at least one empty input slot
-        # We need this because it's possible that multiple OTHER states can call us
-        self.ensure_sockets("PlasmaRespStateSocket", "Condition", "condition")
-
-        # Now draw a prop
         layout.prop(self, "default_state")
 
     def convert_state(self, exporter, tree, so, stateMgr):
@@ -158,6 +154,17 @@ class PlasmaResponderStateNode(PlasmaNodeVariableInput, bpy.types.Node):
             # namely because it's impossible to wait on a command that doesn't exist...
             i.convert_command(exporter, tree, so, stateMgr.responder, commands)
         commands.save(state)
+
+    def update(self):
+        # This actually draws nothing, but it makes sure we have at least one empty input slot
+        # We need this because it's possible that multiple OTHER states can call us
+        self.ensure_sockets("PlasmaRespStateSocket", "Condition", "condition")
+
+        # Check to see if we're the default state
+        if not self.default_state:
+            inputs = list(self.find_input_sockets("condition", "PlasmaResponderNode"))
+            if len(inputs) == 1:
+                self.default_state = True
 
 
 class PlasmaRespStateSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
