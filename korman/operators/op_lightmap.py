@@ -142,6 +142,9 @@ class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
             # TROLLING LOL LOL LOL
             ensure_object_can_bake(obj, toggle)
 
+            # Because the way Blender tracks active UV layers is massively stupid...
+            og_uv_map = uv_textures.active
+
             # Originally, we used the lightmap unpack UV operator to make our UV texture, however,
             # this tended to create sharp edges. There was already a discussion about this on the
             # Guild of Writers forum, so I'm implementing a code version of dendwaler's process,
@@ -180,11 +183,20 @@ class LightmapAutobakeOperator(_LightingOperator, bpy.types.Operator):
             self._apply_render_settings(render, toggle)
 
             # Now, we *finally* bake the lightmap...
-            light_group = bpy.data.groups[self.light_group] if self.light_group else None
-            if self._generate_lightgroups(mesh, light_group):
-                bpy.ops.object.bake_image()
-                im.pack(as_png=True)
-            self._pop_lightgroups()
+            try:
+                light_group = bpy.data.groups[self.light_group] if self.light_group else None
+                if self._generate_lightgroups(mesh, light_group):
+                    bpy.ops.object.bake_image()
+                    im.pack(as_png=True)
+                self._pop_lightgroups()
+            finally:
+                for i, uv_tex in enumerate(uv_textures):
+                    # once this executes the og_uv_map is apparently no longer in the UVTextures :/
+                    # search by name to find the REAL uv texture that we need.
+                    if uv_tex.name == og_uv_map.name:
+                        uv_textures.active = uv_tex
+                        uv_textures.active_index = i
+                        break
 
         # Done!
         return {"FINISHED"}
