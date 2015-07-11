@@ -73,9 +73,12 @@ class PlasmaClickableNode(PlasmaNodeBase, bpy.types.Node):
         phys_name = "{}_ClickableLOS".format(clickable_bo.name)
         simIface, physical = exporter.physics.generate_physical(clickable_bo, clickable_so, bounds, phys_name)
         simIface.setProperty(plSimulationInterface.kPinned, True)
+        physical.setProperty(plSimulationInterface.kPinned, True)
         if made_the_phys:
             # we assume that the collision modifier will do this if they want it to be intangible
             physical.memberGroup = plSimDefs.kGroupLOSOnly
+        if physical.mass == 0.0:
+            physical.mass = 1.0
         physical.LOSDBs |= plSimDefs.kLOSDBUIItems
 
         # Picking Detector -- detect when the physical is clicked

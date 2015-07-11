@@ -34,9 +34,7 @@ class PhysicsConverter:
             if self._exporter().has_coordiface(bo):
                 mesh.update(calc_tessface=indices)
                 physical.pos = utils.vector3(mat.to_translation())
-                quat = mat.to_quaternion()
-                quat.normalize()
-                physical.rot = utils.quaternion(quat)
+                physical.rot = utils.quaternion(mat.to_quaternion())
 
                 # Physicals can't have scale...
                 scale = mat.to_scale()
