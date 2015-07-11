@@ -396,8 +396,9 @@ class MaterialConverter:
 
         # It matters not whether or not the viewpoint object is a Plasma Object, it is exported as at
         # least a SceneObject and CoordInterface so that we can touch it...
+        # NOTE: that harvest_actor makes sure everyone alread knows we're going to have a CI
         root = self._mgr.find_create_key(plSceneObject, bl=bo, name=viewpt.name)
-        self._exporter().export_coordinate_interface(root.object, bl=bo, name=viewpt.name)
+        self._exporter()._export_coordinate_interface(root.object, bl=bo, name=viewpt.name)
         # FIXME: DynamicCamMap Camera
 
         # Ensure POT

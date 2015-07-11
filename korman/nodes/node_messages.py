@@ -274,6 +274,9 @@ class PlasmaOneShotMsgNode(PlasmaMessageNode, bpy.types.Node):
         else:
             return exporter.mgr.find_create_key(plOneShotMod, name=name, so=so)
 
+    def harvest_actors(self):
+        return (self.pos,)
+
     @property
     def has_callbacks(self):
         return bool(self.marker)

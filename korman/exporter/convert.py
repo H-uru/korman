@@ -32,6 +32,7 @@ class Exporter:
     def __init__(self, op):
         self._op = op # Blender export operator
         self._objects = []
+        self.actors = set()
 
     @property
     def age_name(self):
@@ -57,6 +58,10 @@ class Exporter:
             # Step 2: Gather a list of objects that we need to export, given what the user has told
             #         us to export (both in the Age and Object Properties)... fun
             self._collect_objects()
+
+            # Step 2.5: Run through all the objects we collected in Step 2 and see if any relationships
+            #           that the artist made requires something to have a CoordinateInterface
+            self._harvest_actors()
 
             # Step 3: Export all the things!
             self._export_scene_objects()
@@ -135,8 +140,8 @@ class Exporter:
 
     def _export_actor(self, so, bo):
         """Exports a Coordinate Interface if we need one"""
-        if self.mgr.has_coordiface(bo):
-            self.export_coordinate_interface(so, bo)
+        if self.has_coordiface(bo):
+            self._export_coordinate_interface(so, bo)
 
         # If this object has a parent, then we will need to go upstream and add ourselves to the
         # parent's CoordinateInterface... Because life just has to be backwards.
@@ -154,7 +159,7 @@ class Exporter:
                                  The object may not appear in the correct location or animate properly.".format(
                                     bo.name, parent.name))
 
-    def export_coordinate_interface(self, so, bl, name=None):
+    def _export_coordinate_interface(self, so, bl, name=None):
         """Ensures that the SceneObject has a CoordinateInterface"""
         if not so.coord:
             ci = self.mgr.find_create_object(plCoordinateInterface, bl=bl, so=so, name=name)
@@ -206,6 +211,35 @@ class Exporter:
             self.mesh.export_object(bo)
         else:
             print("    No material(s) on the ObData, so no drawables")
+
+    def _harvest_actors(self):
+        for bl_obj in self._objects:
+            for mod in bl_obj.plasma_modifiers.modifiers:
+                if mod.enabled:
+                    self.actors.update(mod.harvest_actors())
+
+        # This is a little hacky, but it's an edge case... I guess?
+        # We MUST have CoordinateInterfaces for EnvironmentMaps (DCMs, bah)
+        for texture in bpy.data.textures:
+            envmap = getattr(texture, "environment_map", None)
+            if envmap is not None:
+                viewpt = envmap.viewpoint_object
+                if viewpt is not None:
+                    self.actors.add(viewpt.name)
+
+    def has_coordiface(self, bo):
+        if bo.type in {"CAMERA", "EMPTY", "LAMP"}:
+            return True
+        if bo.parent is not None:
+            return True
+        if bo.name in self.actors:
+            return True
+
+        for mod in bo.plasma_modifiers.modifiers:
+            if mod.enabled:
+                if mod.requires_actor:
+                    return True
+        return False
 
     def _post_process_scene_objects(self):
         print("\nPostprocessing SceneObjects...")

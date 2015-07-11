@@ -29,6 +29,9 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
     def enabled(self):
         return self.display_order >= 0
 
+    def harvest_actors(self):
+        return ()
+
     @property
     def requires_actor(self):
         """Indicates if this modifier requires the object to be a movable actor"""

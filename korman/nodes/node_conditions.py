@@ -52,8 +52,6 @@ class PlasmaClickableNode(PlasmaNodeBase, bpy.types.Node):
             if clickable_bo is None:
                 self.raise_error("invalid Clickable object: '{}'".format(self.clickable), tree)
             clickable_so = exporter.mgr.find_create_object(plSceneObject, bl=clickable_bo)
-            # We're deep inside a potentially unrelated node tree...
-            exporter.export_coordinate_interface(clickable_so, clickable_bo)
         else:
             clickable_bo = parent_bo
             clickable_so = parent_so
@@ -101,10 +99,8 @@ class PlasmaClickableNode(PlasmaNodeBase, bpy.types.Node):
         face_target = self.find_input_socket("facing")
         face_target.convert_subcondition(exporter, tree, clickable_bo, clickable_so, logicmod)
 
-    @property
-    def requires_actor(self):
-        face_target = self.find_input_socket("facing")
-        return face_target.enable_condition
+    def harvest_actors(self):
+        return (self.clickable,)
 
 
 class PlasmaClickableRegionNode(PlasmaNodeBase, bpy.types.Node):
@@ -188,10 +184,6 @@ class PlasmaFacingTargetNode(PlasmaNodeBase, bpy.types.Node):
     def draw_buttons(self, context, layout):
         layout.prop(self, "directional")
         layout.prop(self, "tolerance")
-
-    @property
-    def requires_actor(self):
-        return True
 
 
 class PlasmaFacingTargetSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):

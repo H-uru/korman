@@ -132,7 +132,7 @@ class MeshConverter:
             geospan.addPermaProjs(i)
 
         # If this object has a CI, we don't need xforms here...
-        if self._mgr.has_coordiface(bo):
+        if self._exporter().has_coordiface(bo):
             geospan.localToWorld = hsMatrix44()
             geospan.worldToLocal = hsMatrix44()
         else:

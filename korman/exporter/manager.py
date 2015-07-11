@@ -220,18 +220,6 @@ class ExportManager:
         else:
             return key.location
 
-    def has_coordiface(self, bo):
-        if bo.type in {"CAMERA", "EMPTY", "LAMP"}:
-            return True
-        if bo.parent is not None:
-            return True
-
-        for mod in bo.plasma_modifiers.modifiers:
-            if mod.enabled:
-                if mod.requires_actor:
-                    return True
-        return False
-
     def save_age(self, path):
         relpath, ageFile = os.path.split(path)
         ageName = os.path.splitext(ageFile)[0]

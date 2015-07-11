@@ -31,7 +31,7 @@ class PhysicsConverter:
 
         with TemporaryObject(mesh, bpy.data.meshes.remove) as mesh:
             # We can only use the plPhysical xforms if there is a CI...
-            if self._mgr.has_coordiface(bo):
+            if self._exporter().has_coordiface(bo):
                 mesh.update(calc_tessface=indices)
                 physical.pos = utils.vector3(mat.to_translation())
                 quat = mat.to_quaternion()

@@ -66,6 +66,11 @@ class PlasmaSittingBehavior(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         # Now, export the node tree
         self.node_tree.export(exporter, bo, so)
 
+    def harvest_actors(self):
+        if self.facing_enabled:
+            return (self.clickable_obj,)
+        return ()
+
     def logicwiz(self, bo):
         tree = self.node_tree
         nodes = tree.nodes
@@ -105,4 +110,5 @@ class PlasmaSittingBehavior(PlasmaModifierProperties, PlasmaModifierLogicWiz):
 
     @property
     def requires_actor(self):
-        return self.facing_enabled
+        # This should be an empty, really...
+        return True

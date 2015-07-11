@@ -62,12 +62,11 @@ class PlasmaAdvancedLogic(PlasmaModifierProperties):
             if version in our_versions:
                 i.node_tree.export(exporter, bo, so)
 
-    @property
-    def requires_actor(self):
+    def harvest_actors(self):
+        actors = set()
         for i in self.logic_groups:
-            if i.node_tree.requires_actor:
-                return True
-        return False
+            actors.update(i.node_tree.harvest_actors())
+        return actors
 
 
 class PlasmaSpawnPoint(PlasmaModifierProperties):

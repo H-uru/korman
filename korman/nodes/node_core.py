@@ -95,6 +95,9 @@ class PlasmaNodeBase:
                 return i
         raise KeyError(key)
 
+    def harvest_actors(self):
+        return set()
+
     def link_input(self, tree, node, out_key, in_key):
         """Links a given Node's output socket to a given input socket on this Node"""
         if isinstance(in_key, str):
@@ -166,13 +169,12 @@ class PlasmaNodeTree(bpy.types.NodeTree):
         for node in self.nodes:
             node.export(exporter, self, bo, so)
 
+    def harvest_actors(self):
+        actors = set()
+        for node in self.nodes:
+            actors.update(node.harvest_actors())
+        return actors
+
     @classmethod
     def poll(cls, context):
         return (context.scene.render.engine == "PLASMA_GAME")
-
-    @property
-    def requires_actor(self):
-        for node in self.nodes:
-            if node.requires_actor:
-                return True
-        return False
