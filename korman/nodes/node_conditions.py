@@ -48,7 +48,9 @@ class PlasmaClickableNode(PlasmaNodeBase, bpy.types.Node):
         # We do this because we might be exporting from a BO that is not actually the clickable object.
         # Case: sitting modifier (exports from sit position empty)
         if self.clickable:
-            clickable_bo = bpy.data.objects[self.clickable]
+            clickable_bo = bpy.data.objects.get(self.clickable, None)
+            if clickable_bo is None:
+                self.raise_error("invalid Clickable object: '{}'".format(self.clickable), tree)
             clickable_so = exporter.mgr.find_create_object(plSceneObject, bl=clickable_bo)
             # We're deep inside a potentially unrelated node tree...
             exporter.export_coordinate_interface(clickable_so, clickable_bo)
@@ -127,7 +129,9 @@ class PlasmaClickableRegionNode(PlasmaNodeBase, bpy.types.Node):
 
     def convert_subcondition(self, exporter, tree, parent_bo, parent_so, logicmod):
         # REMEMBER: parent_so doesn't have to be the actual region scene object...
-        region_bo = bpy.data.objects[self.region]
+        region_bo = bpy.data.objects.get(self.region, None)
+        if region_bo is None:
+            self.raise_error("invalid Region object: '{}'".format(self.region), tree)
         region_so = exporter.mgr.find_create_key(plSceneObject, bl=region_bo).object
 
         # Try to figure out the appropriate bounds type for the region....
@@ -316,7 +320,9 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
 
         # Don't forget to export the physical object itself!
         # [trollface.jpg]
-        phys_bo = bpy.data.objects[self.region]
+        phys_bo = bpy.data.objects.get(self.region, None)
+        if phys_bo is None:
+            self.raise_error("invalid Region object: '{}'".format(self.region), tree)
         simIface, physical = exporter.physics.generate_physical(phys_bo, so, self.bounds, "{}_VolumeSensor".format(bo.name))
 
         physical.memberGroup = plSimDefs.kGroupDetector

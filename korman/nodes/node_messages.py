@@ -161,26 +161,25 @@ class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
         msg = plAnimCmdMsg()
 
         # We're either sending this off to an AGMasterMod or a LayerAnim
-        error = ExportError("Node '{}' in '{}' specifies an invalid animation".format(self.name, tree.name))
         if self.anim_type == "OBJECT":
             obj = bpy.data.objects.get(self.object_name, None)
             if obj is None:
-                raise error
+                self.raise_error("invalid object: '{}'".format(self.object_name), tree)
             anim = obj.plasma_modifiers.animation
             if not anim.enabled:
-                raise error
+                self.raise_error("invalid animation", tree)
             target = exporter.mgr.find_create_key(plAGMasterMod, bl=obj, name=anim.display_name)
         else:
             material = bpy.data.materials.get(self.material_name, None)
             if material is None:
-                raise error
+                self.raise_error("invalid material: '{}'".format(self.material_name), tree)
             tex_slot = material.texture_slots.get(self.texture_name, None)
             if tex_slot is None:
-                raise error
+                self.raise_error("invalid texture: '{}'".format(self.texture_name), tree)
             name = "{}_{}_LayerAnim".format(self.material_name, self.texture_name)
             target = exporter.mgr.find_create_key(plLayerAnimation, name=name, so=so)
         if target is None:
-            raise error
+            raise RuntimeError()
         msg.addReceiver(target)
 
         # Check the enum properties to see what commands we need to add

@@ -17,6 +17,8 @@ import abc
 import bpy
 from PyHSPlasma import plMessage, plNotifyMsg
 
+from ..exporter import ExportError
+
 class PlasmaNodeBase:
     def create_key_name(self, tree):
         return "{}_{}".format(tree.name, self.name)
@@ -120,6 +122,10 @@ class PlasmaNodeBase:
     @classmethod
     def poll(cls, context):
         return (context.bl_idname == "PlasmaNodeTree")
+
+    def raise_error(self, message, tree):
+        final = "Plasma Node Tree '{}' Node '{}': {}".format(tree.name, self.name, message)
+        raise ExportError(final)
 
     @property
     def requires_actor(self):
