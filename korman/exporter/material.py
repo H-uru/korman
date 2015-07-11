@@ -390,8 +390,8 @@ class MaterialConverter:
             print("            EnvMap for viewpoint {} already exported... NOTE: Your settings here will be overridden by the previous object!".format(viewpt.name))
             pl_env_obj = pl_env.object
             if isinstance(pl_env_obj, plDynamicCamMap):
-                dcm.addTargetNode(self._mgr.find_key(plSceneObject, bl=bo))
-                dcm.addMatLayer(layer.key)
+                pl_env_obj.addTargetNode(self._mgr.find_key(plSceneObject, bl=bo))
+                pl_env_obj.addMatLayer(layer.key)
             return pl_env
 
         # It matters not whether or not the viewpoint object is a Plasma Object, it is exported as at
