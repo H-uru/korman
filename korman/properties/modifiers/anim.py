@@ -137,6 +137,10 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
             phys = sim.physical.object
             phys.setProperty(plSimulationInterface.kPhysAnim, True)
 
+            # If the mass is zero, then we will fail to animate. Fix that.
+            if phys.mass == 0.0:
+                phys.mass = 1.0
+
 
 class LoopMarker(bpy.types.PropertyGroup):
     loop_name = StringProperty(name="Loop Name",
