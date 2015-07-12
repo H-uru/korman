@@ -309,9 +309,6 @@ class PlasmaFootstepSoundMsgNode(PlasmaMessageNode, bpy.types.Node):
                            items=footstep_surfaces,
                            default="stone")
 
-    def init(self, context):
-        self.inputs.new("PlasmaMessageSocket", "Sender", "sender")
-
     def draw_buttons(self, context, layout):
         layout.prop(self, "surface")
 
