@@ -14,7 +14,6 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
-import inspect
 
 from .base import PlasmaModifierProperties
 from .anim import *
@@ -65,24 +64,12 @@ class PlasmaModifiers(bpy.types.PropertyGroup):
         bpy.types.Object.plasma_modifiers = bpy.props.PointerProperty(type=cls)
 
 
-def _is_plasma_modifier(hClass):
-    if inspect.isclass(hClass):
-        if issubclass(hClass, PlasmaModifierProperties) and hasattr(hClass, "pl_id"):
-            return True
-    return False
-
-def modifier_definitions():
-    """This returns a sequence of all modifiers"""
-    for i in globals().values():
-        if _is_plasma_modifier(i):
-            yield i
-
 def modifier_mapping():
     """This returns a dict mapping Plasma Modifier categories to names"""
 
-    # FIXME: a more pythonic way to do this???
     d = {}
-    for i, mod in enumerate(modifier_definitions()):
+    sorted_modifiers = sorted(PlasmaModifierProperties.__subclasses__(), key=lambda x: x.bl_label)
+    for i, mod in enumerate(sorted_modifiers):
         if hasattr(mod, "bl_icon"):
             icon = mod.bl_icon
         else:
