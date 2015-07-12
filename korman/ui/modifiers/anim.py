@@ -39,6 +39,28 @@ def animation(modifier, layout, context):
     col.prop_search(modifier, "loop_end", action, "pose_markers", icon="PMARKER")
 
 
+class GroupListUI(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+        layout.prop_search(item, "object_name", bpy.data, "objects", icon="ACTION")
+
+
+def animation_group(modifier, layout, context):
+    if not _check_for_anim(layout, context):
+        return
+
+    row = layout.row()
+    row.template_list("GroupListUI", "children", modifier, "children", modifier, "active_child_index",
+                      rows=3, maxrows=4)
+    col = row.column(align=True)
+    op = col.operator("object.plasma_modifier_collection_add", icon="ZOOMIN", text="")
+    op.modifier = modifier.pl_id
+    op.collection = "children"
+    op = col.operator("object.plasma_modifier_collection_remove", icon="ZOOMOUT", text="")
+    op.modifier = modifier.pl_id
+    op.collection = "children"
+    op.index = modifier.active_child_index
+
+
 class LoopListUI(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
         layout.prop(item, "loop_name", emboss=False, text="", icon="PMARKER_ACT")

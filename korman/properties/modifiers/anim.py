@@ -122,7 +122,7 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
         channel.affine = affine
 
         # We need both an AGModifier and an AGMasterMod
-        # TODO: grouped animations (eg one door, two objects)
+        # NOTE: mandatory order--otherwise the animation will not work in game!
         agmod = exporter.mgr.find_create_object(plAGModifier, so=so, name=self.display_name)
         agmod.channelName = bo.name
         agmaster = exporter.mgr.find_create_object(plAGMasterMod, so=so, name=self.display_name)
@@ -140,6 +140,63 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
             # If the mass is zero, then we will fail to animate. Fix that.
             if phys.mass == 0.0:
                 phys.mass = 1.0
+
+
+class AnimGroupObject(bpy.types.PropertyGroup):
+    object_name = StringProperty(name="Child",
+                                 description="Object whose action is a child animation")
+
+
+class PlasmaAnimationGroupModifier(PlasmaModifierProperties):
+    pl_id = "animation_group"
+    pl_depends = {"animation"}
+
+    bl_category = "Animation"
+    bl_label = "Group"
+    bl_description = "Defines related animations"
+    bl_icon = "GROUP"
+
+    children = CollectionProperty(name="Child Animations",
+                                  description="Animations that will execute the same commands as this one",
+                                  type=AnimGroupObject)
+    active_child_index = IntProperty(options={"HIDDEN"})
+
+    def created(self, obj):
+        self.display_name = "{}_AnimGroup".format(obj.name)
+
+    def export(self, exporter, bo, so):
+        action = _get_blender_action(bo)
+        key_name = bo.plasma_modifiers.animation.display_name
+
+        # See above... AGModifier must always be inited first...
+        agmod = exporter.mgr.find_create_object(plAGModifier, so=so, name=key_name)
+
+        # The message forwarder is the guy that makes sure that everybody knows WTF is going on
+        msgfwd = exporter.mgr.find_create_object(plMsgForwarder, so=so, name=self.display_name)
+
+        # Now, this is da swhiz...
+        agmaster = exporter.mgr.find_create_object(plAGMasterMod, so=so, name=key_name)
+        agmaster.msgForwarder = msgfwd.key
+        agmaster.isGrouped, agmaster.isGroupMaster = True, True
+        for i in self.children:
+            child_bo = bpy.data.objects.get(i.object_name, None)
+            if child_bo is None:
+                msg = "Animation Group '{}' specifies an invalid object '{}'. Ignoring..."
+                exporter.report.warn(msg.format(self.display_name, i.object_name), ident=2)
+                continue
+            if child_bo.animation_data is None or child_bo.animation_data.action is None:
+                msg = "Animation Group '{}' specifies an object '{}' with no valid animation data. Ignoring..."
+                exporter.report.warn(msg.format(self.display_name, i.object_name), indent=2)
+                continue
+            child_animation = child_bo.plasma_modifiers.animation
+            if not child_animation.enabled:
+                msg = "Animation Group '{}' specifies an object '{}' with no Plasma Animation modifier. Ignoring..."
+                exporter.report.warn(msg.format(self.display_name, i.object_name), indent=2)
+                continue
+            child_agmod = exporter.mgr.find_create_key(plAGModifier, bl=child_bo, name=child_animation.display_name)
+            child_agmaster = exporter.mgr.find_create_key(plAGMasterMod, bl=child_bo, name=child_animation.display_name)
+            msgfwd.addForwardKey(child_agmaster)
+        msgfwd.addForwardKey(agmaster.key)
 
 
 class LoopMarker(bpy.types.PropertyGroup):

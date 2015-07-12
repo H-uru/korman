@@ -168,7 +168,16 @@ class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
             anim = obj.plasma_modifiers.animation
             if not anim.enabled:
                 self.raise_error("invalid animation", tree)
-            target = exporter.mgr.find_create_key(plAGMasterMod, bl=obj, name=anim.display_name)
+            group = obj.plasma_modifiers.animation_group
+            if group.enabled:
+                # we might be controlling more than one animation. isn't that cute?
+                # https://www.youtube.com/watch?v=hspNaoxzNbs
+                # (but obviously this is not wrong...)
+                target = exporter.mgr.find_create_key(plMsgForwarder, bl=obj, name=group.display_name)
+            else:
+                # remember, the AGModifier MUST exist first... so just in case...
+                exporter.mgr.find_create_key(plAGModifier, bl=obj, name=anim.display_name)
+                target = exporter.mgr.find_create_key(plAGMasterMod, bl=obj, name=anim.display_name)
         else:
             material = bpy.data.materials.get(self.material_name, None)
             if material is None:
