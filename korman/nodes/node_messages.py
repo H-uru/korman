@@ -220,6 +220,51 @@ class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
         return self.event != "NONE"
 
 
+class PlasmaEnableMsgNode(PlasmaMessageNode, bpy.types.Node):
+    bl_category = "MSG"
+    bl_idname = "PlasmaEnableMsgNode"
+    bl_label = "Enable/Disable"
+
+    cmd = EnumProperty(name="Command",
+                       description="How should we affect the object's state?",
+                       items=[("kDisable", "Disable", "Deactivate the object"),
+                              ("kEnable", "Enable", "Activate the object")],
+                       default="kEnable")
+    object_name = StringProperty(name="Object",
+                                 description="Object whose state we are changing")
+    settings = EnumProperty(name="Affects",
+                            description="Which attributes should we change",
+                            items=[("kAudible", "Audio", "Sounds played by this object"),
+                                   ("kPhysical", "Physics", "Physical simulation of the object"),
+                                   ("kDrawable", "Visibility", "Visibility of the object")],
+                            options={"ENUM_FLAG"},
+                            default={"kAudible", "kDrawable", "kPhysical"})
+
+    def convert_message(self, exporter, tree, so):
+        msg = plEnableMsg()
+        target_bo = bpy.data.objects.get(self.object_name, None)
+        if target_bo is None:
+            self.raise_error("target object '{}' is invalid".format(self.object_name))
+        msg.addReceiver(exporter.mgr.find_create_key(plSceneObject, bl=target_bo))
+        msg.setCmd(getattr(plEnableMsg, self.cmd), True)
+
+        # If we have a full house, let's send it to all the SO's generic modifiers as by compressing
+        # to kAll :) -- And no, this is not a bug. We do put the named types in commands. The types
+        # bit vector is for raw Plasma class IDs listing which modifier types we prop to if "kByType"
+        # is a command. Nice flexibility--I have no idea where that's used in Uru though...
+        if len(self.settings) == 3:
+            msg.setCmd(plEnableMsg.kAll, True)
+        else:
+            for i in self.settings:
+                msg.setCmd(getattr(plEnableMsg, i), True)
+        return msg
+
+    def draw_buttons(self, context, layout):
+        layout.prop(self, "cmd")
+        layout.prop_search(self, "object_name", bpy.data, "objects")
+        layout.prop(self, "settings")
+
+
 class PlasmaOneShotMsgNode(PlasmaMessageNode, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaOneShotMsgNode"
