@@ -341,5 +341,6 @@ class PlasmaFootstepSoundMsgNode(PlasmaMessageNode, bpy.types.Node):
 
     def convert_message(self, exporter, tree, so):
         msg = plArmatureEffectStateMsg()
+        msg.BCastFlags |= (plMessage.kPropagateToModifiers | plMessage.kNetPropagate)
         msg.surface = footstep_surface_ids[self.surface]
         return msg

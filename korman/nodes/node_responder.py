@@ -189,7 +189,9 @@ class PlasmaResponderCommandNode(PlasmaNodeBase, bpy.types.Node):
 
             # Finally, convert our message...
             msg = msgNode.convert_message(exporter, tree, so)
-            self._finalize_message(exporter, responder, msg)
+            if msg.sender is None:
+                msg.sender = responder.key
+            msg.BCastFlags |= plMessage.kLocalPropagate
 
             # If we have child commands, we need to make sure that we support chaining this message as a callback
             # If not, we'll export our children and tell them to not actually wait on us.
@@ -206,19 +208,6 @@ class PlasmaResponderCommandNode(PlasmaNodeBase, bpy.types.Node):
         # Export any child commands
         for i in self.find_outputs("trigger", "PlasmaResponderCommandNode"):
             i.convert_command(exporter, tree, so, responder, commandMgr, childWaitOn)
-
-    _bcast_flags = {
-        plArmatureEffectStateMsg: (plMessage.kPropagateToModifiers | plMessage.kNetPropagate),
-    }
-
-    def _finalize_message(self, exporter, responder, msg):
-        msg.sender = responder.key
-
-        # BCast Flags are pretty common...
-        _cls = msg.__class__
-        if _cls in self._bcast_flags:
-            msg.BCastFlags = self._bcast_flags[_cls]
-        msg.BCastFlags |= plMessage.kLocalPropagate
 
 
 class PlasmaRespCommandSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
