@@ -57,7 +57,7 @@ class PlasmaModifiers(bpy.types.PropertyGroup):
         #     So, we're going to have to create our base properties on all of the PropertyGroups.
         #     It's times like these that make me wonder about life...
         # Enjoy!
-        for i in modifier_definitions():
+        for i in PlasmaModifierProperties.__subclasses__():
             for name, (prop, kwargs) in PlasmaModifierProperties._subprops.items():
                 setattr(i, name, prop(**kwargs))
             setattr(cls, i.pl_id, bpy.props.PointerProperty(type=i))
