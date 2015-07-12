@@ -70,11 +70,7 @@ def modifier_mapping():
     d = {}
     sorted_modifiers = sorted(PlasmaModifierProperties.__subclasses__(), key=lambda x: x.bl_label)
     for i, mod in enumerate(sorted_modifiers):
-        if hasattr(mod, "bl_icon"):
-            icon = mod.bl_icon
-        else:
-            icon = ""
-
+        icon = getattr(mod, "bl_icon", "")
         tup = (mod.pl_id, mod.bl_label, mod.bl_description, icon, i)
         if mod.bl_category not in d:
             d[mod.bl_category] = [tup]
