@@ -299,6 +299,33 @@ class PlasmaOneShotCallbackSocket(PlasmaMessageSocketBase, bpy.types.NodeSocket)
         layout.prop(self, "marker")
 
 
+class PlasmaTimerCallbackMsgNode(PlasmaMessageNode, bpy.types.Node):
+    bl_category = "MSG"
+    bl_idname = "PlasmaTimerCallbackMsgNode"
+    bl_label = "Timed Callback"
+
+    delay = FloatProperty(name="Delay",
+                          description="Time (in seconds) to wait until continuing",
+                          min=0.1,
+                          default=1.0)
+
+    def draw_buttons(self, context, layout):
+        layout.prop(self, "delay")
+
+    def convert_callback_message(self, exporter, tree, so, msg, target, wait):
+        msg.addReceiver(target)
+        msg.ID = wait
+
+    def convert_message(self, exporter, tree, so):
+        msg = plTimerCallbackMsg()
+        msg.time = self.delay
+        return msg
+
+    @property
+    def has_callbacks(self):
+        return True
+
+
 class PlasmaFootstepSoundMsgNode(PlasmaMessageNode, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaFootstepSoundMsgNode"
