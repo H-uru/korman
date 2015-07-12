@@ -91,21 +91,21 @@ class ExportManager:
             elif pl.ClassIndex() in _pool_types:
                 node.addPoolObject(pl.key)
 
-        if isinstance(pl, plObjInterface):
-            if so is None:
-                key = self.find_key(plSceneObject, bl, name)
-                # prevent race conditions
-                if key is None:
-                    so = self.add_object(plSceneObject, name=name, loc=location)
-                    key = so.key
-                else:
-                    so = key.object
-                pl.owner = key
-            else:
-                pl.owner = so.key
+        if so is None and isinstance(pl, (plObjInterface, plModifier)):
+            assert bl
 
-            # The things I do to make life easy...
-            # This is something of a God function now.
+            # Don't use find_create_object because we want to specify the location... Also, we're
+            # in a modifier, so the name we're given might be for a modifier, not the SO
+            key = self.find_key(plSceneObject, bl)
+            if key is None:
+                so = self.add_object(plSceneObject, bl=bl, loc=location)
+            else:
+                so = key.object
+
+        if isinstance(pl, plObjInterface):
+            pl.owner = so.key
+
+            # The things I do to make life easy... This is something of a God function now.
             if isinstance(pl, plAudioInterface):
                 so.audio = pl.key
             elif isinstance(pl, plCoordinateInterface):
