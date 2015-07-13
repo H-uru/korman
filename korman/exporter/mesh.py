@@ -249,7 +249,9 @@ class MeshConverter:
     def export_object(self, bo):
         # If this object has modifiers, then it's a unique mesh, and we don't need to try caching it
         # Otherwise, let's *try* to share meshes as best we can...
-        if not bo.modifiers:
+        if bo.modifiers:
+            drawables = self._export_mesh(bo)
+        else:
             drawables = self._mesh_geospans.get(bo.data, None)
             if drawables is None:
                 drawables = self._export_mesh(bo)
