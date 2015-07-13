@@ -200,10 +200,32 @@ class PlasmaResponderCommandNode(PlasmaNodeBase, bpy.types.Node):
                 childWaitOn = commandMgr.add_wait(idx)
                 msgNode.convert_callback_message(exporter, tree, so, msg, responder.key, childWaitOn)
             else:
-                childWaitOn = -1
+                childWaitOn = waitOn
             command.msg = msg
+
+            # If they linked us back to a condition or something that exports a LogicModifier, that
+            # means we need to reenable it here... NOTE: we can't filter by the node idname, sadly.
+            # NOTE: would be incredibly stupid to do this if we're not waiting on anything to complete
+            if childWaitOn != -1:
+                for child in self.find_outputs("trigger"):
+                    key = child.get_key(exporter, tree, so)
+                    if key is None:
+                        continue
+                    logicmod = key.object
+                    if not isinstance(logicmod, plLogicModifier):
+                        continue
+                    logicmod.setLogicFlag(plLogicModifier.kOneShot, True)
+
+                    # Yep, this is an entirely new ResponderCommand that sends a plEnableMsg
+                    enableMsg = plEnableMsg()
+                    enableMsg.addReceiver(key)
+                    enableMsg.sender = responder.key
+                    enableMsg.BCastFlags |= plMessage.kLocalPropagate
+                    enableMsg.setCmd(plEnableMsg.kEnable, True)
+                    logicCmdIdx, logicCmd = commandMgr.add_command(self, childWaitOn)
+                    logicCmd.msg = enableMsg
         else:
-            childWaitOn = -1
+            childWaitOn = waitOn
 
         # Export any child commands
         for i in self.find_outputs("trigger", "PlasmaResponderCommandNode"):

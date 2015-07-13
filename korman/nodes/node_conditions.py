@@ -18,10 +18,10 @@ from bpy.props import *
 import math
 from PyHSPlasma import *
 
-from .node_core import PlasmaNodeBase, PlasmaNodeSocketBase
+from .node_core import PlasmaNodeBase, PlasmaNodeSocketBase, PlasmaNodeVariableInput
 from ..properties.modifiers.physics import bounds_types
 
-class PlasmaClickableNode(PlasmaNodeBase, bpy.types.Node):
+class PlasmaClickableNode(PlasmaNodeVariableInput, bpy.types.Node):
     bl_category = "CONDITIONS"
     bl_idname = "PlasmaClickableNode"
     bl_label = "Clickable"
@@ -37,6 +37,7 @@ class PlasmaClickableNode(PlasmaNodeBase, bpy.types.Node):
     def init(self, context):
         self.inputs.new("PlasmaClickableRegionSocket", "Avatar Inside Region", "region")
         self.inputs.new("PlasmaFacingTargetSocket", "Avatar Facing Target", "facing")
+        self.inputs.new("PlasmaRespCommandSocket", "Local Reenable", "enable_callback")
         self.outputs.new("PlasmaConditionSocket", "Satisfies", "satisfies")
 
     def draw_buttons(self, context, layout):
@@ -44,17 +45,9 @@ class PlasmaClickableNode(PlasmaNodeBase, bpy.types.Node):
         layout.prop(self, "bounds")
 
     def export(self, exporter, tree, parent_bo, parent_so):
-        # First: look up the clickable mesh. if it is not specified, then it's this BO.
-        # We do this because we might be exporting from a BO that is not actually the clickable object.
-        # Case: sitting modifier (exports from sit position empty)
-        if self.clickable:
-            clickable_bo = bpy.data.objects.get(self.clickable, None)
-            if clickable_bo is None:
-                self.raise_error("invalid Clickable object: '{}'".format(self.clickable), tree)
-            clickable_so = exporter.mgr.find_create_object(plSceneObject, bl=clickable_bo)
-        else:
+        clickable_bo, clickable_so = self._get_objects(exporter, tree, parent_so)
+        if clickable_bo is None:
             clickable_bo = parent_bo
-            clickable_so = parent_so
 
         name = self.create_key_name(tree)
         interface = exporter.mgr.find_create_key(plInterfaceInfoModifier, name=name, so=clickable_so).object
@@ -102,8 +95,30 @@ class PlasmaClickableNode(PlasmaNodeBase, bpy.types.Node):
         face_target = self.find_input_socket("facing")
         face_target.convert_subcondition(exporter, tree, clickable_bo, clickable_so, logicmod)
 
+    def get_key(self, exporter, tree, parent_so):
+        # careful... we really make lots of keys...
+        clickable_bo, clickable_so = self._get_objects(exporter, tree, parent_so)
+        key = exporter.mgr.find_create_key(plLogicModifier, name=self.create_key_name(tree), so=clickable_so)
+        return key
+
+    def _get_objects(self, exporter, tree, parent_so):
+        # First: look up the clickable mesh. if it is not specified, then it's this BO.
+        # We do this because we might be exporting from a BO that is not actually the clickable object.
+        # Case: sitting modifier (exports from sit position empty)
+        if self.clickable:
+            clickable_bo = bpy.data.objects.get(self.clickable, None)
+            if clickable_bo is None:
+                self.raise_error("invalid Clickable object: '{}'".format(self.clickable), tree)
+            clickable_so = exporter.mgr.find_create_object(plSceneObject, bl=clickable_bo)
+            return (clickable_bo, clickable_so)
+        else:
+            return (None, parent_so)
+
     def harvest_actors(self):
         return (self.clickable,)
+
+    def update(self):
+        self.ensure_sockets("PlasmaRespCommandSocket", "Local Reenable", "enable_callback")
 
 
 class PlasmaClickableRegionNode(PlasmaNodeBase, bpy.types.Node):
