@@ -135,6 +135,7 @@ class PlasmaClickableRegionNode(PlasmaNodeBase, bpy.types.Node):
                           default="hull")
 
     def init(self, context):
+        self.outputs.new("PlasmaPythonReferenceNodeSocket", "References", "keyref")
         self.outputs.new("PlasmaClickableRegionSocket", "Satisfies", "satisfies")
 
     def draw_buttons(self, context, layout):

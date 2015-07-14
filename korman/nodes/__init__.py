@@ -23,6 +23,7 @@ from .node_avatar import *
 from .node_conditions import *
 from .node_core import *
 from .node_messages import *
+from .node_python import *
 from .node_responder import *
 
 class PlasmaNodeCategory(NodeCategory):
@@ -42,6 +43,7 @@ _kategory_names = {
     "CONDITIONS": "Conditions",
     "LOGIC": "Logic",
     "MSG": "Message",
+    "PYTHON": "Python",
 }
 
 # Now, generate the categories as best we can...

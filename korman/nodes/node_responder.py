@@ -38,6 +38,7 @@ class PlasmaResponderNode(PlasmaNodeVariableInput, bpy.types.Node):
 
     def init(self, context):
         self.inputs.new("PlasmaConditionSocket", "Condition", "condition")
+        self.outputs.new("PlasmaPythonReferenceNodeSocket", "References", "keyref")
         self.outputs.new("PlasmaRespStateSocket", "States", "states")
 
     def draw_buttons(self, context, layout):

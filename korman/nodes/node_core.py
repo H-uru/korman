@@ -123,6 +123,11 @@ class PlasmaNodeBase:
             out_socket = out_key
         link = self.id_data.links.new(in_socket, out_socket)
 
+    @property
+    def node_path(self):
+        """Returns an absolute path to this Node. Needed because repr() uses an elipsis..."""
+        return "{}.{}".format(repr(self.id_data), self.path_from_id())
+
     @classmethod
     def poll(cls, context):
         return (context.bl_idname == "PlasmaNodeTree")
