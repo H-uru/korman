@@ -150,24 +150,24 @@ class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
 
         layout.prop(self, "event")
 
-    def convert_callback_message(self, exporter, tree, so, msg, target, wait):
+    def convert_callback_message(self, exporter, so, msg, target, wait):
         cb = plEventCallbackMsg()
         cb.addReceiver(target)
         cb.event = globals()[self.event]
         cb.user = wait
         msg.addCallback(cb)
 
-    def convert_message(self, exporter, tree, so):
+    def convert_message(self, exporter, so):
         msg = plAnimCmdMsg()
 
         # We're either sending this off to an AGMasterMod or a LayerAnim
         if self.anim_type == "OBJECT":
             obj = bpy.data.objects.get(self.object_name, None)
             if obj is None:
-                self.raise_error("invalid object: '{}'".format(self.object_name), tree)
+                self.raise_error("invalid object: '{}'".format(self.object_name))
             anim = obj.plasma_modifiers.animation
             if not anim.enabled:
-                self.raise_error("invalid animation", tree)
+                self.raise_error("invalid animation")
             group = obj.plasma_modifiers.animation_group
             if group.enabled:
                 # we might be controlling more than one animation. isn't that cute?
@@ -181,10 +181,10 @@ class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
         else:
             material = bpy.data.materials.get(self.material_name, None)
             if material is None:
-                self.raise_error("invalid material: '{}'".format(self.material_name), tree)
+                self.raise_error("invalid material: '{}'".format(self.material_name))
             tex_slot = material.texture_slots.get(self.texture_name, None)
             if tex_slot is None:
-                self.raise_error("invalid texture: '{}'".format(self.texture_name), tree)
+                self.raise_error("invalid texture: '{}'".format(self.texture_name))
             name = "{}_{}_LayerAnim".format(self.material_name, self.texture_name)
             target = exporter.mgr.find_create_key(plLayerAnimation, name=name, so=so)
         if target is None:
@@ -240,7 +240,7 @@ class PlasmaEnableMsgNode(PlasmaMessageNode, bpy.types.Node):
                             options={"ENUM_FLAG"},
                             default={"kAudible", "kDrawable", "kPhysical"})
 
-    def convert_message(self, exporter, tree, so):
+    def convert_message(self, exporter, so):
         msg = plEnableMsg()
         target_bo = bpy.data.objects.get(self.object_name, None)
         if target_bo is None:
@@ -291,12 +291,12 @@ class PlasmaOneShotMsgNode(PlasmaMessageNode, bpy.types.Node):
                               description="Player can reverse the OneShot",
                               default=False)
 
-    def convert_callback_message(self, exporter, tree, so, msg, target, wait):
+    def convert_callback_message(self, exporter, so, msg, target, wait):
         msg.addCallback(self.marker, target, wait)
 
-    def convert_message(self, exporter, tree, so):
+    def convert_message(self, exporter, so):
         msg = plOneShotMsg()
-        msg.addReceiver(self.get_key(exporter, tree, so))
+        msg.addReceiver(self.get_key(exporter, so))
         return msg
 
     def draw_buttons(self, context, layout):
@@ -308,8 +308,8 @@ class PlasmaOneShotMsgNode(PlasmaMessageNode, bpy.types.Node):
         layout.prop_search(self, "pos", bpy.data, "objects", icon="EMPTY_DATA")
         layout.prop(self, "seek")
 
-    def export(self, exporter, tree, bo, so):
-        oneshotmod = self.get_key(exporter, tree, so).object
+    def export(self, exporter, bo, so):
+        oneshotmod = self.get_key(exporter, so).object
         oneshotmod.animName = self.animation
         oneshotmod.drivable = self.drivable
         oneshotmod.reversable = self.reversable
@@ -317,12 +317,12 @@ class PlasmaOneShotMsgNode(PlasmaMessageNode, bpy.types.Node):
         oneshotmod.noSeek = self.seek == "NONE"
         oneshotmod.seekDuration = 1.0
 
-    def get_key(self, exporter, tree, so):
-        name = self.create_key_name(tree)
+    def get_key(self, exporter, so):
+        name = self.key_name
         if self.pos:
             bo = bpy.data.objects.get(self.pos, None)
             if bo is None:
-                raise ExportError("Node '{}' in '{}' specifies an invalid Position Empty".format(self.name, tree.name))
+                raise ExportError("Node '{}' in '{}' specifies an invalid Position Empty".format(self.name, self.id_data.name))
             pos_so = exporter.mgr.find_create_object(plSceneObject, bl=bo)
             return exporter.mgr.find_create_key(plOneShotMod, name=name, so=pos_so)
         else:
@@ -357,11 +357,11 @@ class PlasmaTimerCallbackMsgNode(PlasmaMessageNode, bpy.types.Node):
     def draw_buttons(self, context, layout):
         layout.prop(self, "delay")
 
-    def convert_callback_message(self, exporter, tree, so, msg, target, wait):
+    def convert_callback_message(self, exporter, so, msg, target, wait):
         msg.addReceiver(target)
         msg.ID = wait
 
-    def convert_message(self, exporter, tree, so):
+    def convert_message(self, exporter, so):
         msg = plTimerCallbackMsg()
         msg.time = self.delay
         return msg
@@ -384,7 +384,7 @@ class PlasmaFootstepSoundMsgNode(PlasmaMessageNode, bpy.types.Node):
     def draw_buttons(self, context, layout):
         layout.prop(self, "surface")
 
-    def convert_message(self, exporter, tree, so):
+    def convert_message(self, exporter, so):
         msg = plArmatureEffectStateMsg()
         msg.BCastFlags |= (plMessage.kPropagateToModifiers | plMessage.kNetPropagate)
         msg.surface = footstep_surface_ids[self.surface]

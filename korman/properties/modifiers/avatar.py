@@ -83,7 +83,7 @@ class PlasmaSittingBehavior(PlasmaModifierProperties, PlasmaModifierLogicWiz):
 
         # Clickable
         clickable = nodes.new("PlasmaClickableNode")
-        clickable.link_output(tree, sittingmod, "satisfies", "condition")
+        clickable.link_output(sittingmod, "satisfies", "condition")
         clickable.clickable = self.clickable_obj
         clickable.bounds = find_modifier(self.clickable_obj, "collision").bounds
 
@@ -91,7 +91,7 @@ class PlasmaSittingBehavior(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         region_phys = find_modifier(self.region_obj, "collision")
         if region_phys is not None:
             region = nodes.new("PlasmaClickableRegionNode")
-            region.link_output(tree, clickable, "satisfies", "region")
+            region.link_output(clickable, "satisfies", "region")
             region.name = "ClickableAvRegion"
             region.region = self.region_obj
             region.bounds = region_phys.bounds
@@ -99,7 +99,7 @@ class PlasmaSittingBehavior(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         # Facing Target (optional)
         if self.facing_enabled:
             facing = nodes.new("PlasmaFacingTargetNode")
-            facing.link_output(tree, clickable, "satisfies", "facing")
+            facing.link_output(clickable, "satisfies", "facing")
             facing.name = "FacingClickable"
             facing.directional = True
             facing.tolerance = self.facing_degrees

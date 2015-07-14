@@ -44,12 +44,12 @@ class PlasmaClickableNode(PlasmaNodeVariableInput, bpy.types.Node):
         layout.prop_search(self, "clickable", bpy.data, "objects", icon="MESH_DATA")
         layout.prop(self, "bounds")
 
-    def export(self, exporter, tree, parent_bo, parent_so):
-        clickable_bo, clickable_so = self._get_objects(exporter, tree, parent_so)
+    def export(self, exporter, parent_bo, parent_so):
+        clickable_bo, clickable_so = self._get_objects(exporter, parent_so)
         if clickable_bo is None:
             clickable_bo = parent_bo
 
-        name = self.create_key_name(tree)
+        name = self.key_name
         interface = exporter.mgr.find_create_key(plInterfaceInfoModifier, name=name, so=clickable_so).object
         logicmod = exporter.mgr.find_create_key(plLogicModifier, name=name, so=clickable_so)
         interface.addIntfKey(logicmod)
@@ -84,31 +84,31 @@ class PlasmaClickableNode(PlasmaNodeVariableInput, bpy.types.Node):
         logicmod.addCondition(activator.key)
         logicmod.setLogicFlag(plLogicModifier.kLocalElement, True)
         logicmod.cursor = plCursorChangeMsg.kCursorPoised
-        logicmod.notify = self.generate_notify_msg(exporter, tree, parent_so, "satisfies")
+        logicmod.notify = self.generate_notify_msg(exporter, parent_so, "satisfies")
 
         # If we have a region attached, let it convert.
         region = self.find_input("region", "PlasmaClickableRegionNode")
         if region is not None:
-            region.convert_subcondition(exporter, tree, clickable_bo, clickable_so, logicmod)
+            region.convert_subcondition(exporter, clickable_bo, clickable_so, logicmod)
 
         # Hand things off to the FaceTarget socket which does things nicely for us
         face_target = self.find_input_socket("facing")
-        face_target.convert_subcondition(exporter, tree, clickable_bo, clickable_so, logicmod)
+        face_target.convert_subcondition(exporter, clickable_bo, clickable_so, logicmod)
 
-    def get_key(self, exporter, tree, parent_so):
+    def get_key(self, exporter, parent_so):
         # careful... we really make lots of keys...
-        clickable_bo, clickable_so = self._get_objects(exporter, tree, parent_so)
-        key = exporter.mgr.find_create_key(plLogicModifier, name=self.create_key_name(tree), so=clickable_so)
+        clickable_bo, clickable_so = self._get_objects(exporter, parent_so)
+        key = exporter.mgr.find_create_key(plLogicModifier, name=self.key_name, so=clickable_so)
         return key
 
-    def _get_objects(self, exporter, tree, parent_so):
+    def _get_objects(self, exporter, parent_so):
         # First: look up the clickable mesh. if it is not specified, then it's this BO.
         # We do this because we might be exporting from a BO that is not actually the clickable object.
         # Case: sitting modifier (exports from sit position empty)
         if self.clickable:
             clickable_bo = bpy.data.objects.get(self.clickable, None)
             if clickable_bo is None:
-                self.raise_error("invalid Clickable object: '{}'".format(self.clickable), tree)
+                self.raise_error("invalid Clickable object: '{}'".format(self.clickable))
             clickable_so = exporter.mgr.find_create_object(plSceneObject, bl=clickable_bo)
             return (clickable_bo, clickable_so)
         else:
@@ -141,11 +141,11 @@ class PlasmaClickableRegionNode(PlasmaNodeBase, bpy.types.Node):
         layout.prop_search(self, "region", bpy.data, "objects", icon="MESH_DATA")
         layout.prop(self, "bounds")
 
-    def convert_subcondition(self, exporter, tree, parent_bo, parent_so, logicmod):
+    def convert_subcondition(self, exporter, parent_bo, parent_so, logicmod):
         # REMEMBER: parent_so doesn't have to be the actual region scene object...
         region_bo = bpy.data.objects.get(self.region, None)
         if region_bo is None:
-            self.raise_error("invalid Region object: '{}'".format(self.region), tree)
+            self.raise_error("invalid Region object: '{}'".format(self.region))
         region_so = exporter.mgr.find_create_key(plSceneObject, bl=region_bo).object
 
         # Try to figure out the appropriate bounds type for the region....
@@ -163,7 +163,7 @@ class PlasmaClickableRegionNode(PlasmaNodeBase, bpy.types.Node):
         # one detector for many unrelated logic mods. However, LogicMods and Conditions appear to
         # assume they pwn each other... so we need a unique detector. This detector must be attached
         # as a modifier to the region's SO however.
-        name = self.create_key_name(tree)
+        name = self.key_name
         detector_key = exporter.mgr.find_create_key(plObjectInVolumeDetector, name=name, so=region_so)
         detector = detector_key.object
         detector.addReceiver(logicmod.key)
@@ -216,7 +216,7 @@ class PlasmaFacingTargetSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
             layout.prop(self, "allow_simple", text="")
         layout.label(text)
 
-    def convert_subcondition(self, exporter, tree, bo, so, logicmod):
+    def convert_subcondition(self, exporter, bo, so, logicmod):
         assert not self.is_output
         if not self.enable_condition:
             return
@@ -225,12 +225,12 @@ class PlasmaFacingTargetSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
         if self.simple_mode:
             directional = True
             tolerance = 45
-            name = "{}_SimpleFacing".format(self.node.create_key_name(tree))
+            name = "{}_SimpleFacing".format(self.node.key_name)
         elif self.is_linked:
             node = self.links[0].from_node
             directional = node.directional
             tolerance = node.tolerance
-            name = node.create_key_name(tree)
+            name = node.key_name
         else:
             # This is a programmer failure, so we need a traceback.
             raise RuntimeError("Tried to export an unused PlasmaFacingTargetSocket")
@@ -311,28 +311,28 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
         layout.prop_search(self, "region", bpy.data, "objects", icon="MESH_DATA")
         layout.prop(self, "bounds")
 
-    def export(self, exporter, tree, bo, so):
-        interface = exporter.mgr.add_object(plInterfaceInfoModifier, name=self.create_key_name(tree), so=so)
+    def export(self, exporter, bo, so):
+        interface = exporter.mgr.add_object(plInterfaceInfoModifier, name=self.key_name, so=so)
 
         # Region Enters
         enter_simple = self.find_input_socket("enter").allow
         enter_settings = self.find_input("enter", "PlasmaVolumeReportNode")
         if enter_simple or enter_settings is not None:
-            key = self._export_volume_event(exporter, tree, bo, so, plVolumeSensorConditionalObject.kTypeEnter, enter_settings)
+            key = self._export_volume_event(exporter, bo, so, plVolumeSensorConditionalObject.kTypeEnter, enter_settings)
             interface.addIntfKey(key)
 
         # Region Exits
         exit_simple = self.find_input_socket("exit").allow
         exit_settings = self.find_input("exit", "PlasmaVolumeReportNode")
         if exit_simple or exit_settings is not None:
-            key = self._export_volume_event(exporter, tree, bo, so, plVolumeSensorConditionalObject.kTypeExit, exit_settings)
+            key = self._export_volume_event(exporter, bo, so, plVolumeSensorConditionalObject.kTypeExit, exit_settings)
             interface.addIntfKey(key)
 
         # Don't forget to export the physical object itself!
         # [trollface.jpg]
         phys_bo = bpy.data.objects.get(self.region, None)
         if phys_bo is None:
-            self.raise_error("invalid Region object: '{}'".format(self.region), tree)
+            self.raise_error("invalid Region object: '{}'".format(self.region))
         simIface, physical = exporter.physics.generate_physical(phys_bo, so, self.bounds, "{}_VolumeSensor".format(bo.name))
 
         physical.memberGroup = plSimDefs.kGroupDetector
@@ -341,18 +341,18 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
         if "dynamics" in self.report_on:
             physical.reportGroup |= 1 << plSimDefs.kGroupDynamic
 
-    def _export_volume_event(self, exporter, tree, bo, so, event, settings):
+    def _export_volume_event(self, exporter, bo, so, event, settings):
         if event == plVolumeSensorConditionalObject.kTypeEnter:
             suffix = "Enter"
         else:
             suffix = "Exit"
 
-        theName = "{}_{}_{}".format(tree.name, self.name, suffix)
+        theName = "{}_{}_{}".format(self.id_data.name, self.name, suffix)
         print("        [LogicModifier '{}']".format(theName))
         logicKey = exporter.mgr.find_create_key(plLogicModifier, name=theName, so=so)
         logicmod = logicKey.object
         logicmod.setLogicFlag(plLogicModifier.kMultiTrigger, True)
-        logicmod.notify = self.generate_notify_msg(exporter, tree, so, "satisfies")
+        logicmod.notify = self.generate_notify_msg(exporter, so, "satisfies")
 
         # Now, the detector objects
         print("        [ObjectInVolumeDetector '{}']".format(theName))

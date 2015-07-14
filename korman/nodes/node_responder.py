@@ -45,11 +45,11 @@ class PlasmaResponderNode(PlasmaNodeVariableInput, bpy.types.Node):
         layout.prop(self, "detect_untrigger")
         layout.prop(self, "no_ff_sounds")
 
-    def get_key(self, exporter, tree, so):
-        return exporter.mgr.find_create_key(plResponderModifier, name=self.create_key_name(tree), so=so)
+    def get_key(self, exporter, so):
+        return exporter.mgr.find_create_key(plResponderModifier, name=self.key_name, so=so)
 
-    def export(self, exporter, tree, bo, so):
-        responder = self.get_key(exporter, tree, so).object
+    def export(self, exporter, bo, so):
+        responder = self.get_key(exporter, so).object
         if not bo.plasma_net.manual_sdl:
             responder.setExclude("Responder")
 
@@ -83,7 +83,7 @@ class PlasmaResponderNode(PlasmaNodeVariableInput, bpy.types.Node):
         # Convert the Responder states
         stateMgr = ResponderStateMgr(self, responder)
         for stateNode in self.find_outputs("states", "PlasmaResponderStateNode"):
-            stateNode.convert_state(exporter, tree, so, stateMgr)
+            stateNode.convert_state(exporter, so, stateMgr)
         stateMgr.save()
 
     def update(self):
@@ -107,7 +107,7 @@ class PlasmaResponderStateNode(PlasmaNodeVariableInput, bpy.types.Node):
     def draw_buttons(self, context, layout):
         layout.prop(self, "default_state")
 
-    def convert_state(self, exporter, tree, so, stateMgr):
+    def convert_state(self, exporter, so, stateMgr):
         idx, state, converted = stateMgr.get_state(self)
 
         # No sanity checking here. Hopefully nothing crazy has happened in the UI.
@@ -122,7 +122,7 @@ class PlasmaResponderStateNode(PlasmaNodeVariableInput, bpy.types.Node):
             toIdx, toState, converted = stateMgr.get_state(toStateNode)
             state.switchToState = toIdx
             if not converted:
-                toStateNode.convert_state(exporter, tree, so, stateMgr)
+                toStateNode.convert_state(exporter, so, stateMgr)
 
         class CommandMgr:
             def __init__(self):
@@ -152,7 +152,7 @@ class PlasmaResponderStateNode(PlasmaNodeVariableInput, bpy.types.Node):
         for i in self.find_outputs("cmds", "PlasmaResponderCommandNode"):
             # slight optimization--commands attached to states can't wait on other commands
             # namely because it's impossible to wait on a command that doesn't exist...
-            i.convert_command(exporter, tree, so, stateMgr.responder, commands)
+            i.convert_command(exporter, so, stateMgr.responder, commands)
         commands.save(state)
 
     def update(self):
@@ -181,14 +181,14 @@ class PlasmaResponderCommandNode(PlasmaNodeBase, bpy.types.Node):
         self.outputs.new("PlasmaMessageSocket", "Message", "msg").link_limit = 1
         self.outputs.new("PlasmaRespCommandSocket", "Trigger", "trigger")
 
-    def convert_command(self, exporter, tree, so, responder, commandMgr, waitOn=-1):
+    def convert_command(self, exporter, so, responder, commandMgr, waitOn=-1):
         # If this command has no message, there is no need to export it...
         msgNode = self.find_output("msg")
         if msgNode is not None:
             idx, command = commandMgr.add_command(self, waitOn)
 
             # Finally, convert our message...
-            msg = msgNode.convert_message(exporter, tree, so)
+            msg = msgNode.convert_message(exporter, so)
             if msg.sender is None:
                 msg.sender = responder.key
             msg.BCastFlags |= plMessage.kLocalPropagate
@@ -198,7 +198,7 @@ class PlasmaResponderCommandNode(PlasmaNodeBase, bpy.types.Node):
             haveChildren = self.find_output("trigger", "PlasmaResponderCommandNode") is not None
             if haveChildren and msgNode.has_callbacks:
                 childWaitOn = commandMgr.add_wait(idx)
-                msgNode.convert_callback_message(exporter, tree, so, msg, responder.key, childWaitOn)
+                msgNode.convert_callback_message(exporter, so, msg, responder.key, childWaitOn)
             else:
                 childWaitOn = waitOn
             command.msg = msg
@@ -208,7 +208,7 @@ class PlasmaResponderCommandNode(PlasmaNodeBase, bpy.types.Node):
             # NOTE: would be incredibly stupid to do this if we're not waiting on anything to complete
             if childWaitOn != -1:
                 for child in self.find_outputs("trigger"):
-                    key = child.get_key(exporter, tree, so)
+                    key = child.get_key(exporter, so)
                     if key is None:
                         continue
                     logicmod = key.object
@@ -229,7 +229,7 @@ class PlasmaResponderCommandNode(PlasmaNodeBase, bpy.types.Node):
 
         # Export any child commands
         for i in self.find_outputs("trigger", "PlasmaResponderCommandNode"):
-            i.convert_command(exporter, tree, so, responder, commandMgr, childWaitOn)
+            i.convert_command(exporter, so, responder, commandMgr, childWaitOn)
 
 
 class PlasmaRespCommandSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):

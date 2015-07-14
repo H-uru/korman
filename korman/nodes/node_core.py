@@ -20,24 +20,21 @@ from PyHSPlasma import plMessage, plNotifyMsg
 from ..exporter import ExportError
 
 class PlasmaNodeBase:
-    def create_key_name(self, tree):
-        return "{}_{}".format(tree.name, self.name)
-
-    def generate_notify_msg(self, exporter, tree, so, socket_id, idname=None):
+    def generate_notify_msg(self, exporter, so, socket_id, idname=None):
         notify = plNotifyMsg()
         notify.BCastFlags = (plMessage.kNetPropagate | plMessage.kLocalPropagate)
         for i in self.find_outputs(socket_id, idname):
-            key = i.get_key(exporter, tree, so)
+            key = i.get_key(exporter, so)
             if key is None:
                 exporter.report.warn(" '{}' Node '{}' doesn't expose a key. It won't be triggered by '{}'!".format(i.bl_idname, i.name, self.name), indent=3)
             else:
                 notify.addReceiver(key)
         return notify
 
-    def get_key(self, exporter, tree, so):
+    def get_key(self, exporter, so):
         return None
 
-    def export(self, exporter, tree, bo, so):
+    def export(self, exporter, bo, so):
         pass
 
     def find_input(self, key, idname=None):
@@ -98,7 +95,11 @@ class PlasmaNodeBase:
     def harvest_actors(self):
         return set()
 
-    def link_input(self, tree, node, out_key, in_key):
+    @property
+    def key_name(self):
+        return "{}_{}".format(self.id_data.name, self.name)
+
+    def link_input(self, node, out_key, in_key):
         """Links a given Node's output socket to a given input socket on this Node"""
         if isinstance(in_key, str):
             in_socket = self.find_input_socket(in_key)
@@ -108,9 +109,9 @@ class PlasmaNodeBase:
             out_socket = node.find_output_socket(out_key)
         else:
             out_socket = out_key
-        link = tree.links.new(in_socket, out_socket)
+        link = self.id_data.links.new(in_socket, out_socket)
 
-    def link_output(self, tree, node, out_key, in_key):
+    def link_output(self, node, out_key, in_key):
         """Links a given Node's input socket to a given output socket on this Node"""
         if isinstance(in_key, str):
             in_socket = node.find_input_socket(in_key)
@@ -120,14 +121,14 @@ class PlasmaNodeBase:
             out_socket = self.find_output_socket(out_key)
         else:
             out_socket = out_key
-        link = tree.links.new(in_socket, out_socket)
+        link = self.id_data.links.new(in_socket, out_socket)
 
     @classmethod
     def poll(cls, context):
         return (context.bl_idname == "PlasmaNodeTree")
 
-    def raise_error(self, message, tree):
-        final = "Plasma Node Tree '{}' Node '{}': {}".format(tree.name, self.name, message)
+    def raise_error(self, message):
+        final = "Plasma Node Tree '{}' Node '{}': {}".format(self.id_data.name, self.name, message)
         raise ExportError(final)
 
     @property
@@ -167,7 +168,7 @@ class PlasmaNodeTree(bpy.types.NodeTree):
     def export(self, exporter, bo, so):
         # just pass it off to each node
         for node in self.nodes:
-            node.export(exporter, self, bo, so)
+            node.export(exporter, bo, so)
 
     def harvest_actors(self):
         actors = set()

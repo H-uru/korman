@@ -45,11 +45,11 @@ class PlasmaSittingBehaviorNode(PlasmaNodeBase, bpy.types.Node):
     def draw_buttons_ext(self, context, layout):
         layout.prop_menu_enum(self, "approach")
 
-    def get_key(self, exporter, tree, so):
-        return exporter.mgr.find_create_key(plSittingModifier, name=self.create_key_name(tree), so=so)
+    def get_key(self, exporter, so):
+        return exporter.mgr.find_create_key(plSittingModifier, name=self.key_name, so=so)
 
-    def export(self, exporter, tree, bo, so):
-        sitmod = self.get_key(exporter, tree, so).object
+    def export(self, exporter, bo, so):
+        sitmod = self.get_key(exporter, so).object
         for flag in self.approach:
             sitmod.miscFlags |= getattr(plSittingModifier, flag)
         for key in self.find_outputs("satisfies"):
