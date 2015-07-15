@@ -238,7 +238,7 @@ class MeshConverter:
             # Soft vertex limit at 0x8000 for PotS and below. Works fine as long as it's a uint16
             # MOUL only allows signed int16s, however :/
             if numVerts > _MAX_VERTS_PER_SPAN or (numVerts > _WARN_VERTS_PER_SPAN and self._mgr.getVer() >= pvMoul):
-                raise explosions.TooManyVerticesError(mesh.name, geospan.material.name, numVerts)
+                raise explosions.TooManyVerticesError(bo.data.name, geospan.material.name, numVerts)
             elif numVerts > _WARN_VERTS_PER_SPAN:
                 pass # FIXME
 
