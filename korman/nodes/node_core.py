@@ -42,7 +42,7 @@ class PlasmaNodeBase:
 
     def find_input(self, key, idname=None):
         for i in self.inputs:
-            if i.identifier == key:
+            if i.alias == key:
                 if i.links:
                     node = i.links[0].from_node
                     if idname is not None and idname != node.bl_idname:
@@ -54,13 +54,13 @@ class PlasmaNodeBase:
 
     def find_input_socket(self, key):
         for i in self.inputs:
-            if i.identifier == key:
+            if i.alias == key:
                 return i
         raise KeyError(key)
 
     def find_input_sockets(self, key, idname=None):
         for i in self.inputs:
-            if i.identifier == key:
+            if i.alias == key:
                 if idname is None:
                     yield i
                 elif i.links:
@@ -70,7 +70,7 @@ class PlasmaNodeBase:
 
     def find_output(self, key, idname=None):
         for i in self.outputs:
-            if i.identifier == key:
+            if i.alias == key:
                 if i.links:
                     node = i.links[0].to_node
                     if idname is not None and idname != node.bl_idname:
@@ -82,7 +82,7 @@ class PlasmaNodeBase:
 
     def find_outputs(self, key, idname=None):
         for i in self.outputs:
-            if i.identifier == key:
+            if i.alias == key:
                 for j in i.links:
                     node = j.to_node
                     if idname is not None and idname != node.bl_idname:
@@ -91,12 +91,23 @@ class PlasmaNodeBase:
 
     def find_output_socket(self, key):
         for i in self.outputs:
-            if i.identifier == key:
+            if i.alias == key:
                 return i
         raise KeyError(key)
 
     def harvest_actors(self):
         return set()
+
+    def init(self, context):
+        """Initializes the sockets as defined on the subclass"""
+        input_defs, output_defs = self._socket_defs
+        for defs, sockets in ((input_defs, self.inputs), (output_defs, self.outputs)):
+            for name, options in defs.items():
+                assert name.find('.') == -1
+                socket = sockets.new(options["type"], options["text"], name)
+                link_limit = options.get("link_limit", None)
+                if link_limit is not None:
+                    socket.link_limit = link_limit
 
     @property
     def key_name(self):
@@ -143,21 +154,84 @@ class PlasmaNodeBase:
     def requires_actor(self):
         return False
 
+    @property
+    def _socket_defs(self):
+        return (getattr(self.__class__, "input_sockets", {}),
+                getattr(self.__class__, "output_sockets", {}))
 
-class PlasmaNodeVariableInput(PlasmaNodeBase):
-    def ensure_sockets(self, idname, name, identifier=None):
-        """Ensures there is one (and only one) empty input socket"""
-        empty = [i for i in self.inputs if i.bl_idname == idname and not i.links]
-        if not empty:
-            if identifier is None:
-                self.inputs.new(idname, name)
-            else:
-                self.inputs.new(idname, name, identifier)
-        while len(empty) > 1:
-            self.inputs.remove(empty.pop())
+    def update(self):
+        """Ensures that sockets are linked appropriately and there are enough inputs"""
+        input_defs, output_defs = self._socket_defs
+        for defs, sockets in ((input_defs, self.inputs), (output_defs, self.outputs)):
+            done = set()
+            for socket in sockets:
+                options = defs.get(socket.alias, None)
+                if options is None or socket.bl_idname != options["type"]:
+                    sockets.remove(socket)
+                    continue
+
+                # Make sure the socket info is up to date
+                socket.name = options["text"]
+                link_limit = options.get("link_limit", None)
+                if link_limit is not None:
+                    socket.link_limit = link_limit
+
+                # Make sure the link is good
+                allowed_sockets = options.get("valid_link_sockets", None)
+                allowed_nodes = options.get("valid_link_nodes", None)
+
+                # Helpful default... If neither are set, require the link to be to the same socket type
+                if allowed_nodes is None and allowed_sockets is None:
+                    allowed_sockets = frozenset((options["type"],))
+                if allowed_sockets or allowed_nodes:
+                    for link in socket.links:
+                        if allowed_nodes:
+                            to_from_node = link.to_node if socket.is_output else link.from_node
+                            if to_from_node.bl_idname not in allowed_nodes:
+                                try:
+                                    self.id_data.links.remove(link)
+                                except RuntimeError:
+                                    # was already removed by someone else
+                                    pass
+                                continue
+                        if allowed_sockets:
+                            to_from_socket = link.to_socket if socket.is_output else link.from_socket
+                            if to_from_socket.bl_idname not in allowed_sockets:
+                                try:
+                                    self.id_data.links.remove(link)
+                                except RuntimeError:
+                                    # was already removed by someone else
+                                    pass
+                                continue
+
+                # If this is a multiple input node, make sure we have exactly one empty socket
+                if (not socket.is_output and options.get("spawn_empty", False) and not socket.alias in done):
+                    empty_sockets = [i for i in sockets if i.bl_idname == socket.bl_idname and not i.links]
+                    if not empty_sockets:
+                        dbg = sockets.new(socket.bl_idname, socket.name, socket.alias)
+                    else:
+                        while len(empty_sockets) > 1:
+                            sockets.remove(empty_sockets.pop())
+                done.add(socket.alias)
+
+            # Create any new sockets
+            for alias in (i for i in defs if i not in done):
+                options = defs[alias]
+                socket = sockets.new(options["type"], options["text"], alias)
+                link_limit = options.get("link_limit", None)
+                if link_limit is not None:
+                    socket.link_limit = link_limit
 
 
 class PlasmaNodeSocketBase:
+    @property
+    def alias(self):
+        """Blender appends .000 stuff if it's a dupe. We don't care about dupe identifiers..."""
+        ident = self.identifier
+        if ident.find('.') == -1:
+            return ident
+        return ident.rsplit('.', 1)[0]
+
     def draw(self, context, layout, node, text):
         layout.label(text)
 

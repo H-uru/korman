@@ -27,17 +27,18 @@ class PlasmaMessageSocket(PlasmaMessageSocketBase, bpy.types.NodeSocket):
     pass
 
 
-class PlasmaMessageNode(PlasmaNodeVariableInput):
+class PlasmaMessageNode(PlasmaNodeBase):
+    input_sockets = {
+        "sender": {
+            "text": "Sender",
+            "type": "PlasmaMessageSocket",
+        },
+    }
+
     @property
     def has_callbacks(self):
         """This message has callbacks that can be waited on by a Responder"""
         return False
-
-    def init(self, context):
-        self.inputs.new("PlasmaMessageSocket", "Sender", "sender")
-
-    def update(self):
-        self.ensure_sockets("PlasmaMessageSocket", "Sender", "sender")
 
 
 class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):

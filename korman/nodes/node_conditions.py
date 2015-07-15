@@ -18,10 +18,10 @@ from bpy.props import *
 import math
 from PyHSPlasma import *
 
-from .node_core import PlasmaNodeBase, PlasmaNodeSocketBase, PlasmaNodeVariableInput
+from .node_core import *
 from ..properties.modifiers.physics import bounds_types
 
-class PlasmaClickableNode(PlasmaNodeVariableInput, bpy.types.Node):
+class PlasmaClickableNode(PlasmaNodeBase, bpy.types.Node):
     bl_category = "CONDITIONS"
     bl_idname = "PlasmaClickableNode"
     bl_label = "Clickable"
@@ -37,12 +37,32 @@ class PlasmaClickableNode(PlasmaNodeVariableInput, bpy.types.Node):
                           items=bounds_types,
                           default="hull")
 
-    def init(self, context):
-        self.inputs.new("PlasmaClickableRegionSocket", "Avatar Inside Region", "region")
-        self.inputs.new("PlasmaFacingTargetSocket", "Avatar Facing Target", "facing")
-        self.inputs.new("PlasmaRespCommandSocket", "Local Reenable", "enable_callback")
-        self.outputs.new("PlasmaPythonReferenceNodeSocket", "References", "keyref")
-        self.outputs.new("PlasmaConditionSocket", "Satisfies", "satisfies")
+    input_sockets = {
+        "region": {
+            "text": "Avatar Inside Region",
+            "type": "PlasmaClickableRegionSocket",
+        },
+        "facing": {
+            "text": "Avatar Facing Target",
+            "type": "PlasmaFacingTargetSocket",
+        },
+        "enable_callback": {
+            "text": "Local Reenable",
+            "type": "PlasmaRespCommandSocket",
+            "spawn_empty": True,
+        }
+    }
+
+    output_sockets = {
+        "keyref": {
+            "text": "References",
+            "type": "PlasmaPythonReferenceNodeSocket",
+        },
+        "satisfies": {
+            "text": "Satisfies",
+            "type": "PlasmaConditionSocket",
+        },
+    }
 
     def draw_buttons(self, context, layout):
         layout.prop_search(self, "clickable", bpy.data, "objects", icon="MESH_DATA")
@@ -121,9 +141,6 @@ class PlasmaClickableNode(PlasmaNodeVariableInput, bpy.types.Node):
     def harvest_actors(self):
         return (self.clickable,)
 
-    def update(self):
-        self.ensure_sockets("PlasmaRespCommandSocket", "Local Reenable", "enable_callback")
-
 
 class PlasmaClickableRegionNode(PlasmaNodeBase, bpy.types.Node):
     bl_category = "CONDITIONS"
@@ -138,8 +155,12 @@ class PlasmaClickableRegionNode(PlasmaNodeBase, bpy.types.Node):
                           items=bounds_types,
                           default="hull")
 
-    def init(self, context):
-        self.outputs.new("PlasmaClickableRegionSocket", "Satisfies", "satisfies")
+    output_sockets = {
+        "satisfies": {
+            "text": "Satisfies",
+            "type": "PlasmaClickableRegionSocket",
+        }
+    }
 
     def draw_buttons(self, context, layout):
         layout.prop_search(self, "region", bpy.data, "objects", icon="MESH_DATA")
@@ -200,8 +221,12 @@ class PlasmaFacingTargetNode(PlasmaNodeBase, bpy.types.Node):
                             description="How far away from the target the avatar can turn (in degrees)",
                             min=-180, max=180, default=45)
 
-    def init(self, context):
-        self.outputs.new("PlasmaFacingTargetSocket", "Satisfies", "satisfies")
+    output_sockets = {
+        "satisfies": {
+            "text": "Satisfies",
+            "type": "PlasmaFacingTargetSocket",
+        },
+    }
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "directional")
@@ -271,8 +296,13 @@ class PlasmaVolumeReportNode(PlasmaNodeBase, bpy.types.Node):
                     description="How many objects should be in the region for it to trigger",
                     min=1)
 
-    def init(self, context):
-        self.outputs.new("PlasmaVolumeSettingsSocketOut", "Trigger Settings")
+    output_sockets = {
+        "settings": {
+            "text": "Trigger Settings",
+            "type": "PlasmaVolumeSettingsSocketOut",
+            "valid_link_sockets": {"PlasmaVolumeSettingsSocketIn"},
+        },
+    }
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "report_when")
@@ -306,11 +336,30 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
                                     ("dynamics", "Dynamics", "Any non-avatar dynamic physical object (eg kickables)")],
                              default={"avatar"})
 
-    def init(self, context):
-        self.inputs.new("PlasmaVolumeSettingsSocketIn", "Trigger on Enter", "enter")
-        self.inputs.new("PlasmaVolumeSettingsSocketIn", "Trigger on Exit", "exit")
-        self.outputs.new("PlasmaPythonReferenceNodeSocket", "References", "keyref")
-        self.outputs.new("PlasmaConditionSocket", "Satisfies", "satisfies")
+    input_sockets = {
+        "enter": {
+            "text": "Trigger on Enter",
+            "type": "PlasmaVolumeSettingsSocketIn",
+            "valid_link_sockets": {"PlasmaVolumeSettingsSocketOut"},
+        },
+        "exit": {
+            "text": "Trigger on Exit",
+            "type": "PlasmaVolumeSettingsSocketIn",
+            "valid_link_sockets": {"PlasmaVolumeSettingsSocketOut"},
+        },
+    }
+
+    output_sockets = {
+        "keyref": {
+            "text": "References",
+            "type": "PlasmaPythonReferenceNodeSocket",
+            "valid_link_nodes": {"PlasmaPythonFileNode"},
+        },
+        "satisfies": {
+            "text": "Satisfies",
+            "type": "PlasmaConditionSocket",
+        },
+    }
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "report_on")

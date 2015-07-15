@@ -32,10 +32,19 @@ class PlasmaSittingBehaviorNode(PlasmaNodeBase, bpy.types.Node):
                             default={"kApproachFront", "kApproachLeft", "kApproachRight"},
                             options={"ENUM_FLAG"})
 
-    def init(self, context):
-        self.inputs.new("PlasmaConditionSocket", "Condition", "condition")
-        # This makes me determined to create and release a whoopee cushion age...
-        self.outputs.new("PlasmaConditionSocket", "Satisfies", "satisfies")
+    input_sockets = {
+        "condition": {
+            "text": "Condition",
+            "type": "PlasmaConditionSocket",
+        },
+    }
+
+    output_sockets = {
+        "satisfies": {
+            "text": "Satisfies",
+            "type": "PlasmaConditionSocket",
+        },
+    }
 
     def draw_buttons(self, context, layout):
         col = layout.column()

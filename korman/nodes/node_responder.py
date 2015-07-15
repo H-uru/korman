@@ -20,7 +20,7 @@ import uuid
 
 from .node_core import *
 
-class PlasmaResponderNode(PlasmaNodeVariableInput, bpy.types.Node):
+class PlasmaResponderNode(PlasmaNodeBase, bpy.types.Node):
     bl_category = "LOGIC"
     bl_idname = "PlasmaResponderNode"
     bl_label = "Responder"
@@ -39,10 +39,25 @@ class PlasmaResponderNode(PlasmaNodeVariableInput, bpy.types.Node):
                                 description="When fast-forwarding, play sound effects",
                                 default=False)
 
-    def init(self, context):
-        self.inputs.new("PlasmaConditionSocket", "Condition", "condition")
-        self.outputs.new("PlasmaPythonReferenceNodeSocket", "References", "keyref")
-        self.outputs.new("PlasmaRespStateSocket", "States", "states")
+    input_sockets = {
+        "condition": {
+            "text": "Condition",
+            "type": "PlasmaConditionSocket",
+            "spawn_empty": True,
+        },
+    }
+
+    output_sockets = {
+        "keyref": {
+            "text": "References",
+            "type": "PlasmaPythonReferenceNodeSocket",
+            "valid_link_nodes": {"PlasmaPythonFileNode"},
+        },
+        "states": {
+            "text": "States",
+            "type": "PlasmaRespStateSocket",
+        },
+    }
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "detect_trigger")
@@ -90,11 +105,8 @@ class PlasmaResponderNode(PlasmaNodeVariableInput, bpy.types.Node):
             stateNode.convert_state(exporter, so, stateMgr)
         stateMgr.save()
 
-    def update(self):
-        self.ensure_sockets("PlasmaConditionSocket", "Condition", "condition")
 
-
-class PlasmaResponderStateNode(PlasmaNodeVariableInput, bpy.types.Node):
+class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
     bl_category = "LOGIC"
     bl_idname = "PlasmaResponderStateNode"
     bl_label = "Responder State"
@@ -103,10 +115,25 @@ class PlasmaResponderStateNode(PlasmaNodeVariableInput, bpy.types.Node):
                                  description="This state is the responder's default",
                                  default=False)
 
-    def init(self, context):
-        self.inputs.new("PlasmaRespStateSocket", "Condition", "condition")
-        self.outputs.new("PlasmaRespCommandSocket", "Commands", "cmds")
-        self.outputs.new("PlasmaRespStateSocket", "Trigger", "gotostate").link_limit = 1
+    input_sockets = {
+        "condition": {
+            "text": "Condition",
+            "type": "PlasmaRespStateSocket",
+            "spawn_empty": True,
+        },
+    }
+
+    output_sockets = {
+        "cmds": {
+            "text": "Commands",
+            "type": "PlasmaRespCommandSocket",
+        },
+        "gotostate": {
+            "link_limit": 1,
+            "text": "Trigger",
+            "type": "PlasmaRespStateSocket",
+        },
+    }
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "default_state")
@@ -160,9 +187,7 @@ class PlasmaResponderStateNode(PlasmaNodeVariableInput, bpy.types.Node):
         commands.save(state)
 
     def update(self):
-        # This actually draws nothing, but it makes sure we have at least one empty input slot
-        # We need this because it's possible that multiple OTHER states can call us
-        self.ensure_sockets("PlasmaRespStateSocket", "Condition", "condition")
+        super().update()
 
         # Check to see if we're the default state
         if not self.default_state:
@@ -179,6 +204,28 @@ class PlasmaResponderCommandNode(PlasmaNodeBase, bpy.types.Node):
     bl_category = "LOGIC"
     bl_idname = "PlasmaResponderCommandNode"
     bl_label = "Responder Command"
+
+    input_sockets = {
+        "whodoneit": {
+            "text": "Condition",
+            "type": "PlasmaRespCommandSocket",
+            # command sockets are on some unrelated outputs...
+            "valid_link_nodes": {"PlasmaResponderCommandNode", "PlasmaResponderStateNode"},
+            "valid_link_sockets": {"PlasmaRespCommandSocket"},
+        },
+    }
+
+    output_sockets = {
+        "msg": {
+            "link_limit": 1,
+            "text": "Message",
+            "type": "PlasmaMessageSocket",
+        },
+        "trigger": {
+            "text": "Trigger",
+            "type": "PlasmaRespCommandSocket",
+        },
+    }
 
     def init(self, context):
         self.inputs.new("PlasmaRespCommandSocket", "Condition", "whodoneit")
