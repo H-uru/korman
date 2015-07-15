@@ -171,29 +171,32 @@ class PlasmaPythonFileNode(PlasmaNodeBase, bpy.types.Node):
             attrib = socket.attribute_type
             from_node = socket.links[0].from_node
 
-            param = plPythonParameter()
-            param.id = socket.attribute_id
-            param.valueType = _attrib2param[attrib]
-            if socket.is_simple_value:
-                param.value = from_node.value
-            else:
-                key = from_node.get_key(exporter, so)
-                if key is None:
-                    msg = "'{}' Node '{}' didn't return a key and therefore will be unavailable to Python".format(
-                        self.id_data.name, from_node.name)
-                    exporter.report.warn(msg, indent=3)
-                else:
-                    key_type = _attrib_key_types[attrib]
-                    if isinstance(key_type, tuple):
-                        good_key = key.type in key_type
-                    else:
-                        good_key = key.type == key.type
-                    if not good_key:
-                        msg = "'{}' Node '{}' returned an unexpected key type '{}'".format(
-                            self.id_data.name, from_node.name, plFactory.ClassName(key.type))
+            value = from_node.value if socket.is_simple_value else from_node.get_key(exporter, so)
+            if not isinstance(value, tuple):
+                value = (value,)
+            for i in value:
+                param = plPythonParameter()
+                param.id = socket.attribute_id
+                param.valueType = _attrib2param[attrib]
+                param.value = i
+
+                # Key type sanity checking... Because I trust no user.
+                if not socket.is_simple_value:
+                    if i is None:
+                        msg = "'{}' Node '{}' didn't return a key and therefore will be unavailable to Python".format(
+                            self.id_data.name, from_node.name)
                         exporter.report.warn(msg, indent=3)
-                param.value = key
-            pfm.addParameter(param)
+                    else:
+                        key_type = _attrib_key_types[attrib]
+                        if isinstance(key_type, tuple):
+                            good_key = i.type in key_type
+                        else:
+                            good_key = i.type == key_type
+                        if not good_key:
+                            msg = "'{}' Node '{}' returned an unexpected key type '{}'".format(
+                                self.id_data.name, from_node.name, plFactory.ClassName(i.type))
+                            exporter.report.warn(msg, indent=3)
+                pfm.addParameter(param)
 
     def _get_attrib_sockets(self, idx):
         for i in self.inputs:
@@ -424,7 +427,7 @@ class PlasmaAttribObjectNode(PlasmaAttribNodeBase, bpy.types.Node):
             self.raise_error("must be connected to a Python File node!")
         attrib = attrib.attribute_type
 
-        bo = bpy.objects.data.get(self.object_name, None)
+        bo = bpy.data.objects.get(self.object_name, None)
         if bo is None:
             self.raise_error("invalid object specified: '{}'".format(self.object_name))
         ref_so_key = exporter.mgr.find_create_key(plSceneObject, bl=bo)
