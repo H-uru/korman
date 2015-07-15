@@ -149,9 +149,10 @@ class PlasmaPythonFileNode(PlasmaNodeBase, bpy.types.Node):
         row = layout.row(align=True)
         if self.filename:
             row.prop(self, "filename")
-            operator = row.operator("node.plasma_attributes_to_node", icon="FILE_REFRESH", text="")
-            operator.python_path = self.filepath
-            operator.node_path = self.node_path
+            if os.path.isfile(self.filepath):
+                operator = row.operator("node.plasma_attributes_to_node", icon="FILE_REFRESH", text="")
+                operator.python_path = self.filepath
+                operator.node_path = self.node_path
 
         op_text = "" if self.filename else "Select"
         operator = row.operator("file.plasma_file_picker", icon="SCRIPT", text=op_text)
