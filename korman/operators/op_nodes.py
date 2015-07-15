@@ -81,7 +81,5 @@ class PlPyAttributeNodeOperator(NodeOperator, bpy.types.Operator):
             default = attrib.get("default", None)
             if default is not None and cached.is_simple_value:
                 cached.simple_value = default
-
-        # Manually cause the node to update its inputs
         node.update()
         return {"FINISHED"}
