@@ -33,6 +33,8 @@ class Exporter:
         self._op = op # Blender export operator
         self._objects = []
         self.actors = set()
+        self.node_trees_exported = set()
+        self.want_node_trees = {}
 
     @property
     def age_name(self):
@@ -66,7 +68,10 @@ class Exporter:
             # Step 3: Export all the things!
             self._export_scene_objects()
 
-            # Step 3.1: Now that all Plasma Objects (save Mipmaps) are exported, we do any post
+            # Step 3.1: Ensure referenced logic node trees are exported
+            self._export_referenced_node_trees()
+
+            # Step 3.2: Now that all Plasma Objects (save Mipmaps) are exported, we do any post
             #          processing that needs to inspect those objects
             self._post_process_scene_objects()
 
@@ -211,6 +216,14 @@ class Exporter:
             self.mesh.export_object(bo)
         else:
             print("    No material(s) on the ObData, so no drawables")
+
+    def _export_referenced_node_trees(self):
+        print("\nChecking Logic Trees...")
+        need_to_export = ((name, bo, so) for name, (bo, so) in self.want_node_trees.items()
+                                         if name not in self.node_trees_exported)
+        for tree, bo, so in need_to_export:
+            print("    NodeTree '{}'".format(tree))
+            bpy.data.node_groups[tree].export(self, bo, so)
 
     def _harvest_actors(self):
         for bl_obj in self._objects:

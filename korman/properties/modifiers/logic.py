@@ -33,13 +33,16 @@ class PlasmaVersionedNodeTree(bpy.types.PropertyGroup):
                            default=set(list(zip(*game_versions))[0]))
     node_tree_name = StringProperty(name="Node Tree",
                                     description="Node Tree to export")
+    node_name = StringProperty(name="Node Ref",
+                               description="Attach a reference to this node")
 
     @property
     def node_tree(self):
         try:
             return bpy.data.node_groups[self.node_tree_name]
         except KeyError:
-            raise ExportError("Node Tree {} does not exist!".format(self.node_tree_name))
+            raise ExportError("Node Tree '{}' does not exist!".format(self.node_tree_name))
+
 
 class PlasmaAdvancedLogic(PlasmaModifierProperties):
     pl_id = "advanced_logic"
@@ -60,7 +63,20 @@ class PlasmaAdvancedLogic(PlasmaModifierProperties):
         for i in self.logic_groups:
             our_versions = [globals()[j] for j in i.version]
             if version in our_versions:
-                i.node_tree.export(exporter, bo, so)
+                # If node_name is defined, then we're only adding a reference. We will make sure that
+                # the entire node tree is exported once before the post_export step, however.
+                if i.node_name:
+                    exporter.want_node_trees[i.node_tree_name] = (bo, so)
+                    node = i.node_tree.nodes.get(i.node_name, None)
+                    if node is None:
+                        raise ExportError("Node '{}' does not exist in '{}'".format(i.node_name, i.node_tree_name))
+                    # We are going to assume get_key will do the adding correctly. Single modifiers
+                    # should fetch the appropriate SceneObject before doing anything, so this will
+                    # be a no-op in that case. Multi modifiers should accept any SceneObject, however
+                    node.get_key(exporter, so)
+                else:
+                    exporter.node_trees_exported.add(i.node_tree_name)
+                    i.node_tree.export(exporter, bo, so)
 
     def harvest_actors(self):
         actors = set()
@@ -87,6 +103,7 @@ class PlasmaSpawnPoint(PlasmaModifierProperties):
     @property
     def requires_actor(self):
         return True
+
 
 class PlasmaMaintainersMarker(PlasmaModifierProperties):
     pl_id = "maintainersmarker"

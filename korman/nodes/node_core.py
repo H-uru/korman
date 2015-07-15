@@ -27,6 +27,9 @@ class PlasmaNodeBase:
             key = i.get_key(exporter, so)
             if key is None:
                 exporter.report.warn(" '{}' Node '{}' doesn't expose a key. It won't be triggered by '{}'!".format(i.bl_idname, i.name, self.name), indent=3)
+            elif isinstance(key, tuple):
+                for i in key:
+                    notify.addReceiver(key)
             else:
                 notify.addReceiver(key)
         return notify
@@ -122,6 +125,11 @@ class PlasmaNodeBase:
         else:
             out_socket = out_key
         link = self.id_data.links.new(in_socket, out_socket)
+
+    @property
+    def node_path(self):
+        """Returns an absolute path to this Node. Needed because repr() uses an elipsis..."""
+        return "{}.{}".format(repr(self.id_data), self.path_from_id())
 
     @classmethod
     def poll(cls, context):

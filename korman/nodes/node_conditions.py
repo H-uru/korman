@@ -27,6 +27,9 @@ class PlasmaClickableNode(PlasmaNodeVariableInput, bpy.types.Node):
     bl_label = "Clickable"
     bl_width_default = 160
 
+    # These are the Python attributes we can fill in
+    pl_attrib = {"ptAttribActivator", "ptAttribActivatorList", "ptAttribNamedActivator"}
+
     clickable = StringProperty(name="Clickable",
                                description="Mesh that is clickable")
     bounds = EnumProperty(name="Bounds",
@@ -38,6 +41,7 @@ class PlasmaClickableNode(PlasmaNodeVariableInput, bpy.types.Node):
         self.inputs.new("PlasmaClickableRegionSocket", "Avatar Inside Region", "region")
         self.inputs.new("PlasmaFacingTargetSocket", "Avatar Facing Target", "facing")
         self.inputs.new("PlasmaRespCommandSocket", "Local Reenable", "enable_callback")
+        self.outputs.new("PlasmaPythonReferenceNodeSocket", "References", "keyref")
         self.outputs.new("PlasmaConditionSocket", "Satisfies", "satisfies")
 
     def draw_buttons(self, context, layout):
@@ -284,6 +288,9 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
     bl_label = "Region Sensor"
     bl_width_default = 190
 
+    # These are the Python attributes we can fill in
+    pl_attrib = {"ptAttribActivator", "ptAttribActivatorList", "ptAttribNamedActivator"}
+
     # Region Mesh
     region = StringProperty(name="Region",
                             description="Object that defines the region mesh")
@@ -302,6 +309,7 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
     def init(self, context):
         self.inputs.new("PlasmaVolumeSettingsSocketIn", "Trigger on Enter", "enter")
         self.inputs.new("PlasmaVolumeSettingsSocketIn", "Trigger on Exit", "exit")
+        self.outputs.new("PlasmaPythonReferenceNodeSocket", "References", "keyref")
         self.outputs.new("PlasmaConditionSocket", "Satisfies", "satisfies")
 
     def draw_buttons(self, context, layout):
@@ -311,29 +319,52 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
         layout.prop_search(self, "region", bpy.data, "objects", icon="MESH_DATA")
         layout.prop(self, "bounds")
 
-    def export(self, exporter, bo, so):
-        interface = exporter.mgr.add_object(plInterfaceInfoModifier, name=self.key_name, so=so)
+    def get_key(self, exporter, parent_so):
+        bo = self.region_object
+        so = exporter.find_create_object(plSceneObject, bl=bo)
+        rgn_enter, rgn_exit = None, None
+
+        if self.report_enters:
+            theName = "{}_{}_Enter".format(self.id_data.name, self.name)
+            rgn_enter = exporter.mgr.find_create_key(plLogicModifier, name=theName, so=so)
+        if self.report_exits:
+            theName = "{}_{}_Exit".format(self.id_data.name, self.name)
+            rgn_exit = exporter.mgr.find_create_key(plLogicModifier, name=theName, so=so)
+
+        if rgn_enter is None:
+            return rgn_exit
+        elif rgn_exit is None:
+            return rgn_enter
+        else:
+            # !!! ... !!!
+            # Sorry
+            #     -- Hoikas
+            # !!! ... !!!
+            return (rgn_enter, rgn_exit)
+
+    def export(self, exporter, bo, parent_so):
+        # We need to ensure we export to the correct SO
+        region_bo = self.region_object
+        region_so = exporter.mgr.find_create_object(plSceneObject, bl=region_bo)
+        interface = exporter.mgr.find_create_object(plInterfaceInfoModifier, name=self.key_name, so=region_so)
 
         # Region Enters
         enter_simple = self.find_input_socket("enter").allow
         enter_settings = self.find_input("enter", "PlasmaVolumeReportNode")
         if enter_simple or enter_settings is not None:
-            key = self._export_volume_event(exporter, bo, so, plVolumeSensorConditionalObject.kTypeEnter, enter_settings)
+            key = self._export_volume_event(exporter, region_bo, region_so, plVolumeSensorConditionalObject.kTypeEnter, enter_settings)
             interface.addIntfKey(key)
 
         # Region Exits
         exit_simple = self.find_input_socket("exit").allow
         exit_settings = self.find_input("exit", "PlasmaVolumeReportNode")
         if exit_simple or exit_settings is not None:
-            key = self._export_volume_event(exporter, bo, so, plVolumeSensorConditionalObject.kTypeExit, exit_settings)
+            key = self._export_volume_event(exporter, region_bo, region_so, plVolumeSensorConditionalObject.kTypeExit, exit_settings)
             interface.addIntfKey(key)
 
         # Don't forget to export the physical object itself!
         # [trollface.jpg]
-        phys_bo = bpy.data.objects.get(self.region, None)
-        if phys_bo is None:
-            self.raise_error("invalid Region object: '{}'".format(self.region))
-        simIface, physical = exporter.physics.generate_physical(phys_bo, so, self.bounds, "{}_VolumeSensor".format(bo.name))
+        simIface, physical = exporter.physics.generate_physical(region_bo, region_so, self.bounds, "{}_VolumeSensor".format(region_bo.name))
 
         physical.memberGroup = plSimDefs.kGroupDetector
         if "avatar" in self.report_on:
@@ -377,6 +408,23 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
         # End mandatory order
         logicmod.addCondition(volKey)
         return logicKey
+
+    @property
+    def region_object(self):
+        phys_bo = bpy.data.objects.get(self.region, None)
+        if phys_bo is None:
+            self.raise_error("invalid Region object: '{}'".format(self.region))
+        return phys_bo
+
+    @property
+    def report_enters(self):
+        return (self.find_input_socket("enter").allow or
+                self.find_input("enter", "PlasmaVolumeReportNode") is not None)
+
+    @property
+    def report_exits(self):
+        return (self.find_input_socket("exit").allow or
+                self.find_input("exit", "PlasmaVolumeReportNode") is not None)
 
 
 class PlasmaVolumeSettingsSocket(PlasmaNodeSocketBase):

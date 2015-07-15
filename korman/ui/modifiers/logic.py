@@ -19,6 +19,7 @@ class LogicListUI(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
         layout.prop(item, "name", emboss=False, text="", icon="NODETREE")
 
+
 def advanced_logic(modifier, layout, context):
     row = layout.row()
     row.template_list("LogicListUI", "logic_groups", modifier, "logic_groups", modifier, "active_group_index",
@@ -37,9 +38,14 @@ def advanced_logic(modifier, layout, context):
     # Modify the loop points
     if modifier.logic_groups:
         logic = modifier.logic_groups[modifier.active_group_index]
-        row = layout.row()
-        row.prop_menu_enum(logic, "version")
-        row.prop_search(logic, "node_tree_name", bpy.data, "node_groups", icon="NODETREE", text="")
+        layout.row().prop_menu_enum(logic, "version")
+        layout.prop_search(logic, "node_tree_name", bpy.data, "node_groups", icon="NODETREE")
+        try:
+            layout.prop_search(logic, "node_name", logic.node_tree, "nodes", icon="NODE")
+        except:
+            row = layout.row()
+            row.enabled = False
+            row.prop(logic, "node_name", icon="NODE")
 
 def spawnpoint(modifier, layout, context):
     layout.label(text="Avatar faces negative Y.")
