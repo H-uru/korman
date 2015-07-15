@@ -220,6 +220,20 @@ class PlasmaPythonFileNode(PlasmaNodeBase, bpy.types.Node):
         if self.no_update:
             return
         with self._NoUpdate(self) as _no_recurse:
+            # First, we really want to make sure our junk matches up. Yes, this does dupe what
+            # happens in PlasmaAttribNodeBase, but we can link much more than those node types...
+            toasty_sockets = []
+            input_nodes = (i for i in self.inputs if i.is_linked and i.links)
+            for i in input_nodes:
+                link = i.links[0]
+                allowed_attribs = getattr(link.from_node, "pl_attrib", set())
+                if i.attribute_type not in allowed_attribs:
+                    self.id_data.links.remove(link)
+                    # Bad news, old chap... Even though we're doing this before we figure out
+                    # how many socket we need, the changes won't be committed to the socket's links
+                    # until later. damn. We'll have to track it manually
+                    toasty_sockets.append(i)
+
             attribs = self.attribute_map
             empty = not self.inputs
             for idx in sorted(attribs):
@@ -235,7 +249,7 @@ class PlasmaPythonFileNode(PlasmaNodeBase, bpy.types.Node):
                 if not inputs:
                     self._make_attrib_socket(attrib, empty)
                 elif attrib.attribute_type not in _single_user_attribs:
-                    unconnected = [socket for socket in inputs if not socket.is_linked]
+                    unconnected = [socket for socket in inputs if not socket.is_linked or socket in toasty_sockets]
                     if not unconnected:
                         self._make_attrib_socket(attrib, empty)
                     while len(unconnected) > 1:

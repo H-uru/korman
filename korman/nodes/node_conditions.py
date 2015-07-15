@@ -27,6 +27,9 @@ class PlasmaClickableNode(PlasmaNodeVariableInput, bpy.types.Node):
     bl_label = "Clickable"
     bl_width_default = 160
 
+    # These are the Python attributes we can fill in
+    pl_attrib = {"ptAttribActivator", "ptAttribActivatorList", "ptAttribNamedActivator"}
+
     clickable = StringProperty(name="Clickable",
                                description="Mesh that is clickable")
     bounds = EnumProperty(name="Bounds",
@@ -284,6 +287,9 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
     bl_idname = "PlasmaVolumeSensorNode"
     bl_label = "Region Sensor"
     bl_width_default = 190
+
+    # These are the Python attributes we can fill in
+    pl_attrib = {"ptAttribActivator", "ptAttribActivatorList", "ptAttribNamedActivator"}
 
     # Region Mesh
     region = StringProperty(name="Region",

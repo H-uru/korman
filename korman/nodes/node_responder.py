@@ -26,6 +26,9 @@ class PlasmaResponderNode(PlasmaNodeVariableInput, bpy.types.Node):
     bl_label = "Responder"
     bl_width_default = 145
 
+    # These are the Python attributes we can fill in
+    pl_attrib = {"ptAttribResponder", "ptAttribResponderList", "ptAttribNamedResponder"}
+
     detect_trigger = BoolProperty(name="Detect Trigger",
                                   description="When notified, trigger the Responder",
                                   default=True)
