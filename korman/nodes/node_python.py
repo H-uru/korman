@@ -423,7 +423,8 @@ class PlasmaAttribObjectNode(PlasmaAttribNodeBase, bpy.types.Node):
     bl_idname = "PlasmaAttribObjectNode"
     bl_label = "Object Attribute"
 
-    pl_attrib = ("ptAttribSceneobject", "ptAttribSceneobjectList", "ptAttribAnimation")
+    pl_attrib = ("ptAttribSceneobject", "ptAttribSceneobjectList", "ptAttribAnimation",
+                 "ptAttribWaveSet")
 
     object_name = StringProperty(name="Object",
                                  description="Object containing the required data")
@@ -456,6 +457,11 @@ class PlasmaAttribObjectNode(PlasmaAttribNodeBase, bpy.types.Node):
             agmod = exporter.mgr.find_create_key(plAGModifier, so=ref_so, name=anim.display_name)
             agmaster = exporter.mgr.find_create_key(plAGMasterModifier, so=ref_so, name=anim.display_name)
             return agmaster
+        elif attrib == "ptAttribWaveSet":
+            waveset = bo.plasma_modifiers.water_basic
+            if not waveset.enabled:
+                self.raise_error("water modifier not enabled on '{}'".format(self.object_name))
+            return exporter.mgr.find_create_key(plWaveSet7, so=ref_so, bl=bo)
 
 
 class PlasmaAttribStringNode(PlasmaAttribNodeBase, bpy.types.Node):
