@@ -15,6 +15,7 @@
 
 import bpy
 from bpy.props import *
+from collections import OrderedDict
 from PyHSPlasma import *
 import uuid
 
@@ -39,25 +40,25 @@ class PlasmaResponderNode(PlasmaNodeBase, bpy.types.Node):
                                 description="When fast-forwarding, play sound effects",
                                 default=False)
 
-    input_sockets = {
-        "condition": {
+    input_sockets = OrderedDict([
+        ("condition", {
             "text": "Condition",
             "type": "PlasmaConditionSocket",
             "spawn_empty": True,
-        },
-    }
+        }),
+    ])
 
-    output_sockets = {
-        "keyref": {
+    output_sockets = OrderedDict([
+        ("keyref", {
             "text": "References",
             "type": "PlasmaPythonReferenceNodeSocket",
             "valid_link_nodes": {"PlasmaPythonFileNode"},
-        },
-        "states": {
+        }),
+        ("states", {
             "text": "States",
             "type": "PlasmaRespStateSocket",
-        },
-    }
+        }),
+    ])
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "detect_trigger")
@@ -115,25 +116,25 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
                                  description="This state is the responder's default",
                                  default=False)
 
-    input_sockets = {
-        "condition": {
+    input_sockets = OrderedDict([
+        ("condition", {
             "text": "Condition",
             "type": "PlasmaRespStateSocket",
             "spawn_empty": True,
-        },
-    }
+        }),
+    ])
 
-    output_sockets = {
-        "cmds": {
+    output_sockets = OrderedDict([
+        ("cmds", {
             "text": "Commands",
             "type": "PlasmaRespCommandSocket",
-        },
-        "gotostate": {
+        }),
+        ("gotostate", {
             "link_limit": 1,
             "text": "Trigger",
             "type": "PlasmaRespStateSocket",
-        },
-    }
+        }),
+    ])
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "default_state")
@@ -205,27 +206,27 @@ class PlasmaResponderCommandNode(PlasmaNodeBase, bpy.types.Node):
     bl_idname = "PlasmaResponderCommandNode"
     bl_label = "Responder Command"
 
-    input_sockets = {
-        "whodoneit": {
+    input_sockets = OrderedDict([
+        ("whodoneit", {
             "text": "Condition",
             "type": "PlasmaRespCommandSocket",
             # command sockets are on some unrelated outputs...
             "valid_link_nodes": {"PlasmaResponderCommandNode", "PlasmaResponderStateNode"},
             "valid_link_sockets": {"PlasmaRespCommandSocket"},
-        },
-    }
+        }),
+    ])
 
-    output_sockets = {
-        "msg": {
+    output_sockets = OrderedDict([
+        ("msg", {
             "link_limit": 1,
             "text": "Message",
             "type": "PlasmaMessageSocket",
-        },
-        "trigger": {
+        }),
+        ("trigger", {
             "text": "Trigger",
             "type": "PlasmaRespCommandSocket",
-        },
-    }
+        }),
+    ])
 
     def convert_command(self, exporter, so, responder, commandMgr, waitOn=-1):
         # If this command has no message, there is no need to export it...

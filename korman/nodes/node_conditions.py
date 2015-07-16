@@ -15,6 +15,7 @@
 
 import bpy
 from bpy.props import *
+from collections import OrderedDict
 import math
 from PyHSPlasma import *
 
@@ -37,32 +38,32 @@ class PlasmaClickableNode(PlasmaNodeBase, bpy.types.Node):
                           items=bounds_types,
                           default="hull")
 
-    input_sockets = {
-        "region": {
+    input_sockets = OrderedDict([
+        ("region", {
             "text": "Avatar Inside Region",
             "type": "PlasmaClickableRegionSocket",
-        },
-        "facing": {
+        }),
+        ("facing", {
             "text": "Avatar Facing Target",
             "type": "PlasmaFacingTargetSocket",
-        },
-        "enable_callback": {
+        }),
+        ("enable_callback", {
             "text": "Local Reenable",
             "type": "PlasmaRespCommandSocket",
             "spawn_empty": True,
-        }
-    }
+        }),
+    ])
 
-    output_sockets = {
-        "keyref": {
+    output_sockets = OrderedDict([
+        ("keyref", {
             "text": "References",
             "type": "PlasmaPythonReferenceNodeSocket",
-        },
-        "satisfies": {
+        }),
+        ("satisfies", {
             "text": "Satisfies",
             "type": "PlasmaConditionSocket",
-        },
-    }
+        }),
+    ])
 
     def draw_buttons(self, context, layout):
         layout.prop_search(self, "clickable", bpy.data, "objects", icon="MESH_DATA")
@@ -155,12 +156,12 @@ class PlasmaClickableRegionNode(PlasmaNodeBase, bpy.types.Node):
                           items=bounds_types,
                           default="hull")
 
-    output_sockets = {
-        "satisfies": {
+    output_sockets = OrderedDict([
+        ("satisfies", {
             "text": "Satisfies",
             "type": "PlasmaClickableRegionSocket",
-        }
-    }
+        }),
+    ])
 
     def draw_buttons(self, context, layout):
         layout.prop_search(self, "region", bpy.data, "objects", icon="MESH_DATA")
@@ -221,12 +222,12 @@ class PlasmaFacingTargetNode(PlasmaNodeBase, bpy.types.Node):
                             description="How far away from the target the avatar can turn (in degrees)",
                             min=-180, max=180, default=45)
 
-    output_sockets = {
-        "satisfies": {
+    output_sockets = OrderedDict([
+        ("satisfies", {
             "text": "Satisfies",
             "type": "PlasmaFacingTargetSocket",
-        },
-    }
+        }),
+    ])
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "directional")
@@ -296,13 +297,13 @@ class PlasmaVolumeReportNode(PlasmaNodeBase, bpy.types.Node):
                     description="How many objects should be in the region for it to trigger",
                     min=1)
 
-    output_sockets = {
-        "settings": {
+    output_sockets = OrderedDict([
+        ("settings", {
             "text": "Trigger Settings",
             "type": "PlasmaVolumeSettingsSocketOut",
             "valid_link_sockets": {"PlasmaVolumeSettingsSocketIn"},
-        },
-    }
+        }),
+    ])
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "report_when")
@@ -336,30 +337,30 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
                                     ("dynamics", "Dynamics", "Any non-avatar dynamic physical object (eg kickables)")],
                              default={"avatar"})
 
-    input_sockets = {
-        "enter": {
+    input_sockets = OrderedDict([
+        ("enter", {
             "text": "Trigger on Enter",
             "type": "PlasmaVolumeSettingsSocketIn",
             "valid_link_sockets": {"PlasmaVolumeSettingsSocketOut"},
-        },
-        "exit": {
+        }),
+        ("exit", {
             "text": "Trigger on Exit",
             "type": "PlasmaVolumeSettingsSocketIn",
             "valid_link_sockets": {"PlasmaVolumeSettingsSocketOut"},
-        },
-    }
+        }),
+    ])
 
-    output_sockets = {
-        "keyref": {
+    output_sockets = OrderedDict([
+        ("keyref", {
             "text": "References",
             "type": "PlasmaPythonReferenceNodeSocket",
             "valid_link_nodes": {"PlasmaPythonFileNode"},
-        },
-        "satisfies": {
+        }),
+        ("satisfies", {
             "text": "Satisfies",
             "type": "PlasmaConditionSocket",
-        },
-    }
+        }),
+    ])
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "report_on")

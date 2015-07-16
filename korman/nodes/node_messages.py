@@ -15,6 +15,7 @@
 
 import bpy
 from bpy.props import *
+from collections import OrderedDict
 from PyHSPlasma import *
 
 from .node_core import *
@@ -28,13 +29,13 @@ class PlasmaMessageSocket(PlasmaMessageSocketBase, bpy.types.NodeSocket):
 
 
 class PlasmaMessageNode(PlasmaNodeBase):
-    input_sockets = {
-        "sender": {
+    input_sockets = OrderedDict([
+        ("sender", {
             "text": "Sender",
             "type": "PlasmaMessageSocket",
             "spawn_empty": True,
-        },
-    }
+        }),
+    ])
 
     @property
     def has_callbacks(self):

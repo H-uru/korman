@@ -15,6 +15,7 @@
 
 import bpy
 from bpy.props import *
+from collections import OrderedDict
 from PyHSPlasma import *
 
 from .node_core import PlasmaNodeBase, PlasmaNodeSocketBase
@@ -32,19 +33,19 @@ class PlasmaSittingBehaviorNode(PlasmaNodeBase, bpy.types.Node):
                             default={"kApproachFront", "kApproachLeft", "kApproachRight"},
                             options={"ENUM_FLAG"})
 
-    input_sockets = {
-        "condition": {
+    input_sockets = OrderedDict([
+        ("condition", {
             "text": "Condition",
             "type": "PlasmaConditionSocket",
-        },
-    }
+        }),
+    ])
 
-    output_sockets = {
-        "satisfies": {
+    output_sockets = OrderedDict([
+        ("satisfies", {
             "text": "Satisfies",
             "type": "PlasmaConditionSocket",
-        },
-    }
+        }),
+    ])
 
     def draw_buttons(self, context, layout):
         col = layout.column()
