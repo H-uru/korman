@@ -211,6 +211,22 @@ class MaterialConverter:
         # Looks like we're done...
         return hsgmat.key
 
+    def export_waveset_material(self, bo, bm):
+        print("    Exporting WaveSet Material '{}'".format(bm.name))
+
+        # WaveSets MUST have their own material
+        unique_name = "{}_WaveSet7".format(bm.name)
+        hsgmat = self._mgr.add_object(hsGMaterial, name=unique_name, bl=bo)
+
+        # Materials MUST have one layer. Wavesets need alpha blending...
+        layer = self._mgr.add_object(plLayer, name=unique_name, bl=bo)
+        self._propagate_material_settings(bm, layer)
+        layer.state.blendFlags |= hsGMatState.kBlendAlpha
+        hsgmat.addLayer(layer.key)
+
+        # Wasn't that easy?
+        return hsgmat.key
+
     def _export_texture_slot(self, bo, bm, hsgmat, slots, idx):
         slot = slots[idx]
         num_exported = 1
