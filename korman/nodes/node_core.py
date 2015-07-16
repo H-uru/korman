@@ -98,17 +98,6 @@ class PlasmaNodeBase:
     def harvest_actors(self):
         return set()
 
-    def init(self, context):
-        """Initializes the sockets as defined on the subclass"""
-        input_defs, output_defs = self._socket_defs
-        for defs, sockets in ((input_defs, self.inputs), (output_defs, self.outputs)):
-            for name, options in defs.items():
-                assert name.find('.') == -1
-                socket = sockets.new(options["type"], options["text"], name)
-                link_limit = options.get("link_limit", None)
-                if link_limit is not None:
-                    socket.link_limit = link_limit
-
     @property
     def key_name(self):
         return "{}_{}".format(self.id_data.name, self.name)

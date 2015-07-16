@@ -227,11 +227,6 @@ class PlasmaResponderCommandNode(PlasmaNodeBase, bpy.types.Node):
         },
     }
 
-    def init(self, context):
-        self.inputs.new("PlasmaRespCommandSocket", "Condition", "whodoneit")
-        self.outputs.new("PlasmaMessageSocket", "Message", "msg").link_limit = 1
-        self.outputs.new("PlasmaRespCommandSocket", "Trigger", "trigger")
-
     def convert_command(self, exporter, so, responder, commandMgr, waitOn=-1):
         # If this command has no message, there is no need to export it...
         msgNode = self.find_output("msg")
