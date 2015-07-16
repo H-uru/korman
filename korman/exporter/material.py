@@ -211,6 +211,22 @@ class MaterialConverter:
         # Looks like we're done...
         return hsgmat.key
 
+    def export_waveset_material(self, bo, bm):
+        print("    Exporting WaveSet Material '{}'".format(bm.name))
+
+        # WaveSets MUST have their own material
+        unique_name = "{}_WaveSet7".format(bm.name)
+        hsgmat = self._mgr.add_object(hsGMaterial, name=unique_name, bl=bo)
+
+        # Materials MUST have one layer. Wavesets need alpha blending...
+        layer = self._mgr.add_object(plLayer, name=unique_name, bl=bo)
+        self._propagate_material_settings(bm, layer)
+        layer.state.blendFlags |= hsGMatState.kBlendAlpha
+        hsgmat.addLayer(layer.key)
+
+        # Wasn't that easy?
+        return hsgmat.key
+
     def _export_texture_slot(self, bo, bm, hsgmat, slots, idx):
         slot = slots[idx]
         num_exported = 1
@@ -370,36 +386,30 @@ class MaterialConverter:
                 pl_env = plDynamicCamMap
             else:
                 pl_env = plDynamicEnvMap
-            pl_env = self._export_dynamic_env(bo, hsgmat, layer, texture, pl_env)
+            pl_env = self.export_dynamic_env(bo, hsgmat, layer, texture, pl_env)
         else:
             # We should really export a CubicEnvMap here, but we have a good setup for DynamicEnvMaps
             # that create themselves when the explorer links in, so really... who cares about CEMs?
             self._exporter().report.warn("IMAGE EnvironmentMaps are not supported. '{}' will not be exported!".format(layer.key.name))
             pl_env = None
         layer.state.shadeFlags |= hsGMatState.kShadeEnvironMap
-        layer.texture = pl_env
+        layer.texture = pl_env.key
 
-    def _export_dynamic_env(self, bo, hsgmat, layer, texture, pl_class):
+    def export_dynamic_env(self, bo, hsgmat, layer, texture, pl_class):
         # To protect the user from themselves, let's check to make sure that a DEM/DCM matching this
         # viewpoint object has not already been exported...
         bl_env = texture.environment_map
         viewpt = bl_env.viewpoint_object
+        if viewpt is None:
+            viewpt = bo
         name = "{}_DynEnvMap".format(viewpt.name)
-        pl_env = self._mgr.find_key(pl_class, bl=bo, name=name)
+        pl_env = self._mgr.find_object(pl_class, bl=bo, name=name)
         if pl_env is not None:
             print("            EnvMap for viewpoint {} already exported... NOTE: Your settings here will be overridden by the previous object!".format(viewpt.name))
-            pl_env_obj = pl_env.object
-            if isinstance(pl_env_obj, plDynamicCamMap):
-                pl_env_obj.addTargetNode(self._mgr.find_key(plSceneObject, bl=bo))
-                pl_env_obj.addMatLayer(layer.key)
+            if isinstance(pl_env, plDynamicCamMap):
+                pl_env.addTargetNode(self._mgr.find_key(plSceneObject, bl=bo))
+                pl_env.addMatLayer(layer.key)
             return pl_env
-
-        # It matters not whether or not the viewpoint object is a Plasma Object, it is exported as at
-        # least a SceneObject and CoordInterface so that we can touch it...
-        # NOTE: that harvest_actor makes sure everyone alread knows we're going to have a CI
-        root = self._mgr.find_create_key(plSceneObject, bl=bo, name=viewpt.name)
-        self._exporter()._export_coordinate_interface(root.object, bl=bo, name=viewpt.name)
-        # FIXME: DynamicCamMap Camera
 
         # Ensure POT
         oRes = bl_env.resolution
@@ -413,7 +423,6 @@ class MaterialConverter:
         pl_env.yon = bl_env.clip_end
         pl_env.refreshRate = 0.01 if bl_env.source == "ANIMATED" else 0.0
         pl_env.incCharacters = True
-        pl_env.rootNode = root # FIXME: DCM camera
 
         # Perhaps the DEM/DCM fog should be separately configurable at some point?
         pl_fog = bpy.context.scene.world.plasma_fni
@@ -422,6 +431,13 @@ class MaterialConverter:
 
         if isinstance(pl_env, plDynamicCamMap):
             faces = (pl_env,)
+
+            # It matters not whether or not the viewpoint object is a Plasma Object, it is exported as at
+            # least a SceneObject and CoordInterface so that we can touch it...
+            # NOTE: that harvest_actor makes sure everyone alread knows we're going to have a CI
+            root = self._mgr.find_create_key(plSceneObject, bl=viewpt)
+            pl_env.rootNode = root # FIXME: DCM camera
+            # FIXME: DynamicCamMap Camera
 
             pl_env.addTargetNode(self._mgr.find_key(plSceneObject, bl=bo))
             pl_env.addMatLayer(layer.key)
@@ -442,8 +458,13 @@ class MaterialConverter:
         else:
             faces = pl_env.faces + (pl_env,)
 
-            layer.UVWSrc = plLayerInterface.kUVWReflect
-            layer.state.miscFlags |= hsGMatState.kMiscUseRefractionXform
+            # DEMs can do just a position vector. We actually prefer this because the WaveSet exporter
+            # will probably want to steal it for diabolical purposes...
+            pl_env.position = hsVector3(*viewpt.location)
+
+            if layer is not None:
+                layer.UVWSrc = plLayerInterface.kUVWReflect
+                layer.state.miscFlags |= hsGMatState.kMiscUseRefractionXform
 
         # Because we might be working with a multi-faced env map. It's even worse than have two faces...
         for i in faces:
@@ -459,7 +480,7 @@ class MaterialConverter:
             i.viewportBottom = eRes
             i.ZDepth = 24
 
-        return pl_env.key
+        return pl_env
 
     def _export_texture_type_image(self, bo, hsgmat, layer, slot):
         """Exports a Blender ImageTexture to a plLayer"""

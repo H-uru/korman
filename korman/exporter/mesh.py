@@ -37,10 +37,9 @@ class _RenderLevel:
     _MAJOR_SHIFT = 28
     _MINOR_MASK = ((1 << _MAJOR_SHIFT) - 1)
 
-    def __init__(self, hsgmat, pass_index, blendSpan=False):
+    def __init__(self, bo, hsgmat, pass_index, blendSpan=False):
         self.level = 0
 
-        # Naive... BlendSpans (any blending on the first layer) are MAJOR_BLEND
         if blendSpan:
             self.major = self.MAJOR_DEFAULT
 
@@ -68,15 +67,22 @@ class _RenderLevel:
 
 
 class _DrawableCriteria:
-    def __init__(self, hsgmat, pass_index):
+    def __init__(self, bo, hsgmat, pass_index):
         for layer in hsgmat.layers:
             if layer.object.state.blendFlags & hsGMatState.kBlendMask:
                 self.blend_span = True
                 break
         else:
             self.blend_span = False
-        self.criteria = 0 # TODO
-        self.render_level = _RenderLevel(hsgmat, pass_index, self.blend_span)
+
+        self.criteria = 0
+        if self.blend_span:
+            for mod in bo.plasma_modifiers.modifiers:
+                if mod.requires_face_sort:
+                    self.criteria |= plDrawable.kCritSortFaces
+                if mod.requires_span_sort:
+                    self.sort_spans |= plDrawable.kCritSortSpans
+        self.render_level = _RenderLevel(bo, hsgmat, pass_index, self.blend_span)
 
     def __eq__(self, other):
         if not isinstance(other, _DrawableCriteria):
@@ -304,19 +310,34 @@ class MeshConverter:
 
     def _export_material_spans(self, bo, mesh, materials):
         """Exports all Materials and creates plGeometrySpans"""
-        geospans = [None] * len(materials)
-        for i, blmat in enumerate(materials):
-            matKey = self.material.export_material(bo, blmat)
-            geospans[i] = (self._create_geospan(bo, mesh, blmat, matKey), blmat.pass_index)
-        return geospans
+        waveset_mod = bo.plasma_modifiers.water_basic
+        if waveset_mod.enabled:
+            if len(materials) > 1:
+                msg = "'{}' is a WaveSet -- only one material is supported".format(bo.name)
+                self._exporter().report.warn(msg, indent=1)
+            matKey = self.material.export_waveset_material(bo, materials[0])
+            geospan = self._create_geospan(bo, mesh, materials[0], matKey)
+
+            # FIXME: Can some of this be generalized?
+            geospan.props |= (plGeometrySpan.kWaterHeight | plGeometrySpan.kLiteVtxNonPreshaded |
+                              plGeometrySpan.kPropReverseSort | plGeometrySpan.kPropNoShadow)
+            geospan.waterHeight = bo.location[2]
+            return [(geospan, 0)]
+        else:
+            geospans = [None] * len(materials)
+            for i, blmat in enumerate(materials):
+                matKey = self.material.export_material(bo, blmat)
+                geospans[i] = (self._create_geospan(bo, mesh, blmat, matKey), blmat.pass_index)
+            return geospans
 
     def _export_static_lighting(self, bo):
         helpers.make_active_selection(bo)
-        lm = bo.plasma_modifiers.lightmap
+        mods = bo.plasma_modifiers
+        lm = mods.lightmap
         if lm.enabled:
             print("    Baking lightmap...")
             bpy.ops.object.plasma_lightmap_autobake(light_group=lm.light_group)
-        else:
+        elif not mods.water_basic.enabled:
             for vcol_layer in bo.data.vertex_colors:
                 name = vcol_layer.name.lower()
                 if name in _VERTEX_COLOR_LAYERS:
@@ -325,7 +346,6 @@ class MeshConverter:
                 print("    Baking crappy vertex color lighting...")
                 bpy.ops.object.plasma_vertexlight_autobake()
 
-
     def _find_create_dspan(self, bo, hsgmat, pass_index):
         location = self._mgr.get_location(bo)
         if location not in self._dspans:
@@ -333,10 +353,11 @@ class MeshConverter:
 
         # This is where we figure out which DSpan this goes into. To vaguely summarize the rules...
         # BlendSpans: anything with an alpha blended layer
-        # [... document me ...]
+        # SortSpans: means we should sort the spans in this DSpan with all other span in this pass
+        # SortFaces: means we should sort the faces in this span only
         # We're using pass index to do just what it was designed for. Cyan has a nicer "depends on"
         # draw component, but pass index is the Blender way, so that's what we're doing.
-        crit = _DrawableCriteria(hsgmat, pass_index)
+        crit = _DrawableCriteria(bo, hsgmat, pass_index)
 
         if crit not in self._dspans[location]:
             # AgeName_[District_]_Page_RenderLevel_Crit[Blend]Spans
@@ -345,8 +366,12 @@ class MeshConverter:
             name = "{}_{:08X}_{:X}{}".format(node.name, crit.render_level.level, crit.criteria, crit.span_type)
             dspan = self._mgr.add_object(pl=plDrawableSpans, name=name, loc=location)
 
-            dspan.criteria = crit.criteria
-            # TODO: props
+            criteria = crit.criteria
+            dspan.criteria = criteria
+            if criteria & plDrawable.kCritSortFaces:
+                dspan.props |= plDrawable.kPropSortFaces
+            if criteria & plDrawable.kCritSortSpans:
+                dspan.props |= plDrawable.kPropSortSpans
             dspan.renderLevel = crit.render_level.level
             dspan.sceneNode = node # AddViaNotify
 
