@@ -17,9 +17,11 @@ import bpy
 
 def water_basic(modifier, layout, context):
     layout.prop_search(modifier, "wind_object_name", bpy.data, "objects")
+    layout.prop_search(modifier, "envmap_name", bpy.data, "textures")
 
     row = layout.row()
     row.prop(modifier, "wind_speed")
+    row.prop(modifier, "envmap_radius")
     layout.separator()
 
     split = layout.split()

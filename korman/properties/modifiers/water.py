@@ -33,6 +33,12 @@ class PlasmaWaterModifier(PlasmaModifierProperties, bpy.types.PropertyGroup):
     wind_speed = FloatProperty(name="Wind Speed",
                                description="Magnitude of the wind",
                                default=1.0)
+    envmap_name = StringProperty(name="EnvMap",
+                                 description="Texture defining an environment map for this water object")
+    envmap_radius = FloatProperty(name="Environment Sphere Radius",
+                                  description="How far away the first object you want to see is",
+                                  min=5.0, max=10000.0,
+                                  default=500.0)
 
     specular_tint = FloatVectorProperty(name="Specular Tint",
                                         subtype="COLOR",
@@ -100,10 +106,28 @@ class PlasmaWaterModifier(PlasmaModifierProperties, bpy.types.PropertyGroup):
         state.rippleScale = self.ripple_scale
         state.waterHeight = bo.location[2]
         state.windDir = wind_dir
-        state.specVector = hsVector3(self.noise / 100, self.specular_start, self.specular_end)
+        state.specVector = hsVector3(self.noise / 100.0, self.specular_start, self.specular_end)
         state.specularTint = hsColorRGBA(*self.specular_tint, alpha=self.specular_alpha)
         state.waterOffset = hsVector3(self.zero_opacity * -1.0, self.zero_reflection * -1.0, self.zero_wave * -1.0)
         state.depthFalloff = hsVector3(self.depth_opacity, self.depth_reflection, self.depth_wave)
+
+        # Environment Map
+        if self.envmap_name:
+            texture = bpy.data.textures.get(self.envmap_name, None)
+            if texture is None:
+                raise ExportError("{}: Texture '{}' not found".format(self.display_name, self.envmap_name))
+            if texture.type != "ENVIRONMENT_MAP":
+                raise ExportError("{}: Texture '{}' is not an ENVIRONMENT MAP".format(self.display_name, self.envmap_name))
+
+            # maybe, just maybe, we're absuing our privledges?
+            dem = exporter.mesh.material.export_dynamic_env(bo, None, None, texture, plDynamicEnvMap)
+            waveset.envMap = dem.key
+            state.envCenter = dem.position
+            state.envRefresh = dem.refreshRate
+        else:
+            state.envCenter = hsVector3(*bo.location)
+            state.envRefresh = 0.0
+        state.envRadius = self.envmap_radius
 
         # These are either unused, set from somewhere else at runtime, or hardcoded
         state.waterTint = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
