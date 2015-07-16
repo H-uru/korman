@@ -32,6 +32,7 @@ class PlasmaMessageNode(PlasmaNodeBase):
         "sender": {
             "text": "Sender",
             "type": "PlasmaMessageSocket",
+            "spawn_empty": True,
         },
     }
 
