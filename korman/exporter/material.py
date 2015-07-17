@@ -577,13 +577,7 @@ class MaterialConverter:
         else:
             # Using bpy.types.Image.pixels is VERY VERY VERY slow...
             with korlib.GLTexture(image) as glimage:
-                data = glimage.get_level_data(quiet=True)
-                for i in range(3, len(data), 4):
-                    if data[i] != 255:
-                        result = True
-                        break
-                else:
-                    result = False
+                result = glimage.has_alpha
 
         self._alphatest[image] = result
         return result

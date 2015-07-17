@@ -95,3 +95,11 @@ class GLTexture:
         else:
             bgl.glGetTexLevelParameteriv(bgl.GL_TEXTURE_2D, level, param, buf)
         return int(buf[0])
+
+    @property
+    def has_alpha(self):
+        data = self.get_level_data(quiet=True)
+        for i in range(3, len(data), 4):
+            if data[i] != 255:
+                return True
+        return False
