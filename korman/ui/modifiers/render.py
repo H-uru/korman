@@ -55,3 +55,9 @@ def viewfacemod(modifier, layout, context):
         col = split.column()
         col.enabled = modifier.offset
         col.prop(modifier, "offset_coord")
+
+def followmod(modifier, layout, context):
+    layout.row().prop(modifier, "follow_mode", expand=True)
+    layout.prop(modifier, "leader_type")
+    if modifier.leader_type == "kFollowObject":
+        layout.prop_search(modifier, "leader_object", bpy.data, "objects", icon="OUTLINER_OB_MESH")
