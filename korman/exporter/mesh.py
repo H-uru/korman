@@ -331,7 +331,7 @@ class MeshConverter:
             return geospans
 
     def _export_static_lighting(self, bo):
-        helpers.make_active_selection(bo)
+        bpy.context.scene.objects.active = bo
         mods = bo.plasma_modifiers
         lm = mods.lightmap
         if lm.enabled:

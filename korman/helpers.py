@@ -59,6 +59,10 @@ def ensure_object_can_bake(bo, toggle):
     toggle.track(bo, "hide_render", False)
     toggle.track(bo, "hide_select", False)
 
+    # Ensure only this object is selected
+    for i in bpy.data.objects:
+        i.select = i == bo
+
 def ensure_power_of_two(value):
     return pow(2, math.floor(math.log(value, 2)))
 
@@ -69,12 +73,3 @@ def find_modifier(boname, modid):
         # if they give us the wrong modid, it is a bug and an AttributeError
         return getattr(bo.plasma_modifiers, modid)
     return None
-
-def make_active_selection(bo):
-    """Selects a single Blender Object and makes it active"""
-    for i in bpy.data.objects:
-        if i == bo:
-            bpy.context.scene.objects.active = i
-            i.select = True
-        else:
-            i.select = False
