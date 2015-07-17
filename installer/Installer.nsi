@@ -153,6 +153,7 @@ Section "Files"
     File          "Files\HSPlasma.dll"
     File          "Files\PyHSPlasma.pyd"
     File          "Files\NxCooking.dll"
+    File          "Files\_korlib.pyd"
 
     WriteRegStr HKLM "Software\Korman" "" $INSTDIR
     WriteUninstaller "$INSTDIR\korman_uninstall.exe"
@@ -164,5 +165,6 @@ Section "Uninstall"
     Delete "$INSTDIR\python\lib\site-packages\HSPlasma.dll"
     Delete "$INSTDIR\python\lib\site-packages\PyHSPlasma.pyd"
     Delete "$INSTDIR\python\lib\site-packages\NxCooking.dll"
+    Delete "$INSTDIR\python\lib\site-packages\_korlib.pyd"
     DeleteRegKey /ifempty HKLM "Software\Korman"
 SectionEnd

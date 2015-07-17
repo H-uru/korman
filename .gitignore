@@ -35,3 +35,6 @@ pip-log.txt
 # Installer Stuff
 installer/Files
 installer/korman.exe
+
+# C++ korlib build directory
+korlib/build
