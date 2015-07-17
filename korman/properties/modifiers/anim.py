@@ -112,8 +112,8 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
         # Decompose the matrix into the 90s-era 3ds max affine parts sillyness
         # All that's missing now is something like "(c) 1998 HeadSpin" oh wait...
         affine = hsAffineParts()
-        affine.T = utils.vector3(matrix.to_translation())
-        affine.K = utils.vector3(matrix.to_scale())
+        affine.T = hsVector3(*matrix.to_translation())
+        affine.K = hsVector3(*matrix.to_scale())
         affine.F = -1.0 if matrix.determinant() < 0.0 else 1.0
         rot = matrix.to_quaternion()
         affine.Q = utils.quaternion(rot)

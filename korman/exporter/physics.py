@@ -33,7 +33,7 @@ class PhysicsConverter:
             # We can only use the plPhysical xforms if there is a CI...
             if self._exporter().has_coordiface(bo):
                 mesh.update(calc_tessface=indices)
-                physical.pos = utils.vector3(mat.to_translation())
+                physical.pos = hsVector3(*mat.to_translation())
                 physical.rot = utils.quaternion(mat.to_quaternion())
 
                 # Physicals can't have scale...

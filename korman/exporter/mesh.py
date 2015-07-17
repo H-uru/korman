@@ -221,8 +221,8 @@ class MeshConverter:
                 if coluv not in data.blender2gs[vertex]:
                     source = mesh.vertices[vertex]
                     geoVertex = plGeometrySpan.TempVertex()
-                    geoVertex.position = utils.vector3(source.co)
-                    geoVertex.normal = utils.vector3(source.normal)
+                    geoVertex.position = hsVector3(*source.co)
+                    geoVertex.normal = hsVector3(*source.normal)
                     geoVertex.color = hsColor32(*vertex_color)
                     geoVertex.uvs = [hsVector3(uv[0], uv[1], 0.0) for uv in uvws]
                     data.blender2gs[vertex][coluv] = len(data.vertices)
