@@ -488,7 +488,8 @@ class MaterialConverter:
                 numLevels = max(numLevels - 2, 2)
 
             # Grab the image data from OpenGL and stuff it into the plBitmap
-            with korlib.GLTexture(image) as glimage:
+            helper = korlib.GLTexture(image)
+            with helper as glimage:
                 if key.mipmap:
                     print("    Generating mip levels")
                     glimage.generate_mipmap()
@@ -523,9 +524,7 @@ class MaterialConverter:
                 if page not in pages:
                     mipmap = plMipmap(name=name, width=eWidth, height=eHeight, numLevels=numLevels,
                                       compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
-                    func = mipmap.CompressImage if compression == plBitmap.kDirectXCompression else mipmap.setLevel
-                    for i, level in enumerate(data):
-                        func(i, level)
+                    helper.store_in_mipmap(mipmap, data, compression)
                     mgr.AddObject(page, mipmap)
                     pages[page] = mipmap
                 else:

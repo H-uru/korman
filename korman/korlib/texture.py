@@ -14,6 +14,7 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bgl
+from PyHSPlasma import plBitmap
 
 # BGL doesn't know about this as of Blender 2.74
 bgl.GL_GENERATE_MIPMAP = 0x8191
@@ -22,17 +23,14 @@ bgl.GL_BGRA = 0x80E1
 class GLTexture:
     def __init__(self, blimg):
         self._ownit = (blimg.bindcode == 0)
-        if self._ownit:
-            if blimg.gl_load() != 0:
-                raise explosions.GLLoadError(blimg)
         self._blimg = blimg
-
-    def __del__(self):
-        if self._ownit:
-            self._blimg.gl_free()
 
     def __enter__(self):
         """Sets the Blender Image as the active OpenGL texture"""
+        if self._ownit:
+            if self._blimg.gl_load() != 0:
+                raise RuntimeError("failed to load image")
+
         self._previous_texture = self._get_integer(bgl.GL_TEXTURE_BINDING_2D)
         self._changed_state = (self._previous_texture != self._blimg.bindcode)
         if self._changed_state:
@@ -43,9 +41,10 @@ class GLTexture:
         mipmap_state = getattr(self, "_mipmap_state", None)
         if mipmap_state is not None:
             bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_GENERATE_MIPMAP, mipmap_state)
-
         if self._changed_state:
             bgl.glBindTexture(bgl.GL_TEXTURE_2D, self._previous_texture)
+        if self._ownit:
+            self._blimg.gl_free()
 
     def generate_mipmap(self):
         """Generates all mip levels for this texture"""
@@ -103,3 +102,8 @@ class GLTexture:
             if data[i] != 255:
                 return True
         return False
+
+    def store_in_mipmap(self, mipmap, data, compression):
+        func = mipmap.CompressImage if compression == plBitmap.kDirectXCompression else mipmap.setLevel
+        for i, level in enumerate(data):
+            func(i, level)
