@@ -86,17 +86,18 @@ static PyObject* pyGLTexture__enter__(pyGLTexture* self) {
     }
 
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &self->m_prevImage);
-    GLuint image_bindcode = PyLong_AsLong(bindcode);
+    GLuint image_bindcode = PyLong_AsUnsignedLong(bindcode);
     self->m_ownIt = image_bindcode == 0;
 
     // Load image into GL
     if (self->m_ownIt) {
         PyObjectRef new_bind = PyObject_CallMethod(self->m_blenderImage, "gl_load", NULL);
-        if (!(PyObject*)new_bind) {
+        if (PyLong_AsSize_t(new_bind) != 0) {
             PyErr_SetString(PyExc_RuntimeError, "failed to load image into GL");
             return NULL;
         }
-        image_bindcode = PyLong_AsLong(new_bind);
+        bindcode = PyObject_GetAttrString(self->m_blenderImage, "bindcode");
+        image_bindcode = PyLong_AsUnsignedLong(bindcode);
     }
 
     // Set image as current in GL
@@ -125,14 +126,19 @@ static PyObject* pyGLTexture_generate_mipmap(pyGLTexture* self) {
     Py_RETURN_NONE;
 }
 
-static uint8_t* _get_level_data(pyGLTexture* self, GLint level, bool bgra, size_t* size) {
+static uint8_t* _get_level_data(pyGLTexture* self, GLint level, bool bgra, bool quiet, size_t* size) {
     GLint width, height;
     glGetTexLevelParameteriv(GL_TEXTURE_2D, level, GL_TEXTURE_WIDTH, &width);
     glGetTexLevelParameteriv(GL_TEXTURE_2D, level, GL_TEXTURE_HEIGHT, &height);
     GLenum fmt = bgra ? GL_BGRA_EXT : GL_RGBA;
 
-    *size = (width * height * 4);
-    uint8_t* buf = new uint8_t[*size];
+    if (!quiet)
+        PySys_WriteStdout("        Level #%i: %ix%i\n", level, width, height);
+
+    size_t bufsz;
+    bufsz = (width * height * 4);
+    if (size) *size = bufsz;
+    uint8_t* buf = new uint8_t[bufsz];
     glGetTexImage(GL_TEXTURE_2D, level, fmt, GL_UNSIGNED_BYTE, reinterpret_cast<GLvoid*>(buf));
     return buf;
 }
@@ -150,7 +156,7 @@ static PyObject* pyGLTexture_get_level_data(pyGLTexture* self, PyObject* args, P
     }
 
     size_t bufsz;
-    uint8_t* buf = _get_level_data(self, level, bgra, &bufsz);
+    uint8_t* buf = _get_level_data(self, level, bgra, quiet, &bufsz);
     if (calc_alpha) {
         for (size_t i = 0; i < bufsz; i += 4)
             buf[i + 3] = (buf[i + 0] + buf[i + 1] + buf[i + 2]) / 3;
@@ -203,7 +209,7 @@ static PyMethodDef pyGLTexture_Methods[] = {
 
 static PyObject* pyGLTexture_get_has_alpha(pyGLTexture* self, void*) {
     size_t bufsz;
-    uint8_t* buf = _get_level_data(self, 0, false, &bufsz);
+    uint8_t* buf = _get_level_data(self, 0, false, true, &bufsz);
     for (size_t i = 3; i < bufsz; i += 4) {
         if (buf[i] != 255) {
             delete[] buf;

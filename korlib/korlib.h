@@ -27,9 +27,14 @@ class PyObjectRef {
 
 public:
     PyObjectRef(PyObject* o) : m_object(o) { }
-    ~PyObjectRef() { if (m_object) Py_DECREF(m_object); }
+    ~PyObjectRef() { Py_XDECREF(m_object); }
 
     operator PyObject*() const { return m_object; }
+    PyObjectRef& operator =(PyObject* rhs) {
+        Py_XDECREF(m_object);
+        m_object = rhs;
+        return *this;
+    }
 };
 
 #endif // _KORLIB_H
