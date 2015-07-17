@@ -242,7 +242,11 @@ class VertexColorLightingOperator(_LightingOperator, bpy.types.Operator):
             # old copy of the autocolor layer on the mesh. Nuke it.
             autocolor = vcols.get("autocolor")
             if autocolor is not None:
-                vcols.remove(autocolor)
+                if context.scene.world.plasma_age.regenerate_shading:
+                    vcols.remove(autocolor)
+                else:
+                    # we have autocolor already, don't regenerate it because they don't want it
+                    return {"CANCELLED"}
             autocolor = vcols.new("autocolor")
             toggle.track(vcols, "active", autocolor)
 
