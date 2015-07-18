@@ -148,6 +148,10 @@ class PlasmaNodeBase:
         return (getattr(self.__class__, "input_sockets", {}),
                 getattr(self.__class__, "output_sockets", {}))
 
+    def _tattle(self, socket, link, reason):
+        direction = "->" if socket.is_output else "<-"
+        print("Removing {} {} {} {}".format(link.from_node.name, direction, link.to_node.name, reason))
+
     def update(self):
         """Ensures that sockets are linked appropriately and there are enough inputs"""
         input_defs, output_defs = self._socket_defs
@@ -178,6 +182,7 @@ class PlasmaNodeBase:
                             to_from_node = link.to_node if socket.is_output else link.from_node
                             if to_from_node.bl_idname not in allowed_nodes:
                                 try:
+                                    self._tattle(socket, link, "(bad node)")
                                     self.id_data.links.remove(link)
                                 except RuntimeError:
                                     # was already removed by someone else
@@ -187,6 +192,7 @@ class PlasmaNodeBase:
                             to_from_socket = link.to_socket if socket.is_output else link.from_socket
                             if to_from_socket.bl_idname not in allowed_sockets:
                                 try:
+                                    self._tattle(socket, link, "(bad socket)")
                                     self.id_data.links.remove(link)
                                 except RuntimeError:
                                     # was already removed by someone else
