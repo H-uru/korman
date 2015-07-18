@@ -153,7 +153,7 @@ class PlasmaNodeBase:
         input_defs, output_defs = self._socket_defs
         for defs, sockets in ((input_defs, self.inputs), (output_defs, self.outputs)):
             done = set()
-            for socket in sockets:
+            for i, socket in enumerate(sockets):
                 options = defs.get(socket.alias, None)
                 if options is None or socket.bl_idname != options["type"]:
                     sockets.remove(socket)
@@ -195,16 +195,21 @@ class PlasmaNodeBase:
 
                 # If this is a multiple input node, make sure we have exactly one empty socket
                 if (not socket.is_output and options.get("spawn_empty", False) and not socket.alias in done):
-                    empty_sockets = [i for i in sockets if i.bl_idname == socket.bl_idname and not i.is_used]
+                    empty_sockets = [j for j in sockets if j.bl_idname == socket.bl_idname and not j.is_used]
                     if not empty_sockets:
+                        idx = len(sockets)
                         dbg = sockets.new(socket.bl_idname, socket.name, socket.alias)
+                        # don't even ask...
+                        new_idx = i + 2
+                        if idx != new_idx:
+                            sockets.move(idx, new_idx)
                     else:
                         while len(empty_sockets) > 1:
                             sockets.remove(empty_sockets.pop())
                 done.add(socket.alias)
 
             # Create any new sockets
-            for alias in (i for i in defs if i not in done):
+            for alias in (j for j in defs if j not in done):
                 options = defs[alias]
                 socket = sockets.new(options["type"], options["text"], alias)
                 link_limit = options.get("link_limit", None)
