@@ -195,7 +195,7 @@ class PlasmaNodeBase:
 
                 # If this is a multiple input node, make sure we have exactly one empty socket
                 if (not socket.is_output and options.get("spawn_empty", False) and not socket.alias in done):
-                    empty_sockets = [i for i in sockets if i.bl_idname == socket.bl_idname and not i.links]
+                    empty_sockets = [i for i in sockets if i.bl_idname == socket.bl_idname and not i.is_used]
                     if not empty_sockets:
                         dbg = sockets.new(socket.bl_idname, socket.name, socket.alias)
                     else:
@@ -229,6 +229,10 @@ class PlasmaNodeSocketBase:
         if len(self.bl_color) == 3:
             return tuple(self.bl_color[0], self.bl_color[1], self.bl_color[2], 1.0)
         return self.bl_color
+
+    @property
+    def is_used(self):
+        return bool(self.links)
 
 
 class PlasmaNodeTree(bpy.types.NodeTree):

@@ -28,6 +28,9 @@ bounds_types = (
     ("trimesh", "Triangle Mesh", "Use the exact triangle mesh (SLOW!)")
 )
 
+def bounds_type_index(key):
+    return list(zip(*bounds_types))[0].index(key)
+
 def _set_phys_prop(prop, sim, phys, value=True):
     """Sets properties on plGenericPhysical and plSimulationInterface (seeing as how they are duped)"""
     sim.setProperty(prop, value)

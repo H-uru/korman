@@ -22,6 +22,7 @@ import nodeitems_utils
 from .node_avatar import *
 from .node_conditions import *
 from .node_core import *
+from .node_logic import *
 from .node_messages import *
 from .node_python import *
 from .node_responder import *

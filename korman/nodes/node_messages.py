@@ -268,6 +268,35 @@ class PlasmaEnableMsgNode(PlasmaMessageNode, bpy.types.Node):
         layout.prop(self, "settings")
 
 
+class PlasmaExcludeRegionMsg(PlasmaMessageNode, bpy.types.Node):
+    bl_category = "MSG"
+    bl_idname = "PlasmaExcludeRegionMsg"
+    bl_label = "Exclude Region"
+
+    output_sockets = OrderedDict([
+        ("region", {
+            "text": "Region",
+            "type": "PlasmaExcludeMessageSocket"
+        }),
+    ])
+
+    cmd = EnumProperty(name="Command",
+                       description="Exclude Region State",
+                       items=[("kClear", "Clear", "Clear all avatars from the region"),
+                              ("kRelease", "Release", "Allow avatars to enter the region")],
+                       default="kClear")
+
+    def convert_message(self, exporter, so):
+        msg = plExcludeRegionMsg()
+        for i in self.find_outputs("region"):
+            msg.addReceiver(i.get_key(exporter, so))
+        msg.cmd = getattr(plExcludeRegionMsg, self.cmd)
+        return msg
+
+    def draw_buttons(self, context, layout):
+        layout.prop(self, "cmd", text="Cmd")
+
+
 class PlasmaOneShotMsgNode(PlasmaMessageNode, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaOneShotMsgNode"
