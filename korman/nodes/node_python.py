@@ -511,7 +511,10 @@ class PlasmaAttribTextureNode(PlasmaAttribNodeBase, bpy.types.Node):
         tex_slot = material.texture_slots.get(self.texture_name, None)
         if tex_slot is None:
             self.raise_error("invalid Texture '{}'".format(self.texture_name))
-        attrib = self.attribute_type
+        attrib = self.to_socket
+        if attrib is None:
+            self.raise_error("must be connected to a Python File node!")
+        attrib = attrib.attribute_type
 
         # Helpers
         texture = tex_slot.texture
