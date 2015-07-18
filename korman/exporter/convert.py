@@ -258,6 +258,9 @@ class Exporter:
         print("\nPostprocessing SceneObjects...")
         for bl_obj in self._objects:
             sceneobject = self.mgr.find_object(plSceneObject, bl=bl_obj)
+            if sceneobject is None:
+                # no SO? fine then. turd.
+                continue
             bl_obj.plasma_net.export(bl_obj, sceneobject)
 
             # Modifiers don't have to expose post-processing, but if they do, run it
