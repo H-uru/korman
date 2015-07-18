@@ -113,7 +113,7 @@ class PlasmaExcludeRegionNode(PlasmaNodeBase, bpy.types.Node):
 
 
 class PlasmaExcludeSafePointSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
-    bl_color = (0.0, 0.0, 0.0, 1.0)
+    bl_color = (0.0, 0.0, 0.0, 0.0)
 
     safepoint_name = StringProperty(name="Safe Point",
                                     description="A point outside of this exclude region to move the avatar to")
