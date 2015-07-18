@@ -32,3 +32,26 @@ def lightmap(modifier, layout, context):
         im_name = "{}_LIGHTMAPGEN.png".format(context.active_object.name)
         if tex.image.name == im_name:
             layout.template_preview(tex, show_buttons=False)
+
+def viewfacemod(modifier, layout, context):
+    layout.prop(modifier, "preset_options")
+
+    if modifier.preset_options == "Custom":
+        layout.row().prop(modifier, "follow_mode")
+        if modifier.follow_mode == "kFaceObj":
+            layout.prop_search(modifier, "target_object", bpy.data, "objects", icon="OUTLINER_OB_MESH")
+            layout.separator()
+
+        layout.prop(modifier, "pivot_on_y")
+        layout.separator()
+
+        split = layout.split()
+        col = split.column()
+        col.prop(modifier, "offset")
+        row = col.row()
+        row.enabled = modifier.offset
+        row.prop(modifier, "offset_local")
+
+        col = split.column()
+        col.enabled = modifier.offset
+        col.prop(modifier, "offset_coord")
