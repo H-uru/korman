@@ -55,7 +55,7 @@ class PlasmaSittingBehavior(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         # The user absolutely MUST specify a clickable or this won't export worth crap.
         clickable_obj = bpy.data.objects.get(self.clickable_obj, None)
         if clickable_obj is None:
-            raise ExportError("'{}': Sitting Behavior's clickable object is invalid")
+            raise ExportError("'{}': Sitting Behavior's clickable object is invalid".format(self.key_name))
 
         # Generate the logic nodes now
         self.logicwiz(bo)
