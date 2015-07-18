@@ -51,9 +51,6 @@ class PlasmaSittingBehavior(PlasmaModifierProperties, PlasmaModifierLogicWiz):
                                  description="How far away we will tolerate the avatar facing the clickable",
                                  min=-180, max=180, default=45)
 
-    def created(self, obj):
-        self.display_name = "{}_SitBeh".format(obj.name)
-
     def export(self, exporter, bo, so):
         # The user absolutely MUST specify a clickable or this won't export worth crap.
         clickable_obj = bpy.data.objects.get(self.clickable_obj, None)
@@ -107,6 +104,10 @@ class PlasmaSittingBehavior(PlasmaModifierProperties, PlasmaModifierLogicWiz):
             # this socket must be explicitly disabled, otherwise it automatically generates a default
             # facing target conditional for us. isn't that nice?
             clickable.find_input_socket("facing").allow_simple = False
+
+    @property
+    def key_name(self):
+        return "{}_SitBeh".format(self.id_data.name)
 
     @property
     def requires_actor(self):

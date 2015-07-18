@@ -80,15 +80,12 @@ class PlasmaWaterModifier(PlasmaModifierProperties, bpy.types.PropertyGroup):
                               min=-10.0, max=10.0,
                               default=0.0)
 
-    def created(self, obj):
-        self.display_name = "{}_WaveSet7".format(obj.name)
-
     def export(self, exporter, bo, so):
         waveset = exporter.mgr.find_create_object(plWaveSet7, name=bo.name, so=so)
         if self.wind_object_name:
             wind_obj = bpy.data.objects.get(self.wind_object_name, None)
             if wind_obj is None:
-                raise ExportError("{}: Wind Object '{}' not found".format(self.display_name, self.wind_object_name))
+                raise ExportError("{}: Wind Object '{}' not found".format(bo.name, self.wind_object_name))
             if wind_obj.plasma_object.enabled and wind_obj.plasma_modifiers.animation.enabled:
                 waveset.refObj = exporter.mgr.find_create_key(plSceneObject, bl=wind_obj)
                 waveset.setFlag(plWaveSet7.kHasRefObject, True)
@@ -115,9 +112,9 @@ class PlasmaWaterModifier(PlasmaModifierProperties, bpy.types.PropertyGroup):
         if self.envmap_name:
             texture = bpy.data.textures.get(self.envmap_name, None)
             if texture is None:
-                raise ExportError("{}: Texture '{}' not found".format(self.display_name, self.envmap_name))
+                raise ExportError("{}: Texture '{}' not found".format(self.key_name, self.envmap_name))
             if texture.type != "ENVIRONMENT_MAP":
-                raise ExportError("{}: Texture '{}' is not an ENVIRONMENT MAP".format(self.display_name, self.envmap_name))
+                raise ExportError("{}: Texture '{}' is not an ENVIRONMENT MAP".format(self.key_name, self.envmap_name))
 
             # maybe, just maybe, we're absuing our privledges?
             dem = exporter.mesh.material.export_dynamic_env(bo, None, None, texture, plDynamicEnvMap)
@@ -145,6 +142,10 @@ class PlasmaWaterModifier(PlasmaModifierProperties, bpy.types.PropertyGroup):
             mods.water_texstate.convert_default_wavestate(state.texState)
         if not mods.water_shore.enabled:
             mods.water_shore.convert_default(state)
+
+    @property
+    def key_name(self):
+        return "{}_WaveSet7".format(self.id_data.name)
 
 
 class PlasmaShoreObject(bpy.types.PropertyGroup):
@@ -209,9 +210,6 @@ class PlasmaWaterShoreModifier(PlasmaModifierProperties):
         wavestate.period = self._period_default / 100.0
         wavestate.fingerLength = self._finger_default / 100.0
 
-    def created(self, obj):
-        self.display_name = "{}_WaterShore".format(obj.name)
-
     def export(self, exporter, bo, so):
         waveset = exporter.mgr.find_create_object(plWaveSet7, name=bo.name, so=so)
         wavestate = waveset.state
@@ -219,7 +217,7 @@ class PlasmaWaterShoreModifier(PlasmaModifierProperties):
         for i in self.shores:
             shore = bpy.data.objects.get(i.object_name, None)
             if shore is None:
-                raise ExportError("'{}': Shore Object '{}' does not exist".format(self.display_name, i.object_name))
+                raise ExportError("'{}': Shore Object '{}' does not exist".format(self.key_name, i.object_name))
             waveset.addShore(exporter.mgr.find_create_key(plSceneObject, bl=shore))
 
         wavestate.wispiness = self.wispiness / 100.0
@@ -287,9 +285,6 @@ class PlasmaWaveGeoState(PlasmaWaveState, PlasmaModifierProperties):
     _chop_default = 50
     _angle_dev_default = math.radians(20.0)
 
-    def created(self, obj):
-        self.display_name = "{}_WaveGeoState".format(obj.name)
-
     def export(self, exporter, bo, so):
         waveset = exporter.mgr.find_create_object(plWaveSet7, name=bo.name, so=so)
         self.convert_wavestate(waveset.state.geoState)
@@ -307,9 +302,6 @@ class PlasmaWaveTexState(PlasmaWaveState, PlasmaModifierProperties):
     _amplitude_default = 10
     _chop_default = 50
     _angle_dev_default = math.radians(20.0)
-
-    def created(self, obj):
-        self.display_name = "{}_WaveTexState".format(obj.name)
 
     def export(self, exporter, bo, so):
         waveset = exporter.mgr.find_create_object(plWaveSet7, name=bo.name, so=so)

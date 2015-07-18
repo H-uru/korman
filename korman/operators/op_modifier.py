@@ -51,7 +51,7 @@ class ModifierAddOperator(ModifierOperator, bpy.types.Operator):
         theMod = getattr(plmods, myType)
 
         theMod.display_order = plmods.determine_next_id()
-        theMod.created(context.object)
+        theMod.created()
 
         # Determine if this modifier has any dependencies and make sure they're enabled
         deps = getattr(theMod, "pl_depends", set())

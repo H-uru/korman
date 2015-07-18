@@ -74,7 +74,6 @@ class PlasmaModifiersPanel(ModifierButtonsPanel, bpy.types.Panel):
         exicon = "TRIA_DOWN" if modifier.show_expanded else "TRIA_RIGHT"
         row.prop(modifier, "show_expanded", text="", icon=exicon, emboss=False)
         row.label(text=modifier.bl_label, icon=getattr(modifier, "bl_icon", "NONE"))
-        row.prop(modifier, "display_name", text="")
 
         row.operator("object.plasma_modifier_move_up", text="", icon="TRIA_UP").active_modifier = modifier.display_order
         row.operator("object.plasma_modifier_move_down", text="", icon="TRIA_DOWN").active_modifier = modifier.display_order

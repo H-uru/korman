@@ -70,10 +70,6 @@ class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
                           items=bounds_types,
                           default="hull")
 
-
-    def created(self, obj):
-        self.display_name = "{}_FootRgn".format(obj.name)
-
     def export(self, exporter, bo, so):
         # Generate the logic nodes now
         self.logicwiz(bo)
@@ -109,6 +105,10 @@ class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         msg.link_input(respcmd, "msg", "sender")
         msg.surface = self.surface
 
+    @property
+    def key_name(self):
+        return "{}_FootRgn".format(self.id_data.name)
+
 
 class PlasmaPanicLinkRegion(PlasmaModifierProperties):
     pl_id = "paniclink"
@@ -121,20 +121,21 @@ class PlasmaPanicLinkRegion(PlasmaModifierProperties):
                              description="Play the link-out animation when panic linking",
                              default=True)
 
-    def created(self, obj):
-        self.display_name = "{}_PanicLinkRgn".format(obj.name)
-
     def export(self, exporter, bo, so):
         phys_mod = bo.plasma_modifiers.collision
-        simIface, physical = exporter.physics.generate_physical(bo, so, phys_mod.bounds, self.display_name)
+        simIface, physical = exporter.physics.generate_physical(bo, so, phys_mod.bounds, self.key_name)
 
         # Now setup the region detector properties
         physical.memberGroup = plSimDefs.kGroupDetector
         physical.reportGroup = 1 << plSimDefs.kGroupAvatar
 
         # Finally, the panic link region proper
-        reg = exporter.mgr.add_object(plPanicLinkRegion, name=self.display_name, so=so)
+        reg = exporter.mgr.add_object(plPanicLinkRegion, name=self.key_name, so=so)
         reg.playLinkOutAnim = self.play_anim
+
+    @property
+    def key_name(self):
+        return "{}_PanicLinkRgn".format(self.id_data.name)
 
     @property
     def requires_actor(self):

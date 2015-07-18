@@ -199,7 +199,7 @@ class Exporter:
 
             # And now we puke out the modifiers...
             for mod in bl_obj.plasma_modifiers.modifiers:
-                print("    Exporting '{}' modifier as '{}'".format(mod.bl_label, mod.display_name))
+                print("    Exporting '{}' modifier as '{}'".format(mod.bl_label, mod.key_name))
                 mod.export(self, bl_obj, sceneobject)
 
     def _export_empty_blobj(self, so, bo):
@@ -264,5 +264,5 @@ class Exporter:
             for mod in bl_obj.plasma_modifiers.modifiers:
                 proc = getattr(mod, "post_export", None)
                 if proc is not None:
-                    print("    '{}' modifier '{}'".format(bl_obj.name, mod.display_name))
+                    print("    '{}' modifier '{}'".format(bl_obj.name, mod.key_name))
                     proc(self, bl_obj, sceneobject)

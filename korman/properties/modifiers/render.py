@@ -44,9 +44,6 @@ class PlasmaLightMapGen(PlasmaModifierProperties):
     uv_map = StringProperty(name="UV Texture",
                             description="UV Texture used as the basis for the lightmap")
 
-    def created(self, obj):
-        self.display_name = "{}_LIGHTMAPGEN".format(obj.name)
-
     def export(self, exporter, bo, so):
         mat_mgr = exporter.mesh.material
         materials = mat_mgr.get_materials(bo)
@@ -86,6 +83,10 @@ class PlasmaLightMapGen(PlasmaModifierProperties):
             mat_mgr.export_prepared_layer(layer, lightmap_im)
 
     @property
+    def key_name(self):
+        return "{}_LIGHTMAPGEN".format(self.id_data.name)
+
+    @property
     def resolution(self):
         return int(self.quality)
 
@@ -123,11 +124,8 @@ class PlasmaViewFaceMod(PlasmaModifierProperties):
     offset_local = BoolProperty(name="Local", description="Use local coordinates", default=False)
     offset_coord = FloatVectorProperty(name="", subtype="XYZ")
 
-    def created(self, obj):
-        self.display_name = obj.name
-
     def export(self, exporter, bo, so):
-        vfm = exporter.mgr.find_create_object(plViewFaceModifier, so=so, name=self.display_name)
+        vfm = exporter.mgr.find_create_object(plViewFaceModifier, so=so, name=self.key_name)
 
         # Set a default scaling (libHSPlasma will set this to 0 otherwise).
         vfm.scale = hsVector3(1,1,1)
@@ -154,11 +152,11 @@ class PlasmaViewFaceMod(PlasmaModifierProperties):
                 if self.target_object:
                     target_obj = bpy.data.objects.get(self.target_object, None)
                     if target_obj is None:
-                        raise ExportError("'{}': Swivel's target object is invalid".format(self.display_name))
+                        raise ExportError("'{}': Swivel's target object is invalid".format(self.key_name))
                     else:
                         vfm.faceObj = exporter.mgr.find_create_key(plSceneObject, bl=target_obj)
                 else:
-                    raise ExportError("'{}': Swivel's target object must be selected".format(self.display_name))
+                    raise ExportError("'{}': Swivel's target object must be selected".format(self.key_name))
 
             if self.pivot_on_y:
                 vfm.setFlag(plViewFaceModifier.kPivotY, True)

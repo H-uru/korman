@@ -51,9 +51,6 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
     loop_end = StringProperty(name="Loop End",
                               description="Marker indicating where the default loop ends")
 
-    def created(self, obj):
-        self.display_name = "{}_(Entire Animation)".format(obj.name)
-
     @property
     def requires_actor(self):
         return True
@@ -62,7 +59,7 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
         action = _get_blender_action(bo)
         markers = action.pose_markers
 
-        atcanim = exporter.mgr.find_create_key(plATCAnim, so=so, name=self.display_name).object
+        atcanim = exporter.mgr.find_create_object(plATCAnim, so=so, name=self.key_name)
         atcanim.autoStart = self.auto_start
         atcanim.loop = self.loop
         atcanim.name = "(Entire Animation)"
@@ -123,10 +120,14 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
 
         # We need both an AGModifier and an AGMasterMod
         # NOTE: mandatory order--otherwise the animation will not work in game!
-        agmod = exporter.mgr.find_create_object(plAGModifier, so=so, name=self.display_name)
+        agmod = exporter.mgr.find_create_object(plAGModifier, so=so, name=self.key_name)
         agmod.channelName = bo.name
-        agmaster = exporter.mgr.find_create_object(plAGMasterMod, so=so, name=self.display_name)
+        agmaster = exporter.mgr.find_create_object(plAGMasterMod, so=so, name=self.key_name)
         agmaster.addPrivateAnim(atcanim.key)
+
+    @property
+    def key_name(self):
+        return "{}_(Entire Animation)".format(self.id_data.name)
 
     def post_export(self, exporter, bo, so):
         # If this object has a physical, we need to tell the simulation iface that it can be animated
@@ -161,18 +162,15 @@ class PlasmaAnimationGroupModifier(PlasmaModifierProperties):
                                   type=AnimGroupObject)
     active_child_index = IntProperty(options={"HIDDEN"})
 
-    def created(self, obj):
-        self.display_name = "{}_AnimGroup".format(obj.name)
-
     def export(self, exporter, bo, so):
         action = _get_blender_action(bo)
-        key_name = bo.plasma_modifiers.animation.display_name
+        key_name = bo.plasma_modifiers.animation.key_name
 
         # See above... AGModifier must always be inited first...
         agmod = exporter.mgr.find_create_object(plAGModifier, so=so, name=key_name)
 
         # The message forwarder is the guy that makes sure that everybody knows WTF is going on
-        msgfwd = exporter.mgr.find_create_object(plMsgForwarder, so=so, name=self.display_name)
+        msgfwd = exporter.mgr.find_create_object(plMsgForwarder, so=so, name=self.key_name)
 
         # Now, this is da swhiz...
         agmaster = exporter.mgr.find_create_object(plAGMasterMod, so=so, name=key_name)
@@ -182,21 +180,25 @@ class PlasmaAnimationGroupModifier(PlasmaModifierProperties):
             child_bo = bpy.data.objects.get(i.object_name, None)
             if child_bo is None:
                 msg = "Animation Group '{}' specifies an invalid object '{}'. Ignoring..."
-                exporter.report.warn(msg.format(self.display_name, i.object_name), ident=2)
+                exporter.report.warn(msg.format(self.key_name, i.object_name), ident=2)
                 continue
             if child_bo.animation_data is None or child_bo.animation_data.action is None:
                 msg = "Animation Group '{}' specifies an object '{}' with no valid animation data. Ignoring..."
-                exporter.report.warn(msg.format(self.display_name, i.object_name), indent=2)
+                exporter.report.warn(msg.format(self.key_name, i.object_name), indent=2)
                 continue
             child_animation = child_bo.plasma_modifiers.animation
             if not child_animation.enabled:
                 msg = "Animation Group '{}' specifies an object '{}' with no Plasma Animation modifier. Ignoring..."
-                exporter.report.warn(msg.format(self.display_name, i.object_name), indent=2)
+                exporter.report.warn(msg.format(self.key_name, i.object_name), indent=2)
                 continue
-            child_agmod = exporter.mgr.find_create_key(plAGModifier, bl=child_bo, name=child_animation.display_name)
-            child_agmaster = exporter.mgr.find_create_key(plAGMasterMod, bl=child_bo, name=child_animation.display_name)
+            child_agmod = exporter.mgr.find_create_key(plAGModifier, bl=child_bo, name=child_animation.key_name)
+            child_agmaster = exporter.mgr.find_create_key(plAGMasterMod, bl=child_bo, name=child_animation.key_name)
             msgfwd.addForwardKey(child_agmaster)
         msgfwd.addForwardKey(agmaster.key)
+
+    @property
+    def key_name(self):
+        return "{}_AnimGroup".format(self.id_data.name)
 
 
 class LoopMarker(bpy.types.PropertyGroup):
@@ -222,16 +224,12 @@ class PlasmaAnimationLoopModifier(PlasmaModifierProperties):
                                type=LoopMarker)
     active_loop_index = IntProperty(options={"HIDDEN"})
 
-    def created(self, obj):
-        # who cares, this modifier creates no Keys...
-        self.display_name = "AnimLoops"
-
     def export(self, exporter, bo, so):
         action = _get_blender_action(bo)
         markers = action.pose_markers
 
-        key_name = bo.plasma_modifiers.animation.display_name
-        atcanim = exporter.mgr.find_create_key(plATCAnim, so=so, name=key_name).object
+        key_name = bo.plasma_modifiers.animation.key_name
+        atcanim = exporter.mgr.find_create_object(plATCAnim, so=so, name=key_name)
         for loop in self.loops:
             start = markers.get(loop.loop_start)
             end = markers.get(loop.loop_end)

@@ -55,9 +55,6 @@ class PlasmaAdvancedLogic(PlasmaModifierProperties):
     logic_groups = CollectionProperty(type=PlasmaVersionedNodeTree)
     active_group_index = IntProperty(options={"HIDDEN"})
 
-    def created(self, obj):
-        self.display_name = "Advanced Logic"
-
     def export(self, exporter, bo, so):
         version = exporter.mgr.getVer()
         for i in self.logic_groups:
@@ -92,13 +89,10 @@ class PlasmaSpawnPoint(PlasmaModifierProperties):
     bl_label = "Spawn Point"
     bl_description = "Point at which avatars link into the Age"
 
-    def created(self, obj):
-        self.display_name = obj.name
-
     def export(self, exporter, bo, so):
         # Not much to this modifier... It's basically a flag that tells the engine, "hey, this is a
         # place the avatar can show up." Nice to have a simple one to get started with.
-        spawn = exporter.mgr.add_object(pl=plSpawnModifier, so=so, name=self.display_name)
+        spawn = exporter.mgr.add_object(pl=plSpawnModifier, so=so, name=self.key_name)
 
     @property
     def requires_actor(self):
@@ -124,11 +118,8 @@ class PlasmaMaintainersMarker(PlasmaModifierProperties):
                                    "A marker which reports accurate coordinates to the KI.")
                                ])
 
-    def created(self, obj):
-        self.display_name = obj.name
-
     def export(self, exporter, bo, so):
-        maintmark = exporter.mgr.add_object(pl=plMaintainersMarkerModifier, so=so, name=self.display_name)
+        maintmark = exporter.mgr.add_object(pl=plMaintainersMarkerModifier, so=so, name=self.key_name)
         maintmark.calibration = getattr(plMaintainersMarkerModifier, self.calibration)
 
     @property

@@ -58,11 +58,8 @@ class PlasmaCollider(PlasmaModifierProperties):
     mass = FloatProperty(name="Mass", description="Mass of object in pounds", min=0.0, default=1.0)
     start_asleep = BoolProperty(name="Start Asleep", description="Object is not active until influenced by another object", default=False)
 
-    def created(self, obj):
-        self.display_name = "{}_Collision".format(obj.name)
-
     def export(self, exporter, bo, so):
-        simIface, physical = exporter.physics.generate_physical(bo, so, self.bounds, self.display_name)
+        simIface, physical = exporter.physics.generate_physical(bo, so, self.bounds, self.key_name)
 
         # Common props
         physical.friction = self.friction
@@ -86,6 +83,10 @@ class PlasmaCollider(PlasmaModifierProperties):
             _set_phys_prop(plSimulationInterface.kCameraAvoidObject, simIface, physical)
         if self.terrain:
             physical.LOSDBs |= plSimDefs.kLOSDBAvatarWalkable
+
+    @property
+    def key_name(self):
+        return "{}_Collision".format(self.id_data.name)
 
     @property
     def requires_actor(self):

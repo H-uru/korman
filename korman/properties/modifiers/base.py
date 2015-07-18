@@ -18,9 +18,8 @@ import bpy
 from bpy.props import *
 
 class PlasmaModifierProperties(bpy.types.PropertyGroup):
-    def created(self, obj):
-        # This is here just to prevent us from having unnamed modifiers
-        self.display_name = "{}Modifier{}".format(obj.name, self.display_order)
+    def created(self):
+        pass
 
     def destroyed(self):
         pass
@@ -31,6 +30,10 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
 
     def harvest_actors(self):
         return ()
+
+    @property
+    def key_name(self):
+        return self.id_data.name
 
     @property
     def requires_actor(self):
@@ -53,8 +56,6 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
     # you see... So, we'll store our definitions in a dict and make those properties on each subclass
     # at runtime. What joy. Python FTW. See register() in __init__.py
     _subprops = {
-        "display_name": (StringProperty, {"name": "Name",
-                                          "description": "Modifier name"}),
         "display_order": (IntProperty, {"name": "INTERNAL: Display Ordering",
                                         "description": "Position in the list of buttons",
                                         "default": -1,
@@ -68,7 +69,7 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
 class PlasmaModifierLogicWiz:
     @property
     def node_tree(self):
-        name = self.display_name
+        name = self.key_name
         try:
             return bpy.data.node_groups[name]
         except LookupError:

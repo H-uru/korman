@@ -454,8 +454,8 @@ class PlasmaAttribObjectNode(PlasmaAttribNodeBase, bpy.types.Node):
             return ref_so_key
         elif attrib == "ptAttribAnimation":
             anim = bo.plasma_modifiers.animation
-            agmod = exporter.mgr.find_create_key(plAGModifier, so=ref_so, name=anim.display_name)
-            agmaster = exporter.mgr.find_create_key(plAGMasterModifier, so=ref_so, name=anim.display_name)
+            agmod = exporter.mgr.find_create_key(plAGModifier, so=ref_so, name=anim.key_name)
+            agmaster = exporter.mgr.find_create_key(plAGMasterModifier, so=ref_so, name=anim.key_name)
             return agmaster
         elif attrib == "ptAttribWaveSet":
             waveset = bo.plasma_modifiers.water_basic
