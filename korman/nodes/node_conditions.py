@@ -47,9 +47,9 @@ class PlasmaClickableNode(PlasmaNodeBase, bpy.types.Node):
             "text": "Avatar Facing Target",
             "type": "PlasmaFacingTargetSocket",
         }),
-        ("enable_callback", {
-            "text": "Local Reenable",
-            "type": "PlasmaRespCommandSocket",
+        ("message", {
+            "text": "Message",
+            "type": "PlasmaEnableMessageSocket",
             "spawn_empty": True,
         }),
     ])
@@ -347,6 +347,11 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
             "text": "Trigger on Exit",
             "type": "PlasmaVolumeSettingsSocketIn",
             "valid_link_sockets": {"PlasmaVolumeSettingsSocketOut"},
+        }),
+        ("message", {
+            "text": "Message",
+            "type": "PlasmaEnableMessageSocket",
+            "spawn_empty": True,
         }),
     ])
 

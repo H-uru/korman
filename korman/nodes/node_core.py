@@ -240,6 +240,15 @@ class PlasmaNodeSocketBase:
         return bool(self.links)
 
 
+class PlasmaNodeSocketInputGeneral(PlasmaNodeSocketBase, bpy.types.NodeSocket):
+    """A general input socket that will steal the output's color"""
+    def draw_color(self, context, node):
+        if self.is_linked:
+            return self.links[0].from_socket.draw_color(context, node)
+        else:
+            return (0.0, 0.0, 0.0, 0.0)
+
+
 class PlasmaNodeTree(bpy.types.NodeTree):
     bl_idname = "PlasmaNodeTree"
     bl_label = "Plasma"

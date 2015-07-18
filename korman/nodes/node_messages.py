@@ -228,13 +228,19 @@ class PlasmaEnableMsgNode(PlasmaMessageNode, bpy.types.Node):
     bl_idname = "PlasmaEnableMsgNode"
     bl_label = "Enable/Disable"
 
+    output_sockets = OrderedDict([
+        ("receivers", {
+            "text": "Send To",
+            "type": "PlasmaEnableMessageSocket",
+            "valid_link_sockets": {"PlasmaEnableMessageSocket", "PlasmaNodeSocketInputGeneral"},
+        }),
+    ])
+
     cmd = EnumProperty(name="Command",
                        description="How should we affect the object's state?",
                        items=[("kDisable", "Disable", "Deactivate the object"),
                               ("kEnable", "Enable", "Activate the object")],
                        default="kEnable")
-    object_name = StringProperty(name="Object",
-                                 description="Object whose state we are changing")
     settings = EnumProperty(name="Affects",
                             description="Which attributes should we change",
                             items=[("kAudible", "Audio", "Sounds played by this object"),
@@ -245,10 +251,13 @@ class PlasmaEnableMsgNode(PlasmaMessageNode, bpy.types.Node):
 
     def convert_message(self, exporter, so):
         msg = plEnableMsg()
-        target_bo = bpy.data.objects.get(self.object_name, None)
-        if target_bo is None:
-            self.raise_error("target object '{}' is invalid".format(self.object_name))
-        msg.addReceiver(exporter.mgr.find_create_key(plSceneObject, bl=target_bo))
+        for i in self.find_outputs("receivers"):
+            key = i.get_key(exporter, so)
+            if isinstance(key, tuple):
+                for j in key:
+                    msg.addReceiver(j)
+            else:
+                msg.addReceiver(key)
         msg.setCmd(getattr(plEnableMsg, self.cmd), True)
 
         # If we have a full house, let's send it to all the SO's generic modifiers as by compressing
@@ -263,9 +272,12 @@ class PlasmaEnableMsgNode(PlasmaMessageNode, bpy.types.Node):
         return msg
 
     def draw_buttons(self, context, layout):
-        layout.prop(self, "cmd")
-        layout.prop_search(self, "object_name", bpy.data, "objects")
+        layout.prop(self, "cmd", text="Cmd")
         layout.prop(self, "settings")
+
+
+class PlasmaEnableMessageSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
+    bl_color = (0.427, 0.196, 0.0, 1.0)
 
 
 class PlasmaExcludeRegionMsg(PlasmaMessageNode, bpy.types.Node):
@@ -374,6 +386,35 @@ class PlasmaOneShotCallbackSocket(PlasmaMessageSocketBase, bpy.types.NodeSocket)
 
     def draw(self, context, layout, node, text):
         layout.prop(self, "marker")
+
+
+class PlasmaSceneObjectMsgRcvrNode(PlasmaNodeBase, bpy.types.Node):
+    bl_category = "MSG"
+    bl_idname = "PlasmaSceneObjectMsgRcvrNode"
+    bl_label = "Send To Object"
+    bl_width_default = 190
+
+    input_sockets = OrderedDict([
+        ("message", {
+            "text": "Message",
+            "type": "PlasmaNodeSocketInputGeneral",
+            "valid_link_sockets": {"PlasmaEnableMessageSocket"},
+            "spawn_empty": True,
+        }),
+    ])
+
+    object_name = StringProperty(name="Object",
+                                 description="Object to send the message to")
+
+    def draw_buttons(self, context, layout):
+        layout.prop_search(self, "object_name", bpy.data, "objects")
+
+    def get_key(self, exporter, so):
+        bo = bpy.data.objects.get(self.object_name, None)
+        if bo is None:
+            self.raise_error("invalid object specified: '{}'".format(self.object_name))
+        ref_so_key = exporter.mgr.find_create_key(plSceneObject, bl=bo)
+        return ref_so_key
 
 
 class PlasmaTimerCallbackMsgNode(PlasmaMessageNode, bpy.types.Node):
