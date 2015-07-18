@@ -534,11 +534,11 @@ class PlasmaAttribTextureNode(PlasmaAttribNodeBase, bpy.types.Node):
 
 
 _attrib_colors = {
-    "ptAttribActivator": (0.031, 0.110, 0.290, 1.0),
-    "ptAttribActivatorList": (0.451, 0.0, 0.263, 1.0),
+    "ptAttribActivator": (0.188, 0.086, 0.349, 1.0),
+    "ptAttribActivatorList": (0.188, 0.086, 0.349, 1.0),
     "ptAttribBoolean": (0.71, 0.706, 0.655, 1.0),
     "ptAttribExcludeRegion": (0.031, 0.110, 0.290, 1.0),
-    "ptAttribNamedActivator": (0.031, 0.110, 0.290, 1.0),
+    "ptAttribNamedActivator": (0.188, 0.086, 0.349, 1.0),
     "ptAttribNamedResponder": (0.031, 0.110, 0.290, 1.0),
     "ptAttribResponder": (0.031, 0.110, 0.290, 1.0),
     "ptAttribResponderList": (0.031, 0.110, 0.290, 1.0),

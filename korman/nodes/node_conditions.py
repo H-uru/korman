@@ -55,13 +55,10 @@ class PlasmaClickableNode(PlasmaNodeBase, bpy.types.Node):
     ])
 
     output_sockets = OrderedDict([
-        ("keyref", {
-            "text": "References",
-            "type": "PlasmaPythonReferenceNodeSocket",
-        }),
         ("satisfies", {
             "text": "Satisfies",
             "type": "PlasmaConditionSocket",
+            "valid_link_sockets": {"PlasmaConditionSocket", "PlasmaPythonFileNodeSocket"},
         }),
     ])
 
@@ -356,14 +353,10 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
     ])
 
     output_sockets = OrderedDict([
-        ("keyref", {
-            "text": "References",
-            "type": "PlasmaPythonReferenceNodeSocket",
-            "valid_link_nodes": {"PlasmaPythonFileNode"},
-        }),
         ("satisfies", {
             "text": "Satisfies",
             "type": "PlasmaConditionSocket",
+            "valid_link_sockets": {"PlasmaConditionSocket", "PlasmaPythonFileNodeSocket"},
         }),
     ])
 
