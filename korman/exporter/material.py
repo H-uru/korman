@@ -430,7 +430,7 @@ class MaterialConverter:
         # Otherwise, we toss this layer and some info into our pending texture dict and process it
         #     when the exporter tells us to finalize all our shit
         if texture.image is None:
-            dtm = self._mgr.add_object(plDynamicTextMap, name="{}_DynText".format(layer.key.name), bl=bo)
+            dtm = self._mgr.find_create_object(plDynamicTextMap, name="{}_DynText".format(layer.key.name), bl=bo)
             dtm.hasAlpha = texture.use_alpha
             # if you have a better idea, let's hear it...
             dtm.visWidth, dtm.visHeight = 1024, 1024
