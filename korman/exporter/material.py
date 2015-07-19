@@ -155,7 +155,7 @@ class MaterialConverter:
         self._propagate_material_settings(bm, layer)
 
         # UVW Channel
-        for i, uvchan in enumerate(bo.data.tessface_uv_textures):
+        for i, uvchan in enumerate(bo.data.uv_layers):
             if uvchan.name == slot.uv_layer:
                 layer.UVWSrc = i
                 print("            Using UV Map #{} '{}'".format(i, name))
