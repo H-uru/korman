@@ -478,7 +478,7 @@ class PlasmaAttribStringNode(PlasmaAttribNodeBase, bpy.types.Node):
     def update(self):
         super().update()
         attrib = self.to_socket
-        if attrib is not None:
+        if attrib is not None and not self.value:
             self.value = attrib.simple_value
 
 
