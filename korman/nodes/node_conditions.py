@@ -369,7 +369,7 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
 
     def get_key(self, exporter, parent_so):
         bo = self.region_object
-        so = exporter.find_create_object(plSceneObject, bl=bo)
+        so = exporter.mgr.find_create_object(plSceneObject, bl=bo)
         rgn_enter, rgn_exit = None, None
 
         if self.report_enters:
