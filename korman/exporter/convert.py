@@ -154,26 +154,27 @@ class Exporter:
         if parent is not None:
             if parent.plasma_object.enabled:
                 print("    Attaching to parent SceneObject '{}'".format(parent.name))
-
-                # Instead of exporting a skeleton now, we'll just make an orphaned CI.
-                # The bl_obj export will make this work.
-                parent_ci = self.mgr.find_create_object(plCoordinateInterface, bl=bo, so=so)
+                parent_ci = self._export_coordinate_interface(None, parent)
                 parent_ci.addChild(so.key)
             else:
                 self.report.warn("You have parented Plasma Object '{}' to '{}', which has not been marked for export. \
                                  The object may not appear in the correct location or animate properly.".format(
                                     bo.name, parent.name))
 
-    def _export_coordinate_interface(self, so, bl, name=None):
+    def _export_coordinate_interface(self, so, bl):
         """Ensures that the SceneObject has a CoordinateInterface"""
-        if not so.coord:
-            ci = self.mgr.find_create_object(plCoordinateInterface, bl=bl, so=so, name=name)
+        if so is None:
+            so = self.mgr.find_create_object(plSceneObject, bl=bl)
+        if so.coord is None:
+            ci = self.mgr.add_object(plCoordinateInterface, bl=bl, so=so)
 
             # Now we have the "fun" work of filling in the CI
             ci.localToWorld = utils.matrix44(bl.matrix_basis)
             ci.worldToLocal = ci.localToWorld.inverse()
             ci.localToParent = utils.matrix44(bl.matrix_local)
             ci.parentToLocal = ci.localToParent.inverse()
+            return ci
+        return so.coord.object
 
     def _export_scene_objects(self):
         for bl_obj in self._objects:
