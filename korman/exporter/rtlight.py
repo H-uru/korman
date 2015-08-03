@@ -176,7 +176,7 @@ class LightConverter:
                         continue
 
                 # This is probably where PermaLight vs PermaProj should be sorted out...
-                pl_light = self._create_light_key(bo, lamp, None)
+                pl_light = self._create_light_key(obj, lamp, None)
                 if self._is_projection_lamp(lamp):
                     print("        [{}] PermaProj '{}'".format(lamp.type, obj.name))
                     permaProj.append(pl_light)
