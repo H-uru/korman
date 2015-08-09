@@ -46,7 +46,14 @@ def _whitelist_all(mod):
             getattr(attr, "COMPAT_ENGINES").add("PLASMA_GAME")
 
 from bl_ui import properties_data_lamp
-_whitelist_all(properties_data_lamp)
+properties_data_lamp.DATA_PT_context_lamp.COMPAT_ENGINES.add("PLASMA_GAME")
+properties_data_lamp.DATA_PT_preview.COMPAT_ENGINES.add("PLASMA_GAME")
+properties_data_lamp.DATA_PT_lamp.COMPAT_ENGINES.add("PLASMA_GAME")
+properties_data_lamp.DATA_PT_shadow.COMPAT_ENGINES.add("PLASMA_GAME")
+properties_data_lamp.DATA_PT_area.COMPAT_ENGINES.add("PLASMA_GAME")
+properties_data_lamp.DATA_PT_spot.COMPAT_ENGINES.add("PLASMA_GAME")
+properties_data_lamp.DATA_PT_falloff_curve.COMPAT_ENGINES.add("PLASMA_GAME")
+properties_data_lamp.DATA_PT_custom_props_lamp.COMPAT_ENGINES.add("PLASMA_GAME")
 del properties_data_lamp
 
 from bl_ui import properties_render

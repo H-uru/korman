@@ -15,6 +15,7 @@
 
 import bpy
 
+from .prop_lamp import *
 from . import modifiers
 from .prop_object import *
 from .prop_texture import *
@@ -22,6 +23,7 @@ from .prop_world import *
 
 
 def register():
+    bpy.types.Lamp.plasma_lamp = bpy.props.PointerProperty(type=PlasmaLamp)
     bpy.types.Object.plasma_net = bpy.props.PointerProperty(type=PlasmaNet)
     bpy.types.Object.plasma_object = bpy.props.PointerProperty(type=PlasmaObject)
     bpy.types.Texture.plasma_layer = bpy.props.PointerProperty(type=PlasmaLayer)

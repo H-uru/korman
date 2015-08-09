@@ -112,20 +112,32 @@ class LightConverter:
         color_str = "({:.4f}, {:.4f}, {:.4f})".format(color[0], color[1], color[2])
         color.append(1.0)
 
+        # Do we *only* want a shadow?
+        shadow_only = bl_light.shadow_method != "NOSHADOW" and bl_light.use_only_shadow
+
         # Apply the colors
-        if bl_light.use_diffuse:
+        if bl_light.use_diffuse and not shadow_only:
             print("        Diffuse: {}".format(color_str))
             pl_light.diffuse = hsColorRGBA(*color)
         else:
             print("        Diffuse: OFF")
             pl_light.diffuse = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
-        if bl_light.use_specular:
+        if bl_light.use_specular and not shadow_only:
             print("        Specular: {}".format(color_str))
             pl_light.setProperty(plLightInfo.kLPHasSpecular, True)
             pl_light.specular = hsColorRGBA(*color)
         else:
             print("        Specular: OFF")
             pl_light.specular = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+
+        # Crazy flags
+        rtlamp = bl_light.plasma_lamp
+        if rtlamp.light_group:
+            pl_light.setProperty(plLightInfo.kLPHasIncludes, True)
+            pl_light.setProperty(plLightInfo.kLPIncludesChars, rtlamp.affect_characters)
+        if rtlamp.cast_shadows:
+            pl_light.setProperty(plLightInfo.kLPShadowLightGroup, True)
+            pl_light.setProperty(plLightInfo.kLPShadowOnly, shadow_only)
 
         # AFAICT ambient lighting is never set in PlasmaMax...
         # If you can think of a compelling reason to support it, be my guest.
