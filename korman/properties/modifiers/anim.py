@@ -27,6 +27,8 @@ def _convert_frame_time(frame_num):
 def _get_blender_action(bo):
     if bo.animation_data is None or bo.animation_data.action is None:
         raise ExportError("Object '{}' has no Action to export".format(bo.name))
+    if not bo.animation_data.action.fcurves:
+        raise ExportError("Object '{}' is animated but has no FCurves".format(bo.name))
     return bo.animation_data.action
 
 class PlasmaAnimationModifier(PlasmaModifierProperties):
