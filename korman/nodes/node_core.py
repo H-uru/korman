@@ -52,6 +52,14 @@ class PlasmaNodeBase:
                     return None
         raise KeyError(key)
 
+    def find_inputs(self, key, idname=None):
+        for i in self.inputs:
+            if i.alias == key:
+                if i.links:
+                    node = i.links[0].from_node
+                    if idname is None or idname == node.bl_idname:
+                        yield node
+
     def find_input_socket(self, key):
         for i in self.inputs:
             if i.alias == key:
@@ -223,6 +231,18 @@ class PlasmaNodeBase:
                     socket.link_limit = link_limit
 
 
+class PlasmaTreeOutputNodeBase(PlasmaNodeBase):
+    """Represents the final output of a node tree"""
+    def init(self, context):
+        nodes = self.id_data.nodes
+
+        # There can only be one of these nodes per tree, so let's make sure I'm the only one.
+        for i in nodes:
+            if isinstance(i, self.__class__) and i != self:
+                nodes.remove(self)
+                return
+
+
 class PlasmaNodeSocketBase:
     @property
     def alias(self):
@@ -264,6 +284,12 @@ class PlasmaNodeTree(bpy.types.NodeTree):
         # just pass it off to each node
         for node in self.nodes:
             node.export(exporter, bo, so)
+
+    def find_output(self, idname):
+        for node in self.nodes:
+            if node.bl_idname == idname:
+                return node
+        return None
 
     def harvest_actors(self):
         actors = set()
