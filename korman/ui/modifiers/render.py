@@ -15,6 +15,12 @@
 
 import bpy
 
+def followmod(modifier, layout, context):
+    layout.row().prop(modifier, "follow_mode", expand=True)
+    layout.prop(modifier, "leader_type")
+    if modifier.leader_type == "kFollowObject":
+        layout.prop_search(modifier, "leader_object", bpy.data, "objects", icon="OUTLINER_OB_MESH")
+
 def lightmap(modifier, layout, context):
     layout.row(align=True).prop(modifier, "quality", expand=True)
     layout.prop_search(modifier, "light_group", bpy.data, "groups", icon="GROUP")
@@ -90,9 +96,3 @@ def visregion(modifier, layout, context):
 
     # Other settings
     layout.prop(modifier, "replace_normal")
-
-def followmod(modifier, layout, context):
-    layout.row().prop(modifier, "follow_mode", expand=True)
-    layout.prop(modifier, "leader_type")
-    if modifier.leader_type == "kFollowObject":
-        layout.prop_search(modifier, "leader_object", bpy.data, "objects", icon="OUTLINER_OB_MESH")

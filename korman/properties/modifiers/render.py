@@ -22,6 +22,61 @@ from .base import PlasmaModifierProperties
 from ...exporter import utils
 from ...exporter.explosions import ExportError
 
+class PlasmaFollowMod(PlasmaModifierProperties):
+    pl_id = "followmod"
+
+    bl_category = "Render"
+    bl_label = "Follow"
+    bl_description = "Follow the movement of the camera, player, or another object"
+
+    follow_mode = EnumProperty(name="Mode",
+                               description="Leader's movement to follow",
+                               items=[
+                                      ("kPositionX", "X Axis", "Follow the leader's X movements"),
+                                      ("kPositionY", "Y Axis", "Follow the leader's Y movements"),
+                                      ("kPositionZ", "Z Axis", "Follow the leader's Z movements"),
+                                      ("kRotate", "Rotation", "Follow the leader's rotation movements"),
+                                ],
+                               default={"kPositionX", "kPositionY", "kPositionZ"},
+                               options={"ENUM_FLAG"})
+
+    leader_type = EnumProperty(name="Leader Type",
+                               description="Leader to follow",
+                               items=[
+                                      ("kFollowCamera", "Camera", "Follow the camera"),
+                                      ("kFollowListener", "Listener", "Follow listeners"),
+                                      ("kFollowPlayer", "Player", "Follow the local player"),
+                                      ("kFollowObject", "Object", "Follow an object"),
+                                ])
+
+    leader_object = StringProperty(name="Leader Object",
+                                   description="Object to follow")
+
+    def export(self, exporter, bo, so):
+        fm = exporter.mgr.find_create_object(plFollowMod, so=so, name=self.key_name)
+
+        fm.mode = 0
+        for flag in (getattr(plFollowMod, mode) for mode in self.follow_mode):
+            fm.mode |= flag
+
+        fm.leaderType = getattr(plFollowMod, self.leader_type)
+        if self.leader_type == "kFollowObject":
+            # If this object is following another object, make sure that the
+            # leader has been selected and is a valid SO.
+            if self.leader_object:
+                leader_obj = bpy.data.objects.get(self.leader_object, None)
+                if leader_obj is None:
+                    raise ExportError("'{}': Follow's leader object is invalid".format(self.key_name))
+                else:
+                    fm.leader = exporter.mgr.find_create_key(plSceneObject, bl=leader_obj)
+            else:
+                raise ExportError("'{}': Follow's leader object must be selected".format(self.key_name))
+
+    @property
+    def requires_actor(self):
+        return True
+
+
 class PlasmaLightMapGen(PlasmaModifierProperties):
     pl_id = "lightmap"
 
@@ -251,58 +306,3 @@ class PlasmaVisibilitySet(PlasmaModifierProperties):
             if rgn_bo is None:
                 raise ExportError("{}: Invalid VisControl '{}' in VisSet modifier".format(bo.name, region.region_name))
             addRegion(exporter.mgr.find_create_key(plVisRegion, bl=rgn_bo))
-
-
-class PlasmaFollowMod(PlasmaModifierProperties):
-    pl_id = "followmod"
-
-    bl_category = "Render"
-    bl_label = "Follow"
-    bl_description = "Follow the movement of the camera, player, or another object"
-
-    follow_mode = EnumProperty(name="Mode",
-                               description="Leader's movement to follow",
-                               items=[
-                                      ("kPositionX", "X Axis", "Follow the leader's X movements"),
-                                      ("kPositionY", "Y Axis", "Follow the leader's Y movements"),
-                                      ("kPositionZ", "Z Axis", "Follow the leader's Z movements"),
-                                      ("kRotate", "Rotation", "Follow the leader's rotation movements"),
-                                ],
-                               default={"kPositionX", "kPositionY", "kPositionZ"},
-                               options={"ENUM_FLAG"})
-
-    leader_type = EnumProperty(name="Leader Type",
-                               description="Leader to follow",
-                               items=[
-                                      ("kFollowCamera", "Camera", "Follow the camera"),
-                                      ("kFollowListener", "Listener", "Follow listeners"),
-                                      ("kFollowPlayer", "Player", "Follow the local player"),
-                                      ("kFollowObject", "Object", "Follow an object"),
-                                ])
-
-    leader_object = StringProperty(name="Leader Object",
-                                   description="Object to follow")
-
-    def export(self, exporter, bo, so):
-        fm = exporter.mgr.find_create_object(plFollowMod, so=so, name=self.key_name)
-
-        fm.mode = 0
-        for flag in (getattr(plFollowMod, mode) for mode in self.follow_mode):
-            fm.mode |= flag
-
-        fm.leaderType = getattr(plFollowMod, self.leader_type)
-        if self.leader_type == "kFollowObject":
-            # If this object is following another object, make sure that the
-            # leader has been selected and is a valid SO.
-            if self.leader_object:
-                leader_obj = bpy.data.objects.get(self.leader_object, None)
-                if leader_obj is None:
-                    raise ExportError("'{}': Follow's leader object is invalid".format(self.key_name))
-                else:
-                    fm.leader = exporter.mgr.find_create_key(plSceneObject, bl=leader_obj)
-            else:
-                raise ExportError("'{}': Follow's leader object must be selected".format(self.key_name))
-
-    @property
-    def requires_actor(self):
-        return True
