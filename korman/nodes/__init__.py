@@ -26,6 +26,7 @@ from .node_logic import *
 from .node_messages import *
 from .node_python import *
 from .node_responder import *
+from .node_softvolume import *
 
 class PlasmaNodeCategory(NodeCategory):
     """Plasma Node Category"""
@@ -45,6 +46,7 @@ _kategory_names = {
     "LOGIC": "Logic",
     "MSG": "Message",
     "PYTHON": "Python",
+    "SV": "Soft Volume",
 }
 
 # Now, generate the categories as best we can...

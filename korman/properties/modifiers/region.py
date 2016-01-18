@@ -17,6 +17,9 @@ import bpy
 from bpy.props import *
 from PyHSPlasma import *
 
+from ...exporter import ExportError
+from ...helpers import TemporaryObject
+
 from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz
 from .physics import bounds_types
 
@@ -140,3 +143,91 @@ class PlasmaPanicLinkRegion(PlasmaModifierProperties):
     @property
     def requires_actor(self):
         return True
+
+
+class PlasmaSoftVolume(PlasmaModifierProperties):
+    pl_id = "softvolume"
+
+    bl_category = "Region"
+    bl_label = "Soft Volume"
+    bl_description = "Soft-Boundary Region"
+
+    # Advanced
+    use_nodes = BoolProperty(name="Use Nodes",
+                             description="Make this a node-based Soft Volume",
+                             default=False)
+    node_tree_name = StringProperty(name="Node Tree",
+                                    description="Node Tree detailing soft volume logic")
+
+    # Basic
+    invert = BoolProperty(name="Invert",
+                          description="Invert the soft region")
+    inside_strength = IntProperty(name="Inside", description="Strength inside the region",
+                                  subtype="PERCENTAGE", default=100, min=0, max=100)
+    outside_strength = IntProperty(name="Outside", description="Strength outside the region",
+                                   subtype="PERCENTAGE", default=0, min=0, max=100)
+    soft_distance = FloatProperty(name="Distance", description="Soft Distance",
+                                  default=0.0, min=0.0, max=500.0)
+
+    def _apply_settings(self, sv):
+        sv.insideStrength = self.inside_strength / 100.0
+        sv.outsideStrength = self.outside_strength / 100.0
+
+    def get_key(self, exporter, so=None):
+        """Fetches the key appropriate for this Soft Volume"""
+        if so is None:
+            so = exporter.mgr.find_create_object(plSceneObject, bl=self.id_data)
+
+        if self.use_nodes:
+            output = self.node_tree.find_output("PlasmaSoftVolumeOutputNode")
+            if output is None:
+                raise ExportError("SoftVolume '{}' Node Tree '{}' has no output node!".format(self.key_name, self.node_tree))
+            return output.get_key(exporter, so)
+        else:
+            pClass = plSoftVolumeInvert if self.invert else plSoftVolumeSimple
+            return exporter.mgr.find_create_key(pClass, bl=self.id_data, so=so)
+
+    def export(self, exporter, bo, so):
+        if self.use_nodes:
+            self._export_sv_nodes(exporter, bo, so)
+        else:
+            self._export_convex_region(exporter, bo, so)
+
+    def _export_convex_region(self, exporter, bo, so):
+        if bo.type != "MESH":
+            raise ExportError("SoftVolume '{}': Simple SoftVolumes can only be meshes!".format(bo.name))
+
+        # Grab the SoftVolume KO
+        sv = self.get_key(exporter, so).object
+        self._apply_settings(sv)
+
+        # If "invert" was checked, we got a SoftVolumeInvert, but we need to make a Simple for the
+        # region data to be exported into..
+        if isinstance(sv, plSoftVolumeInvert):
+            svSimple = exporter.mgr.find_create_object(plSoftVolumeSimple, bl=bo, so=so)
+            self._apply_settings(svSimple)
+            sv.addSubVolume(svSimple.key)
+            sv = svSimple
+        sv.softDist = self.soft_distance
+
+        # Initialize the plVolumeIsect. Currently, we only support convex isects. If you want parallel
+        # isects from empties, be my guest...
+        with TemporaryObject(bo.to_mesh(bpy.context.scene, True, "RENDER", calc_tessface=False), bpy.data.meshes.remove) as mesh:
+            mesh.transform(bo.matrix_world)
+
+            isect = plConvexIsect()
+            for i in mesh.vertices:
+                isect.addPlane(hsVector3(*i.normal), hsVector3(*i.co))
+            sv.volume = isect
+
+    def _export_sv_nodes(self, exporter, bo, so):
+        if self.node_tree_name not in exporter.node_trees_exported:
+            exporter.node_trees_exported.add(self.node_tree_name)
+            self.node_tree.export(exporter, bo, so)
+
+    @property
+    def node_tree(self):
+        tree = bpy.data.node_groups.get(self.node_tree_name, None)
+        if tree is None:
+            raise ExportError("SoftVolume '{}': Node Tree '{}' does not exist!".format(self.key_name, self.node_tree_name))
+        return tree

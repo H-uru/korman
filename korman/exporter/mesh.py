@@ -264,7 +264,7 @@ class MeshConverter:
 
         # Create the DrawInterface
         if drawables:
-            diface = self._mgr.add_object(pl=plDrawInterface, bl=bo)
+            diface = self._mgr.find_create_object(plDrawInterface, bl=bo)
             for dspan_key, idx in drawables:
                 diface.addDrawable(dspan_key, idx)
 

@@ -172,6 +172,87 @@ class PlasmaViewFaceMod(PlasmaModifierProperties):
     def requires_actor(self):
         return True
 
+
+class PlasmaVisControl(PlasmaModifierProperties):
+    pl_id = "visregion"
+
+    bl_category = "Render"
+    bl_label = "Visibility Control"
+    bl_description = "Controls object visibility using VisRegions"
+
+    mode = EnumProperty(name="Mode",
+                        description="Purpose of the VisRegion",
+                        items=[("normal", "Normal", "Objects are only visible when the camera is inside this region"),
+                               ("exclude", "Exclude", "Objects are only visible when the camera is outside this region"),
+                               ("fx", "Special FX", "This is a list of objects used for special effects only")])
+    softvolume = StringProperty(name="Region",
+                                description="Object defining the SoftVolume for this VisRegion")
+    replace_normal = BoolProperty(name="Hide Drawables",
+                                  description="Hides drawables attached to this region",
+                                  default=True)
+
+    def export(self, exporter, bo, so):
+        rgn = exporter.mgr.find_create_object(plVisRegion, bl=bo, so=so)
+        rgn.setProperty(plVisRegion.kReplaceNormal, self.replace_normal)
+
+        if self.mode == "fx":
+            rgn.setProperty(plVisRegion.kDisable, True)
+        else:
+            this_sv = bo.plasma_modifiers.softvolume
+            if this_sv.enabled:
+                print("    [VisRegion] I'm a SoftVolume myself :)")
+                rgn.region = this_sv.get_key(exporter, so)
+            else:
+                print("    [VisRegion] SoftVolume '{}'".format(self.softvolume))
+                sv_bo = bpy.data.objects.get(self.softvolume, None)
+                if sv_bo is None:
+                    raise ExportError("'{}': Invalid object '{}' for VisControl soft volume".format(bo.name, self.softvolume))
+                sv = sv_bo.plasma_modifiers.softvolume
+                if not sv.enabled:
+                    raise ExportError("'{}': '{}' is not a SoftVolume".format(bo.name, self.softvolume))
+                rgn.region = sv.get_key(exporter)
+            rgn.setProperty(plVisRegion.kIsNot, self.mode == "exclude")
+
+
+class VisRegion(bpy.types.PropertyGroup):
+    enabled = BoolProperty(default=True)
+    region_name = StringProperty(name="Control",
+                                 description="Object defining a Plasma Visibility Control")
+
+
+class PlasmaVisibilitySet(PlasmaModifierProperties):
+    pl_id = "visibility"
+
+    bl_category = "Render"
+    bl_label = "Visibility Set"
+    bl_description = "Defines areas where this object is visible"
+
+    regions = CollectionProperty(name="Visibility Regions",
+                                 type=VisRegion)
+    active_region_index = IntProperty(options={"HIDDEN"})
+
+    def export(self, exporter, bo, so):
+        if not self.regions:
+            # TODO: Log message about how this modifier is totally worthless
+            return
+
+        # Currently, this modifier is valid for meshes and lamps
+        if bo.type == "MESH":
+            diface = exporter.mgr.find_create_object(plDrawInterface, bl=bo, so=so)
+            addRegion = diface.addRegion
+        elif bo.type == "LAMP":
+            light = exporter.light.get_light_key(bo, bo.data, so)
+            addRegion = light.object.addVisRegion
+
+        for region in self.regions:
+            if not region.enabled:
+                continue
+            rgn_bo = bpy.data.objects.get(region.region_name, None)
+            if rgn_bo is None:
+                raise ExportError("{}: Invalid VisControl '{}' in VisSet modifier".format(bo.name, region.region_name))
+            addRegion(exporter.mgr.find_create_key(plVisRegion, bl=rgn_bo))
+
+
 class PlasmaFollowMod(PlasmaModifierProperties):
     pl_id = "followmod"
 
