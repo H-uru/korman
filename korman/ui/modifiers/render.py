@@ -56,6 +56,41 @@ def viewfacemod(modifier, layout, context):
         col.enabled = modifier.offset
         col.prop(modifier, "offset_coord")
 
+class VisRegionListUI(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+        myIcon = "ERROR" if bpy.data.objects.get(item.region_name, None) is None else "OBJECT_DATA"
+        label = item.region_name if item.region_name else "[No Object Specified]"
+        layout.label(label, icon=myIcon)
+        layout.prop(item, "enabled", text="")
+
+
+def visibility(modifier, layout, context):
+    row = layout.row()
+    row.template_list("VisRegionListUI", "regions", modifier, "regions", modifier, "active_region_index",
+                      rows=2, maxrows=3)
+    col = row.column(align=True)
+    op = col.operator("object.plasma_modifier_collection_add", icon="ZOOMIN", text="")
+    op.modifier = modifier.pl_id
+    op.collection = "regions"
+    op = col.operator("object.plasma_modifier_collection_remove", icon="ZOOMOUT", text="")
+    op.modifier = modifier.pl_id
+    op.collection = "regions"
+    op.index = modifier.active_region_index
+
+    if modifier.regions:
+        layout.prop_search(modifier.regions[modifier.active_region_index], "region_name", bpy.data, "objects")
+
+def visregion(modifier, layout, context):
+    layout.prop(modifier, "mode")
+
+    # Only allow SoftVolume spec if this is not an FX and this object is not an SV itself
+    sv = modifier.id_data.plasma_modifiers.softvolume
+    if modifier.mode != "fx" and not sv.enabled:
+        layout.prop_search(modifier, "softvolume", bpy.data, "objects")
+
+    # Other settings
+    layout.prop(modifier, "replace_normal")
+
 def followmod(modifier, layout, context):
     layout.row().prop(modifier, "follow_mode", expand=True)
     layout.prop(modifier, "leader_type")

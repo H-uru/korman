@@ -89,18 +89,11 @@ class LightConverter:
     def _convert_sun_lamp(self, bl, pl):
         print("    [DirectionalLightInfo '{}']".format(bl.name))
 
-    def _create_light_key(self, bo, bl_light, so):
-        try:
-            xlate = _BL2PL[bl_light.type]
-            return self.mgr.find_create_key(xlate, bl=bo, so=so)
-        except LookupError:
-            raise BlenderOptionNotSupported("Object ('{}') lamp type '{}'".format(bo.name, bl_light.type))
-
     def export_rtlight(self, so, bo):
         bl_light = bo.data
 
         # The specifics be here...
-        pl_light = self._create_light_key(bo, bl_light, so).object
+        pl_light = self.get_light_key(bo, bl_light, so).object
         self._converter_funcs[bl_light.type](bl_light, pl_light)
 
         # Light color nonsense
@@ -188,7 +181,7 @@ class LightConverter:
                         continue
 
                 # This is probably where PermaLight vs PermaProj should be sorted out...
-                pl_light = self._create_light_key(obj, lamp, None)
+                pl_light = self.get_light_key(obj, lamp, None)
                 if self._is_projection_lamp(lamp):
                     print("        [{}] PermaProj '{}'".format(lamp.type, obj.name))
                     permaProj.append(pl_light)
@@ -199,6 +192,13 @@ class LightConverter:
                     permaLights.append(pl_light)
 
         return (permaLights, permaProjs)
+
+    def get_light_key(self, bo, bl_light, so):
+        try:
+            xlate = _BL2PL[bl_light.type]
+            return self.mgr.find_create_key(xlate, bl=bo, so=so)
+        except LookupError:
+            raise BlenderOptionNotSupported("Object ('{}') lamp type '{}'".format(bo.name, bl_light.type))
 
     def _is_projection_lamp(self, bl_light):
         for tex in bl_light.texture_slots:
