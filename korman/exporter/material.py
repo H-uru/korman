@@ -347,6 +347,18 @@ class MaterialConverter:
         pl_env.color = utils.color(texture.plasma_layer.envmap_color)
         pl_env.fogStart = pl_fog.fog_start
 
+        # EffVisSets
+        # Whoever wrote this PyHSPlasma binding didn't follow the convention. Sigh.
+        visregions = []
+        for region in texture.plasma_layer.vis_regions:
+            rgn = bpy.data.objects.get(region.region_name, None)
+            if rgn is None:
+                raise ExportError("'{}': VisControl '{}' not found".format(texture.name, region.region_name))
+            if not rgn.plasma_modifiers.visregion.enabled:
+                raise ExportError("'{}': '{}' is not a VisControl".format(texture.name, region.region_name))
+            visregions.append(self._mgr.find_create_key(plVisRegion, bl=rgn))
+        pl_env.visRegions = visregions
+
         if isinstance(pl_env, plDynamicCamMap):
             faces = (pl_env,)
 

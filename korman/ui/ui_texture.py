@@ -24,6 +24,40 @@ class TextureButtonsPanel:
     def poll(cls, context):
         return context.texture and context.scene.render.engine == "PLASMA_GAME"
 
+
+class PlasmaEnvMapPanel(TextureButtonsPanel, bpy.types.Panel):
+    bl_label = "Plasma Environment Map"
+
+    @classmethod
+    def poll(cls, context):
+        if super().poll(context):
+            return context.texture.type == "ENVIRONMENT_MAP"
+        return False
+
+    def draw(self, context):
+        layer_props = context.texture.plasma_layer
+        layout = self.layout
+
+        layout.label("Visibility Sets:")
+        row = layout.row()
+        row.template_list("VisRegionListUI", "vis_regions", layer_props, "vis_regions", layer_props, "active_region_index",
+                          rows=2, maxrows=3)
+        col = row.column(align=True)
+        op = col.operator("texture.plasma_collection_add", icon="ZOOMIN", text="")
+        op.group = "plasma_layer"
+        op.collection = "vis_regions"
+        op = col.operator("texture.plasma_collection_remove", icon="ZOOMOUT", text="")
+        op.group = "plasma_layer"
+        op.collection = "vis_regions"
+        op.index = layer_props.active_region_index
+        rgns = layer_props.vis_regions
+        if layer_props.vis_regions:
+            layout.prop_search(rgns[layer_props.active_region_index], "region_name", bpy.data, "objects")
+
+        layout.separator()
+        layout.prop(layer_props, "envmap_color")
+
+
 class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
     bl_label = "Plasma Layer Options"
 
@@ -43,6 +77,3 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
         col = split.column()
         col.label("General:")
         col.prop(layer_props, "opacity", text="Opacity")
-        col = col.column()
-        col.enabled = texture.type == "ENVIRONMENT_MAP"
-        col.prop(layer_props, "envmap_color")

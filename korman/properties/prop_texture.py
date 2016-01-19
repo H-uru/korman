@@ -16,6 +16,12 @@
 import bpy
 from bpy.props import *
 
+class EnvMapVisRegion(bpy.types.PropertyGroup):
+    enabled = BoolProperty(default=True)
+    region_name = StringProperty(name="Control",
+                                 description="Object defining a Plasma Visibility Control")
+
+
 class PlasmaLayer(bpy.types.PropertyGroup):
     bl_idname = "texture.plasma_layer"
 
@@ -32,6 +38,10 @@ class PlasmaLayer(bpy.types.PropertyGroup):
                                        max=1.0,
                                        default=(1.0, 1.0, 1.0),
                                        subtype="COLOR")
+
+    vis_regions = CollectionProperty(name="Visibility Regions",
+                                     type=EnvMapVisRegion)
+    active_region_index = IntProperty(options={"HIDDEN"})
 
     anim_auto_start = BoolProperty(name="Auto Start",
                                    description="Automatically start layer animation",
