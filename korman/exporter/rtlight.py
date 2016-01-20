@@ -198,7 +198,7 @@ class LightConverter:
             xlate = _BL2PL[bl_light.type]
             return self.mgr.find_create_key(xlate, bl=bo, so=so)
         except LookupError:
-            raise BlenderOptionNotSupported("Object ('{}') lamp type '{}'".format(bo.name, bl_light.type))
+            raise BlenderOptionNotSupportedError("Object ('{}') lamp type '{}'".format(bo.name, bl_light.type))
 
     def _is_projection_lamp(self, bl_light):
         for tex in bl_light.texture_slots:
