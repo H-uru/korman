@@ -195,7 +195,7 @@ class MaterialConverter:
         else:
             # Standard layer flags ahoy
             if slot.blend_type == "ADD":
-                state.blendFlags |= hsGMatState.kBlendAdd
+                state.blendFlags |= hsGMatState.kBlendAddColorTimesAlpha
             elif slot.blend_type == "MULTIPLY":
                 state.blendFlags |= hsGMatState.kBlendMult
 
@@ -433,6 +433,10 @@ class MaterialConverter:
             # mutually exclusive blend flags
             if texture.use_alpha and has_alpha:
                 state.blendFlags |= hsGMatState.kBlendAlpha
+                if slot.blend_type == "ADD":
+                    state.blendFlags |= hsGMatState.kBlendAlphaAdd
+                elif slot.blend_type == "MULTIPLY":
+                    state.blendFlags |= hsGMatState.kBlendAlphaMult
 
             if texture.invert_alpha and has_alpha:
                 state.blendFlags |= hsGMatState.kBlendInvertAlpha
