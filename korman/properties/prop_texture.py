@@ -31,6 +31,9 @@ class PlasmaLayer(bpy.types.PropertyGroup):
                                   min=0,
                                   max=100,
                                   subtype="PERCENTAGE")
+    alpha_halo = BoolProperty(name="Fix Alpha Halo",
+                              description="Fixes halos seen around semitransparent objects resulting from sorting errors",
+                              default=False)
 
     envmap_color = FloatVectorProperty(name="Environment Map Color",
                                        description="The default background color rendered onto the Environment Map",

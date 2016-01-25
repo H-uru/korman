@@ -77,3 +77,4 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
         col = split.column()
         col.label("General:")
         col.prop(layer_props, "opacity", text="Opacity")
+        col.prop(layer_props, "alpha_halo")

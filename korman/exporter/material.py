@@ -206,6 +206,8 @@ class MaterialConverter:
         layer.opacity = layer_props.opacity / 100
         if layer_props.opacity < 100:
             state.blendFlags |= hsGMatState.kBlendAlpha
+        if layer_props.alpha_halo:
+            state.blendFlags |= hsGMatState.kBlendAlphaTestHigh
 
         # Export the specific texture type
         self._tex_exporters[texture.type](bo, hsgmat, layer, slot)
