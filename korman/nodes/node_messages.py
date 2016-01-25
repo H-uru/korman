@@ -309,6 +309,71 @@ class PlasmaExcludeRegionMsg(PlasmaMessageNode, bpy.types.Node):
         layout.prop(self, "cmd", text="Cmd")
 
 
+class PlasmaLinkToAgeMsg(PlasmaMessageNode, bpy.types.Node):
+    bl_category = "MSG"
+    bl_idname = "PlasmaLinkToAgeMsg"
+    bl_label = "Link to Age"
+    bl_width_default = 280
+
+    rules = EnumProperty(name="Rules",
+                         description="Rules describing which age instance to link to",
+                         items=[("kOriginalBook", "Original Age", "Links to a personally owned instance, creating if none exists"),
+                                ("kOwnedBook", "Owned Age", "Links to a personally owned instance, fails if none exists"),
+                                ("kChildAgeBook", "Child Age", "Links to an age instance parented to another personal age"),
+                                ("kSubAgeBook", "Sub Age", "Links to an age instance owned by the current age instance"),
+                                ("kBasicLink", "Basic", "Links to a specific age instance")])
+    parent_filename = StringProperty(name="Parent Age",
+                                     description="Filename of the age that owns the age instance we're linking to")
+
+    age_filename = StringProperty(name="Age Filename",
+                                  description="Filename of the age to link to (eg 'Garden'")
+    age_instance = StringProperty(name="Age Instance",
+                                  description="Instance name of the age to link to (eg 'Eder Kemo')")
+    age_uuid = StringProperty(name="Age Guid",
+                              description="Instance GUID to link to (eg 'ea489821-6c35-4bd0-9dae-bb17c585e680')")
+
+    spawn_title = StringProperty(name="Spawn Title",
+                                 description="Title of the Spawn Point to use",
+                                 default="Default")
+    spawn_point = StringProperty(name="Spawn Point",
+                                 description="Name of the Spawn Point's Plasma Object",
+                                 default="LinkInPointDefault")
+
+    def convert_message(self, exporter, so):
+        msg = plLinkToAgeMsg()
+        als = msg.ageLink
+        ais, spi = als.ageInfo, als.spawnPoint
+
+        als.linkingRules = getattr(plAgeLinkStruct, self.rules)
+        if self.rules == "kChildAgeBook":
+            als.parentAgeFilename = self.parent_filename
+        ais.ageFilename = self.age_filename
+        ais.ageInstanceName = self.age_instance if self.age_instance else self.age_filename
+        if self.rules == "kBasicLink":
+            try:
+                ais.ageInstanceGuid = self.age_uuid
+            except ValueError:
+                self.raise_error("Age Instance GUID is not a valid UUID")
+        spi.title = self.spawn_title
+        spi.spawnPt = self.spawn_point
+        return msg
+
+    def draw_buttons(self, context, layout):
+        layout.prop(self, "rules")
+        if self.rules == "kChildAgeBook":
+            layout.prop(self, "parent_filename")
+        layout.separator()
+
+        layout.prop(self, "age_filename")
+        layout.prop(self, "age_instance")
+        if self.rules == "kBasicLink":
+            layout.prop(self, "age_uuid")
+        layout.separator()
+
+        layout.prop(self, "spawn_title")
+        layout.prop(self, "spawn_point")
+
+
 class PlasmaOneShotMsgNode(PlasmaMessageNode, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaOneShotMsgNode"
