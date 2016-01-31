@@ -224,7 +224,7 @@ class MeshConverter:
                     geoVertex.position = hsVector3(*source.co)
                     geoVertex.normal = hsVector3(*source.normal)
                     geoVertex.color = hsColor32(*vertex_color)
-                    geoVertex.uvs = [hsVector3(uv[0], uv[1], 0.0) for uv in uvws]
+                    geoVertex.uvs = [hsVector3(uv[0], 1.0 - uv[1], 0.0) for uv in uvws]
                     data.blender2gs[vertex][coluv] = len(data.vertices)
                     data.vertices.append(geoVertex)
                 face_verts.append(data.blender2gs[vertex][coluv])

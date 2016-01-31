@@ -58,7 +58,7 @@ class GLTexture:
         # It will simplify our state tracking a bit.
         bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_GENERATE_MIPMAP, 1)
 
-    def get_level_data(self, level=0, calc_alpha=False, bgra=False, quiet=False):
+    def get_level_data(self, level=0, calc_alpha=False, bgra=False, quiet=False, fast=False):
         """Gets the uncompressed pixel data for a requested mip level, optionally calculating the alpha
            channel from the image color data
         """
@@ -72,15 +72,21 @@ class GLTexture:
         buf = bgl.Buffer(bgl.GL_BYTE, size)
         fmt = bgl.GL_BGRA if bgra else bgl.GL_RGBA
         bgl.glGetTexImage(bgl.GL_TEXTURE_2D, level, fmt, bgl.GL_UNSIGNED_BYTE, buf);
+        if fast:
+            return bytes(buf)
 
-        # Calculate le alphas
-        # NOTE: the variable names are correct for GL_RGBA. We'll still get the right values for
-        # BGRA, obviously, but red will suddenly be... blue. Yeah.
+        # OpenGL returns the images upside down, so we're going to rotate it in memory.
+        finalBuf = bytearray(size)
+        row_stride = width * 4
+        for i in range(height):
+            src, dst = i * row_stride, (height - (i+1)) * row_stride
+            finalBuf[dst:dst+row_stride] = buf[src:src+row_stride]
+
+        # Do we need to calculate the alpha component?
         if calc_alpha:
             for i in range(0, size, 4):
-                r, g, b = buf[i:i+3]
-                buf[i+3] = int((r + g + b) / 3)
-        return bytes(buf)
+                finalBuf[i+3] = int(sum(finalBuf[i:i+3]) / 3)
+        return bytes(finalBuf)
 
     def _get_integer(self, arg):
         buf = bgl.Buffer(bgl.GL_INT, 1)
@@ -97,7 +103,7 @@ class GLTexture:
 
     @property
     def has_alpha(self):
-        data = self.get_level_data(quiet=True)
+        data = self.get_level_data(quiet=True, fast=True)
         for i in range(3, len(data), 4):
             if data[i] != 255:
                 return True

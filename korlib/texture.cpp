@@ -126,7 +126,19 @@ static PyObject* pyGLTexture_generate_mipmap(pyGLTexture* self) {
     Py_RETURN_NONE;
 }
 
-static uint8_t* _get_level_data(pyGLTexture* self, GLint level, bool bgra, bool quiet, size_t* size) {
+struct _LevelData
+{
+    GLint   m_width;
+    GLint   m_height;
+    uint8_t* m_data;
+    size_t   m_dataSize;
+
+    _LevelData(GLint w, GLint h, uint8_t* ptr, size_t sz)
+        : m_width(w), m_height(h), m_data(ptr), m_dataSize(sz)
+    { }
+};
+
+static _LevelData _get_level_data(pyGLTexture* self, GLint level, bool bgra, bool quiet) {
     GLint width, height;
     glGetTexLevelParameteriv(GL_TEXTURE_2D, level, GL_TEXTURE_WIDTH, &width);
     glGetTexLevelParameteriv(GL_TEXTURE_2D, level, GL_TEXTURE_HEIGHT, &height);
@@ -137,32 +149,46 @@ static uint8_t* _get_level_data(pyGLTexture* self, GLint level, bool bgra, bool 
 
     size_t bufsz;
     bufsz = (width * height * 4);
-    if (size) *size = bufsz;
     uint8_t* buf = new uint8_t[bufsz];
     glGetTexImage(GL_TEXTURE_2D, level, fmt, GL_UNSIGNED_BYTE, reinterpret_cast<GLvoid*>(buf));
-    return buf;
+    return _LevelData(width, height, buf, bufsz);
 }
 
 static PyObject* pyGLTexture_get_level_data(pyGLTexture* self, PyObject* args, PyObject* kwargs) {
     static char* kwlist[] = { _pycs("level"), _pycs("calc_alpha"), _pycs("bgra"),
-                              _pycs("quiet"), NULL };
+                              _pycs("quiet"), _pycs("fast"), NULL };
     GLint level = 0;
     bool calc_alpha = false;
     bool bgra = false;
     bool quiet = false;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|ibbb", kwlist, &level, &calc_alpha, &bgra, &quiet)) {
-        PyErr_SetString(PyExc_TypeError, "get_level_data expects an optional int, bool, bool, bool");
+    bool fast = false;
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|ibbbb", kwlist, &level, &calc_alpha, &bgra, &quiet, &fast)) {
+        PyErr_SetString(PyExc_TypeError, "get_level_data expects an optional int, bool, bool, bool, bool");
         return NULL;
     }
 
-    size_t bufsz;
-    uint8_t* buf = _get_level_data(self, level, bgra, quiet, &bufsz);
+    _LevelData data = _get_level_data(self, level, bgra, quiet);
+    if (fast)
+        return pyBuffer_Steal(data.m_data, data.m_dataSize);
+
+    // OpenGL returns a flipped image, so we must reflip it.
+    size_t row_stride = data.m_width * 4;
+    uint8_t* sptr = data.m_data;
+    uint8_t* eptr = data.m_data + (data.m_dataSize - row_stride);
+    uint8_t* temp = new uint8_t[row_stride];
+    do {
+        memcpy(temp, sptr, row_stride);
+        memcpy(sptr, eptr, row_stride);
+        memcpy(eptr, temp, row_stride);
+    } while ((sptr += row_stride) < (eptr -= row_stride));
+    delete[] temp;
+
     if (calc_alpha) {
-        for (size_t i = 0; i < bufsz; i += 4)
-            buf[i + 3] = (buf[i + 0] + buf[i + 1] + buf[i + 2]) / 3;
+        for (size_t i = 0; i < data.m_dataSize; i += 4)
+            data.m_data[i + 3] = (data.m_data[i + 0] + data.m_data[i + 1] + data.m_data[i + 2]) / 3;
     }
 
-    return pyBuffer_Steal(buf, bufsz);
+    return pyBuffer_Steal(data.m_data, data.m_dataSize);
 }
 
 static PyObject* pyGLTexture_store_in_mipmap(pyGLTexture* self, PyObject* args) {
@@ -208,15 +234,14 @@ static PyMethodDef pyGLTexture_Methods[] = {
 };
 
 static PyObject* pyGLTexture_get_has_alpha(pyGLTexture* self, void*) {
-    size_t bufsz;
-    uint8_t* buf = _get_level_data(self, 0, false, true, &bufsz);
-    for (size_t i = 3; i < bufsz; i += 4) {
-        if (buf[i] != 255) {
-            delete[] buf;
+    _LevelData data = _get_level_data(self, 0, false, true);
+    for (size_t i = 3; i < data.m_dataSize; i += 4) {
+        if (data.m_data[i] != 255) {
+            delete[] data.m_data;
             return PyBool_FromLong(1);
         }
     }
-    delete[] buf;
+    delete[] data.m_data;
     return PyBool_FromLong(0);
 }
 
