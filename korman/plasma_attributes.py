@@ -93,7 +93,7 @@ def get_attributes(scriptFile):
     """Scan the file for assignments matching our regex, let our visitor parse them, and return the
        file's ptAttribs, if any."""
     attribs = None
-    with open(scriptFile) as script:
+    with open(str(scriptFile)) as script:
         results = funcregex.findall(script.read())
         if results:
             # We'll fake the ptAttribs being all alone in a module...
@@ -105,21 +105,20 @@ def get_attributes(scriptFile):
     return attribs
 
 if __name__ == "__main__":
-    import glob
     import json
-    import os
+    from pathlib import Path
     import sys
 
     if len(sys.argv) != 2:
         print("Specify a path containing Plasma Python!")
     else:
         readpath = sys.argv[1]
-        files = glob.glob(os.path.join(readpath, "*.py"))
+        files = Path(readpath).glob("*.py")
         ptAttribs = {}
         for scriptFile in files:
             attribs = get_attributes(scriptFile)
             if attribs:
-                ptAttribs[os.path.basename(scriptFile)] = attribs
+                ptAttribs[scriptFile.stem] = attribs
 
         jsonout = open("attribs.json", "w")
         jsonout.write(json.dumps(ptAttribs, sort_keys=True, indent=2))

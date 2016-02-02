@@ -14,7 +14,7 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
-import os.path
+from pathlib import Path
 from PyHSPlasma import *
 import time
 
@@ -38,7 +38,7 @@ class Exporter:
 
     @property
     def age_name(self):
-        return os.path.splitext(os.path.split(self._op.filepath)[1])[0]
+        return Path(self._op.filepath).stem
 
     def run(self):
         with logger.ExportLogger(self._op.filepath) as _log:
@@ -80,7 +80,7 @@ class Exporter:
             self.mesh.finalize()
 
             # Step 5: FINALLY. Let's write the PRPs and crap.
-            self.mgr.save_age(self._op.filepath)
+            self.mgr.save_age(Path(self._op.filepath))
 
             # Step 5.1: Save out the export report.
             #           If the export fails and this doesn't save, we have bigger problems than

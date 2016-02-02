@@ -16,7 +16,7 @@
 import bpy
 from bpy.props import *
 import cProfile
-import os, os.path
+from pathlib import Path
 import pstats
 
 from .. import exporter
@@ -80,15 +80,15 @@ class ExportOperator(bpy.types.Operator):
 
     def execute(self, context):
         # Before we begin, do some basic sanity checking...
+        path = Path(self.filepath)
         if not self.filepath:
             self.error = "No file specified"
             return {"CANCELLED"}
         else:
-            dir = os.path.split(self.filepath)[0]
-            if not os.path.exists(dir):
+            if not path.exists:
                 try:
-                    os.mkdirs(dir)
-                except os.error:
+                    path.mkdir(parents=True)
+                except:
                     self.report({"ERROR"}, "Failed to create export directory")
                     return {"CANCELLED"}
 
@@ -97,11 +97,12 @@ class ExportOperator(bpy.types.Operator):
             bpy.ops.object.mode_set(mode="OBJECT")
 
         # Separate blender operator and actual export logic for my sanity
+        ageName = path.stem
         with _UiHelper() as _ui:
             e = exporter.Exporter(self)
             try:
                 if self.profile_export:
-                    profile = "{}_cProfile".format(os.path.splitext(self.filepath)[0])
+                    profile = "{}_cProfile".format(ageName)
                     cProfile.runctx("e.run()", globals(), locals(), profile)
                 else:
                     e.run()
@@ -110,7 +111,7 @@ class ExportOperator(bpy.types.Operator):
                 return {"CANCELLED"}
             else:
                 if self.profile_export:
-                    stats_out = "{}_profile.log".format(os.path.splitext(self.filepath)[0])
+                    stats_out = "{}_profile.log".format(ageName)
                     with open(stats_out, "w") as out:
                         stats = pstats.Stats(profile, stream=out)
                         stats = stats.sort_stats("time", "calls")

@@ -14,7 +14,6 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
-import os.path
 from PyHSPlasma import *
 
 from .convert import *

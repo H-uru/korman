@@ -14,7 +14,7 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
-import os.path
+from pathlib import Path
 from PyHSPlasma import *
 import weakref
 
@@ -221,27 +221,26 @@ class ExportManager:
             return key.location
 
     def save_age(self, path):
-        relpath, ageFile = os.path.split(path)
-        ageName = os.path.splitext(ageFile)[0]
+        ageName = path.stem
         sumfile = self._exporter().sumfile
 
         sumfile.append(path)
-        self.mgr.WriteAge(path, self._age_info)
-        self._write_fni(relpath, ageName)
-        self._write_pages(relpath, ageName)
+        self.mgr.WriteAge(str(path), self._age_info)
+        self._write_fni(path)
+        self._write_pages(path)
 
         if self.getVer() != pvMoul:
-            sumpath = os.path.join(relpath, "{}.sum".format(ageName))
+            sumpath = path.with_suffix(".sum")
             sumfile.write(sumpath, self.getVer())
 
-    def _write_fni(self, path, ageName):
+    def _write_fni(self, path):
         if self.mgr.getVer() <= pvMoul:
             enc = plEncryptedStream.kEncXtea
         else:
             enc = plEncryptedStream.kEncAES
-        fname = os.path.join(path, "{}.fni".format(ageName))
+        fname = path.with_suffix(".fni")
 
-        with plEncryptedStream(self.mgr.getVer()).open(fname, fmWrite, enc) as stream:
+        with plEncryptedStream(self.mgr.getVer()).open(str(fname), fmWrite, enc) as stream:
             fni = bpy.context.scene.world.plasma_fni
             stream.writeLine("Graphics.Renderer.SetClearColor {} {} {}".format(*fni.clear_color))
             if fni.fog_method != "none":
@@ -253,7 +252,7 @@ class ExportManager:
             stream.writeLine("Graphics.Renderer.SetYon {}".format(fni.yon))
         self._exporter().sumfile.append(fname)
 
-    def _write_pages(self, path, ageName):
+    def _write_pages(self, path):
         for loc in self._pages.values():
             page = self.mgr.FindPage(loc) # not cached because it's C++ owned
             # I know that plAgeInfo has its own way of doing this, but we'd have
@@ -262,6 +261,6 @@ class ExportManager:
                 chapter = "_District_"
             else:
                 chapter = "_"
-            f = os.path.join(path, "{}{}{}.prp".format(ageName, chapter, page.page))
-            self.mgr.WritePage(f, page)
+            f = path.with_name("{}{}{}".format(path.stem, chapter, page.page)).with_suffix(".prp")
+            self.mgr.WritePage(str(f), page)
             self._exporter().sumfile.append(f)

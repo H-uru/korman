@@ -15,7 +15,7 @@
 
 import bpy
 import math
-import os.path
+from pathlib import Path
 from PyHSPlasma import *
 import weakref
 
@@ -61,19 +61,12 @@ class _Texture:
 
     def __str__(self):
         if self.mipmap:
-            name = self._change_extension(self.image.name, ".dds")
+            name = str(Path(self.image.name).with_suffix(".dds"))
         else:
-            name = self._change_extension(self.image.name, ".bmp")
+            name = str(Path(self.image.name).with_suffix(".bmp"))
         if self.calc_alpha:
             name = "ALPHAGEN_{}".format(name)
         return name
-
-    def _change_extension(self, name, newext):
-        # Blender likes to add faux extensions such as .001 :(
-        if name.find(".") == -1:
-            return "{}{}".format(name, newext)
-        name, end = os.path.splitext(name)
-        return "{}{}".format(name, newext)
 
     def _update(self, other):
         """Update myself with any props that might be overridable from another copy of myself"""

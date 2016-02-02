@@ -15,7 +15,7 @@
 
 import bpy
 from bpy.props import *
-import os.path
+from pathlib import Path
 from PyHSPlasma import *
 
 from .node_core import *
@@ -149,7 +149,7 @@ class PlasmaPythonFileNode(PlasmaNodeBase, bpy.types.Node):
         row = layout.row(align=True)
         if self.filename:
             row.prop(self, "filename")
-            if os.path.isfile(self.filepath):
+            if Path(self.filepath).exists():
                 operator = row.operator("node.plasma_attributes_to_node", icon="FILE_REFRESH", text="")
                 operator.python_path = self.filepath
                 operator.node_path = self.node_path
@@ -166,7 +166,7 @@ class PlasmaPythonFileNode(PlasmaNodeBase, bpy.types.Node):
 
     def export(self, exporter, bo, so):
         pfm = self.get_key(exporter, so).object
-        pfm.filename = os.path.splitext(self.filename)[0]
+        pfm.filename = Path(self.filename).stem
         attrib_sockets = (i for i in self.inputs if i.is_linked)
         for socket in attrib_sockets:
             attrib = socket.attribute_type
