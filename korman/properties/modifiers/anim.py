@@ -143,6 +143,15 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
             # If the mass is zero, then we will fail to animate. Fix that.
             if phys.mass == 0.0:
                 phys.mass = 1.0
+                
+                # On CC and Prime, set kPinned so it doesn't fall through
+                if bpy.context.scene.world.plasma_age.version in ["pvPots", "pvPrime"]:
+                    sim.setProperty(plSimulationInterface.kPinned, True)
+                    phys.setProperty(plSimulationInterface.kPinned, True)
+        
+        # Do the same for children objects
+        for child in so.coord.object.children:
+            self.post_export(exporter, None, child.object)
 
 
 class AnimGroupObject(bpy.types.PropertyGroup):

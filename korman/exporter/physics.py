@@ -77,14 +77,6 @@ class PhysicsConverter:
             physical.sceneNode = self._mgr.get_scene_node(bl=bo)
 
             getattr(self, "_export_{}".format(bounds))(bo, physical)
-            
-            if self._exporter().has_coordiface(bo):
-                if not physical.mass:
-                    # ...Since the object has a coordinate interface but isn't a kickable, it's likely going to be animated. In such case,
-                    # we must warn Plasma to have the collisions follow the object's coordinates as well.
-                    physical.mass = 1.
-                    simIface.setProperty(plSimulationInterface.kPinned, True)
-                    physical.setProperty(plSimulationInterface.kPinned, True)
         else:
             simIface = so.sim.object
             physical = simIface.physical.object

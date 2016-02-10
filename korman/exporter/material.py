@@ -166,7 +166,7 @@ class MaterialConverter:
         if slot.use_stencil:
             hsgmat.compFlags |= hsGMaterial.kCompNeedsBlendChannel
             state.blendFlags |= hsGMatState.kBlendAlpha | hsGMatState.kBlendAlphaMult | hsGMatState.kBlendNoTexColor
-            if slot.texture and slot.texture.type == "BLEND":
+            if slot.texture.type == "BLEND":
                 state.clampFlags |= hsGMatState.kClampTexture
             state.ZFlags |= hsGMatState.kZNoZWrite
             layer.ambient = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
