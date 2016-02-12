@@ -69,13 +69,13 @@ class PlasmaAttributeVisitor(ast.NodeVisitor):
         # with the respective constant values True or False.
         if node.id.lower() in  {"true", "false"}:
             return ast.literal_eval(node.id.capitalize())
-        return(node.id)
+        return node.id
 
     def visit_Num(self, node):
-        return(node.n)
+        return node.n
 
     def visit_Str(self, node):
-        return(node.s)
+        return node.s
 
     def visit_List(self, node):
         elts = []
@@ -90,7 +90,7 @@ class PlasmaAttributeVisitor(ast.NodeVisitor):
         return tuple(elts)
 
     def visit_NameConstant(self, node):
-        return(node.value)
+        return node.value
 
     def generic_visit(self, node):
         ast.NodeVisitor.generic_visit(self, node)
