@@ -65,13 +65,17 @@ class PlasmaAttributeVisitor(ast.NodeVisitor):
         return self.generic_visit(node)
 
     def visit_Name(self, node):
-        return(node.id)
+        # Workaround for old Cyan scripts: replace variables named "true" or "false"
+        # with the respective constant values True or False.
+        if node.id.lower() in  {"true", "false"}:
+            return ast.literal_eval(node.id.capitalize())
+        return node.id
 
     def visit_Num(self, node):
-        return(node.n)
+        return node.n
 
     def visit_Str(self, node):
-        return(node.s)
+        return node.s
 
     def visit_List(self, node):
         elts = []
@@ -84,6 +88,9 @@ class PlasmaAttributeVisitor(ast.NodeVisitor):
         for x in node.elts:
             elts.append(self.visit(x))
         return tuple(elts)
+
+    def visit_NameConstant(self, node):
+        return node.value
 
     def generic_visit(self, node):
         ast.NodeVisitor.generic_visit(self, node)
