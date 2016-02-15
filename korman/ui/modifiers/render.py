@@ -15,6 +15,30 @@
 
 import bpy
 
+def fademod(modifier, layout, context):
+    layout.prop(modifier, "fader_type")
+
+    if modifier.fader_type == "DistOpacity":
+        col = layout.column(align=True)
+        col.prop(modifier, "near_trans")
+        col.prop(modifier, "near_opaq")
+        col.prop(modifier, "far_opaq")
+        col.prop(modifier, "far_trans")
+    elif modifier.fader_type == "FadeOpacity":
+        col = layout.column(align=True)
+        col.prop(modifier, "fade_in_time")
+        col.prop(modifier, "fade_out_time")
+        col.separator()
+        col.prop(modifier, "bounds_center")
+    elif modifier.fader_type == "SimpleDist":
+        col = layout.column(align=True)
+        col.prop(modifier, "far_opaq")
+        col.prop(modifier, "far_trans")
+
+    if not (modifier.near_trans <= modifier.near_opaq <= modifier.far_opaq <= modifier.far_trans):
+        # Warn the user that the values are not recommended.
+        layout.label("Distance values must be equal or increasing!", icon="ERROR")
+
 def followmod(modifier, layout, context):
     layout.row().prop(modifier, "follow_mode", expand=True)
     layout.prop(modifier, "leader_type")

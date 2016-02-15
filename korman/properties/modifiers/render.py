@@ -23,6 +23,64 @@ from ...exporter.etlight import _NUM_RENDER_LAYERS
 from ...exporter import utils
 from ...exporter.explosions import ExportError
 
+
+class PlasmaFadeMod(PlasmaModifierProperties):
+    pl_id = "fademod"
+
+    bl_category = "Render"
+    bl_label = "Opacity Fader"
+    bl_description = "Fades an object based on distance or line-of-sight"
+
+    fader_type = EnumProperty(name="Fader Type",
+                              description="Type of opacity fade",
+                              items=[("DistOpacity", "Distance", "Fade based on distance to object"),
+                                     ("FadeOpacity", "Line-of-Sight", "Fade based on line-of-sight to object"),
+                                     ("SimpleDist",  "Simple Distance", "Fade for use as Great Zero Markers")],
+                              default="SimpleDist")
+
+    fade_in_time = FloatProperty(name="Fade In Time",
+                                 description="Number of seconds before the object is fully visible",
+                                 min=0.0, max=5.0, default=0.5, subtype="TIME", unit="TIME")
+    fade_out_time = FloatProperty(name="Fade Out Time",
+                                  description="Number of seconds before the object is fully invisible",
+                                  min=0.0, max=5.0, default=0.5, subtype="TIME", unit="TIME")
+    bounds_center = BoolProperty(name="Use Mesh Midpoint",
+                                 description="Use mesh's midpoint to calculate LOS instead of object origin",
+                                 default=False)
+
+    near_trans = FloatProperty(name="Near Transparent",
+                               description="Nearest distance at which the object is fully transparent",
+                               min=0.0, default=0.0, subtype="DISTANCE", unit="LENGTH")
+    near_opaq = FloatProperty(name="Near Opaque",
+                              description="Nearest distance at which the object is fully opaque",
+                              min=0.0, default=0.0, subtype="DISTANCE", unit="LENGTH")
+    far_opaq = FloatProperty(name="Far Opaque",
+                             description="Farthest distance at which the object is fully opaque",
+                             min=0.0, default=15.0, subtype="DISTANCE", unit="LENGTH")
+    far_trans = FloatProperty(name="Far Transparent",
+                              description="Farthest distance at which the object is fully transparent",
+                              min=0.0, default=20.0, subtype="DISTANCE", unit="LENGTH")
+
+    def export(self, exporter, bo, so):
+        if self.fader_type == "DistOpacity":
+            mod = exporter.mgr.find_create_object(plDistOpacityMod, so=so, name=self.key_name)
+            mod.nearTrans = self.near_trans
+            mod.nearOpaq = self.near_opaq
+            mod.farOpaq = self.far_opaq
+            mod.farTrans = self.far_trans
+        elif self.fader_type == "FadeOpacity":
+            mod = exporter.mgr.find_create_object(plFadeOpacityMod, so=so, name=self.key_name)
+            mod.fadeUp = self.fade_in_time
+            mod.fadeDown = self.fade_out_time
+            mod.boundsCenter = self.bounds_center
+        elif self.fader_type == "SimpleDist":
+            mod = exporter.mgr.find_create_object(plDistOpacityMod, so=so, name=self.key_name)
+            mod.nearTrans = 0.0
+            mod.nearOpaq = 0.0
+            mod.farOpaq = self.far_opaq
+            mod.farTrans = self.far_trans
+
+
 class PlasmaFollowMod(PlasmaModifierProperties):
     pl_id = "followmod"
 
