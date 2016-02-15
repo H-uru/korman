@@ -278,9 +278,6 @@ class MeshConverter:
         if not materials:
             return None
 
-        # Step 0.9: If this mesh wants to be lit, we need to go ahead and generate it.
-        self._export_static_lighting(bo)
-
         with helpers.TemporaryObject(mesh, bpy.data.meshes.remove):
             # Step 1: Export all of the doggone materials.
             geospans = self._export_material_spans(bo, mesh, materials)
@@ -329,22 +326,6 @@ class MeshConverter:
                 matKey = self.material.export_material(bo, blmat)
                 geospans[i] = (self._create_geospan(bo, mesh, blmat, matKey), blmat.pass_index)
             return geospans
-
-    def _export_static_lighting(self, bo):
-        bpy.context.scene.objects.active = bo
-        mods = bo.plasma_modifiers
-        lm = mods.lightmap
-        if lm.enabled:
-            print("    Baking lightmap...")
-            bpy.ops.object.plasma_lightmap_autobake(light_group=lm.light_group)
-        elif not mods.water_basic.enabled:
-            for vcol_layer in bo.data.vertex_colors:
-                name = vcol_layer.name.lower()
-                if name in _VERTEX_COLOR_LAYERS:
-                    break
-            else:
-                print("    Baking crappy vertex color lighting...")
-                bpy.ops.object.plasma_vertexlight_autobake()
 
     def _find_create_dspan(self, bo, hsgmat, pass_index):
         location = self._mgr.get_location(bo)

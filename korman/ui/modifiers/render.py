@@ -23,6 +23,7 @@ def followmod(modifier, layout, context):
 
 def lightmap(modifier, layout, context):
     layout.row(align=True).prop(modifier, "quality", expand=True)
+    layout.prop(modifier, "render_layers", text="Active Render Layers")
     layout.prop_search(modifier, "light_group", bpy.data, "groups", icon="GROUP")
     layout.prop_search(modifier, "uv_map", context.active_object.data, "uv_textures")
 

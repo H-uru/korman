@@ -20,6 +20,7 @@ import time
 
 from . import animation
 from . import explosions
+from . import etlight
 from . import logger
 from . import manager
 from . import mesh
@@ -65,6 +66,11 @@ class Exporter:
             #           that the artist made requires something to have a CoordinateInterface
             self._harvest_actors()
 
+            # Step 2.9: It is assumed that static lighting is available for the mesh exporter.
+            #           Indeed, in PyPRP it was a manual step. So... BAKE NAO!
+            if self._op.bake_lighting:
+                self._bake_static_lighting()
+
             # Step 3: Export all the things!
             self._export_scene_objects()
 
@@ -90,6 +96,10 @@ class Exporter:
             # And finally we crow about how awesomely fast we are...
             end = time.process_time()
             print("\nExported {}.age in {:.2f} seconds".format(self.age_name, end-start))
+
+    def _bake_static_lighting(self):
+        oven = etlight.LightBaker()
+        oven.bake_static_lighting(self._objects)
 
     def _collect_objects(self):
         # Grab a naive listing of enabled pages
