@@ -17,6 +17,7 @@ import bpy
 from bpy.props import *
 
 from ..exporter.etlight import LightBaker
+from ..helpers import GoodNeighbor
 
 class _LightingOperator:
 
@@ -37,8 +38,11 @@ class LightmapAutobakePreviewOperator(_LightingOperator, bpy.types.Operator):
         super().__init__()
 
     def execute(self, context):
-        bake = LightBaker()
-        bake.bake_static_lighting([context.active_object,])
+        with GoodNeighbor() as toggle:
+            toggle.track(context.scene, "layers", tuple(context.scene.layers))
+
+            bake = LightBaker()
+            bake.bake_static_lighting([context.active_object,])
 
         tex = bpy.data.textures.get("LIGHTMAPGEN_PREVIEW")
         if tex is None:
