@@ -44,7 +44,7 @@ class Exporter:
     def run(self):
         with logger.ExportLogger(self._op.filepath) as _log:
             print("Exporting '{}.age'".format(self.age_name))
-            start = time.process_time()
+            start = time.perf_counter()
 
             # Step 0: Init export resmgr and stuff
             self.mgr = manager.ExportManager(self)
@@ -94,7 +94,7 @@ class Exporter:
             self.report.save()
 
             # And finally we crow about how awesomely fast we are...
-            end = time.process_time()
+            end = time.perf_counter()
             print("\nExported {}.age in {:.2f} seconds".format(self.age_name, end-start))
 
     def _bake_static_lighting(self):
