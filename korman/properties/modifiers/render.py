@@ -166,9 +166,14 @@ class PlasmaLightMapGen(PlasmaModifierProperties):
                             description="UV Texture used as the basis for the lightmap")
 
     def export(self, exporter, bo, so):
+        lightmap_im = bpy.data.images.get("{}_LIGHTMAPGEN.png".format(bo.name))
+
+        # If no lightmap image is found, then either lightmap generation failed (error raised by oven)
+        # or baking is turned off. Either way, bail out.
+        if lightmap_im is None:
+            return
         mat_mgr = exporter.mesh.material
         materials = mat_mgr.get_materials(bo)
-        lightmap_im = bpy.data.images.get("{}_LIGHTMAPGEN.png".format(bo.name))
 
         # Find the stupid UVTex
         uvw_src = 0
