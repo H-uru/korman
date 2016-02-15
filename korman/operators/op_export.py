@@ -143,6 +143,7 @@ class _UiHelper:
         self.frame_num = scene.frame_current
         scene.frame_set(scene.frame_start)
         scene.update()
+        return self
 
     def __exit__(self, type, value, traceback):
         for i in bpy.data.objects:
