@@ -165,8 +165,8 @@ class MeshConverter:
                 # at home (and actually enjoys reading these lawgs)
                 print("    Bounds and SpaceTree in the saddle")
 
-    def _export_geometry(self, bo, mesh, geospans):
-        geodata = [_GeoData(len(mesh.vertices)) for i in mesh.materials]
+    def _export_geometry(self, bo, mesh, materials, geospans):
+        geodata = [_GeoData(len(mesh.vertices)) for i in materials]
 
         # Locate relevant vertex color layers now...
         color, alpha = None, None
@@ -283,7 +283,7 @@ class MeshConverter:
             geospans = self._export_material_spans(bo, mesh, materials)
 
             # Step 2: Export Blender mesh data to Plasma GeometrySpans
-            self._export_geometry(bo, mesh, geospans)
+            self._export_geometry(bo, mesh, materials, geospans)
 
             # Step 3: Add plGeometrySpans to the appropriate DSpan and create indices
             _diindices = {}
