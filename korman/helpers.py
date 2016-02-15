@@ -47,22 +47,6 @@ class TemporaryObject:
         return getattr(self._obj, attr)
 
 
-def ensure_object_can_bake(bo, toggle):
-    """Ensures that we can use Blender's baking operators on this object. Side effect: also ensures
-       that the object will enter edit mode when requested."""
-    scene = bpy.context.scene
-    # we don't toggle.track this because it actually updates some kind of Blender internals...
-    # therefore the old and new value are equal. the export operator will take care of this for us
-    scene.layers = (True,) * len(scene.layers)
-
-    toggle.track(bo, "hide", False)
-    toggle.track(bo, "hide_render", False)
-    toggle.track(bo, "hide_select", False)
-
-    # Ensure only this object is selected
-    for i in bpy.data.objects:
-        i.select = i == bo
-
 def ensure_power_of_two(value):
     return pow(2, math.floor(math.log(value, 2)))
 

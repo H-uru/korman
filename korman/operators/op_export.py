@@ -37,13 +37,9 @@ class ExportOperator(bpy.types.Operator):
                                           "description": "Profiles the exporter using cProfile",
                                           "default": False}),
 
-        "regenerate_lightmaps": (BoolProperty, {"name": "Regenerate Lightmaps",
-                                                "description": "(Re-)Bake all lightmaps on export",
-                                                "default": True}),
-
-        "regenerate_shading": (BoolProperty, {"name": "Regenerate Vertex Shading",
-                                              "description": "(Re-)Bake all vertex shading on export",
-                                              "default": True}),
+        "bake_lighting": (BoolProperty, {"name": "Bake Static Lights",
+                                         "description": "Bake all lightmaps and vertex shading on export",
+                                         "default": True}),
 
         "version": (EnumProperty, {"name": "Version",
                                    "description": "Version of the Plasma Engine to target",
@@ -60,8 +56,7 @@ class ExportOperator(bpy.types.Operator):
 
         # The crazy mess we're doing with props on the fly means we have to explicitly draw them :(
         layout.prop(age, "version")
-        layout.prop(age, "regenerate_lightmaps")
-        layout.prop(age, "regenerate_shading")
+        layout.prop(age, "bake_lighting")
         layout.prop(age, "profile_export")
 
     def __getattr__(self, attr):
