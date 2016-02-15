@@ -19,6 +19,7 @@ from bpy.props import *
 from PyHSPlasma import *
 
 from .base import PlasmaModifierProperties
+from ...exporter.etlight import _NUM_RENDER_LAYERS
 from ...exporter import utils
 from ...exporter.explosions import ExportError
 
@@ -92,6 +93,13 @@ class PlasmaLightMapGen(PlasmaModifierProperties):
                                   ("512", "512px", "512x512 pixels"),
                                   ("1024", "1024px", "1024x1024 pixels"),
                             ])
+
+    render_layers = BoolVectorProperty(name="Layers",
+                                       description="Render layers to use for baking",
+                                       options=set(),
+                                       subtype="LAYER",
+                                       size=_NUM_RENDER_LAYERS,
+                                       default=((True,) * _NUM_RENDER_LAYERS))
 
     light_group = StringProperty(name="Light Group",
                                  description="Group that defines the collection of lights to bake")

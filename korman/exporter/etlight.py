@@ -163,9 +163,7 @@ class LightBaker:
 
             mods = i.plasma_modifiers
             if mods.lightmap.enabled:
-                ## TODO: customizable render layers
-                #key = ("lightmap",) + mods.lightmap.render_layers
-                key = ("lightmap",) + ((True,) * 20)
+                key = ("lightmap",) + tuple(mods.lightmap.render_layers)
                 if key in bake:
                     bake[key].append(i)
                 else:
