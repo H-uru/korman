@@ -14,6 +14,7 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+from bpy.app.handlers import persistent
 
 from .mesh import _VERTEX_COLOR_LAYERS
 from ..helpers import *
@@ -313,3 +314,21 @@ class LightBaker:
         else:
             for i in bpy.data.objects:
                 i.select = i in objs
+
+@persistent
+def _toss_garbage(scene):
+    """Removes all LIGHTMAPGEN and autocolor garbage before saving"""
+    for i in bpy.data.images:
+        if i.name.endswith("_LIGHTMAPGEN.png"):
+            i.user_clear()
+            bpy.data.images.remove(i)
+    for i in bpy.data.meshes:
+        for uv_tex in i.uv_textures:
+            if uv_tex.name == "LIGHTMAPGEN":
+                i.uv_textures.remove(uv_tex)
+        for vcol in i.vertex_colors:
+            if vcol.name == "autocolor":
+                i.vertex_colors.remove(vcol)
+
+# collects light baking garbage
+bpy.app.handlers.save_pre.append(_toss_garbage)
