@@ -133,6 +133,9 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
 
     def post_export(self, exporter, bo, so):
         # If this object has a physical, we need to tell the simulation iface that it can be animated
+        self.make_physical_movable(so)
+    
+    def make_physical_movable(self, so):
         sim = so.sim
         if sim is not None:
             sim = sim.object
@@ -144,14 +147,13 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
             if phys.mass == 0.0:
                 phys.mass = 1.0
                 
-                # On CC and Prime, set kPinned so it doesn't fall through
-                if bpy.context.scene.world.plasma_age.version in ["pvPots", "pvPrime"]:
-                    sim.setProperty(plSimulationInterface.kPinned, True)
-                    phys.setProperty(plSimulationInterface.kPinned, True)
+                # set kPinned so it doesn't fall through
+                sim.setProperty(plSimulationInterface.kPinned, True)
+                phys.setProperty(plSimulationInterface.kPinned, True)
         
         # Do the same for children objects
         for child in so.coord.object.children:
-            self.post_export(exporter, None, child.object)
+            self.make_physical_movable(child.object)
 
 
 class AnimGroupObject(bpy.types.PropertyGroup):
