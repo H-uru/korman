@@ -28,7 +28,7 @@ class LightBaker:
         self._lightgroups = {}
         self._uvtexs = {}
 
-    def _apply_render_settings(self, toggle):
+    def _apply_render_settings(self, toggle, vcols):
         render = bpy.context.scene.render
         toggle.track(render, "use_textures", False)
         toggle.track(render, "use_shadows", True)
@@ -36,6 +36,7 @@ class LightBaker:
         toggle.track(render, "use_raytrace", True)
         toggle.track(render, "bake_type", "FULL")
         toggle.track(render, "use_bake_clear", True)
+        toggle.track(render, "use_bake_to_vertex_color", vcols)
 
     def _associate_image_with_uvtex(self, uvtex, im):
         # Associate the image with all the new UVs
@@ -44,18 +45,20 @@ class LightBaker:
         for i in uvtex.data:
             i.image = im
 
-    def _bake_lightmaps(self, objs, layers, toggle):
-        scene = bpy.context.scene
-        scene.layers = layers
-        toggle.track(scene.render, "use_bake_to_vertex_color", False)
-        self._select_only(objs)
-        bpy.ops.object.bake_image()
+    def _bake_lightmaps(self, objs, layers):
+        with GoodNeighbor() as toggle:
+            scene = bpy.context.scene
+            scene.layers = layers
+            self._apply_render_settings(toggle, False)
+            self._select_only(objs, toggle)
+            bpy.ops.object.bake_image()
 
-    def _bake_vcols(self, objs, toggle):
-        bpy.context.scene.layers = (True,) * _NUM_RENDER_LAYERS
-        toggle.track(bpy.context.scene.render, "use_bake_to_vertex_color", True)
-        self._select_only(objs)
-        bpy.ops.object.bake_image()
+    def _bake_vcols(self, objs):
+        with GoodNeighbor() as toggle:
+            bpy.context.scene.layers = (True,) * _NUM_RENDER_LAYERS
+            self._apply_render_settings(toggle, True)
+            self._select_only(objs, toggle)
+            bpy.ops.object.bake_image()
 
     def bake_static_lighting(self, objs):
         """Bakes all static lighting for Plasma geometry"""
@@ -96,17 +99,16 @@ class LightBaker:
         print("    ...")
 
         # Step 2: BAKE!
-        self._apply_render_settings(toggle)
         for key, value in bake.items():
             if not value:
                 continue
 
             if key[0] == "lightmap":
                 print("    {} Lightmap(s) [H:{:X}]".format(len(value), hash(key)))
-                self._bake_lightmaps(value, key[1:], toggle)
+                self._bake_lightmaps(value, key[1:])
             elif key[0] == "vcol":
                 print("    {} Crap Light(s)".format(len(value)))
-                self._bake_vcols(value, toggle)
+                self._bake_vcols(value)
             else:
                 raise RuntimeError(key[0])
 
@@ -228,11 +230,8 @@ class LightBaker:
         if uvtex is not None:
             uv_textures.remove(uvtex)
 
-        # Make sure the object can be baked to. NOTE this also makes sure we can enter edit mode
-        # TROLLING LOL LOL LOL
+        # Make sure we can enter Edit Mode(TM)
         toggle.track(bo, "hide", False)
-        toggle.track(bo, "hide_render", False)
-        toggle.track(bo, "hide_select", False)
 
         # Because the way Blender tracks active UV layers is massively stupid...
         self._uvtexs[mesh.name] = uv_textures.active.name
@@ -285,12 +284,6 @@ class LightBaker:
         if not self._generate_lightgroup(mesh):
             return False
 
-        # Make sure the object can be baked to. NOTE this also makes sure we can enter edit mode
-        # TROLLING LOL LOL LOL
-        toggle.track(bo, "hide", False)
-        toggle.track(bo, "hide_render", False)
-        toggle.track(bo, "hide_select", False)
-
         # I have heard tale of some moar "No valid image to bake to" boogs if there is a really
         # old copy of the autocolor layer on the mesh. Nuke it.
         autocolor = vcols.get("autocolor")
@@ -316,13 +309,17 @@ class LightBaker:
                 i.active = uvtex_name == i.name
             mesh.uv_textures.active = mesh.uv_textures[uvtex_name]
 
-    def _select_only(self, objs):
+    def _select_only(self, objs, toggle):
         if isinstance(objs, bpy.types.Object):
+            toggle.track(objs, "hide_render", False)
             for i in bpy.data.objects:
                 i.select = i == objs
         else:
             for i in bpy.data.objects:
-                i.select = i in objs
+                value = i in objs
+                if value:
+                    toggle.track(i, "hide_render", False)
+                i.select = value
 
 @persistent
 def _toss_garbage(scene):
