@@ -78,17 +78,22 @@ class LightBaker:
         bpy.context.scene.layers = (True,) * _NUM_RENDER_LAYERS
 
         # Step 1: Prepare... Apply UVs, etc, etc, etc
+        print("    Preparing to bake...")
         for key, value in bake.copy().items():
             if key[0] == "lightmap":
                 for i in value:
                     if not self._prep_for_lightmap(i, toggle):
+                        print("        Lightmap '{}' will not be baked -- no applicable lights".format(i.name))
                         bake[key].remove(i)
             elif key[0] == "vcol":
                 for i in value:
                     if not self._prep_for_vcols(i, toggle):
+                        if self._has_valid_material(i):
+                            print("        VCols '{}' will not be baked -- no applicable lights".format(i.name))
                         bake[key].remove(i)
             else:
                 raise RuntimeError(key[0])
+        print("    ...")
 
         # Step 2: BAKE!
         self._apply_render_settings(toggle)
@@ -152,6 +157,12 @@ class LightBaker:
             if i.name != "LIGHTMAPGEN":
                 return i
         return None
+
+    def _has_valid_material(self, bo):
+        for material in bo.data.materials:
+            if material is not None:
+                return True
+        return False
 
     def _harvest_bakable_objects(self, objs):
         # The goal here is to minimize the calls to bake_image, so we are going to collect everything
