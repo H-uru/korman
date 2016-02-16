@@ -25,6 +25,8 @@ _BL2PL = {
     "SUN": plDirectionalLightInfo,
 }
 
+_FAR_POWER = 15.0
+
 class LightConverter:
     def __init__(self, exporter):
         self._exporter = weakref.ref(exporter)
@@ -57,16 +59,9 @@ class LightConverter:
 
     def _convert_attenuation(self, bl, pl):
         intens = bl.energy
-
         if intens < 0:
             intens = -intens
-
-        if bl.use_sphere:
-            attenEnd = bl.distance
-        else:
-            attenEnd = bl.distance * 2
-
-        kFarPowerConst = 15.0 # From Plasma's plSillyLightKonstants
+        attenEnd = bl.distance * 2 if bl.use_sphere else bl.distance
 
         if bl.falloff_type == "CONSTANT":
             print("        Attenuation: No Falloff")
@@ -77,18 +72,14 @@ class LightConverter:
         elif bl.falloff_type == "INVERSE_LINEAR":
             print("        Attenuation: Inverse Linear")
             pl.attenConst = 1.0
-            pl.attenLinear = (intens * kFarPowerConst - 1.0) / attenEnd
-            if pl.attenLinear < 0:
-                pl.attenLinear = 0
+            pl.attenLinear = max(0.0, (intens * _FAR_POWER - 1.0) / attenEnd)
             pl.attenQuadratic = 0.0
             pl.attenCutoff = attenEnd
         elif bl.falloff_type == "INVERSE_SQUARE":
             print("        Attenuation: Inverse Square")
             pl.attenConst = 1.0
             pl.attenLinear = 0.0
-            pl.attenQuadratic = (intens * kFarPowerConst - 1.0) / (attenEnd * attenEnd)
-            if pl.attenQuadratic < 0:
-                pl.attenQuadratic = 0
+            pl.attenQuadratic = max(0.0, (intens * _FAR_POWER - 1.0) / (attenEnd * attenEnd))
             pl.attenCutoff = attenEnd
         else:
             raise BlenderOptionNotSupportedError(bl.falloff_type)
@@ -112,10 +103,10 @@ class LightConverter:
             diff_color = [i * energy for i in bl_light.color]
             spec_color = [i for i in bl_light.color]
 
-        diff_str = "({:.4f}, {:.4f}, {:.4f})".format(diff_color[0], diff_color[1], diff_color[2])
+        diff_str = "({:.4f}, {:.4f}, {:.4f})".format(*diff_color)
         diff_color.append(energy)
 
-        spec_str = "({:.4f}, {:.4f}, {:.4f})".format(spec_color[0], spec_color[1], spec_color[2])
+        spec_str = "({:.4f}, {:.4f}, {:.4f})".format(*spec_color)
         spec_color.append(energy)
 
         # Do we *only* want a shadow?
