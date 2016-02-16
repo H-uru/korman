@@ -25,6 +25,8 @@ _BL2PL = {
     "SUN": plDirectionalLightInfo,
 }
 
+_FAR_POWER = 15.0
+
 class LightConverter:
     def __init__(self, exporter):
         self._exporter = weakref.ref(exporter)
@@ -36,11 +38,11 @@ class LightConverter:
 
     def _convert_point_lamp(self, bl, pl):
         print("    [OmniLightInfo '{}']".format(bl.name))
-        self._convert_shared_pointspot(bl, pl)
+        self._convert_attenuation(bl, pl)
 
     def _convert_spot_lamp(self, bl, pl):
         print("    [SpotLightInfo '{}']".format(bl.name))
-        self._convert_shared_pointspot(bl, pl)
+        self._convert_attenuation(bl, pl)
 
         # Spot lights have a few more things...
         spot_size = bl.spot_size
@@ -54,37 +56,33 @@ class LightConverter:
         else:
             pl.falloff = 1.0
 
-    def _convert_shared_pointspot(self, bl, pl):
-        # So sue me, this was taken from pyprp2...
-        dist = bl.distance
-        if bl.falloff_type == "LINEAR_QUADRATIC_WEIGHTED":
-            print("        Attenuation: Linear Quadratic Weighted")
-            pl.attenQuadratic = bl.quadratic_attenuation / dist
-            pl.attenLinear = bl.linear_attenuation / dist
-            pl.attenConst = 1.0
-        elif bl.falloff_type == "CONSTANT":
-            print("        Attenuation: Konstant")
+
+    def _convert_attenuation(self, bl, pl):
+        intens = bl.energy
+        if intens < 0:
+            intens = -intens
+        attenEnd = bl.distance * 2 if bl.use_sphere else bl.distance
+
+        if bl.falloff_type == "CONSTANT":
+            print("        Attenuation: No Falloff")
+            pl.attenConst = intens
+            pl.attenLinear = 0.0
             pl.attenQuadratic = 0.0
-            pl.attenLinear = 0.0
-            pl.attenConst = 1.0
-        elif bl.falloff_type == "INVERSE_SQUARE":
-            print("        Attenuation: Inverse Square")
-            pl.attenQuadratic = bl.quadratic_attenuation / dist
-            pl.attenLinear = 0.0
-            pl.attenConst = 1.0
+            pl.attenCutoff = attenEnd
         elif bl.falloff_type == "INVERSE_LINEAR":
             print("        Attenuation: Inverse Linear")
-            pl.attenQuadratic = 0.0
-            pl.attenLinear = bl.quadratic_attenuation / dist
             pl.attenConst = 1.0
+            pl.attenLinear = max(0.0, (intens * _FAR_POWER - 1.0) / attenEnd)
+            pl.attenQuadratic = 0.0
+            pl.attenCutoff = attenEnd
+        elif bl.falloff_type == "INVERSE_SQUARE":
+            print("        Attenuation: Inverse Square")
+            pl.attenConst = 1.0
+            pl.attenLinear = 0.0
+            pl.attenQuadratic = max(0.0, (intens * _FAR_POWER - 1.0) / (attenEnd * attenEnd))
+            pl.attenCutoff = attenEnd
         else:
             raise BlenderOptionNotSupportedError(bl.falloff_type)
-
-        if bl.use_sphere:
-            print("        Sphere Cutoff: {}".format(dist))
-            pl.attenCutoff = dist
-        else:
-            pl.attenCutoff = dist * 2
 
     def _convert_sun_lamp(self, bl, pl):
         print("    [DirectionalLightInfo '{}']".format(bl.name))
@@ -97,31 +95,38 @@ class LightConverter:
         self._converter_funcs[bl_light.type](bl_light, pl_light)
 
         # Light color nonsense
-        energy = bl_light.energy * 2
+        energy = bl_light.energy
         if bl_light.use_negative:
-            color = [(0.0 - i) * energy for i in bl_light.color]
+            diff_color = [(0.0 - i) * energy for i in bl_light.color]
+            spec_color = [(0.0 - i) for i in bl_light.color]
         else:
-            color = [i * energy for i in bl_light.color]
-        color_str = "({:.4f}, {:.4f}, {:.4f})".format(color[0], color[1], color[2])
-        color.append(1.0)
+            diff_color = [i * energy for i in bl_light.color]
+            spec_color = [i for i in bl_light.color]
+
+        diff_str = "({:.4f}, {:.4f}, {:.4f})".format(*diff_color)
+        diff_color.append(energy)
+
+        spec_str = "({:.4f}, {:.4f}, {:.4f})".format(*spec_color)
+        spec_color.append(energy)
 
         # Do we *only* want a shadow?
         shadow_only = bl_light.shadow_method != "NOSHADOW" and bl_light.use_only_shadow
 
         # Apply the colors
         if bl_light.use_diffuse and not shadow_only:
-            print("        Diffuse: {}".format(color_str))
-            pl_light.diffuse = hsColorRGBA(*color)
+            print("        Diffuse: {}".format(diff_str))
+            pl_light.diffuse = hsColorRGBA(*diff_color)
         else:
             print("        Diffuse: OFF")
-            pl_light.diffuse = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+            pl_light.diffuse = hsColorRGBA(0.0, 0.0, 0.0, energy)
+
         if bl_light.use_specular and not shadow_only:
-            print("        Specular: {}".format(color_str))
+            print("        Specular: {}".format(spec_str))
             pl_light.setProperty(plLightInfo.kLPHasSpecular, True)
-            pl_light.specular = hsColorRGBA(*color)
+            pl_light.specular = hsColorRGBA(*spec_color)
         else:
             print("        Specular: OFF")
-            pl_light.specular = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+            pl_light.specular = hsColorRGBA(0.0, 0.0, 0.0, energy)
 
         # Crazy flags
         rtlamp = bl_light.plasma_lamp
