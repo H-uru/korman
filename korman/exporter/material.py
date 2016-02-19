@@ -244,7 +244,7 @@ class MaterialConverter:
             if ctrl is not None:
                 if layer_animation is None:
                     name = "{}_LayerAnim".format(base_layer.key.name)
-                    layer_animation = self._mgr.add_object(plLayerAnimation, bl=bo, name=name)
+                    layer_animation = self._mgr.find_create_object(plLayerAnimation, bl=bo, name=name)
                 setattr(layer_animation, attr, ctrl)
 
         # Alrighty, if we exported any controllers, layer_animation is a plLayerAnimation. We need to do
