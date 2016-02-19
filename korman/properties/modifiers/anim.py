@@ -131,7 +131,7 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
     def key_name(self):
         return "{}_(Entire Animation)".format(self.id_data.name)
     
-    def __make_physical_movable(self, so):
+    def _make_physical_movable(self, so):
         sim = so.sim
         if sim is not None:
             sim = sim.object
@@ -153,7 +153,7 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
 
     def post_export(self, exporter, bo, so):
         # If this object has a physical, we need to tell the simulation iface that it can be animated
-        self.__make_physical_movable(so)
+        self._make_physical_movable(so)
 
 
 class AnimGroupObject(bpy.types.PropertyGroup):
