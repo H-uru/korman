@@ -19,4 +19,5 @@ from .logic import *
 from .physics import *
 from .region import *
 from .render import *
+from .sound import *
 from .water import *
