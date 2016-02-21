@@ -130,9 +130,8 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
     @property
     def key_name(self):
         return "{}_(Entire Animation)".format(self.id_data.name)
-
-    def post_export(self, exporter, bo, so):
-        # If this object has a physical, we need to tell the simulation iface that it can be animated
+    
+    def _make_physical_movable(self, so):
         sim = so.sim
         if sim is not None:
             sim = sim.object
@@ -143,6 +142,18 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
             # If the mass is zero, then we will fail to animate. Fix that.
             if phys.mass == 0.0:
                 phys.mass = 1.0
+                
+                # set kPinned so it doesn't fall through
+                sim.setProperty(plSimulationInterface.kPinned, True)
+                phys.setProperty(plSimulationInterface.kPinned, True)
+        
+        # Do the same for children objects
+        for child in so.coord.object.children:
+            self.make_physical_movable(child.object)
+
+    def post_export(self, exporter, bo, so):
+        # If this object has a physical, we need to tell the simulation iface that it can be animated
+        self._make_physical_movable(so)
 
 
 class AnimGroupObject(bpy.types.PropertyGroup):
