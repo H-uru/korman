@@ -572,9 +572,10 @@ class MaterialConverter:
 
     def _resize_image(self, image, width, height):
         image.scale(width, height)
+        image.update()
 
         # If the image is already loaded into OpenGL, we need to refresh it to get the scaling.
-        if image.bindcode != 0:
+        if image.bindcode[0] != 0:
             image.gl_free()
             image.gl_load()
 

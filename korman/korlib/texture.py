@@ -22,7 +22,7 @@ bgl.GL_BGRA = 0x80E1
 
 class GLTexture:
     def __init__(self, blimg):
-        self._ownit = (blimg.bindcode == 0)
+        self._ownit = (blimg.bindcode[0] == 0)
         self._blimg = blimg
 
     def __enter__(self):
@@ -32,9 +32,9 @@ class GLTexture:
                 raise RuntimeError("failed to load image")
 
         self._previous_texture = self._get_integer(bgl.GL_TEXTURE_BINDING_2D)
-        self._changed_state = (self._previous_texture != self._blimg.bindcode)
+        self._changed_state = (self._previous_texture != self._blimg.bindcode[0])
         if self._changed_state:
-            bgl.glBindTexture(bgl.GL_TEXTURE_2D, self._blimg.bindcode)
+            bgl.glBindTexture(bgl.GL_TEXTURE_2D, self._blimg.bindcode[0])
         return self
 
     def __exit__(self, type, value, traceback):

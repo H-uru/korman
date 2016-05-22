@@ -30,6 +30,8 @@
 #   define GL_GENERATE_MIPMAP 0x8191
 #endif // GL_GENERATE_MIPMAP
 
+#define TEXTARGET_TEXTURE_2D 0
+
 extern "C" {
 
 typedef struct {
@@ -80,8 +82,16 @@ static int pyGLTexture___init__(pyGLTexture* self, PyObject* args, PyObject* kwd
 static PyObject* pyGLTexture__enter__(pyGLTexture* self) {
     // Is the image already loaded?
     PyObjectRef bindcode = PyObject_GetAttrString(self->m_blenderImage, "bindcode");
+
+    // bindcode changed to a sequence in 2.77. We want the first element for a 2D texture.
+    // Why did we make this change, exactly?
+    if (PySequence_Check(bindcode)) {
+        bindcode = PySequence_GetItem(bindcode, TEXTARGET_TEXTURE_2D);
+    }
+
+    // Now we should have a GLuint...
     if (!PyLong_Check(bindcode)) {
-        PyErr_SetString(PyExc_RuntimeError, "Image bindcode isn't a long?");
+        PyErr_SetString(PyExc_TypeError, "Image bindcode isn't a long?");
         return NULL;
     }
 
@@ -92,11 +102,24 @@ static PyObject* pyGLTexture__enter__(pyGLTexture* self) {
     // Load image into GL
     if (self->m_ownIt) {
         PyObjectRef new_bind = PyObject_CallMethod(self->m_blenderImage, "gl_load", NULL);
-        if (PyLong_AsSize_t(new_bind) != 0) {
-            PyErr_SetString(PyExc_RuntimeError, "failed to load image into GL");
+        if (!PyLong_Check(new_bind)) {
+            PyErr_SetString(PyExc_TypeError, "gl_load() did not return a long");
+            return NULL;
+        }
+        ssize_t result = PyLong_AsSize_t(new_bind);
+        if (result != GL_NO_ERROR) {
+            PyErr_Format(PyExc_RuntimeError, "gl_load() error: %d", result);
             return NULL;
         }
         bindcode = PyObject_GetAttrString(self->m_blenderImage, "bindcode");
+        if (PySequence_Check(bindcode)) {
+            bindcode = PySequence_GetItem(bindcode, TEXTARGET_TEXTURE_2D);
+        }
+        // Now we should have a GLuint...
+        if (!PyLong_Check(bindcode)) {
+            PyErr_SetString(PyExc_TypeError, "Image bindcode isn't a long?");
+            return NULL;
+        }
         image_bindcode = PyLong_AsUnsignedLong(bindcode);
     }
 

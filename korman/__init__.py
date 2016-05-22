@@ -22,10 +22,10 @@ from . import operators
 bl_info = {
     "name":        "Korman",
     "author":      "Guild of Writers",
-    "blender":     (2, 74, 0),  # I can't be bothered to support old stuff
+    "blender":     (2, 77, 0),
     "location":    "File > Import-Export",
     "description": "Exporter for Cyan Worlds' Plasma Engine",
-    "warning":     "alpha",
+    "warning":     "beta",
     "category":    "System",  # Eventually, we will hide some of the default
                               # Blender panels (think materials)
 }
