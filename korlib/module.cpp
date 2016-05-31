@@ -15,16 +15,23 @@
  */
 
 #include "buffer.h"
+#include "sound.h"
 #include "texture.h"
 
 extern "C" {
+
+static PyMethodDef korlib_Methods[] = {
+    { _pycs("inspect_vorbisfile"), (PyCFunction)inspect_vorbisfile, METH_VARARGS, NULL },
+
+    { NULL, NULL, 0, NULL },
+};
 
 static PyModuleDef korlib_Module = {
     PyModuleDef_HEAD_INIT,      /* m_base */
     "_korlib",                  /* m_name */
     "C++ korlib implementation",/* m_doc */
     0,                          /* m_size */
-    NULL,                       /* m_methods */
+    korlib_Methods,             /* m_methods */
     NULL,                       /* m_reload */
     NULL,                       /* m_traverse */
     NULL,                       /* m_clear */

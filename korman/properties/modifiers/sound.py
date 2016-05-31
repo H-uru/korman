@@ -16,14 +16,310 @@
 import bpy
 from bpy.props import *
 from bpy.app.handlers import persistent
+import math
+from pathlib import Path
 from PyHSPlasma import *
 
+from ... import korlib
 from .base import PlasmaModifierProperties
 from ...exporter import ExportError
 
+class PlasmaSfxFade(bpy.types.PropertyGroup):
+    fade_type = EnumProperty(name="Type",
+                             description="Fade Type",
+                             items=[("NONE", "[Disable]", "Don't fade"),
+                                    ("kLinear", "Linear", "Linear fade"),
+                                    ("kLogarithmic", "Logarithmic", "Log fade"),
+                                    ("kExponential", "Exponential", "Exponential fade")],
+                             options=set())
+    length = FloatProperty(name="Length",
+                           description="Seconds to spend fading",
+                           default=1.0, min=0.0,
+                           options=set(), subtype="TIME", unit="TIME")
+
+
 class PlasmaSound(bpy.types.PropertyGroup):
+    def _sound_picked(self, context):
+        if not self.sound_data:
+            self.name = "[Empty]"
+            return
+
+        try:
+            header, size = self._get_sound_info()
+        except Exception as e:
+            self.is_valid = False
+            # this might be perfectly acceptable... who knows?
+            # user consumable error report to be handled by the UI code
+            print("---Invalid SFX selection---\n{}\n------".format(str(e)))
+        else:
+            self.is_valid = True
+            self.is_stereo = header.numChannels == 2
+        self._update_name(context)
+
+    def _update_name(self, context):
+        if self.is_stereo and self.channel != {"L", "R"}:
+            self.name = "{}:{}".format(self.sound_data, "L" if "L" in self.channel else "R")
+        else:
+            self.name = self.sound_data
+
     enabled = BoolProperty(name="Enabled", default=True, options=set())
-    sound_data = StringProperty(name="Sound", description="Sound Datablock", options=set())
+    sound_data = StringProperty(name="Sound", description="Sound Datablock",
+                                options=set(), update=_sound_picked)
+
+    is_stereo = BoolProperty(default=True, options={"HIDDEN"})
+    is_valid = BoolProperty(default=False, options={"HIDDEN"})
+
+    soft_region = StringProperty(name="Soft Volume",
+                                 description="Soft region this sound can be heard in",
+                                 options=set())
+
+    sfx_type = EnumProperty(name="Category",
+                            description="Describes the purpose of this sound",
+                            items=[("kSoundFX", "3D", "3D Positional SoundFX"),
+                                   ("kAmbience", "Ambience", "Ambient Sounds"),
+                                   ("kBackgroundMusic", "Music", "Background Music"),
+                                   ("kGUISound", "GUI", "GUI Effect"),
+                                   ("kNPCVoices", "NPC", "NPC Speech")],
+                            options=set())
+    channel = EnumProperty(name="Channel",
+                           description="Which channel(s) to play",
+                           items=[("L", "Left", "Left Channel"),
+                                  ("R", "Right", "Right Channel")],
+                           options={"ENUM_FLAG"},
+                           default={"L", "R"},
+                           update=_update_name)
+
+    auto_start = BoolProperty(name="Auto Start",
+                              description="Start playing when the age is loaded",
+                              default=False,
+                              options=set())
+    incidental = BoolProperty(name="Incidental",
+                              description="Sound is a low-priority incident and the engine may forgo playback",
+                              default=False,
+                              options=set())
+    loop = BoolProperty(name="Loop",
+                        description="Loop the sound",
+                        default=False,
+                        options=set())
+
+    inner_cone = FloatProperty(name="Inner Angle",
+                               description="Angle of the inner cone from the negative Z-axis",
+                               min=0, max=math.radians(360), default=0, step=100,
+                               options=set(),
+                               subtype="ANGLE")
+    outer_cone = FloatProperty(name="Outer Angle",
+                               description="Angle of the outer cone from the negative Z-axis",
+                               min=0, max=math.radians(360), default=math.radians(360), step=100,
+                               options=set(),
+                               subtype="ANGLE")
+    outside_volume = IntProperty(name="Outside Volume",
+                         description="Sound's volume when outside the outer cone",
+                         min=0, max=100, default=100,
+                         options=set(),
+                         subtype="PERCENTAGE")
+
+    min_falloff = IntProperty(name="Begin Falloff",
+                              description="Distance where volume attenuation begins",
+                              min=0, max=1000000000, default=1,
+                              options=set(),
+                              subtype="DISTANCE")
+    max_falloff = IntProperty(name="End Falloff",
+                              description="Distance where the sound is inaudible",
+                              min=0, max=1000000000, default=1000,
+                              options=set(),
+                              subtype="DISTANCE")
+    volume = IntProperty(name="Volume",
+                         description="Volume to play the sound",
+                         min=0, max=100, default=100,
+                         options=set(),
+                         subtype="PERCENTAGE")
+
+    fade_in = PointerProperty(type=PlasmaSfxFade, options=set())
+    fade_out = PointerProperty(type=PlasmaSfxFade, options=set())
+
+    @property
+    def channel_override(self):
+        if self.is_stereo and len(self.channel) == 1:
+            return min(self.channel)
+        else:
+            return None
+
+    def convert_sound(self, exporter, so, audible):
+        header, dataSize = self._get_sound_info()
+        length = dataSize / header.avgBytesPerSec
+
+        # There is some bug in the MOUL code that causes a crash if this does not match the expected
+        # result. There's no sense in debugging that though--the user should never specify
+        # streaming vs static. That's an implementation detail.
+        pClass = plWin32StreamingSound if length > 4.0 else plWin32StaticSound
+
+        # OK. Any Plasma engine that uses OpenAL (MOUL) is subject to this restriction.
+        # 3D Positional audio MUST... and I mean MUST... have mono emitters.
+        # That means if the user has specified 3D and a stereo sound AND both channels, we MUST
+        # export two emitters from here. Otherwise, it's no biggie. Wheeeeeeeeeeeeeeeeeeeeeeeee
+        if self.is_3d_stereo or (self.is_stereo and len(self.channel) == 1):
+            header.avgBytesPerSec = int(header.avgBytesPerSec / 2)
+            header.numChannels = int(header.numChannels / 2)
+            header.blockAlign = int(header.blockAlign / 2)
+            dataSize = int(dataSize / 2)
+        if self.is_3d_stereo:
+            audible.addSound(self._convert_sound(exporter, so, pClass, header, dataSize, channel="L"))
+            audible.addSound(self._convert_sound(exporter, so, pClass, header, dataSize, channel="R"))
+        else:
+            audible.addSound(self._convert_sound(exporter, so, pClass, header, dataSize, channel=self.channel_override))
+
+    def _convert_sound(self, exporter, so, pClass, wavHeader, dataSize, channel=None):
+        if channel is None:
+            name = "Sfx-{}_{}".format(so.key.name, self.sound_data)
+        else:
+            name = "Sfx-{}_{}:{}".format(so.key.name, self.sound_data, channel)
+        print("    [{}] {}".format(pClass.__name__[2:], name))
+        sound = exporter.mgr.find_create_object(pClass, so=so, name=name)
+
+        # If this object is a soft volume itself, we will use our own soft region.
+        # Otherwise, check what they specified...
+        sv_mod, sv_key = self.id_data.plasma_modifiers.softvolume, None
+        if sv_mod.enabled:
+            sv_key = sv_mod.get_key(exporter, so)
+        elif self.soft_region:
+            sv_bo = bpy.data.objects.get(self.soft_region, None)
+            if sv_bo is None:
+                raise ExportError("'{}': Invalid object '{}' for SoundEmit '{}' soft volume".format(self.id_data.name, self.soft_region, self.sound_data))
+            sv_mod = sv_bo.plasma_modifiers.softvolume
+            if not sv_mod.enabled:
+                raise ExportError("'{}': SoundEmit '{}', '{}' is not a SoftVolume".format(self.id_data.name, self.sound_data, self.soft_region))
+            sv_key = sv_mod.get_key(exporter)
+        if sv_key is not None:
+            sv_key.object.listenState |= plSoftVolume.kListenCheck | plSoftVolume.kListenDirty | plSoftVolume.kListenRegistered
+            sound.softRegion = sv_key
+
+        # Sound
+        sound.type = getattr(plSound, self.sfx_type)
+        if sound.type == plSound.kSoundFX:
+            sound.properties |= plSound.kPropIs3DSound
+        if self.auto_start:
+            sound.properties |= plSound.kPropAutoStart
+        if self.loop:
+            sound.properties |= plSound.kPropLooping
+        if self.incidental:
+            sound.properties |= plSound.kPropIncidental
+        sound.dataBuffer = self._find_sound_buffer(exporter, so, wavHeader, dataSize, channel)
+
+        # Cone effect
+        # I have observed that Blender 2.77's UI doesn't show the appropriate unit (degrees) for
+        # IntProperty angle subtypes. So, we're storing the angles as floats in Blender even though
+        # Plasma only wants integers. Sigh.
+        sound.innerCone = int(math.degrees(self.inner_cone))
+        sound.outerCone = int(math.degrees(self.outer_cone))
+        sound.outerVol = self.outside_volume
+
+        # Falloff
+        sound.desiredVolume = self.volume / 100.0
+        sound.minFalloff = self.min_falloff
+        sound.maxFalloff = self.max_falloff
+
+        # Fade FX
+        fade_in, fade_out = sound.fadeInParams, sound.fadeOutParams
+        for blfade, plfade in ((self.fade_in, fade_in), (self.fade_out, fade_out)):
+            if blfade.fade_type == "NONE":
+                plfade.lengthInSecs = 0.0
+            else:
+                plfade.lengthInSecs = blfade.length
+                plfade.type = getattr(plFadeParams, blfade.fade_type)
+            plfade.currTime = -1.0
+
+        # Some manual fiddling -- this is hidden deep inside the 3dsm exporter...
+        # Kind of neat how it's all generic though :)
+        fade_in.volStart = 0.0
+        fade_in.volEnd = 1.0
+        fade_out.volStart = 1.0
+        fade_out.volEnd = 0.0
+        fade_out.stopWhenDone = True
+
+        # Some last minute buffer tweaking based on our props here...
+        buffer = sound.dataBuffer.object
+        if isinstance(sound, plWin32StreamingSound):
+            buffer.flags |= plSoundBuffer.kStreamCompressed
+        if sound.type == plSound.kBackgroundMusic:
+            buffer.flags |= plSoundBuffer.kAlwaysExternal
+
+        # Win32Sound
+        if channel == "L":
+            sound.channel = plWin32Sound.kLeftChannel
+        else:
+            sound.channel = plWin32Sound.kRightChannel
+
+        # Whew, that was a lot of work!
+        return sound.key
+
+    def _get_sound_info(self):
+        """Generates a tuple (plWAVHeader, PCMsize) from the current sound"""
+        sound = self._sound
+        if sound.packed_file is None:
+            stream = hsFileStream()
+            try:
+                stream.open(sound.filepath, fmRead)
+            except IOError:
+                self._raise_error("failed to open file")
+        else:
+            stream = hsRAMStream()
+            stream.buffer = sound.packed_file.data
+
+        try:
+            magic = stream.read(4)
+            stream.rewind()
+
+            header = plWAVHeader()
+            if magic == b"RIFF":
+                size = korlib.inspect_wavefile(stream, header)
+            elif magic == b"OggS":
+                size = korlib.inspect_vorbisfile(stream, header)
+                return (header, size)
+            else:
+                raise NotSupportedError("unsupported audio format")
+        except Exception as e:
+            self._raise_error(str(e))
+        finally:
+            stream.close()
+
+    def _find_sound_buffer(self, exporter, so, wavHeader, dataSize, channel):
+        # First, cleanup the file path to not have directories and have the .ogg extension
+        filename = Path(self._sound.filepath).with_suffix(".ogg").name
+        if channel is None:
+            key_name = filename
+        else:
+            key_name = "{}:{}".format(filename, channel)
+
+        key = exporter.mgr.find_key(plSoundBuffer, so=so, name=key_name)
+        if key is None:
+            sound = exporter.mgr.add_object(plSoundBuffer, so=so, name=key_name)
+            sound.header = wavHeader
+            sound.fileName = filename
+            sound.dataLength = dataSize
+            # Maybe someday we will allow packed sounds? I'm in no hurry...
+            sound.flags |= plSoundBuffer.kIsExternal
+            if channel == "L":
+                sound.flags |= plSoundBuffer.kOnlyLeftChannel
+            elif channel == "R":
+                sound.flags |= plSoundBuffer.kOnlyRightChannel
+            key = sound.key
+        return key
+
+    @property
+    def is_3d_stereo(self):
+        return self.sfx_type == "kSoundFX" and self.channel == {"L", "R"} and self.is_stereo
+
+    def _raise_error(self, msg):
+        raise ExportError("SoundEmitter '{}': Sound '{}' {}".format(self.id_data.name, self.sound_data, msg))
+
+    @property
+    def _sound(self):
+        try:
+            sound = bpy.data.sounds.get(self.sound_data)
+        except:
+            self._raise_error("is not loaded")
+        else:
+            return sound
 
 
 class PlasmaSoundEmitter(PlasmaModifierProperties):
@@ -38,7 +334,15 @@ class PlasmaSoundEmitter(PlasmaModifierProperties):
     active_sound_index = IntProperty(options={"HIDDEN"})
 
     def export(self, exporter, bo, so):
-        pass
+        winaud = exporter.mgr.find_create_object(plWinAudible, so=so, name=self.key_name)
+        winaud.sceneNode = exporter.mgr.get_scene_node(so.key.location)
+        aiface = exporter.mgr.find_create_object(plAudioInterface, so=so, name=self.key_name)
+        aiface.audible = winaud.key
+
+        # Pass this off to each individual sound for conversion
+        for i in self.sounds:
+            if i.sound_data and i.enabled:
+                i.convert_sound(exporter, so, winaud)
 
     @classmethod
     def register(cls):
@@ -55,10 +359,11 @@ def _toss_orphaned_sounds(scene):
     for i in bpy.data.objects:
         soundemit = i.plasma_modifiers.soundemit
         used_sounds.update((j.sound_data for j in soundemit.sounds))
-    for i in bpy.data.sounds:
-        if i.plasma_owned and i.name not in used_sounds:
-            i.use_fake_user = False
-            i.user_clear()
+    dead_sounds = [i for i in bpy.data.sounds if i.plasma_owned and i.name not in used_sounds]
+    for i in dead_sounds:
+        i.use_fake_user = False
+        i.user_clear()
+        bpy.data.sounds.remove(i)
 
 # collects orphaned Plasma owned sound datablocks
 bpy.app.handlers.save_pre.append(_toss_orphaned_sounds)

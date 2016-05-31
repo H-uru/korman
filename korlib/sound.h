@@ -14,29 +14,15 @@
  * along with Korman.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _KORLIB_H
-#define _KORLIB_H
+#ifndef _KORLIB_SOUND_H
+#define _KORLIB_SOUND_H
 
-#define NOMINMAX
+#include "korlib.h"
 
-#include <cstdint>
-#include <Python.h>
+extern "C" {
 
-#define _pycs(x) const_cast<char*>(x)
+PyObject* inspect_vorbisfile(PyObject*, PyObject* args);
 
-class PyObjectRef {
-    PyObject* m_object;
-
-public:
-    PyObjectRef(PyObject* o) : m_object(o) { }
-    ~PyObjectRef() { Py_XDECREF(m_object); }
-
-    operator PyObject*() const { return m_object; }
-    PyObjectRef& operator =(PyObject* rhs) {
-        Py_XDECREF(m_object);
-        m_object = rhs;
-        return *this;
-    }
 };
 
-#endif // _KORLIB_H
+#endif // _KORLIB_SOUND_H
