@@ -16,6 +16,7 @@
 import bpy
 from bpy.props import *
 from collections import OrderedDict
+import inspect
 from PyHSPlasma import *
 import uuid
 
@@ -230,16 +231,28 @@ class PlasmaResponderCommandNode(PlasmaNodeBase, bpy.types.Node):
     ])
 
     def convert_command(self, exporter, so, responder, commandMgr, waitOn=-1):
-        # If this command has no message, there is no need to export it...
-        msgNode = self.find_output("msg")
-        if msgNode is not None:
+        def prepare_message(exporter, so, responder, commandMgr, waitOn, msg):
             idx, command = commandMgr.add_command(self, waitOn)
-
-            # Finally, convert our message...
-            msg = msgNode.convert_message(exporter, so)
             if msg.sender is None:
                 msg.sender = responder.key
             msg.BCastFlags |= plMessage.kLocalPropagate
+            command.msg = msg
+            return (idx, command)
+
+        # If this command has no message, there is no need to export it...
+        msgNode = self.find_output("msg")
+        if msgNode is not None:
+            # HACK: Some message nodes may need to sneakily send multiple messages. So, convert_message
+            # is therefore now a generator. We will ASSume that the first message generated is the
+            # primary msg that we should use for callbacks, if applicable
+            if inspect.isgeneratorfunction(msgNode.convert_message):
+                messages = tuple(msgNode.convert_message(exporter, so))
+                msg = messages[0]
+                for i in messages[1:]:
+                    prepare_message(exporter, so, responder, commandMgr, waitOn, i)
+            else:
+                msg = msgNode.convert_message(exporter, so)
+            idx, command = prepare_message(exporter, so, responder, commandMgr, waitOn, msg)
 
             # If we have child commands, we need to make sure that we support chaining this message as a callback
             # If not, we'll export our children and tell them to not actually wait on us.
@@ -249,7 +262,6 @@ class PlasmaResponderCommandNode(PlasmaNodeBase, bpy.types.Node):
                 msgNode.convert_callback_message(exporter, so, msg, responder.key, childWaitOn)
             else:
                 childWaitOn = waitOn
-            command.msg = msg
         else:
             childWaitOn = waitOn
 

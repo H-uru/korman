@@ -482,6 +482,131 @@ class PlasmaSceneObjectMsgRcvrNode(PlasmaNodeBase, bpy.types.Node):
         return ref_so_key
 
 
+class PlasmaSoundMsgNode(PlasmaMessageNode, bpy.types.Node):
+    bl_category = "MSG"
+    bl_idname = "PlasmaSoundMsgNode"
+    bl_label = "Sound"
+    bl_width_default = 190
+
+    object_name = StringProperty(name="Object",
+                                 description="Sound emitter object")
+    sound_name = StringProperty(name="Sound",
+                                description="Sound datablock")
+
+    go_to = EnumProperty(name="Go To",
+                         description="Where should the sound start?",
+                         items=[("BEGIN", "Beginning", "The beginning"),
+                                ("CURRENT", "(Don't Change)", "The current position"),
+                                ("TIME", "Time", "The time specified in seconds")],
+                         default="CURRENT")
+    looping = EnumProperty(name="Looping",
+                           description="Is the sound looping?",
+                           items=[("kSetLooping", "Yes", "The sound is looping",),
+                                  ("CURRENT", "(Don't Change)", "Don't change the loop status"),
+                                  ("kSetUnLooping", "No", "The sound is NOT looping")],
+                           default="CURRENT")
+    action = EnumProperty(name="Action",
+                          description="What do you want the sound to do?",
+                          items=[("kPlay", "Play", "Plays the sound"),
+                                 ("kStop", "Stop", "Stops the sound",),
+                                 ("kToggleState", "Toggle", "Toggles between Play and Stop"),
+                                 ("CURRENT", "(Don't Change)", "Don't change the sound's playing state")],
+                          default="CURRENT")
+    volume = EnumProperty(name="Volume",
+                          description="What should happen to the volume?",
+                          items=[("MUTE", "Mute", "Mutes the volume"),
+                                 ("CURRENT", "(Don't Change)", "Don't change the volume"),
+                                 ("CUSTOM", "Custom", "Manually specify the volume")],
+                          default="CURRENT")
+
+    time = FloatProperty(name="Time",
+                         description="Time in seconds to begin playing from",
+                         min=0.0, default=0.0,
+                         options=set(), subtype="TIME", unit="TIME")
+    volume_pct = IntProperty(name="Volume Level",
+                             description="Volume to play the sound",
+                             min=0, max=100, default=100,
+                             options=set(),
+                             subtype="PERCENTAGE")
+
+    def convert_callback_message(self, exporter, so, msg, target, wait):
+        cb = plEventCallbackMsg()
+        cb.addReceiver(target)
+        cb.event = kEnd
+        cb.user = wait
+        msg.addCallback(cb)
+        msg.setCmd(plSoundMsg.kAddCallbacks)
+
+    def convert_message(self, exporter, so):
+        sound_bo = bpy.data.objects.get(self.object_name, None)
+        if sound_bo is None:
+            self.raise_error("'{}' is not a valid object".format(self.object_name))
+        soundemit = sound_bo.plasma_modifiers.soundemit
+        if not soundemit.enabled:
+            self.raise_error("'{}' is not a valid Sound Emitter".format(self.object_name))
+
+        # Always test the specified audible for validity
+        if self.sound_name and soundemit.sounds.get(self.sound_name, None) is None:
+            self.raise_error("Invalid Sound '{}' requested from Sound Emitter '{}'".format(self.sound_name, self.object_name))
+
+        # Remember that 3D stereo sounds are exported as two emitters...
+        # But, if we only have one sound attached, who cares, we can just address the message to all
+        audible_key = exporter.mgr.find_create_key(plAudioInterface, bl=sound_bo)
+        indices = (-1,) if not self.sound_name or len(soundemit.sounds) == 1 else soundemit.get_sound_indices(self.sound_name)
+        for idx in indices:
+            msg = plSoundMsg()
+            msg.addReceiver(audible_key)
+            msg.index = idx
+
+            # NOTE: There are a number of commands in Plasma's enumeration that do nothing.
+            #       This is what I determine to be the most useful and functional subset...
+            #       Please see plAudioInterface::MsgReceive for more details.
+            if self.go_to == "BEGIN":
+                msg.setCmd(plSoundMsg.kGoToTime)
+                msg.time = 0.0
+            elif self.go_to == "TIME":
+                msg.setCmd(plSoundMsg.kGoToTime)
+                msg.time = self.time
+
+            if self.volume == "MUTE":
+                msg.setCmd(plSoundMsg.kSetVolume)
+                msg.volume = 0.0
+            elif self.volume == "CUSTOM":
+                msg.setCmd(plSoundMsg.kSetVolume)
+                msg.volume = self.volume_pct
+
+            if self.looping != "CURRENT":
+                msg.setCmd(getattr(plSoundMsg, self.looping))
+            if self.action != "CURRENT":
+                msg.setCmd(getattr(plSoundMsg, self.action))
+
+            # Because we might be giving two messages here...
+            yield msg
+
+    def draw_buttons(self, context, layout):
+        layout.prop_search(self, "object_name", bpy.data, "objects")
+        bo = bpy.data.objects.get(self.object_name, None)
+        if bo is not None:
+            soundemit = bo.plasma_modifiers.soundemit
+            if soundemit.enabled:
+                layout.prop_search(self, "sound_name", soundemit, "sounds", icon="SOUND")
+            else:
+                layout.label("Not a Sound Emitter", icon="ERROR")
+
+        layout.prop(self, "go_to")
+        if self.go_to == "TIME":
+            layout.prop(self, "time")
+        layout.prop(self, "action")
+        if self.volume == "CUSTOM":
+            layout.prop(self, "volume_pct")
+        layout.prop(self, "looping")
+        layout.prop(self, "volume")
+
+    @property
+    def has_callbacks(self):
+        return True
+
+
 class PlasmaTimerCallbackMsgNode(PlasmaMessageNode, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaTimerCallbackMsgNode"
