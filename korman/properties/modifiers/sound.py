@@ -344,6 +344,21 @@ class PlasmaSoundEmitter(PlasmaModifierProperties):
             if i.sound_data and i.enabled:
                 i.convert_sound(exporter, so, winaud)
 
+    def get_sound_indices(self, name):
+        """Returns the index of the given sound in the plWin32Sound. This is needed because stereo
+           3D sounds export as two mono sound objects -- wheeeeee"""
+        idx = 0
+        for i in self.sounds:
+            if i.name == name:
+                yield idx
+                if i.is_3d_stereo:
+                    yield idx + 1
+                break
+            else:
+                idx += 2 if i.is_3d_stereo else 1
+        else:
+            raise ValueError(name)
+
     @classmethod
     def register(cls):
         bpy.types.Sound.plasma_owned = BoolProperty(default=False, options={"HIDDEN"})
