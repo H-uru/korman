@@ -42,3 +42,6 @@ class PlasmaLampPanel(LampButtonsPanel, bpy.types.Panel):
 
         col = split.column()
         col.prop(rtlamp, "cast_shadows")
+
+        if not context.object.plasma_modifiers.softvolume.enabled:
+            layout.prop_search(rtlamp, "soft_region", bpy.data, "objects")

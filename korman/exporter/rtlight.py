@@ -13,6 +13,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+import bpy
 from PyHSPlasma import *
 import weakref
 
@@ -146,6 +147,20 @@ class LightConverter:
         l2w = utils.matrix44(bo.matrix_local)
         pl_light.lightToWorld = l2w
         pl_light.worldToLight = l2w.inverse()
+
+        # Soft Volume science
+        sv_mod, sv_key = bo.plasma_modifiers.softvolume, None
+        if sv_mod.enabled:
+            sv_key = sv_mod.get_key(self._exporter())
+        elif rtlamp.soft_region:
+            sv_bo = bpy.data.objects.get(rtlamp.soft_region, None)
+            if sv_bo is None:
+                raise ExportError("'{}': Invalid object for Lamp soft volume '{}'".format(bo.name, rtlamp.soft_region))
+            sv_mod = sv_bo.plasma_modifiers.softvolume
+            if not sv_mod.enabled:
+                raise ExportError("'{}': '{}' is not a SoftVolume".format(bo.name, rtlamp.soft_region))
+            sv_key = sv_mod.get_key(self._exporter())
+        pl_light.softVolume = sv_key
 
         # *Sigh*
         pl_light.sceneNode = self.mgr.get_scene_node(location=so.key.location)

@@ -28,3 +28,7 @@ class PlasmaLamp(bpy.types.PropertyGroup):
     cast_shadows = BoolProperty(name="Cast RT Shadows",
                                 description="This lamp casts runtime shadows",
                                 default=True)
+
+    soft_region = StringProperty(name="Soft Volume",
+                                 description="Soft region this light is active inside",
+                                 options=set())
