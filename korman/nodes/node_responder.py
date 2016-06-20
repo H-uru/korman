@@ -256,7 +256,7 @@ class PlasmaResponderCommandNode(PlasmaNodeBase, bpy.types.Node):
 
             # If we have child commands, we need to make sure that we support chaining this message as a callback
             # If not, we'll export our children and tell them to not actually wait on us.
-            haveChildren = self.find_output("trigger", "PlasmaResponderCommandNode") is not None or
+            haveChildren = self.find_output("trigger", "PlasmaResponderCommandNode") is not None or \
                            self.find_outputs("reenable")
             if msgNode.has_callbacks and haveChildren:
                 childWaitOn = commandMgr.add_wait(idx)
