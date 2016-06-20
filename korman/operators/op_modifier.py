@@ -17,6 +17,7 @@ import bpy
 from bpy.props import *
 import time
 
+from ..ordered_set import OrderedSet
 from ..properties import modifiers
 
 def _fetch_modifiers():
@@ -71,16 +72,63 @@ class ModifierRemoveOperator(ModifierOperator, bpy.types.Operator):
                                   default=-1,
                                   options={"HIDDEN"})
 
-    def execute(self, context):
-        assert self.active_modifier >= 0
+    mods2delete = CollectionProperty(type=modifiers.PlasmaModifierSpec, options=set())
 
-        for mod in context.object.plasma_modifiers.modifiers:
-            if mod.display_order == self.active_modifier:
+    def draw(self, context):
+        layout = self.layout
+        mods = context.object.plasma_modifiers
+
+        layout.label("This action will remove the following modifiers:")
+        layout = layout.column_flow(align=True)
+        for i in self.mods2delete:
+            mod = getattr(mods, i.name)
+            layout.label("    {}".format(mod.bl_label), icon=getattr(mod, "bl_icon", "NONE"))
+
+    def execute(self, context):
+        want2delete = set((i.name for i in self.mods2delete))
+        mods = sorted(context.object.plasma_modifiers.modifiers, key=lambda x: x.display_order)
+        subtract = 0
+
+        for mod in mods:
+            if mod.pl_id in want2delete:
                 mod.display_order = -1
                 mod.destroyed()
-            elif mod.display_order > self.active_modifier:
-                mod.display_order -= 1
+                subtract += 1
+            else:
+                mod.display_order -= subtract
         return {"FINISHED"}
+
+    def invoke(self, context, event):
+        assert self.active_modifier >= -1
+        mods = context.object.plasma_modifiers
+        self.mods2delete.clear()
+
+        want2delete = OrderedSet()
+        for i in mods.modifiers:
+            if i.display_order == self.active_modifier:
+                want2delete.add(i.pl_id)
+                break
+        else:
+            raise IndexError()
+
+        # Here's the rub
+        # When we start, we should have just one modifier in want2delete
+        # HOWEVER, the mod may have dependencies, which in turn may have more deps
+        # So we collect them into the list... you dig?
+        for i in want2delete:
+            for mod in modifiers.PlasmaModifierProperties.__subclasses__():
+                if not getattr(mods, mod.pl_id).enabled:
+                    continue
+                if i in getattr(mod, "pl_depends", set()):
+                    want2delete.add(mod.pl_id)
+        for i in want2delete:
+            mod = self.mods2delete.add()
+            mod.name = i
+
+        if len(want2delete) == 1:
+            return self.execute(context)
+        else:
+            return context.window_manager.invoke_props_dialog(self)
 
 
 class ModifierMoveOperator(ModifierOperator):

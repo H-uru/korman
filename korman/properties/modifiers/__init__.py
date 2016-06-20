@@ -66,6 +66,10 @@ class PlasmaModifiers(bpy.types.PropertyGroup):
         bpy.types.Object.plasma_modifiers = bpy.props.PointerProperty(type=cls)
 
 
+class PlasmaModifierSpec(bpy.types.PropertyGroup):
+    pass
+
+
 def modifier_mapping():
     """This returns a dict mapping Plasma Modifier categories to names"""
 
