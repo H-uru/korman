@@ -83,18 +83,20 @@ class LightBaker:
 
         # Step 1: Prepare... Apply UVs, etc, etc, etc
         print("    Preparing to bake...")
-        for key, value in bake.copy().items():
+        for key in bake.keys():
             if key[0] == "lightmap":
-                for i in value:
-                    if not self._prep_for_lightmap(i, toggle):
-                        print("        Lightmap '{}' will not be baked -- no applicable lights".format(i.name))
-                        bake[key].remove(i)
+                for i in range(len(bake[key])-1, -1, -1):
+                    obj = bake[key][i]
+                    if not self._prep_for_lightmap(obj, toggle):
+                        print("        Lightmap '{}' will not be baked -- no applicable lights".format(obj.name))
+                        bake[key].pop(i)
             elif key[0] == "vcol":
-                for i in value:
-                    if not self._prep_for_vcols(i, toggle):
-                        if self._has_valid_material(i):
-                            print("        VCols '{}' will not be baked -- no applicable lights".format(i.name))
-                        bake[key].remove(i)
+                for i in range(len(bake[key])-1, -1, -1):
+                    obj = bake[key][i]
+                    if not self._prep_for_vcols(obj, toggle):
+                        if self._has_valid_material(obj):
+                            print("        VCols '{}' will not be baked -- no applicable lights".format(obj.name))
+                        bake[key].pop(i)
             else:
                 raise RuntimeError(key[0])
         print("    ...")
@@ -114,14 +116,14 @@ class LightBaker:
                 raise RuntimeError(key[0])
 
         # Return how many thingos we baked
-        return sum(map(sum, bake.values()))
+        return sum(map(len, bake.values()))
 
     def _generate_lightgroup(self, mesh, user_lg=None):
         """Makes a new light group for the baking process that excludes all Plasma RT lamps"""
 
         if user_lg is not None:
             user_lg = bpy.data.groups.get(user_lg)
-        shouldibake = (user_lg and user_lg.objects)
+        shouldibake = (user_lg is not None and bool(user_lg.objects))
 
         for material in mesh.materials:
             if material is None:
@@ -131,15 +133,11 @@ class LightBaker:
             # Already done it?
             name = material.name
             lg = material.light_group
-            if name in self._lightgroups:
-                # No, this is not Pythonic, but bpy_prop_collection is always "True",
-                # even when empty. Sigh.
-                return bool(len(lg.objects))
-            else:
+            if name not in self._lightgroups:
                 self._lightgroups[name] = lg
 
             if user_lg is None:
-                if not lg or len(lg.objects) == 0:
+                if not lg or bool(lg.objects) is False:
                     source = [i for i in bpy.data.objects if i.type == "LAMP"]
                 else:
                     source = lg.objects
@@ -176,6 +174,8 @@ class LightBaker:
         bake = { ("vcol",): [] }
         for i in objs:
             if i.type != "MESH":
+                continue
+            if bool(i.data.materials) is False:
                 continue
 
             mods = i.plasma_modifiers
