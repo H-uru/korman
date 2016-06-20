@@ -24,7 +24,8 @@ class GoodNeighbor:
         return self
 
     def track(self, cls, attr, value):
-        self._tracking[(cls, attr)] = getattr(cls, attr)
+        if (cls, attr) not in self._tracking:
+            self._tracking[(cls, attr)] = getattr(cls, attr)
         setattr(cls, attr, value)
 
     def __exit__(self, type, value, traceback):
