@@ -163,10 +163,7 @@ class LightBaker:
         return None
 
     def _has_valid_material(self, bo):
-        data = bo.data
-        if data is None or not isinstance(data, bpy.types.Mesh):
-            return False
-        for material in data.materials:
+        for material in bo.data.materials:
             if material is not None:
                 return True
         return False
@@ -321,14 +318,14 @@ class LightBaker:
             toggle.track(objs, "hide_render", False)
             for i in bpy.data.objects:
                 i.select = i == objs
-                if not self._has_valid_material(i):
+                if isinstance(i.data, bpy.types.Mesh) and not self._has_valid_material(i):
                     toggle.track(i, "hide_render", True)
         else:
             for i in bpy.data.objects:
                 value = i in objs
                 if value:
                     toggle.track(i, "hide_render", False)
-                elif not self._has_valid_material(i):
+                elif isinstance(i.data, bpy.types.Mesh) and not self._has_valid_material(i):
                     toggle.track(i, "hide_render", True)
                 i.select = value
 
