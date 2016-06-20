@@ -69,11 +69,12 @@ class LightBaker:
         with GoodNeighbor() as toggle:
             try:
                 # reduce the amount of indentation
-                self._bake_static_lighting(bake, toggle)
+                result = self._bake_static_lighting(bake, toggle)
             finally:
                 # this stuff has been observed to be problematic with GoodNeighbor
                 self._pop_lightgroups()
                 self._restore_uvtexs()
+            return result
 
     def _bake_static_lighting(self, bake, toggle):
         # Step 0.9: Make all layers visible.
@@ -111,6 +112,9 @@ class LightBaker:
                 self._bake_vcols(value)
             else:
                 raise RuntimeError(key[0])
+
+        # Return how many thingos we baked
+        return sum(map(sum, bake.values()))
 
     def _generate_lightgroup(self, mesh, user_lg=None):
         """Makes a new light group for the baking process that excludes all Plasma RT lamps"""

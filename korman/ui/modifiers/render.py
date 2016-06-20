@@ -59,7 +59,7 @@ def lightmap(modifier, layout, context):
     # the backing image name to see if it's for this lightmap. If so, you have a preview. If not,
     # well... It was nice knowing you!
     tex = bpy.data.textures.get("LIGHTMAPGEN_PREVIEW")
-    if tex is not None:
+    if tex is not None and tex.image is not None:
         im_name = "{}_LIGHTMAPGEN.png".format(context.active_object.name)
         if tex.image.name == im_name:
             layout.template_preview(tex, show_buttons=False)
