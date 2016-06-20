@@ -77,6 +77,7 @@ class PlasmaModifiersPanel(ModifierButtonsPanel, bpy.types.Panel):
 
         row.operator("object.plasma_modifier_move_up", text="", icon="TRIA_UP").active_modifier = modifier.display_order
         row.operator("object.plasma_modifier_move_down", text="", icon="TRIA_DOWN").active_modifier = modifier.display_order
+        row.operator("object.plasma_modifier_reset", text="", icon="FILE_REFRESH").active_modifier = modifier.display_order
         row.operator("object.plasma_modifier_remove", text="", icon="X").active_modifier = modifier.display_order
 
         # Now we return the modifier box, which is populated with the modifier specific properties

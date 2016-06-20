@@ -131,6 +131,36 @@ class ModifierRemoveOperator(ModifierOperator, bpy.types.Operator):
             return context.window_manager.invoke_props_dialog(self)
 
 
+class ModifierResetOperator(ModifierOperator, bpy.types.Operator):
+    bl_idname = "object.plasma_modifier_reset"
+    bl_label = "Reset the modifier to its default state?"
+    bl_description = "Reset the modifier to its default state"
+
+    active_modifier = IntProperty(name="Modifier Display Order",
+                                  default=-1,
+                                  options={"HIDDEN"})
+
+    def draw(self, context):
+        pass
+
+    def execute(self, context):
+        assert self.active_modifier >= 0
+        for i in context.object.plasma_modifiers.modifiers:
+            if i.display_order == self.active_modifier:
+                mod = i
+                break
+        else:
+            raise IndexError(self.active_modifier)
+
+        props = set(mod.keys()) - {"display_order", "display_name"}
+        for i in props:
+            mod.property_unset(i)
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+
 class ModifierMoveOperator(ModifierOperator):
     def swap_modifier_ids(self, mods, s1, s2):
         done = 0
