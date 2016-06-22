@@ -135,7 +135,7 @@ class MeshConverter:
         for i in permaLights:
             geospan.addPermaLight(i)
         for i in permaProjs:
-            geospan.addPermaProjs(i)
+            geospan.addPermaProj(i)
 
         # If this object has a CI, we don't need xforms here...
         if self._exporter().has_coordiface(bo):

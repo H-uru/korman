@@ -204,9 +204,7 @@ class LightConverter:
                 pl_light = self.get_light_key(obj, lamp, None)
                 if self._is_projection_lamp(lamp):
                     print("        [{}] PermaProj '{}'".format(lamp.type, obj.name))
-                    permaProj.append(pl_light)
-                    # TODO: run this through the material exporter...
-                    # need to do some work to make the texture slot code not assume it's working with a material
+                    permaProjs.append(pl_light)
                 else:
                     print("        [{}] PermaLight '{}'".format(lamp.type, obj.name))
                     permaLights.append(pl_light)
