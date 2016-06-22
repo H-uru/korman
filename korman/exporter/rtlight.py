@@ -37,27 +37,6 @@ class LightConverter:
             "SUN": self._convert_sun_lamp,
         }
 
-    def _convert_point_lamp(self, bl, pl):
-        print("    [OmniLightInfo '{}']".format(bl.name))
-        self._convert_attenuation(bl, pl)
-
-    def _convert_spot_lamp(self, bl, pl):
-        print("    [SpotLightInfo '{}']".format(bl.name))
-        self._convert_attenuation(bl, pl)
-
-        # Spot lights have a few more things...
-        spot_size = bl.spot_size
-        pl.spotOuter = spot_size
-
-        blend = max(0.001, bl.spot_blend)
-        pl.spotInner = spot_size - (blend*spot_size)
-
-        if bl.use_halo:
-            pl.falloff = bl.halo_intensity
-        else:
-            pl.falloff = 1.0
-
-
     def _convert_attenuation(self, bl, pl):
         intens = bl.energy
         if intens < 0:
@@ -84,6 +63,27 @@ class LightConverter:
             pl.attenCutoff = attenEnd
         else:
             raise BlenderOptionNotSupportedError(bl.falloff_type)
+
+
+    def _convert_point_lamp(self, bl, pl):
+        print("    [OmniLightInfo '{}']".format(bl.name))
+        self._convert_attenuation(bl, pl)
+
+    def _convert_spot_lamp(self, bl, pl):
+        print("    [SpotLightInfo '{}']".format(bl.name))
+        self._convert_attenuation(bl, pl)
+
+        # Spot lights have a few more things...
+        spot_size = bl.spot_size
+        pl.spotOuter = spot_size
+
+        blend = max(0.001, bl.spot_blend)
+        pl.spotInner = spot_size - (blend*spot_size)
+
+        if bl.use_halo:
+            pl.falloff = bl.halo_intensity
+        else:
+            pl.falloff = 1.0
 
     def _convert_sun_lamp(self, bl, pl):
         print("    [DirectionalLightInfo '{}']".format(bl.name))
