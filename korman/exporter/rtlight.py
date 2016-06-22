@@ -37,27 +37,6 @@ class LightConverter:
             "SUN": self._convert_sun_lamp,
         }
 
-    def _convert_point_lamp(self, bl, pl):
-        print("    [OmniLightInfo '{}']".format(bl.name))
-        self._convert_attenuation(bl, pl)
-
-    def _convert_spot_lamp(self, bl, pl):
-        print("    [SpotLightInfo '{}']".format(bl.name))
-        self._convert_attenuation(bl, pl)
-
-        # Spot lights have a few more things...
-        spot_size = bl.spot_size
-        pl.spotOuter = spot_size
-
-        blend = max(0.001, bl.spot_blend)
-        pl.spotInner = spot_size - (blend*spot_size)
-
-        if bl.use_halo:
-            pl.falloff = bl.halo_intensity
-        else:
-            pl.falloff = 1.0
-
-
     def _convert_attenuation(self, bl, pl):
         intens = bl.energy
         if intens < 0:
@@ -84,6 +63,27 @@ class LightConverter:
             pl.attenCutoff = attenEnd
         else:
             raise BlenderOptionNotSupportedError(bl.falloff_type)
+
+
+    def _convert_point_lamp(self, bl, pl):
+        print("    [OmniLightInfo '{}']".format(bl.name))
+        self._convert_attenuation(bl, pl)
+
+    def _convert_spot_lamp(self, bl, pl):
+        print("    [SpotLightInfo '{}']".format(bl.name))
+        self._convert_attenuation(bl, pl)
+
+        # Spot lights have a few more things...
+        spot_size = bl.spot_size
+        pl.spotOuter = spot_size
+
+        blend = max(0.001, bl.spot_blend)
+        pl.spotInner = spot_size - (blend*spot_size)
+
+        if bl.use_halo:
+            pl.falloff = bl.halo_intensity
+        else:
+            pl.falloff = 1.0
 
     def _convert_sun_lamp(self, bl, pl):
         print("    [DirectionalLightInfo '{}']".format(bl.name))
@@ -162,8 +162,50 @@ class LightConverter:
             sv_key = sv_mod.get_key(self._exporter())
         pl_light.softVolume = sv_key
 
+        # Is this a projector?
+        projectors = tuple(self.get_projectors(bl_light))
+        if projectors:
+            self._export_rt_projector(bo, pl_light, projectors)
+
         # *Sigh*
         pl_light.sceneNode = self.mgr.get_scene_node(location=so.key.location)
+
+    def _export_rt_projector(self, bo, pl_light, tex_slots):
+        mat = self._exporter().mesh.material
+        slot = tex_slots[0]
+
+        # There is a Material available in the caller, but that is for the parent Mesh. We are a
+        # projection Lamp with our own faux Material. Unfortunately, Plasma only supports projecting
+        # one layer. We could exploit the fUnderLay and fOverLay system to export everything, but meh.
+        if len(tex_slots) > 1:
+            self._exporter().warn("Only one texture slot can be exported per Lamp. Picking the first one: '{}'".format(slot.name), indent=3)
+        layer = mat.export_texture_slot(bo, None, None, tex_slots, 0, blend_flags=False)
+        state = layer.state
+
+        # Colors science'd from PRPs
+        layer.preshade = hsColorRGBA(0.5, 0.5, 0.5)
+        layer.runtime = hsColorRGBA(0.5, 0.5, 0.5)
+
+        # Props for projectors...
+        # Note that we tell the material exporter to (try not to) do any blend flags for us
+        layer.UVWSrc |= plLayer.kUVWPosition
+        if bo.data.type == "SPOT":
+            state.miscFlags |= hsGMatState.kMiscPerspProjection
+        else:
+            state.miscFlags |= hsGMatState.kMiscOrthoProjection
+        state.ZFlags |= hsGMatState.kZNoZWrite
+        pl_light.setProperty(plLightInfo.kLPMovable, True)
+        pl_light.setProperty(plLightInfo.kLPCastShadows, False)
+
+        if slot.blend_type == "ADD":
+            state.blendFlags |= hsGMatState.kBlendAdd
+            pl_light.setProperty(plLightInfo.kLPOverAll, True)
+        elif slot.blend_type == "MULTIPLY":
+            # From PlasmaMAX
+            state.blendFlags |= hsGMatState.kBlendMult | hsGMatState.kBlendInvertColor | hsGMatState.kBlendInvertFinalColor
+            pl_light.setProperty(plLightInfo.kLPOverAll, True)
+
+        pl_light.projection = layer.key
 
     def find_material_light_keys(self, bo, bm):
         """Given a blender material, we find the keys of all matching Plasma RT Lights.
@@ -204,9 +246,7 @@ class LightConverter:
                 pl_light = self.get_light_key(obj, lamp, None)
                 if self._is_projection_lamp(lamp):
                     print("        [{}] PermaProj '{}'".format(lamp.type, obj.name))
-                    permaProj.append(pl_light)
-                    # TODO: run this through the material exporter...
-                    # need to do some work to make the texture slot code not assume it's working with a material
+                    permaProjs.append(pl_light)
                 else:
                     print("        [{}] PermaLight '{}'".format(lamp.type, obj.name))
                     permaLights.append(pl_light)
@@ -219,6 +259,11 @@ class LightConverter:
             return self.mgr.find_create_key(xlate, bl=bo, so=so)
         except LookupError:
             raise BlenderOptionNotSupportedError("Object ('{}') lamp type '{}'".format(bo.name, bl_light.type))
+
+    def get_projectors(self, bl_light):
+        for tex in bl_light.texture_slots:
+            if tex is not None and tex.texture is not None:
+                yield tex
 
     def _is_projection_lamp(self, bl_light):
         for tex in bl_light.texture_slots:

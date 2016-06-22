@@ -117,7 +117,7 @@ class PlasmaWaterModifier(PlasmaModifierProperties, bpy.types.PropertyGroup):
                 raise ExportError("{}: Texture '{}' is not an ENVIRONMENT MAP".format(self.key_name, self.envmap_name))
 
             # maybe, just maybe, we're absuing our privledges?
-            dem = exporter.mesh.material.export_dynamic_env(bo, None, None, texture, plDynamicEnvMap)
+            dem = exporter.mesh.material.export_dynamic_env(bo, None, texture, plDynamicEnvMap)
             waveset.envMap = dem.key
             state.envCenter = dem.position
             state.envRefresh = dem.refreshRate
