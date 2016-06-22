@@ -104,7 +104,7 @@ class MaterialConverter:
         # export many slots in one go. Think stencils.
         i = 0
         while i < len(slots):
-            i += self._export_texture_slot(bo, bm, hsgmat, slots, i)
+            i += self.export_texture_slot(bo, bm, hsgmat, slots, i)
 
         # Plasma makes several assumptions that every hsGMaterial has at least one layer. If this
         # material had no Textures, we will need to initialize a default layer
@@ -138,23 +138,25 @@ class MaterialConverter:
         # Wasn't that easy?
         return hsgmat.key
 
-    def _export_texture_slot(self, bo, bm, hsgmat, slots, idx):
+    def export_texture_slot(self, bo, bm, hsgmat, slots, idx, blend_flags=True):
         slot = slots[idx]
         num_exported = 1
 
-        name = "{}_{}".format(bm.name, slot.name)
+        name = "{}_{}".format(bm.name if bm is not None else bo.name, slot.name)
         print("        Exporting Plasma Layer '{}'".format(name))
         layer = self._mgr.add_object(plLayer, name=name, bl=bo)
-        self._propagate_material_settings(bm, layer)
+        if bm is not None:
+            self._propagate_material_settings(bm, layer)
 
         # UVW Channel
-        for i, uvchan in enumerate(bo.data.uv_layers):
-            if uvchan.name == slot.uv_layer:
-                layer.UVWSrc = i
-                print("            Using UV Map #{} '{}'".format(i, name))
-                break
-        else:
-            print("            No UVMap specified... Blindly using the first one, maybe it exists :|")
+        if slot.texture_coords == "UV":
+            for i, uvchan in enumerate(bo.data.uv_layers):
+                if uvchan.name == slot.uv_layer:
+                    layer.UVWSrc = i
+                    print("            Using UV Map #{} '{}'".format(i, name))
+                    break
+            else:
+                print("            No UVMap specified... Blindly using the first one, maybe it exists :|")
 
         # Transform
         xform = hsMatrix44()
@@ -162,8 +164,12 @@ class MaterialConverter:
         xform.setScale(hsVector3(*slot.scale))
         layer.transform = xform
 
+        wantStencil, canStencil = slot.use_stencil, slot.use_stencil and bm is not None
+        if wantStencil and not canStencil:
+            self._exporter().report.warn("{} wants to stencil, but this is not a real Material".format(slot.name))
+
         state = layer.state
-        if slot.use_stencil:
+        if canStencil:
             hsgmat.compFlags |= hsGMaterial.kCompNeedsBlendChannel
             state.blendFlags |= hsGMatState.kBlendAlpha | hsGMatState.kBlendAlphaMult | hsGMatState.kBlendNoTexColor
             if slot.texture.type == "BLEND":
@@ -176,7 +182,7 @@ class MaterialConverter:
             if len(slots) == nextIdx:
                 raise ExportError("Texture Slot '{}' wants to be a stencil, but there are no more TextureSlots.".format(slot.name))
             print("            --- BEGIN STENCIL ---")
-            self._export_texture_slot(bo, bm, hsgmat, slots, nextIdx)
+            self.export_texture_slot(bo, bm, hsgmat, slots, nextIdx)
             print("            ---  END STENCIL  ---")
             num_exported += 1
 
@@ -186,7 +192,7 @@ class MaterialConverter:
             prev_state.miscFlags |= hsGMatState.kMiscBindNext | hsGMatState.kMiscRestartPassHere
             if not prev_state.blendFlags & hsGMatState.kBlendMask:
                 prev_state.blendFlags |= hsGMatState.kBlendAlpha
-        else:
+        elif blend_flags:
             # Standard layer flags ahoy
             if slot.blend_type == "ADD":
                 state.blendFlags |= hsGMatState.kBlendAddColorTimesAlpha
@@ -204,18 +210,24 @@ class MaterialConverter:
             state.blendFlags |= hsGMatState.kBlendAlphaTestHigh
 
         # Export the specific texture type
-        self._tex_exporters[texture.type](bo, hsgmat, layer, slot)
+        self._tex_exporters[texture.type](bo, layer, slot)
 
         # Export any layer animations
-        layer = self._export_layer_animations(bo, bm, slot, idx, hsgmat, layer)
+        layer = self._export_layer_animations(bo, bm, slot, idx, layer)
 
-        hsgmat.addLayer(layer.key)
-        return num_exported
+        if hsgmat is None:
+            return layer
+        else:
+            hsgmat.addLayer(layer.key)
+            return num_exported
 
-    def _export_layer_animations(self, bo, bm, tex_slot, idx, hsgmat, base_layer):
+    def _export_layer_animations(self, bo, bm, tex_slot, idx, base_layer):
         """Exports animations on this texture and chains the Plasma layers as needed"""
 
         def harvest_fcurves(bl_id, collection, data_path=None):
+            if bl_id is None:
+                return None
+
             anim = bl_id.animation_data
             if anim is not None:
                 action = anim.action
@@ -241,7 +253,7 @@ class MaterialConverter:
         # and chain this biotch up as best we can.
         layer_animation = None
         for attr, converter in self._animation_exporters.items():
-            ctrl = converter(bm, tex_slot, base_layer, fcurves)
+            ctrl = converter(tex_slot, base_layer, fcurves)
             if ctrl is not None:
                 if layer_animation is None:
                     name = "{}_LayerAnim".format(base_layer.key.name)
@@ -274,7 +286,7 @@ class MaterialConverter:
         # Well, we had some FCurves but they were garbage... Too bad.
         return base_layer
 
-    def _export_layer_opacity_animation(self, bm, tex_slot, base_layer, fcurves):
+    def _export_layer_opacity_animation(self, tex_slot, base_layer, fcurves):
         for i in fcurves:
             if i.data_path == "plasma_layer.opacity":
                 base_layer.state.blendFlags |= hsGMatState.kBlendAlpha
@@ -282,7 +294,7 @@ class MaterialConverter:
                 return ctrl
         return None
 
-    def _export_layer_transform_animation(self, bm, tex_slot, base_layer, fcurves):
+    def _export_layer_transform_animation(self, tex_slot, base_layer, fcurves):
         pos_fcurves = [i for i in fcurves if i.data_path.find("offset") != -1]
         scale_fcurves = [i for i in fcurves if i.data_path.find("scale") != -1]
 
@@ -290,7 +302,7 @@ class MaterialConverter:
         ctrl = self._exporter().animation.make_matrix44_controller(pos_fcurves, scale_fcurves, tex_slot.offset, tex_slot.scale)
         return ctrl
 
-    def _export_texture_type_environment_map(self, bo, hsgmat, layer, slot):
+    def _export_texture_type_environment_map(self, bo, layer, slot):
         """Exports a Blender EnvironmentMapTexture to a plLayer"""
 
         texture = slot.texture
@@ -300,7 +312,7 @@ class MaterialConverter:
                 pl_env = plDynamicCamMap
             else:
                 pl_env = plDynamicEnvMap
-            pl_env = self.export_dynamic_env(bo, hsgmat, layer, texture, pl_env)
+            pl_env = self.export_dynamic_env(bo, layer, texture, pl_env)
         else:
             # We should really export a CubicEnvMap here, but we have a good setup for DynamicEnvMaps
             # that create themselves when the explorer links in, so really... who cares about CEMs?
@@ -309,7 +321,7 @@ class MaterialConverter:
         layer.state.shadeFlags |= hsGMatState.kShadeEnvironMap
         layer.texture = pl_env.key
 
-    def export_dynamic_env(self, bo, hsgmat, layer, texture, pl_class):
+    def export_dynamic_env(self, bo, layer, texture, pl_class):
         # To protect the user from themselves, let's check to make sure that a DEM/DCM matching this
         # viewpoint object has not already been exported...
         bl_env = texture.environment_map
@@ -408,7 +420,7 @@ class MaterialConverter:
 
         return pl_env
 
-    def _export_texture_type_image(self, bo, hsgmat, layer, slot):
+    def _export_texture_type_image(self, bo, layer, slot):
         """Exports a Blender ImageTexture to a plLayer"""
         texture = slot.texture
 
@@ -457,7 +469,7 @@ class MaterialConverter:
                 print("            Found another user of '{}'".format(texture.image.name))
                 self._pending[key].append(layer.key)
 
-    def _export_texture_type_none(self, bo, hsgmat, layer, texture):
+    def _export_texture_type_none(self, bo, layer, texture):
         # We'll allow this, just for sanity's sake...
         pass
 
