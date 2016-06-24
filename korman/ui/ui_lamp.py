@@ -31,7 +31,7 @@ class PlasmaLampPanel(LampButtonsPanel, bpy.types.Panel):
 
     def draw (self, context):
         layout = self.layout
-        rtlamp = context.object.data.plasma_lamp
+        rtlamp = context.lamp.plasma_lamp
 
         split = layout.split()
         col = split.column()
@@ -45,3 +45,38 @@ class PlasmaLampPanel(LampButtonsPanel, bpy.types.Panel):
 
         if not context.object.plasma_modifiers.softvolume.enabled:
             layout.prop_search(rtlamp, "soft_region", bpy.data, "objects")
+
+
+def _draw_area_lamp(self, context):
+    """Draw dispatch function for DATA_PT_area"""
+    if context.scene.render.engine == "PLASMA_GAME":
+        _plasma_draw_area_lamp(self, context)
+    else:
+        self._draw_blender(context)
+
+
+def _plasma_draw_area_lamp(self, context):
+    """Draw function for DATA_PT_area when Korman is active"""
+    layout = self.layout
+    lamp = context.lamp
+    plasma_lamp = lamp.plasma_lamp
+
+    col = layout.column()
+    col.row().prop(lamp, "shape", expand=True)
+    sub = col.row(align=True)
+
+    if lamp.shape == "SQUARE":
+        sub.prop(lamp, "size")
+        sub.prop(plasma_lamp, "size_height")
+    elif lamp.shape == "RECTANGLE":
+        sub.prop(lamp, "size", text="W")
+        sub.prop(lamp, "size_y", text="D")
+        sub.prop(plasma_lamp, "size_height", text="H")
+
+# Swap out the draw functions for the standard Area Shape panel
+# TODO: Maybe we should consider standardizing an interface for overriding
+#       standard Blender panels? This seems like a really useful approach.
+from bl_ui import properties_data_lamp
+properties_data_lamp.DATA_PT_area._draw_blender = properties_data_lamp.DATA_PT_area.draw
+properties_data_lamp.DATA_PT_area.draw = _draw_area_lamp
+del properties_data_lamp

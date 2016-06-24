@@ -32,3 +32,9 @@ class PlasmaLamp(bpy.types.PropertyGroup):
     soft_region = StringProperty(name="Soft Volume",
                                  description="Soft region this light is active inside",
                                  options=set())
+
+    # For LimitedDirLights
+    size_height = FloatProperty(name="Height",
+                               description="Size of the area for the Area Lamp in the Z direction",
+                               min=0.0, default=200.0,
+                               options=set())

@@ -21,6 +21,7 @@ from .explosions import *
 from . import utils
 
 _BL2PL = {
+    "AREA": plLimitedDirLightInfo,
     "POINT": plOmniLightInfo,
     "SPOT": plSpotLightInfo,
     "SUN": plDirectionalLightInfo,
@@ -32,6 +33,7 @@ class LightConverter:
     def __init__(self, exporter):
         self._exporter = weakref.ref(exporter)
         self._converter_funcs = {
+            "AREA": self._convert_area_lamp,
             "POINT": self._convert_point_lamp,
             "SPOT": self._convert_spot_lamp,
             "SUN": self._convert_sun_lamp,
@@ -64,6 +66,12 @@ class LightConverter:
         else:
             raise BlenderOptionNotSupportedError(bl.falloff_type)
 
+    def _convert_area_lamp(self, bl, pl):
+        print("    [LimitedDirLightInfo '{}']".format(bl.name))
+
+        pl.width = bl.size
+        pl.depth = bl.size if bl.shape == "SQUARE" else bl.size_y
+        pl.height = bl.plasma_lamp.size_height
 
     def _convert_point_lamp(self, bl, pl):
         print("    [OmniLightInfo '{}']".format(bl.name))
