@@ -69,8 +69,7 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
         split = layout.split()
         col = split.column()
         col.label("Animation:")
-        col.enabled = context.texture.animation_data is not None or \
-                      context.material.animation_data is not None
+        col.enabled = self._has_animation_data(context)
         col.prop(layer_props, "anim_auto_start")
         col.prop(layer_props, "anim_loop")
 
@@ -78,3 +77,16 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
         col.label("General:")
         col.prop(layer_props, "opacity", text="Opacity")
         col.prop(layer_props, "alpha_halo")
+
+    def _has_animation_data(self, context):
+        tex = getattr(context, "texture", None)
+        if tex is not None:
+            if tex.animation_data is not None:
+                return True
+
+        mat = getattr(context, "material", None)
+        if mat is not None:
+            if mat.animation_data is not None:
+                return True
+
+        return False
