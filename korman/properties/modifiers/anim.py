@@ -61,12 +61,9 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
         action = _get_blender_action(bo)
         markers = action.pose_markers
 
-        atcanim = exporter.mgr.find_create_object(plATCAnim, so=so, name=self.key_name)
+        atcanim = exporter.mgr.find_create_object(plATCAnim, so=so)
         atcanim.autoStart = self.auto_start
         atcanim.loop = self.loop
-        atcanim.name = "(Entire Animation)"
-        atcanim.start = _convert_frame_time(action.frame_range[0])
-        atcanim.end = _convert_frame_time(action.frame_range[1])
 
         # Simple start and loop info
         initial_marker = markers.get(self.initial_marker)
@@ -86,51 +83,6 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
             else:
                 atcanim.loopEnd = _convert_frame_time(action.frame_range[1])
 
-        # Marker points
-        for marker in markers:
-            atcanim.setMarker(marker.name, _convert_frame_time(marker.frame))
-
-        # Fixme? Not sure if we really need to expose this...
-        atcanim.easeInMin = 1.0
-        atcanim.easeInMax = 1.0
-        atcanim.easeInLength = 1.0
-        atcanim.easeOutMin = 1.0
-        atcanim.easeOutMax = 1.0
-        atcanim.easeOutLength = 1.0
-
-        # Now for the animation data. We're mostly just going to hand this off to the controller code
-        matrix = bo.matrix_basis
-        applicator = plMatrixChannelApplicator()
-        applicator.enabled = True
-        applicator.channelName = bo.name
-        channel = plMatrixControllerChannel()
-        channel.controller = exporter.animation.convert_action2tm(action, matrix)
-        applicator.channel = channel
-        atcanim.addApplicator(applicator)
-
-        # Decompose the matrix into the 90s-era 3ds max affine parts sillyness
-        # All that's missing now is something like "(c) 1998 HeadSpin" oh wait...
-        affine = hsAffineParts()
-        affine.T = hsVector3(*matrix.to_translation())
-        affine.K = hsVector3(*matrix.to_scale())
-        affine.F = -1.0 if matrix.determinant() < 0.0 else 1.0
-        rot = matrix.to_quaternion()
-        affine.Q = utils.quaternion(rot)
-        rot.normalize()
-        affine.U = utils.quaternion(rot)
-        channel.affine = affine
-
-        # We need both an AGModifier and an AGMasterMod
-        # NOTE: mandatory order--otherwise the animation will not work in game!
-        agmod = exporter.mgr.find_create_object(plAGModifier, so=so, name=self.key_name)
-        agmod.channelName = bo.name
-        agmaster = exporter.mgr.find_create_object(plAGMasterMod, so=so, name=self.key_name)
-        agmaster.addPrivateAnim(atcanim.key)
-
-    @property
-    def key_name(self):
-        return "{}_(Entire Animation)".format(self.id_data.name)
-    
     def _make_physical_movable(self, so):
         sim = so.sim
         if sim is not None:
@@ -179,14 +131,11 @@ class PlasmaAnimationGroupModifier(PlasmaModifierProperties):
         action = _get_blender_action(bo)
         key_name = bo.plasma_modifiers.animation.key_name
 
-        # See above... AGModifier must always be inited first...
-        agmod = exporter.mgr.find_create_object(plAGModifier, so=so, name=key_name)
-
         # The message forwarder is the guy that makes sure that everybody knows WTF is going on
         msgfwd = exporter.mgr.find_create_object(plMsgForwarder, so=so, name=self.key_name)
 
         # Now, this is da swhiz...
-        agmaster = exporter.mgr.find_create_object(plAGMasterMod, so=so, name=key_name)
+        agmod, agmaster = exporter.animation.get_anigraph_objects(bo, so)
         agmaster.msgForwarder = msgfwd.key
         agmaster.isGrouped, agmaster.isGroupMaster = True, True
         for i in self.children:
@@ -204,9 +153,8 @@ class PlasmaAnimationGroupModifier(PlasmaModifierProperties):
                 msg = "Animation Group '{}' specifies an object '{}' with no Plasma Animation modifier. Ignoring..."
                 exporter.report.warn(msg.format(self.key_name, i.object_name), indent=2)
                 continue
-            child_agmod = exporter.mgr.find_create_key(plAGModifier, bl=child_bo, name=child_animation.key_name)
-            child_agmaster = exporter.mgr.find_create_key(plAGMasterMod, bl=child_bo, name=child_animation.key_name)
-            msgfwd.addForwardKey(child_agmaster)
+            child_agmod, child_agmaster = exporter.animation.get_anigraph_objects(bo=child_bo)
+            msgfwd.addForwardKey(child_agmaster.key)
         msgfwd.addForwardKey(agmaster.key)
 
     @property
@@ -241,8 +189,7 @@ class PlasmaAnimationLoopModifier(PlasmaModifierProperties):
         action = _get_blender_action(bo)
         markers = action.pose_markers
 
-        key_name = bo.plasma_modifiers.animation.key_name
-        atcanim = exporter.mgr.find_create_object(plATCAnim, so=so, name=key_name)
+        atcanim = exporter.mgr.find_create_object(plATCAnim, so=so)
         for loop in self.loops:
             start = markers.get(loop.loop_start)
             end = markers.get(loop.loop_end)

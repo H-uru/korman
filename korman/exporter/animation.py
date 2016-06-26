@@ -27,19 +27,103 @@ class AnimationConverter:
         self._exporter = weakref.ref(exporter)
         self._bl_fps = bpy.context.scene.render.fps
 
-    def convert_action2tm(self, action, default_xform):
-        """Converts a Blender Action to a plCompoundController."""
+    def _convert_frame_time(self, frame_num):
+        return frame_num / self._bl_fps
+
+    def convert_object_animations(self, bo, so):
+        anim = bo.animation_data
+        if anim is None:
+            return
+        action = anim.action
+        if action is None:
+            return
         fcurves = action.fcurves
         if not fcurves:
-            return None
+            return
 
-        # NOTE: plCompoundController is from Myst 5 and was backported to MOUL.
-        # Worry not however... libHSPlasma will do the conversion for us.
+        # We're basically just going to throw all the FCurves at the controller converter (read: wall)
+        # and see what sticks. PlasmaMAX has some nice animation channel stuff that allows for some
+        # form of separation, but Blender's NLA editor is way confusing and appears to not work with
+        # things that aren't the typical position, rotation, scale animations.
+        applicators = []
+        applicators.append(self._convert_transform_animation(bo.name, fcurves, bo.matrix_basis))
+
+        # Check to make sure we have some valid animation applicators before proceeding.
+        if not any(applicators):
+            return
+
+        # There is a race condition in the client with animation loading. It expects for modifiers
+        # to be listed on the SceneObject in a specific order. D'OH! So, always use these funcs.
+        agmod, agmaster = self.get_anigraph_objects(bo, so)
+        atcanim = self._mgr.find_create_object(plATCAnim, so=so)
+
+        # Add the animation data to the ATC
+        for i in applicators:
+            if i is not None:
+                atcanim.addApplicator(i)
+        agmod.channelName = bo.name
+        agmaster.addPrivateAnim(atcanim.key)
+
+        # This was previously part of the Animation Modifier, however, there can be lots of animations
+        # Therefore we move it here.
+        markers = action.pose_markers
+        atcanim.name = "(Entire Animation)"
+        atcanim.start = self._convert_frame_time(action.frame_range[0])
+        atcanim.end = self._convert_frame_time(action.frame_range[1])
+
+        # Marker points
+        for marker in markers:
+            atcanim.setMarker(marker.name, self._convert_frame_time(marker.frame))
+
+        # Fixme? Not sure if we really need to expose this...
+        atcanim.easeInMin = 1.0
+        atcanim.easeInMax = 1.0
+        atcanim.easeInLength = 1.0
+        atcanim.easeOutMin = 1.0
+        atcanim.easeOutMax = 1.0
+        atcanim.easeOutLength = 1.0
+
+    def _convert_transform_animation(self, name, fcurves, xform):
+        pos = self.make_pos_controller(fcurves, xform)
+        rot = self.make_rot_controller(fcurves, xform)
+        scale = self.make_scale_controller(fcurves, xform)
+        if pos is None and rot is None and scale is None:
+            return None
         tm = plCompoundController()
-        tm.X = self.make_pos_controller(fcurves, default_xform)
-        tm.Y = self.make_rot_controller(fcurves, default_xform)
-        tm.Z = self.make_scale_controller(fcurves, default_xform)
-        return tm
+        tm.X = pos
+        tm.Y = rot
+        tm.Z = scale
+
+        applicator = plMatrixChannelApplicator()
+        applicator.enabled = True
+        applicator.channelName = name
+        channel = plMatrixControllerChannel()
+        channel.controller = tm
+        applicator.channel = channel
+
+        # Decompose the matrix into the 90s-era 3ds max affine parts sillyness
+        # All that's missing now is something like "(c) 1998 HeadSpin" oh wait...
+        affine = hsAffineParts()
+        affine.T = hsVector3(*xform.to_translation())
+        affine.K = hsVector3(*xform.to_scale())
+        affine.F = -1.0 if xform.determinant() < 0.0 else 1.0
+        rot = xform.to_quaternion()
+        affine.Q = utils.quaternion(rot)
+        rot.normalize()
+        affine.U = utils.quaternion(rot)
+        channel.affine = affine
+
+        return applicator
+
+    def get_anigraph_keys(self, bo=None, so=None):
+        mod = self._mgr.find_create_key(plAGModifier, so=so, bl=bo)
+        master = self._mgr.find_create_key(plAGMasterMod, so=so, bl=bo)
+        return mod, master
+
+    def get_anigraph_objects(self, bo=None, so=None):
+        mod = self._mgr.find_create_object(plAGModifier, so=so, bl=bo)
+        master = self._mgr.find_create_object(plAGMasterMod, so=so, bl=bo)
+        return mod, master
 
     def make_matrix44_controller(self, pos_fcurves, scale_fcurves, default_pos, default_scale):
         pos_keyframes, pos_bez = self._process_keyframes(pos_fcurves)

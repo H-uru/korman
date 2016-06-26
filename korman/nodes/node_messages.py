@@ -178,9 +178,7 @@ class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
                 # (but obviously this is not wrong...)
                 target = exporter.mgr.find_create_key(plMsgForwarder, bl=obj, name=group.key_name)
             else:
-                # remember, the AGModifier MUST exist first... so just in case...
-                exporter.mgr.find_create_key(plAGModifier, bl=obj, name=anim.key_name)
-                target = exporter.mgr.find_create_key(plAGMasterMod, bl=obj, name=anim.key_name)
+                _agmod_trash, target = exporter.animation.get_anigraph_keys(obj)
         else:
             material = bpy.data.materials.get(self.material_name, None)
             if material is None:
