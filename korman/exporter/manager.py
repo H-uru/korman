@@ -77,9 +77,12 @@ class ExportManager:
         # This is one of those "sanity" things to ensure we don't suddenly startpassing around the
         # key of an uninitialized object.
         if isinstance(pl, type(object)):
-            assert name or bl
+            assert name or bl or so
             if name is None:
-                name = bl.name
+                if bl is not None:
+                    name = bl.name
+                else:
+                    name = so.key.name
             pl = pl(name)
 
         self.mgr.AddObject(location, pl)
@@ -173,14 +176,18 @@ class ExportManager:
 
     def find_key(self, pClass, bl=None, name=None, so=None):
         """Given a blender Object and a Plasma class, find (or create) an exported plKey"""
-        assert (bl or name) and (bl or so)
+        assert bl or so
 
         if so is None:
             location = self._pages[bl.plasma_object.page]
         else:
             location = so.key.location
+
         if name is None:
-            name = bl.name
+            if bl is not None:
+                name = bl.name
+            else:
+                name = so.key.name
 
         index = plFactory.ClassIndex(pClass.__name__)
         for key in self.mgr.getKeys(location, index):
