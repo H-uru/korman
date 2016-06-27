@@ -57,6 +57,8 @@ class AnimationConverter:
         if isinstance(bo.data, bpy.types.Lamp):
             lamp = bo.data
             applicators.extend(self._convert_lamp_color_animation(bo.name, data_fcurves, lamp))
+            if isinstance(lamp, bpy.types.SpotLamp):
+                applicators.extend(self._convert_spot_lamp_animation(bo.name, data_fcurves, lamp))
 
         # Check to make sure we have some valid animation applicators before proceeding.
         if not any(applicators):
@@ -170,6 +172,38 @@ class AnimationConverter:
                 channel.controller = self.make_scalar_leaf_controller(fcurve, convert=convert_volume)
                 applicator.channel = channel
                 yield applicator
+
+    def _convert_spot_lamp_animation(self, name, fcurves, lamp):
+        blend_fcurve = next((i for i in fcurves if i.data_path == "spot_blend"), None)
+        size_fcurve = next((i for i in fcurves if i.data_path == "spot_size"), None)
+        if blend_fcurve is None and size_fcurve is None:
+            return None
+
+        # Spot Outer is just the size keyframes...
+        if size_fcurve is not None:
+            channel = plScalarControllerChannel()
+            channel.controller = self.make_scalar_leaf_controller(size_fcurve, lambda x: math.degrees(x))
+            applicator = plSpotOuterApplicator()
+            applicator.channelName = name
+            applicator.channel = channel
+            yield applicator
+
+        # Spot inner must be calculated...
+        def convert_spot_inner(spot_blend, spot_size):
+            blend = min(0.001, spot_blend[0])
+            size = spot_size[0]
+            value = size - (blend * size)
+            return math.degrees(value)
+        defaults = { "spot_blend": lamp.spot_blend, "spot_size": lamp.spot_size }
+        keyframes = self._process_fcurves([blend_fcurve, size_fcurve], convert_spot_inner, defaults)
+
+        if keyframes:
+            channel = plScalarControllerChannel()
+            channel.controller = self._make_scalar_leaf_controller(keyframes, False)
+            applicator = plSpotInnerApplicator()
+            applicator.channelName = name
+            applicator.channel = channel
+            yield applicator
 
     def _convert_transform_animation(self, name, fcurves, xform):
         if not fcurves:
