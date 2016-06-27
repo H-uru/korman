@@ -227,37 +227,28 @@ class AnimationConverter:
                     return True
         return False
 
-    def make_matrix44_controller(self, pos_fcurves, scale_fcurves, default_pos, default_scale):
-        pos_keyframes, pos_bez = self._process_keyframes(pos_fcurves)
-        scale_keyframes, scale_bez = self._process_keyframes(scale_fcurves)
-        if not pos_keyframes and not scale_keyframes:
+    def make_matrix44_controller(self, fcurves, pos_path, scale_path, pos_default, scale_default):
+        def convert_matrix_keyframe(**kwargs):
+            pos = kwargs.get(pos_path)
+            scale = kwargs.get(scale_path)
+
+            matrix = hsMatrix44()
+            # Note: scale and pos are dicts, so we can't unpack
+            matrix.setTranslate(hsVector3(pos[0], pos[1], pos[2]))
+            matrix.setScale(hsVector3(scale[0], scale[1], scale[2]))
+            return matrix
+
+        fcurves = [i for i in fcurves if i.data_path == pos_path or i.data_path == scale_path]
+        if not fcurves:
             return None
 
-        # Matrix keyframes cannot do bezier schtuff
-        if pos_bez or scale_bez:
-            self._exporter().report.warn("Matrix44 controllers cannot use bezier keyframes--forcing linear", indent=3)
-
-        # Let's pair up the pos and scale schtuff based on frame numbers. I realize that we're creating
-        # a lot of temporary objects, but until I see profiling results that this is terrible, I prefer
-        # to have code that makes sense.
-        keyframes = []
-        for pos, scale in itertools.zip_longest(pos_keyframes, scale_keyframes, fillvalue=None):
-            if pos is None:
-                keyframes.append((None, scale))
-            elif scale is None:
-                keyframes.append((pos, scale))
-            elif pos.frame_num == scale.frame_num:
-                keyframes.append((pos, scale))
-            elif pos.frame_num < scale.frame_num:
-                keyframes.append((pos, None))
-                keyframes.append((None, scale))
-            elif pos.frame_num > scale.frame_num:
-                keyframes.append((None, scale))
-                keyframes.append((pos, None))
+        default_values = { pos_path: pos_default, scale_path: scale_default }
+        keyframes = self._process_fcurves(fcurves, convert_matrix_keyframe, default_values)
+        if not keyframes:
+            return None
 
         # Now we make the controller
-        ctrl = self._make_matrix44_controller(pos_fcurves, scale_fcurves, keyframes, default_pos, default_scale)
-        return ctrl
+        return self._make_matrix44_controller(keyframes)
 
     def make_pos_controller(self, fcurves, default_xform, convert=None):
         pos_curves = [i for i in fcurves if i.data_path == "location" and i.keyframe_points]
@@ -303,41 +294,17 @@ class AnimationConverter:
         ctrl = self._make_scalar_leaf_controller(keyframes, bezier)
         return ctrl
 
-    def _make_matrix44_controller(self, pos_fcurves, scale_fcurves, keyframes, default_pos, default_scale):
+    def _make_matrix44_controller(self, keyframes):
         ctrl = plLeafController()
         keyframe_type = hsKeyFrame.kMatrix44KeyFrame
         exported_frames = []
-        pcurves = { i.array_index: i for i in pos_fcurves }
-        scurves = { i.array_index: i for i in scale_fcurves }
 
-        def eval_fcurve(fcurves, keyframe, i, default_xform):
-            try:
-                return fcurves[i].evaluate(keyframe.frame_num_blender)
-            except KeyError:
-                return default_xform[i]
-
-        for pos_key, scale_key in keyframes:
-            valid_key = pos_key if pos_key is not None else scale_key
+        for keyframe in keyframes:
             exported = hsMatrix44Key()
-            exported.frame = valid_key.frame_num
-            exported.frameTime = valid_key.frame_time
+            exported.frame = keyframe.frame_num
+            exported.frameTime = keyframe.frame_time
             exported.type = keyframe_type
-
-            if pos_key is not None:
-                pos_value = [pos_key.values[i] if i in pos_key.values else eval_fcurve(pcurves, pos_key, i, default_pos) for i in range(3)]
-            else:
-                pos_value = [eval_fcurve(pcurves, valid_key, i, default_pos) for i in range(3)]
-            if scale_key is not None:
-                scale_value = [scale_key.values[i] if i in scale_key.values else eval_fcurve(scurves, scale_key, i, default_scale) for i in range(3)]
-            else:
-                scale_value = [eval_fcurve(scurves, valid_key, i, default_scale) for i in range(3)]
-            pos_value = hsVector3(*pos_value)
-            scale_value = hsVector3(*scale_value)
-
-            value = hsMatrix44()
-            value.setTranslate(pos_value)
-            value.setScale(scale_value)
-            exported.value = value
+            exported.value = keyframe.value
             exported_frames.append(exported)
         ctrl.keys = (exported_frames, keyframe_type)
         return ctrl

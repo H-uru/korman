@@ -295,11 +295,12 @@ class MaterialConverter:
         return None
 
     def _export_layer_transform_animation(self, tex_slot, base_layer, fcurves):
-        pos_fcurves = [i for i in fcurves if i.data_path.find("offset") != -1]
-        scale_fcurves = [i for i in fcurves if i.data_path.find("scale") != -1]
+        path = tex_slot.path_from_id()
+        pos_path = "{}.offset".format(path)
+        scale_path = "{}.scale".format(path)
 
         # Plasma uses the controller to generate a matrix44... so we have to produce a leaf controller
-        ctrl = self._exporter().animation.make_matrix44_controller(pos_fcurves, scale_fcurves, tex_slot.offset, tex_slot.scale)
+        ctrl = self._exporter().animation.make_matrix44_controller(fcurves, pos_path, scale_path, tex_slot.offset, tex_slot.scale)
         return ctrl
 
     def _export_texture_type_environment_map(self, bo, layer, slot):
