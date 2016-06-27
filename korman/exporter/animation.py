@@ -455,6 +455,115 @@ class AnimationConverter:
         final_keyframes = [keyframes[i] for i in sorted(keyframes)]
         return (final_keyframes, bezier)
 
+    def _process_fcurves(self, fcurves, convert, defaults=None):
+        """Processes FCurves of different data sets and converts them into a single list of keyframes.
+           This should be used when multiple Blender fields map to a single Plasma option."""
+        class KeyFrameData:
+            def __init__(self):
+                self.values = {}
+        fps = self._bl_fps
+        pi = math.pi
+
+        # It is assumed therefore that any multichannel FCurves will have all channels represented.
+        # This seems fairly safe with my experiments with Lamp colors...
+        grouped_fcurves = {}
+        for fcurve in fcurves:
+            if fcurve is None:
+                continue
+            fcurve.update()
+            if fcurve.data_path in grouped_fcurves:
+                grouped_fcurves[fcurve.data_path][fcurve.array_index] = fcurve
+            else:
+                grouped_fcurves[fcurve.data_path] = { fcurve.array_index: fcurve }
+
+        # Default values for channels that are not animated
+        for key, value in defaults.items():
+            if key not in grouped_fcurves:
+                if hasattr(value, "__len__"):
+                    grouped_fcurves[key] = value
+                else:
+                    grouped_fcurves[key] = [value,]
+
+        # Assemble a dict { PlasmaFrameNum: { FCurveDataPath: KeyFrame } }
+        keyframe_points = {}
+        for fcurve in fcurves:
+            if fcurve is None:
+                continue
+            for keyframe in fcurve.keyframe_points:
+                frame_num_blender, value = keyframe.co
+                frame_num = int(frame_num_blender * (30.0 / fps))
+
+                # This is a temporary keyframe, so we're not going to worry about converting everything
+                # Only the frame number to Plasma so we can go ahead and merge any rounded dupes
+                entry, data = keyframe_points.get(frame_num), None
+                if entry is None:
+                    entry = {}
+                    keyframe_points[frame_num] = entry
+                else:
+                    data = entry.get(fcurve.data_path)
+                if data is None:
+                    data = KeyFrameData()
+                    data.frame_num = frame_num
+                    data.frame_num_blender = frame_num_blender
+                    entry[fcurve.data_path] = data
+                data.values[fcurve.array_index] = value
+
+        # Now, we loop through our assembled keyframes and interpolate any missing data using the FCurves
+        fcurve_chans = { key: len(value) for key, value in grouped_fcurves.items() }
+        expected_values = sum(fcurve_chans.values())
+        all_chans = frozenset(grouped_fcurves.keys())
+
+        # We will also do the final convert here as well...
+        final_keyframes = []
+
+        for frame_num in sorted(keyframe_points.copy().keys()):
+            keyframes = keyframe_points[frame_num]
+            frame_num_blender = next(iter(keyframes.values())).frame_num_blender
+
+            # If any data_paths are missing, init a dummy
+            missing_channels = all_chans - frozenset(keyframes.keys())
+            for chan in missing_channels:
+                dummy = KeyFrameData()
+                dummy.frame_num = frame_num
+                dummy.frame_num_blender = frame_num_blender
+                keyframes[chan] = dummy
+
+            # Ensure all values are filled out.
+            num_values = sum(map(len, (i.values for i in keyframes.values())))
+            if num_values != expected_values:
+                for chan, sorted_fcurves in grouped_fcurves.items():
+                    chan_keyframes = keyframes[chan]
+                    chan_values = fcurve_chans[chan]
+                    if len(chan_keyframes.values) == chan_values:
+                        continue
+                    for i in range(chan_values):
+                        if i not in chan_keyframes.values:
+                            fcurve = grouped_fcurves[chan][i]
+                            if isinstance(fcurve, bpy.types.FCurve):
+                                chan_keyframes.values[i] = fcurve.evaluate(chan_keyframes.frame_num_blender)
+                            else:
+                                # it's actually a default value!
+                                chan_keyframes.values[i] = fcurve
+
+            # All values are calculated! Now we convert the disparate key data into a single keyframe.
+            kwargs = { data_path: keyframe.values for data_path, keyframe in keyframes.items() }
+            final_keyframe = KeyFrameData()
+            final_keyframe.frame_num = frame_num
+            final_keyframe.frame_num_blender = frame_num_blender
+            final_keyframe.frame_time = frame_num / fps
+            value = convert(**kwargs)
+            if hasattr(value, "__len__"):
+                final_keyframe.in_tans = [0.0] * len(value)
+                final_keyframe.out_tans = [0.0] * len(value)
+                final_keyframe.values = value
+            else:
+                final_keyframe.in_tan = 0.0
+                final_keyframe.out_tan = 0.0
+                final_keyframe.value = value
+            final_keyframes.append(final_keyframe)
+        return final_keyframes
+
+
     def _process_keyframes(self, fcurves, convert=None):
         """Groups all FCurves for the same frame together"""
         keyframe_data = type("KeyFrameData", (), {})
@@ -482,7 +591,7 @@ class AnimationConverter:
                     keyframe.values = {}
                     keyframes[frame_num] = keyframe
                 idx = fcurve.array_index
-                keyframe.values[idx] =  value if convert is None else convert(value)
+                keyframe.values[idx] = value if convert is None else convert(value)
 
                 # Calculate the bezier interpolation nonsense
                 if fkey.interpolation == "BEZIER":
