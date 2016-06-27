@@ -214,6 +214,7 @@ class AnimationConverter:
         scale = self.make_scale_controller(fcurves, xform)
         if pos is None and rot is None and scale is None:
             return None
+
         tm = plCompoundController()
         tm.X = pos
         tm.Y = rot
@@ -249,6 +250,13 @@ class AnimationConverter:
         mod = self._mgr.find_create_object(plAGModifier, so=so, bl=bo)
         master = self._mgr.find_create_object(plAGMasterMod, so=so, bl=bo)
         return mod, master
+
+    def has_transform_animation(self, bo):
+        if bo.animation_data is not None:
+            if bo.animation_data.action is not None:
+                data_paths = frozenset((i.data_path for i in bo.animation_data.action.fcurves))
+                return {"location", "rotation_euler", "scale"} & data_paths
+        return False
 
     def is_animated(self, bo):
         if bo.animation_data is not None:

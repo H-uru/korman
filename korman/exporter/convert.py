@@ -257,9 +257,9 @@ class Exporter:
             return True
         if bo.parent is not None:
             return True
-        if bo.animation_data is not None and bo.animation_data.action is not None:
-            return True
         if bo.name in self.actors:
+            return True
+        if self.animation.has_transform_animation(bo):
             return True
 
         for mod in bo.plasma_modifiers.modifiers:

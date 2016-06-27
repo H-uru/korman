@@ -84,6 +84,32 @@ class PlasmaCollider(PlasmaModifierProperties):
         if self.terrain:
             physical.LOSDBs |= plSimDefs.kLOSDBAvatarWalkable
 
+    def _make_physical_movable(self, so):
+        sim = so.sim
+        if sim is not None:
+            sim = sim.object
+            phys = sim.physical.object
+            _set_phys_prop(plSimulationInterface.kPhysAnim, sim, phys)
+
+            # If the mass is zero, then we will fail to animate. Fix that.
+            if phys.mass == 0.0:
+                phys.mass = 1.0
+
+                # set kPinned so it doesn't fall through
+                _set_phys_prop(plSimulationInterface.kPinned, sim, phys)
+
+        # Do the same for child objects
+        for child in so.coord.object.children:
+            self._make_physical_movable(child.object)
+
+    def post_export(self, exporter, bo, so):
+        test_bo = bo
+        while test_bo is not None:
+            if exporter.animation.has_transform_animation(test_bo):
+                self._make_physical_movable(so)
+                break
+            test_bo = test_bo.parent
+
     @property
     def key_name(self):
         return "{}_Collision".format(self.id_data.name)
