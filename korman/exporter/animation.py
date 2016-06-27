@@ -157,9 +157,9 @@ class AnimationConverter:
         ctrl = self._make_matrix44_controller(pos_fcurves, scale_fcurves, keyframes, default_pos, default_scale)
         return ctrl
 
-    def make_pos_controller(self, fcurves, default_xform):
+    def make_pos_controller(self, fcurves, default_xform, convert=None):
         pos_curves = [i for i in fcurves if i.data_path == "location" and i.keyframe_points]
-        keyframes, bez_chans = self._process_keyframes(pos_curves)
+        keyframes, bez_chans = self._process_keyframes(pos_curves, convert)
         if not keyframes:
             return None
 
@@ -168,10 +168,10 @@ class AnimationConverter:
         ctrl = self._make_point3_controller(pos_curves, keyframes, bez_chans, default_xform.to_translation())
         return ctrl
 
-    def make_rot_controller(self, fcurves, default_xform):
+    def make_rot_controller(self, fcurves, default_xform, convert=None):
         # TODO: support rotation_quaternion
         rot_curves = [i for i in fcurves if i.data_path == "rotation_euler" and i.keyframe_points]
-        keyframes, bez_chans = self._process_keyframes(rot_curves)
+        keyframes, bez_chans = self._process_keyframes(rot_curves, convert=None)
         if not keyframes:
             return None
 
@@ -183,9 +183,9 @@ class AnimationConverter:
             ctrl = self._make_quat_controller(rot_curves, keyframes, default_xform.to_euler())
         return ctrl
 
-    def make_scale_controller(self, fcurves, default_xform):
+    def make_scale_controller(self, fcurves, default_xform, convert=None):
         scale_curves = [i for i in fcurves if i.data_path == "scale" and i.keyframe_points]
-        keyframes, bez_chans = self._process_keyframes(scale_curves)
+        keyframes, bez_chans = self._process_keyframes(scale_curves, convert)
         if not keyframes:
             return None
 
@@ -193,8 +193,8 @@ class AnimationConverter:
         ctrl = self._make_scale_value_controller(scale_curves, keyframes, bez_chans, default_xform)
         return ctrl
 
-    def make_scalar_leaf_controller(self, fcurve):
-        keyframes, bezier = self._process_fcurve(fcurve)
+    def make_scalar_leaf_controller(self, fcurve, convert=None):
+        keyframes, bezier = self._process_fcurve(fcurve, convert)
         if not keyframes:
             return None
 
@@ -399,7 +399,7 @@ class AnimationConverter:
         ctrl.keys = (exported_frames, keyframe_type)
         return ctrl
 
-    def _process_fcurve(self, fcurve):
+    def _process_fcurve(self, fcurve, convert=None):
         """Like _process_keyframes, but for one fcurve"""
         keyframe_data = type("KeyFrameData", (), {})
         fps = self._bl_fps
@@ -423,12 +423,12 @@ class AnimationConverter:
             else:
                 keyframe.in_tan = 0.0
                 keyframe.out_tan = 0.0
-            keyframe.value = value
+            keyframe.value = value if convert is None else convert(value)
             keyframes[frame_num] = keyframe
         final_keyframes = [keyframes[i] for i in sorted(keyframes)]
         return (final_keyframes, bezier)
 
-    def _process_keyframes(self, fcurves):
+    def _process_keyframes(self, fcurves, convert=None):
         """Groups all FCurves for the same frame together"""
         keyframe_data = type("KeyFrameData", (), {})
         fps = self._bl_fps
@@ -455,7 +455,7 @@ class AnimationConverter:
                     keyframe.values = {}
                     keyframes[frame_num] = keyframe
                 idx = fcurve.array_index
-                keyframe.values[idx] = value
+                keyframe.values[idx] =  value if convert is None else convert(value)
 
                 # Calculate the bezier interpolation nonsense
                 if fkey.interpolation == "BEZIER":
