@@ -47,6 +47,8 @@ class AnimationConverter:
         # things that aren't the typical position, rotation, scale animations.
         applicators = []
         applicators.append(self._convert_transform_animation(bo.name, fcurves, bo.matrix_basis))
+        if bo.plasma_modifiers.soundemit.enabled:
+            applicators.extend(self._convert_sound_volume_animation(bo.name, fcurves, bo.plasma_modifiers.soundemit))
 
         # Check to make sure we have some valid animation applicators before proceeding.
         if not any(applicators):
@@ -82,6 +84,31 @@ class AnimationConverter:
         atcanim.easeOutMin = 1.0
         atcanim.easeOutMax = 1.0
         atcanim.easeOutLength = 1.0
+
+    def _convert_sound_volume_animation(self, name, fcurves, soundemit):
+        def convert_volume(value):
+            if value == 0.0:
+                return 0.0
+            else:
+                return math.log10(value) * 20.0
+
+        for sound in soundemit.sounds:
+            path = "{}.volume".format(sound.path_from_id())
+            fcurve = next((i for i in fcurves if i.data_path == path and i.keyframe_points), None)
+            if fcurve is None:
+                continue
+
+            for i in soundemit.get_sound_indices(sound=sound):
+                applicator = plSoundVolumeApplicator()
+                applicator.channelName = name
+                applicator.index = i
+
+                # libHSPlasma assumes a channel is not shared among applicators...
+                # so yes, we must convert the same animation data again and again.
+                channel = plScalarControllerChannel()
+                channel.controller = self.make_scalar_leaf_controller(fcurve, convert=convert_volume)
+                applicator.channel = channel
+                yield applicator
 
     def _convert_transform_animation(self, name, fcurves, xform):
         pos = self.make_pos_controller(fcurves, xform)

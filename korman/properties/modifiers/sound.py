@@ -131,7 +131,7 @@ class PlasmaSound(bpy.types.PropertyGroup):
     volume = IntProperty(name="Volume",
                          description="Volume to play the sound",
                          min=0, max=100, default=100,
-                         options=set(),
+                         options={"ANIMATABLE"},
                          subtype="PERCENTAGE")
 
     fade_in = PointerProperty(type=PlasmaSfxFade, options=set())
@@ -344,20 +344,35 @@ class PlasmaSoundEmitter(PlasmaModifierProperties):
             if i.sound_data and i.enabled:
                 i.convert_sound(exporter, so, winaud)
 
-    def get_sound_indices(self, name):
+    def get_sound_indices(self, name=None, sound=None):
         """Returns the index of the given sound in the plWin32Sound. This is needed because stereo
            3D sounds export as two mono sound objects -- wheeeeee"""
+        assert name or sound
         idx = 0
-        for i in self.sounds:
-            if i.name == name:
-                yield idx
-                if i.is_3d_stereo:
-                    yield idx + 1
-                break
+
+        if name is None:
+            for i in self.sounds:
+                if i == sound:
+                    yield idx
+                    if i.is_3d_stereo:
+                        yield idx + 1
+                    break
+                else:
+                    idx += 2 if i.is_3d_stereo else 1
             else:
-                idx += 2 if i.is_3d_stereo else 1
-        else:
-            raise ValueError(name)
+                raise LookupError(sound)
+
+        if sound is None:
+            for i in self.sounds:
+                if i.name == name:
+                    yield idx
+                    if i.is_3d_stereo:
+                        yield idx + 1
+                    break
+                else:
+                    idx += 2 if i.is_3d_stereo else 1
+            else:
+                raise ValueError(name)
 
     @classmethod
     def register(cls):
