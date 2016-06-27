@@ -24,14 +24,21 @@ def _convert_frame_time(frame_num):
     fps = bpy.context.scene.render.fps
     return frame_num / fps
 
-def _get_blender_action(bo):
-    if bo.animation_data is None or bo.animation_data.action is None:
-        raise ExportError("Object '{}' has no Action to export".format(bo.name))
-    if not bo.animation_data.action.fcurves:
-        raise ExportError("Object '{}' is animated but has no FCurves".format(bo.name))
-    return bo.animation_data.action
+class ActionModifier:
+    @property
+    def blender_action(self):
+        bo = self.id_data
+        if bo.animation_data is not None and bo.animation_data.action is not None:
+            return bo.animation_data.action
+        if bo.data is not None:
+            if bo.data.animation_data is not None and bo.data.animation_data.action is not None:
+                # we will not use this action for any animation logic. that must be stored on the Object
+                # datablock for simplicity's sake.
+                return None
+        raise ExportError("Object '{}' is not animated".format(bo.name))
 
-class PlasmaAnimationModifier(PlasmaModifierProperties):
+
+class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
     pl_id = "animation"
 
     bl_category = "Animation"
@@ -58,30 +65,35 @@ class PlasmaAnimationModifier(PlasmaModifierProperties):
         return True
 
     def export(self, exporter, bo, so):
-        action = _get_blender_action(bo)
-        markers = action.pose_markers
+        action = self.blender_action
 
         atcanim = exporter.mgr.find_create_object(plATCAnim, so=so)
         atcanim.autoStart = self.auto_start
         atcanim.loop = self.loop
 
         # Simple start and loop info
-        initial_marker = markers.get(self.initial_marker)
-        if initial_marker is not None:
-            atcanim.initial = _convert_frame_time(initial_marker.frame)
+        if action is not None:
+            markers = action.pose_markers
+            initial_marker = markers.get(self.initial_marker)
+            if initial_marker is not None:
+                atcanim.initial = _convert_frame_time(initial_marker.frame)
+            else:
+                atcanim.initial = -1.0
+            if self.loop:
+                loop_start = markers.get(self.loop_start)
+                if loop_start is not None:
+                    atcanim.loopStart = _convert_frame_time(loop_start.frame)
+                else:
+                    atcanim.loopStart = atcanim.start
+                loop_end = markers.get(self.loop_end)
+                if loop_end is not None:
+                    atcanim.loopEnd = _convert_frame_time(loop_end.frame)
+                else:
+                    atcanim.loopEnd = atcanim.end
         else:
-            atcanim.initial = -1.0
-        if self.loop:
-            loop_start = markers.get(self.loop_start)
-            if loop_start is not None:
-                atcanim.loopStart = _convert_frame_time(loop_start.frame)
-            else:
-                atcanim.loopStart = _convert_frame_time(action.frame_range[0])
-            loop_end = markers.get(self.loop_end)
-            if loop_end is not None:
-                atcanim.loopEnd = _convert_frame_time(loop_end.frame)
-            else:
-                atcanim.loopEnd = _convert_frame_time(action.frame_range[1])
+            if self.loop:
+                atcanim.loopStart = atcanim.start
+                atcanim.loopEnd = atcanim.end
 
     def _make_physical_movable(self, so):
         sim = so.sim
@@ -128,8 +140,8 @@ class PlasmaAnimationGroupModifier(PlasmaModifierProperties):
     active_child_index = IntProperty(options={"HIDDEN"})
 
     def export(self, exporter, bo, so):
-        action = _get_blender_action(bo)
-        key_name = bo.plasma_modifiers.animation.key_name
+        if not exporter.animation.is_animated(bo):
+            raise ExportError("'{}': Object is not animated".format(bo.name))
 
         # The message forwarder is the guy that makes sure that everybody knows WTF is going on
         msgfwd = exporter.mgr.find_create_object(plMsgForwarder, so=so, name=self.key_name)
@@ -171,7 +183,7 @@ class LoopMarker(bpy.types.PropertyGroup):
                                 description="Marker name from whence the loop ends")
 
 
-class PlasmaAnimationLoopModifier(PlasmaModifierProperties):
+class PlasmaAnimationLoopModifier(ActionModifier, PlasmaModifierProperties):
     pl_id = "animation_loop"
     pl_depends = {"animation"}
 
@@ -186,7 +198,9 @@ class PlasmaAnimationLoopModifier(PlasmaModifierProperties):
     active_loop_index = IntProperty(options={"HIDDEN"})
 
     def export(self, exporter, bo, so):
-        action = _get_blender_action(bo)
+        action = self.blender_action
+        if action is None:
+            raise ExportError("'{}': No object animation data".format(bo.name))
         markers = action.pose_markers
 
         atcanim = exporter.mgr.find_create_object(plATCAnim, so=so)

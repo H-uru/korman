@@ -104,6 +104,7 @@ class LightConverter:
         self._converter_funcs[bl_light.type](bl_light, pl_light)
 
         # Light color nonsense
+        # Please note that these calculations are duplicated in the AnimationConverter
         energy = bl_light.energy
         if bl_light.use_negative:
             diff_color = [(0.0 - i) * energy for i in bl_light.color]

@@ -168,8 +168,7 @@ class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
             obj = bpy.data.objects.get(self.object_name, None)
             if obj is None:
                 self.raise_error("invalid object: '{}'".format(self.object_name))
-            anim = obj.plasma_modifiers.animation
-            if not anim.enabled:
+            if not exporter.animation.is_animated(obj):
                 self.raise_error("invalid animation")
             group = obj.plasma_modifiers.animation_group
             if group.enabled:

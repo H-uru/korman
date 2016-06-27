@@ -15,16 +15,19 @@
 
 import bpy
 
-def _check_for_anim(layout, context):
-    if context.object.animation_data is None or context.object.animation_data.action is None:
+def _check_for_anim(layout, modifier):
+    try:
+        action = modifier.blender_action
+    except:
         layout.label("Object has no animation data", icon="ERROR")
-        return False
-    return True
+        return None
+    else:
+        return action if action is not None else False
 
 def animation(modifier, layout, context):
-    if not _check_for_anim(layout, context):
+    action = _check_for_anim(layout, modifier)
+    if action is None:
         return
-    action = context.object.animation_data.action
 
     split = layout.split()
     col = split.column()
@@ -32,11 +35,12 @@ def animation(modifier, layout, context):
     col = split.column()
     col.prop(modifier, "loop")
 
-    layout.prop_search(modifier, "initial_marker", action, "pose_markers", icon="PMARKER")
-    col = layout.column()
-    col.enabled = modifier.loop
-    col.prop_search(modifier, "loop_start", action, "pose_markers", icon="PMARKER")
-    col.prop_search(modifier, "loop_end", action, "pose_markers", icon="PMARKER")
+    if action:
+        layout.prop_search(modifier, "initial_marker", action, "pose_markers", icon="PMARKER")
+        col = layout.column()
+        col.enabled = modifier.loop
+        col.prop_search(modifier, "loop_start", action, "pose_markers", icon="PMARKER")
+        col.prop_search(modifier, "loop_end", action, "pose_markers", icon="PMARKER")
 
 
 class GroupListUI(bpy.types.UIList):
@@ -45,7 +49,8 @@ class GroupListUI(bpy.types.UIList):
 
 
 def animation_group(modifier, layout, context):
-    if not _check_for_anim(layout, context):
+    action = _check_for_anim(layout, modifier)
+    if not action:
         return
 
     row = layout.row()
@@ -67,7 +72,11 @@ class LoopListUI(bpy.types.UIList):
 
 
 def animation_loop(modifier, layout, context):
-    if not _check_for_anim(layout, context):
+    action = _check_for_anim(layout, modifier)
+    if action is False:
+        layout.label("Object must be animated, not ObData", icon="ERROR")
+        return
+    elif action is None:
         return
 
     row = layout.row()
@@ -86,7 +95,6 @@ def animation_loop(modifier, layout, context):
 
     # Modify the loop points
     if modifier.loops:
-        action = context.object.animation_data.action
         loop = modifier.loops[modifier.active_loop_index]
         layout.prop_search(loop, "loop_start", action, "pose_markers", icon="PMARKER")
         layout.prop_search(loop, "loop_end", action, "pose_markers", icon="PMARKER")

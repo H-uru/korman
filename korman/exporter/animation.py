@@ -31,24 +31,32 @@ class AnimationConverter:
         return frame_num / self._bl_fps
 
     def convert_object_animations(self, bo, so):
-        anim = bo.animation_data
-        if anim is None:
+        if not self.is_animated(bo):
             return
-        action = anim.action
-        if action is None:
-            return
-        fcurves = action.fcurves
-        if not fcurves:
-            return
+
+        def fetch_animation_data(id_data):
+            if id_data is not None:
+                if id_data.animation_data is not None:
+                    action = id_data.animation_data.action
+                    return action, getattr(action, "fcurves", None)
+            return None, None
+
+        # TODO: At some point, we should consider supporting NLA stuff.
+        # But for now, this seems sufficient.
+        obj_action, obj_fcurves = fetch_animation_data(bo)
+        data_action, data_fcurves = fetch_animation_data(bo.data)
 
         # We're basically just going to throw all the FCurves at the controller converter (read: wall)
         # and see what sticks. PlasmaMAX has some nice animation channel stuff that allows for some
         # form of separation, but Blender's NLA editor is way confusing and appears to not work with
         # things that aren't the typical position, rotation, scale animations.
         applicators = []
-        applicators.append(self._convert_transform_animation(bo.name, fcurves, bo.matrix_basis))
+        applicators.append(self._convert_transform_animation(bo.name, obj_fcurves, bo.matrix_basis))
         if bo.plasma_modifiers.soundemit.enabled:
-            applicators.extend(self._convert_sound_volume_animation(bo.name, fcurves, bo.plasma_modifiers.soundemit))
+            applicators.extend(self._convert_sound_volume_animation(bo.name, obj_fcurves, bo.plasma_modifiers.soundemit))
+        if isinstance(bo.data, bpy.types.Lamp):
+            lamp = bo.data
+            applicators.extend(self._convert_lamp_color_animation(bo.name, data_fcurves, lamp))
 
         # Check to make sure we have some valid animation applicators before proceeding.
         if not any(applicators):
@@ -68,14 +76,19 @@ class AnimationConverter:
 
         # This was previously part of the Animation Modifier, however, there can be lots of animations
         # Therefore we move it here.
-        markers = action.pose_markers
+        def get_ranges(*args, **kwargs):
+            index = kwargs.get("index", 0)
+            for i in args:
+                if i is not None:
+                    yield i.frame_range[index]
         atcanim.name = "(Entire Animation)"
-        atcanim.start = self._convert_frame_time(action.frame_range[0])
-        atcanim.end = self._convert_frame_time(action.frame_range[1])
+        atcanim.start = self._convert_frame_time(min(get_ranges(obj_action, data_action, index=0)))
+        atcanim.end = self._convert_frame_time(max(get_ranges(obj_action, data_action, index=1)))
 
         # Marker points
-        for marker in markers:
-            atcanim.setMarker(marker.name, self._convert_frame_time(marker.frame))
+        if obj_action is not None:
+            for marker in obj_action.pose_markers:
+                atcanim.setMarker(marker.name, self._convert_frame_time(marker.frame))
 
         # Fixme? Not sure if we really need to expose this...
         atcanim.easeInMin = 1.0
@@ -85,7 +98,55 @@ class AnimationConverter:
         atcanim.easeOutMax = 1.0
         atcanim.easeOutLength = 1.0
 
+    def _convert_lamp_color_animation(self, name, fcurves, lamp):
+        if not fcurves:
+            return None
+
+        energy_curve = next((i for i in fcurves if i.data_path == "energy" and i.keyframe_points), None)
+        color_curves = sorted((i for i in fcurves if i.data_path == "color" and i.keyframe_points), key=lambda x: x.array_index)
+        if energy_curve is None and color_curves is None:
+            return None
+        elif lamp.use_only_shadow:
+            self._exporter().report.warn("Cannot animate Lamp color because this lamp only casts shadows", indent=3)
+            return None
+        elif not lamp.use_specular and not lamp.use_diffuse:
+            self._exporter().report.warn("Cannot animate Lamp color because neither Diffuse nor Specular are enabled", indent=3)
+            return None
+
+        # OK Specular is easy. We just toss out the color as a point3.
+        color_keyframes, color_bez = self._process_keyframes(color_curves, convert=lambda x: x * -1.0 if lamp.use_negative else None)
+        if color_keyframes and lamp.use_specular:
+            channel = plPointControllerChannel()
+            channel.controller = self._make_point3_controller(color_curves, color_keyframes, color_bez, lamp.color)
+            applicator = plLightSpecularApplicator()
+            applicator.channelName = name
+            applicator.channel = channel
+            yield applicator
+
+        # Hey, look, it's a third way to process FCurves. YAY!
+        def convert_diffuse_animation(color, energy):
+            if lamp.use_negative:
+                return { key: (0.0 - value) * energy[0] for key, value in color.items() }
+            else:
+                return { key: value * energy[0] for key, value in color.items() }
+        diffuse_defaults = { "color": lamp.color, "energy": lamp.energy }
+        diffuse_fcurves = color_curves + [energy_curve,]
+        diffuse_keyframes = self._process_fcurves(diffuse_fcurves, convert_diffuse_animation, diffuse_defaults)
+        if not diffuse_keyframes:
+            return None
+
+        # Whew.
+        channel = plPointControllerChannel()
+        channel.controller = self._make_point3_controller([], diffuse_keyframes, False, [])
+        applicator = plLightDiffuseApplicator()
+        applicator.channelName = name
+        applicator.channel = channel
+        yield applicator
+
     def _convert_sound_volume_animation(self, name, fcurves, soundemit):
+        if not fcurves:
+            return None
+
         def convert_volume(value):
             if value == 0.0:
                 return 0.0
@@ -111,6 +172,9 @@ class AnimationConverter:
                 yield applicator
 
     def _convert_transform_animation(self, name, fcurves, xform):
+        if not fcurves:
+            return None
+
         pos = self.make_pos_controller(fcurves, xform)
         rot = self.make_rot_controller(fcurves, xform)
         scale = self.make_scale_controller(fcurves, xform)
@@ -152,6 +216,17 @@ class AnimationConverter:
         master = self._mgr.find_create_object(plAGMasterMod, so=so, bl=bo)
         return mod, master
 
+    def is_animated(self, bo):
+        if bo.animation_data is not None:
+            if bo.animation_data.action is not None:
+                return True
+        data = getattr(bo, "data", None)
+        if data is not None:
+            if data.animation_data is not None:
+                if data.animation_data.action is not None:
+                    return True
+        return False
+
     def make_matrix44_controller(self, pos_fcurves, scale_fcurves, default_pos, default_scale):
         pos_keyframes, pos_bez = self._process_keyframes(pos_fcurves)
         scale_keyframes, scale_bez = self._process_keyframes(scale_fcurves)
@@ -160,7 +235,7 @@ class AnimationConverter:
 
         # Matrix keyframes cannot do bezier schtuff
         if pos_bez or scale_bez:
-            self._exporter().report.warn("This animation cannot use bezier keyframes--forcing linear", indent=3)
+            self._exporter().report.warn("Matrix44 controllers cannot use bezier keyframes--forcing linear", indent=3)
 
         # Let's pair up the pos and scale schtuff based on frame numbers. I realize that we're creating
         # a lot of temporary objects, but until I see profiling results that this is terrible, I prefer
