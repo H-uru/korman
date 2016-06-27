@@ -93,16 +93,16 @@ class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
 
 
 class AnimGroupObject(bpy.types.PropertyGroup):
-    object_name = StringProperty(name="Child",
+    object_name = StringProperty(name="Child Animation",
                                  description="Object whose action is a child animation")
 
 
-class PlasmaAnimationGroupModifier(PlasmaModifierProperties):
+class PlasmaAnimationGroupModifier(ActionModifier, PlasmaModifierProperties):
     pl_id = "animation_group"
     pl_depends = {"animation"}
 
     bl_category = "Animation"
-    bl_label = "Group"
+    bl_label = "Group Master"
     bl_description = "Defines related animations"
     bl_icon = "GROUP"
 
