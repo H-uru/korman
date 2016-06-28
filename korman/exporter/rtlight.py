@@ -40,11 +40,8 @@ class LightConverter:
         }
 
     def _convert_attenuation(self, bl, pl):
-        intens = bl.energy
-        if intens < 0:
-            intens = -intens
-        attenEnd = bl.distance * 2 if bl.use_sphere else bl.distance
-
+        # If you change these calculations, be sure to update the AnimationConverter!
+        intens, attenEnd = self.convert_attenuation(bl)
         if bl.falloff_type == "CONSTANT":
             print("        Attenuation: No Falloff")
             pl.attenConst = intens
@@ -54,17 +51,28 @@ class LightConverter:
         elif bl.falloff_type == "INVERSE_LINEAR":
             print("        Attenuation: Inverse Linear")
             pl.attenConst = 1.0
-            pl.attenLinear = max(0.0, (intens * _FAR_POWER - 1.0) / attenEnd)
+            pl.attenLinear = self.convert_attenuation_linear(intens, attenEnd)
             pl.attenQuadratic = 0.0
             pl.attenCutoff = attenEnd
         elif bl.falloff_type == "INVERSE_SQUARE":
             print("        Attenuation: Inverse Square")
             pl.attenConst = 1.0
             pl.attenLinear = 0.0
-            pl.attenQuadratic = max(0.0, (intens * _FAR_POWER - 1.0) / (attenEnd * attenEnd))
+            pl.attenQuadratic = self.convert_attenuation_quadratic(intens, attenEnd)
             pl.attenCutoff = attenEnd
         else:
             raise BlenderOptionNotSupportedError(bl.falloff_type)
+
+    def convert_attenuation(self, lamp):
+        intens = abs(lamp.energy)
+        attenEnd = lamp.distance * 2 if lamp.use_sphere else lamp.distance
+        return (intens, attenEnd)
+
+    def convert_attenuation_linear(self, intensity, end):
+        return max(0.0, (intensity * _FAR_POWER - 1.0) / end)
+
+    def convert_attenuation_quadratic(self, intensity, end):
+        return max(0.0, (intensity * _FAR_POWER - 1.0) / pow(end, 2))
 
     def _convert_area_lamp(self, bl, pl):
         print("    [LimitedDirLightInfo '{}']".format(bl.name))
@@ -176,6 +184,11 @@ class LightConverter:
         if projectors:
             self._export_rt_projector(bo, pl_light, projectors)
 
+        # If the lamp has any sort of animation attached, then it needs to be marked movable.
+        # Otherwise, Plasma may not use it for lighting.
+        if projectors or self._exporter().animation.is_animated(bo):
+            pl_light.setProperty(plLightInfo.kLPMovable, True)
+
         # *Sigh*
         pl_light.sceneNode = self.mgr.get_scene_node(location=so.key.location)
 
@@ -203,7 +216,6 @@ class LightConverter:
         else:
             state.miscFlags |= hsGMatState.kMiscOrthoProjection
         state.ZFlags |= hsGMatState.kZNoZWrite
-        pl_light.setProperty(plLightInfo.kLPMovable, True)
         pl_light.setProperty(plLightInfo.kLPCastShadows, False)
 
         if slot.blend_type == "ADD":

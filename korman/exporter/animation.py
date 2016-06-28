@@ -59,6 +59,8 @@ class AnimationConverter:
             applicators.extend(self._convert_lamp_color_animation(bo.name, data_fcurves, lamp))
             if isinstance(lamp, bpy.types.SpotLamp):
                 applicators.extend(self._convert_spot_lamp_animation(bo.name, data_fcurves, lamp))
+            if isinstance(lamp, bpy.types.PointLamp):
+                applicators.extend(self._convert_omni_lamp_animation(bo.name, data_fcurves, lamp))
 
         # Check to make sure we have some valid animation applicators before proceeding.
         if not any(applicators):
@@ -144,6 +146,61 @@ class AnimationConverter:
         applicator.channelName = name
         applicator.channel = channel
         yield applicator
+
+    def _convert_omni_lamp_animation(self, name, fcurves, lamp):
+        energy_fcurve = next((i for i in fcurves if i.data_path == "energy"), None)
+        distance_fcurve = next((i for i in fcurves if i.data_path == "distance"), None)
+        if energy_fcurve is None and distance_fcurve is None:
+            return None
+        light_converter = self._exporter().light
+        intensity, atten_end = light_converter.convert_attenuation(lamp)
+
+        # All types allow animating cutoff
+        if distance_fcurve is not None:
+            channel = plScalarControllerChannel()
+            channel.controller = self.make_scalar_leaf_controller(distance_fcurve,
+                                                                  lambda x: x * 2 if lamp.use_sphere else x)
+            applicator = plOmniCutoffApplicator()
+            applicator.channelName = name
+            applicator.channel = channel
+            yield applicator
+
+        falloff = lamp.falloff_type
+        if falloff == "CONSTANT":
+            if energy_fcurve is not None:
+                self._exporter().report.warn("Constant attenuation cannot be animated in Plasma", ident=3)
+        elif falloff == "INVERSE_LINEAR":
+            def convert_linear_atten(distance, energy):
+                intens = abs(energy[0])
+                atten_end = distance[0] * 2 if lamp.use_sphere else distance[0]
+                return light_converter.convert_attenuation_linear(intens, atten_end)
+
+            keyframes = self._process_fcurves([distance_fcurve, energy_fcurve], convert_linear_atten,
+                                              {"distance": lamp.distance, "energy": lamp.energy})
+            if keyframes:
+                channel = plScalarControllerChannel()
+                channel.controller = self._make_scalar_leaf_controller(keyframes, False)
+                applicator = plOmniApplicator()
+                applicator.channelName = name
+                applicator.channel = channel
+                yield applicator
+        elif falloff == "INVERSE_SQUARE":
+            def convert_quadratic_atten(distance, energy):
+                intens = abs(energy[0])
+                atten_end = distance[0] * 2 if lamp.use_sphere else distance[0]
+                return light_converter.convert_attenuation_quadratic(intens, atten_end)
+
+            keyframes = self._process_fcurves([distance_fcurve, energy_fcurve], convert_quadratic_atten,
+                                              {"distance": lamp.distance, "energy": lamp.energy})
+            if keyframes:
+                channel = plScalarControllerChannel()
+                channel.controller = self._make_scalar_leaf_controller(keyframes, False)
+                applicator = plOmniSqApplicator()
+                applicator.channelName = name
+                applicator.channel = channel
+                yield applicator
+        else:
+            self._exporter().report.warn("Lamp Falloff '{}' animations are not supported".format(falloff), ident=3)
 
     def _convert_sound_volume_animation(self, name, fcurves, soundemit):
         if not fcurves:
