@@ -207,6 +207,7 @@ class Exporter:
             sceneobject = self.mgr.find_create_object(plSceneObject, bl=bl_obj)
             self._export_actor(sceneobject, bl_obj)
             export_fn(sceneobject, bl_obj)
+            self.animation.convert_object_animations(bl_obj, sceneobject)
 
             # And now we puke out the modifiers...
             for mod in bl_obj.plasma_modifiers.modifiers:
@@ -257,6 +258,8 @@ class Exporter:
         if bo.parent is not None:
             return True
         if bo.name in self.actors:
+            return True
+        if self.animation.has_transform_animation(bo):
             return True
 
         for mod in bo.plasma_modifiers.modifiers:

@@ -27,55 +27,331 @@ class AnimationConverter:
         self._exporter = weakref.ref(exporter)
         self._bl_fps = bpy.context.scene.render.fps
 
-    def convert_action2tm(self, action, default_xform):
-        """Converts a Blender Action to a plCompoundController."""
-        fcurves = action.fcurves
+    def _convert_frame_time(self, frame_num):
+        return frame_num / self._bl_fps
+
+    def convert_object_animations(self, bo, so):
+        if not self.is_animated(bo):
+            return
+
+        def fetch_animation_data(id_data):
+            if id_data is not None:
+                if id_data.animation_data is not None:
+                    action = id_data.animation_data.action
+                    return action, getattr(action, "fcurves", None)
+            return None, None
+
+        # TODO: At some point, we should consider supporting NLA stuff.
+        # But for now, this seems sufficient.
+        obj_action, obj_fcurves = fetch_animation_data(bo)
+        data_action, data_fcurves = fetch_animation_data(bo.data)
+
+        # We're basically just going to throw all the FCurves at the controller converter (read: wall)
+        # and see what sticks. PlasmaMAX has some nice animation channel stuff that allows for some
+        # form of separation, but Blender's NLA editor is way confusing and appears to not work with
+        # things that aren't the typical position, rotation, scale animations.
+        applicators = []
+        applicators.append(self._convert_transform_animation(bo.name, obj_fcurves, bo.matrix_basis))
+        if bo.plasma_modifiers.soundemit.enabled:
+            applicators.extend(self._convert_sound_volume_animation(bo.name, obj_fcurves, bo.plasma_modifiers.soundemit))
+        if isinstance(bo.data, bpy.types.Lamp):
+            lamp = bo.data
+            applicators.extend(self._convert_lamp_color_animation(bo.name, data_fcurves, lamp))
+            if isinstance(lamp, bpy.types.SpotLamp):
+                applicators.extend(self._convert_spot_lamp_animation(bo.name, data_fcurves, lamp))
+            if isinstance(lamp, bpy.types.PointLamp):
+                applicators.extend(self._convert_omni_lamp_animation(bo.name, data_fcurves, lamp))
+
+        # Check to make sure we have some valid animation applicators before proceeding.
+        if not any(applicators):
+            return
+
+        # There is a race condition in the client with animation loading. It expects for modifiers
+        # to be listed on the SceneObject in a specific order. D'OH! So, always use these funcs.
+        agmod, agmaster = self.get_anigraph_objects(bo, so)
+        atcanim = self._mgr.find_create_object(plATCAnim, so=so)
+
+        # Add the animation data to the ATC
+        for i in applicators:
+            if i is not None:
+                atcanim.addApplicator(i)
+        agmod.channelName = bo.name
+        agmaster.addPrivateAnim(atcanim.key)
+
+        # This was previously part of the Animation Modifier, however, there can be lots of animations
+        # Therefore we move it here.
+        def get_ranges(*args, **kwargs):
+            index = kwargs.get("index", 0)
+            for i in args:
+                if i is not None:
+                    yield i.frame_range[index]
+        atcanim.name = "(Entire Animation)"
+        atcanim.start = self._convert_frame_time(min(get_ranges(obj_action, data_action, index=0)))
+        atcanim.end = self._convert_frame_time(max(get_ranges(obj_action, data_action, index=1)))
+
+        # Marker points
+        if obj_action is not None:
+            for marker in obj_action.pose_markers:
+                atcanim.setMarker(marker.name, self._convert_frame_time(marker.frame))
+
+        # Fixme? Not sure if we really need to expose this...
+        atcanim.easeInMin = 1.0
+        atcanim.easeInMax = 1.0
+        atcanim.easeInLength = 1.0
+        atcanim.easeOutMin = 1.0
+        atcanim.easeOutMax = 1.0
+        atcanim.easeOutLength = 1.0
+
+    def _convert_lamp_color_animation(self, name, fcurves, lamp):
         if not fcurves:
             return None
 
-        # NOTE: plCompoundController is from Myst 5 and was backported to MOUL.
-        # Worry not however... libHSPlasma will do the conversion for us.
-        tm = plCompoundController()
-        tm.X = self.make_pos_controller(fcurves, default_xform)
-        tm.Y = self.make_rot_controller(fcurves, default_xform)
-        tm.Z = self.make_scale_controller(fcurves, default_xform)
-        return tm
-
-    def make_matrix44_controller(self, pos_fcurves, scale_fcurves, default_pos, default_scale):
-        pos_keyframes, pos_bez = self._process_keyframes(pos_fcurves)
-        scale_keyframes, scale_bez = self._process_keyframes(scale_fcurves)
-        if not pos_keyframes and not scale_keyframes:
+        energy_curve = next((i for i in fcurves if i.data_path == "energy" and i.keyframe_points), None)
+        color_curves = sorted((i for i in fcurves if i.data_path == "color" and i.keyframe_points), key=lambda x: x.array_index)
+        if energy_curve is None and color_curves is None:
+            return None
+        elif lamp.use_only_shadow:
+            self._exporter().report.warn("Cannot animate Lamp color because this lamp only casts shadows", indent=3)
+            return None
+        elif not lamp.use_specular and not lamp.use_diffuse:
+            self._exporter().report.warn("Cannot animate Lamp color because neither Diffuse nor Specular are enabled", indent=3)
             return None
 
-        # Matrix keyframes cannot do bezier schtuff
-        if pos_bez or scale_bez:
-            self._exporter().report.warn("This animation cannot use bezier keyframes--forcing linear", indent=3)
+        # OK Specular is easy. We just toss out the color as a point3.
+        color_keyframes, color_bez = self._process_keyframes(color_curves, convert=lambda x: x * -1.0 if lamp.use_negative else None)
+        if color_keyframes and lamp.use_specular:
+            channel = plPointControllerChannel()
+            channel.controller = self._make_point3_controller(color_curves, color_keyframes, color_bez, lamp.color)
+            applicator = plLightSpecularApplicator()
+            applicator.channelName = name
+            applicator.channel = channel
+            yield applicator
 
-        # Let's pair up the pos and scale schtuff based on frame numbers. I realize that we're creating
-        # a lot of temporary objects, but until I see profiling results that this is terrible, I prefer
-        # to have code that makes sense.
-        keyframes = []
-        for pos, scale in itertools.zip_longest(pos_keyframes, scale_keyframes, fillvalue=None):
-            if pos is None:
-                keyframes.append((None, scale))
-            elif scale is None:
-                keyframes.append((pos, scale))
-            elif pos.frame_num == scale.frame_num:
-                keyframes.append((pos, scale))
-            elif pos.frame_num < scale.frame_num:
-                keyframes.append((pos, None))
-                keyframes.append((None, scale))
-            elif pos.frame_num > scale.frame_num:
-                keyframes.append((None, scale))
-                keyframes.append((pos, None))
+        # Hey, look, it's a third way to process FCurves. YAY!
+        def convert_diffuse_animation(color, energy):
+            if lamp.use_negative:
+                return { key: (0.0 - value) * energy[0] for key, value in color.items() }
+            else:
+                return { key: value * energy[0] for key, value in color.items() }
+        diffuse_defaults = { "color": lamp.color, "energy": lamp.energy }
+        diffuse_fcurves = color_curves + [energy_curve,]
+        diffuse_keyframes = self._process_fcurves(diffuse_fcurves, convert_diffuse_animation, diffuse_defaults)
+        if not diffuse_keyframes:
+            return None
+
+        # Whew.
+        channel = plPointControllerChannel()
+        channel.controller = self._make_point3_controller([], diffuse_keyframes, False, [])
+        applicator = plLightDiffuseApplicator()
+        applicator.channelName = name
+        applicator.channel = channel
+        yield applicator
+
+    def _convert_omni_lamp_animation(self, name, fcurves, lamp):
+        energy_fcurve = next((i for i in fcurves if i.data_path == "energy"), None)
+        distance_fcurve = next((i for i in fcurves if i.data_path == "distance"), None)
+        if energy_fcurve is None and distance_fcurve is None:
+            return None
+        light_converter = self._exporter().light
+        intensity, atten_end = light_converter.convert_attenuation(lamp)
+
+        # All types allow animating cutoff
+        if distance_fcurve is not None:
+            channel = plScalarControllerChannel()
+            channel.controller = self.make_scalar_leaf_controller(distance_fcurve,
+                                                                  lambda x: x * 2 if lamp.use_sphere else x)
+            applicator = plOmniCutoffApplicator()
+            applicator.channelName = name
+            applicator.channel = channel
+            yield applicator
+
+        falloff = lamp.falloff_type
+        if falloff == "CONSTANT":
+            if energy_fcurve is not None:
+                self._exporter().report.warn("Constant attenuation cannot be animated in Plasma", ident=3)
+        elif falloff == "INVERSE_LINEAR":
+            def convert_linear_atten(distance, energy):
+                intens = abs(energy[0])
+                atten_end = distance[0] * 2 if lamp.use_sphere else distance[0]
+                return light_converter.convert_attenuation_linear(intens, atten_end)
+
+            keyframes = self._process_fcurves([distance_fcurve, energy_fcurve], convert_linear_atten,
+                                              {"distance": lamp.distance, "energy": lamp.energy})
+            if keyframes:
+                channel = plScalarControllerChannel()
+                channel.controller = self._make_scalar_leaf_controller(keyframes, False)
+                applicator = plOmniApplicator()
+                applicator.channelName = name
+                applicator.channel = channel
+                yield applicator
+        elif falloff == "INVERSE_SQUARE":
+            def convert_quadratic_atten(distance, energy):
+                intens = abs(energy[0])
+                atten_end = distance[0] * 2 if lamp.use_sphere else distance[0]
+                return light_converter.convert_attenuation_quadratic(intens, atten_end)
+
+            keyframes = self._process_fcurves([distance_fcurve, energy_fcurve], convert_quadratic_atten,
+                                              {"distance": lamp.distance, "energy": lamp.energy})
+            if keyframes:
+                channel = plScalarControllerChannel()
+                channel.controller = self._make_scalar_leaf_controller(keyframes, False)
+                applicator = plOmniSqApplicator()
+                applicator.channelName = name
+                applicator.channel = channel
+                yield applicator
+        else:
+            self._exporter().report.warn("Lamp Falloff '{}' animations are not supported".format(falloff), ident=3)
+
+    def _convert_sound_volume_animation(self, name, fcurves, soundemit):
+        if not fcurves:
+            return None
+
+        def convert_volume(value):
+            if value == 0.0:
+                return 0.0
+            else:
+                return math.log10(value) * 20.0
+
+        for sound in soundemit.sounds:
+            path = "{}.volume".format(sound.path_from_id())
+            fcurve = next((i for i in fcurves if i.data_path == path and i.keyframe_points), None)
+            if fcurve is None:
+                continue
+
+            for i in soundemit.get_sound_indices(sound=sound):
+                applicator = plSoundVolumeApplicator()
+                applicator.channelName = name
+                applicator.index = i
+
+                # libHSPlasma assumes a channel is not shared among applicators...
+                # so yes, we must convert the same animation data again and again.
+                channel = plScalarControllerChannel()
+                channel.controller = self.make_scalar_leaf_controller(fcurve, convert=convert_volume)
+                applicator.channel = channel
+                yield applicator
+
+    def _convert_spot_lamp_animation(self, name, fcurves, lamp):
+        blend_fcurve = next((i for i in fcurves if i.data_path == "spot_blend"), None)
+        size_fcurve = next((i for i in fcurves if i.data_path == "spot_size"), None)
+        if blend_fcurve is None and size_fcurve is None:
+            return None
+
+        # Spot Outer is just the size keyframes...
+        if size_fcurve is not None:
+            channel = plScalarControllerChannel()
+            channel.controller = self.make_scalar_leaf_controller(size_fcurve, lambda x: math.degrees(x))
+            applicator = plSpotOuterApplicator()
+            applicator.channelName = name
+            applicator.channel = channel
+            yield applicator
+
+        # Spot inner must be calculated...
+        def convert_spot_inner(spot_blend, spot_size):
+            blend = min(0.001, spot_blend[0])
+            size = spot_size[0]
+            value = size - (blend * size)
+            return math.degrees(value)
+        defaults = { "spot_blend": lamp.spot_blend, "spot_size": lamp.spot_size }
+        keyframes = self._process_fcurves([blend_fcurve, size_fcurve], convert_spot_inner, defaults)
+
+        if keyframes:
+            channel = plScalarControllerChannel()
+            channel.controller = self._make_scalar_leaf_controller(keyframes, False)
+            applicator = plSpotInnerApplicator()
+            applicator.channelName = name
+            applicator.channel = channel
+            yield applicator
+
+    def _convert_transform_animation(self, name, fcurves, xform):
+        if not fcurves:
+            return None
+
+        pos = self.make_pos_controller(fcurves, xform)
+        rot = self.make_rot_controller(fcurves, xform)
+        scale = self.make_scale_controller(fcurves, xform)
+        if pos is None and rot is None and scale is None:
+            return None
+
+        tm = plCompoundController()
+        tm.X = pos
+        tm.Y = rot
+        tm.Z = scale
+
+        applicator = plMatrixChannelApplicator()
+        applicator.enabled = True
+        applicator.channelName = name
+        channel = plMatrixControllerChannel()
+        channel.controller = tm
+        applicator.channel = channel
+
+        # Decompose the matrix into the 90s-era 3ds max affine parts sillyness
+        # All that's missing now is something like "(c) 1998 HeadSpin" oh wait...
+        affine = hsAffineParts()
+        affine.T = hsVector3(*xform.to_translation())
+        affine.K = hsVector3(*xform.to_scale())
+        affine.F = -1.0 if xform.determinant() < 0.0 else 1.0
+        rot = xform.to_quaternion()
+        affine.Q = utils.quaternion(rot)
+        rot.normalize()
+        affine.U = utils.quaternion(rot)
+        channel.affine = affine
+
+        return applicator
+
+    def get_anigraph_keys(self, bo=None, so=None):
+        mod = self._mgr.find_create_key(plAGModifier, so=so, bl=bo)
+        master = self._mgr.find_create_key(plAGMasterMod, so=so, bl=bo)
+        return mod, master
+
+    def get_anigraph_objects(self, bo=None, so=None):
+        mod = self._mgr.find_create_object(plAGModifier, so=so, bl=bo)
+        master = self._mgr.find_create_object(plAGMasterMod, so=so, bl=bo)
+        return mod, master
+
+    def has_transform_animation(self, bo):
+        if bo.animation_data is not None:
+            if bo.animation_data.action is not None:
+                data_paths = frozenset((i.data_path for i in bo.animation_data.action.fcurves))
+                return {"location", "rotation_euler", "scale"} & data_paths
+        return False
+
+    def is_animated(self, bo):
+        if bo.animation_data is not None:
+            if bo.animation_data.action is not None:
+                return True
+        data = getattr(bo, "data", None)
+        if data is not None:
+            if data.animation_data is not None:
+                if data.animation_data.action is not None:
+                    return True
+        return False
+
+    def make_matrix44_controller(self, fcurves, pos_path, scale_path, pos_default, scale_default):
+        def convert_matrix_keyframe(**kwargs):
+            pos = kwargs.get(pos_path)
+            scale = kwargs.get(scale_path)
+
+            matrix = hsMatrix44()
+            # Note: scale and pos are dicts, so we can't unpack
+            matrix.setTranslate(hsVector3(pos[0], pos[1], pos[2]))
+            matrix.setScale(hsVector3(scale[0], scale[1], scale[2]))
+            return matrix
+
+        fcurves = [i for i in fcurves if i.data_path == pos_path or i.data_path == scale_path]
+        if not fcurves:
+            return None
+
+        default_values = { pos_path: pos_default, scale_path: scale_default }
+        keyframes = self._process_fcurves(fcurves, convert_matrix_keyframe, default_values)
+        if not keyframes:
+            return None
 
         # Now we make the controller
-        ctrl = self._make_matrix44_controller(pos_fcurves, scale_fcurves, keyframes, default_pos, default_scale)
-        return ctrl
+        return self._make_matrix44_controller(keyframes)
 
-    def make_pos_controller(self, fcurves, default_xform):
+    def make_pos_controller(self, fcurves, default_xform, convert=None):
         pos_curves = [i for i in fcurves if i.data_path == "location" and i.keyframe_points]
-        keyframes, bez_chans = self._process_keyframes(pos_curves)
+        keyframes, bez_chans = self._process_keyframes(pos_curves, convert)
         if not keyframes:
             return None
 
@@ -84,10 +360,10 @@ class AnimationConverter:
         ctrl = self._make_point3_controller(pos_curves, keyframes, bez_chans, default_xform.to_translation())
         return ctrl
 
-    def make_rot_controller(self, fcurves, default_xform):
+    def make_rot_controller(self, fcurves, default_xform, convert=None):
         # TODO: support rotation_quaternion
         rot_curves = [i for i in fcurves if i.data_path == "rotation_euler" and i.keyframe_points]
-        keyframes, bez_chans = self._process_keyframes(rot_curves)
+        keyframes, bez_chans = self._process_keyframes(rot_curves, convert=None)
         if not keyframes:
             return None
 
@@ -99,9 +375,9 @@ class AnimationConverter:
             ctrl = self._make_quat_controller(rot_curves, keyframes, default_xform.to_euler())
         return ctrl
 
-    def make_scale_controller(self, fcurves, default_xform):
+    def make_scale_controller(self, fcurves, default_xform, convert=None):
         scale_curves = [i for i in fcurves if i.data_path == "scale" and i.keyframe_points]
-        keyframes, bez_chans = self._process_keyframes(scale_curves)
+        keyframes, bez_chans = self._process_keyframes(scale_curves, convert)
         if not keyframes:
             return None
 
@@ -109,49 +385,25 @@ class AnimationConverter:
         ctrl = self._make_scale_value_controller(scale_curves, keyframes, bez_chans, default_xform)
         return ctrl
 
-    def make_scalar_leaf_controller(self, fcurve):
-        keyframes, bezier = self._process_fcurve(fcurve)
+    def make_scalar_leaf_controller(self, fcurve, convert=None):
+        keyframes, bezier = self._process_fcurve(fcurve, convert)
         if not keyframes:
             return None
 
         ctrl = self._make_scalar_leaf_controller(keyframes, bezier)
         return ctrl
 
-    def _make_matrix44_controller(self, pos_fcurves, scale_fcurves, keyframes, default_pos, default_scale):
+    def _make_matrix44_controller(self, keyframes):
         ctrl = plLeafController()
         keyframe_type = hsKeyFrame.kMatrix44KeyFrame
         exported_frames = []
-        pcurves = { i.array_index: i for i in pos_fcurves }
-        scurves = { i.array_index: i for i in scale_fcurves }
 
-        def eval_fcurve(fcurves, keyframe, i, default_xform):
-            try:
-                return fcurves[i].evaluate(keyframe.frame_num_blender)
-            except KeyError:
-                return default_xform[i]
-
-        for pos_key, scale_key in keyframes:
-            valid_key = pos_key if pos_key is not None else scale_key
+        for keyframe in keyframes:
             exported = hsMatrix44Key()
-            exported.frame = valid_key.frame_num
-            exported.frameTime = valid_key.frame_time
+            exported.frame = keyframe.frame_num
+            exported.frameTime = keyframe.frame_time
             exported.type = keyframe_type
-
-            if pos_key is not None:
-                pos_value = [pos_key.values[i] if i in pos_key.values else eval_fcurve(pcurves, pos_key, i, default_pos) for i in range(3)]
-            else:
-                pos_value = [eval_fcurve(pcurves, valid_key, i, default_pos) for i in range(3)]
-            if scale_key is not None:
-                scale_value = [scale_key.values[i] if i in scale_key.values else eval_fcurve(scurves, scale_key, i, default_scale) for i in range(3)]
-            else:
-                scale_value = [eval_fcurve(scurves, valid_key, i, default_scale) for i in range(3)]
-            pos_value = hsVector3(*pos_value)
-            scale_value = hsVector3(*scale_value)
-
-            value = hsMatrix44()
-            value.setTranslate(pos_value)
-            value.setScale(scale_value)
-            exported.value = value
+            exported.value = keyframe.value
             exported_frames.append(exported)
         ctrl.keys = (exported_frames, keyframe_type)
         return ctrl
@@ -315,7 +567,7 @@ class AnimationConverter:
         ctrl.keys = (exported_frames, keyframe_type)
         return ctrl
 
-    def _process_fcurve(self, fcurve):
+    def _process_fcurve(self, fcurve, convert=None):
         """Like _process_keyframes, but for one fcurve"""
         keyframe_data = type("KeyFrameData", (), {})
         fps = self._bl_fps
@@ -339,12 +591,121 @@ class AnimationConverter:
             else:
                 keyframe.in_tan = 0.0
                 keyframe.out_tan = 0.0
-            keyframe.value = value
+            keyframe.value = value if convert is None else convert(value)
             keyframes[frame_num] = keyframe
         final_keyframes = [keyframes[i] for i in sorted(keyframes)]
         return (final_keyframes, bezier)
 
-    def _process_keyframes(self, fcurves):
+    def _process_fcurves(self, fcurves, convert, defaults=None):
+        """Processes FCurves of different data sets and converts them into a single list of keyframes.
+           This should be used when multiple Blender fields map to a single Plasma option."""
+        class KeyFrameData:
+            def __init__(self):
+                self.values = {}
+        fps = self._bl_fps
+        pi = math.pi
+
+        # It is assumed therefore that any multichannel FCurves will have all channels represented.
+        # This seems fairly safe with my experiments with Lamp colors...
+        grouped_fcurves = {}
+        for fcurve in fcurves:
+            if fcurve is None:
+                continue
+            fcurve.update()
+            if fcurve.data_path in grouped_fcurves:
+                grouped_fcurves[fcurve.data_path][fcurve.array_index] = fcurve
+            else:
+                grouped_fcurves[fcurve.data_path] = { fcurve.array_index: fcurve }
+
+        # Default values for channels that are not animated
+        for key, value in defaults.items():
+            if key not in grouped_fcurves:
+                if hasattr(value, "__len__"):
+                    grouped_fcurves[key] = value
+                else:
+                    grouped_fcurves[key] = [value,]
+
+        # Assemble a dict { PlasmaFrameNum: { FCurveDataPath: KeyFrame } }
+        keyframe_points = {}
+        for fcurve in fcurves:
+            if fcurve is None:
+                continue
+            for keyframe in fcurve.keyframe_points:
+                frame_num_blender, value = keyframe.co
+                frame_num = int(frame_num_blender * (30.0 / fps))
+
+                # This is a temporary keyframe, so we're not going to worry about converting everything
+                # Only the frame number to Plasma so we can go ahead and merge any rounded dupes
+                entry, data = keyframe_points.get(frame_num), None
+                if entry is None:
+                    entry = {}
+                    keyframe_points[frame_num] = entry
+                else:
+                    data = entry.get(fcurve.data_path)
+                if data is None:
+                    data = KeyFrameData()
+                    data.frame_num = frame_num
+                    data.frame_num_blender = frame_num_blender
+                    entry[fcurve.data_path] = data
+                data.values[fcurve.array_index] = value
+
+        # Now, we loop through our assembled keyframes and interpolate any missing data using the FCurves
+        fcurve_chans = { key: len(value) for key, value in grouped_fcurves.items() }
+        expected_values = sum(fcurve_chans.values())
+        all_chans = frozenset(grouped_fcurves.keys())
+
+        # We will also do the final convert here as well...
+        final_keyframes = []
+
+        for frame_num in sorted(keyframe_points.copy().keys()):
+            keyframes = keyframe_points[frame_num]
+            frame_num_blender = next(iter(keyframes.values())).frame_num_blender
+
+            # If any data_paths are missing, init a dummy
+            missing_channels = all_chans - frozenset(keyframes.keys())
+            for chan in missing_channels:
+                dummy = KeyFrameData()
+                dummy.frame_num = frame_num
+                dummy.frame_num_blender = frame_num_blender
+                keyframes[chan] = dummy
+
+            # Ensure all values are filled out.
+            num_values = sum(map(len, (i.values for i in keyframes.values())))
+            if num_values != expected_values:
+                for chan, sorted_fcurves in grouped_fcurves.items():
+                    chan_keyframes = keyframes[chan]
+                    chan_values = fcurve_chans[chan]
+                    if len(chan_keyframes.values) == chan_values:
+                        continue
+                    for i in range(chan_values):
+                        if i not in chan_keyframes.values:
+                            fcurve = grouped_fcurves[chan][i]
+                            if isinstance(fcurve, bpy.types.FCurve):
+                                chan_keyframes.values[i] = fcurve.evaluate(chan_keyframes.frame_num_blender)
+                            else:
+                                # it's actually a default value!
+                                chan_keyframes.values[i] = fcurve
+
+            # All values are calculated! Now we convert the disparate key data into a single keyframe.
+            kwargs = { data_path: keyframe.values for data_path, keyframe in keyframes.items() }
+            final_keyframe = KeyFrameData()
+            final_keyframe.frame_num = frame_num
+            final_keyframe.frame_num_blender = frame_num_blender
+            final_keyframe.frame_time = frame_num / fps
+            value = convert(**kwargs)
+            if hasattr(value, "__len__"):
+                final_keyframe.in_tans = [0.0] * len(value)
+                final_keyframe.out_tans = [0.0] * len(value)
+                final_keyframe.values = value
+            else:
+                final_keyframe.in_tan = 0.0
+                final_keyframe.out_tan = 0.0
+                final_keyframe.value = value
+            final_keyframes.append(final_keyframe)
+        return final_keyframes
+
+
+    def _process_keyframes(self, fcurves, convert=None):
         """Groups all FCurves for the same frame together"""
         keyframe_data = type("KeyFrameData", (), {})
         fps = self._bl_fps
@@ -371,7 +732,7 @@ class AnimationConverter:
                     keyframe.values = {}
                     keyframes[frame_num] = keyframe
                 idx = fcurve.array_index
-                keyframe.values[idx] = value
+                keyframe.values[idx] = value if convert is None else convert(value)
 
                 # Calculate the bezier interpolation nonsense
                 if fkey.interpolation == "BEZIER":
