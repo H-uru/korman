@@ -35,15 +35,24 @@ class PlasmaLampPanel(LampButtonsPanel, bpy.types.Panel):
 
         split = layout.split()
         col = split.column()
-        col.prop(rtlamp, "light_group")
+        col.label("General:")
         row = col.row()
-        row.active = rtlamp.light_group
+        row.active = rtlamp.has_light_group(context.object)
         row.prop(rtlamp, "affect_characters")
 
         col = split.column()
+        col.label("RT Shadow:")
         col.prop(rtlamp, "cast_shadows")
 
+        col = col.column()
+        col.active = rtlamp.cast_shadows
+        col.prop(rtlamp, "shadow_self")
+        col.prop(rtlamp, "shadow_power")
+        col.prop(rtlamp, "shadow_falloff")
+        col.prop(rtlamp, "shadow_distance")
+
         if not context.object.plasma_modifiers.softvolume.enabled:
+            layout.separator()
             layout.prop_search(rtlamp, "soft_region", bpy.data, "objects")
 
 

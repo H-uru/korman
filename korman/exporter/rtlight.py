@@ -146,14 +146,16 @@ class LightConverter:
             print("        Specular: OFF")
             pl_light.specular = hsColorRGBA(0.0, 0.0, 0.0, energy)
 
-        # Crazy flags
         rtlamp = bl_light.plasma_lamp
-        if rtlamp.light_group:
+        has_lg = rtlamp.has_light_group(bo)
+        if has_lg:
             pl_light.setProperty(plLightInfo.kLPHasIncludes, True)
             pl_light.setProperty(plLightInfo.kLPIncludesChars, rtlamp.affect_characters)
         if rtlamp.cast_shadows:
-            pl_light.setProperty(plLightInfo.kLPShadowLightGroup, True)
+            self._export_shadow_master(bo, rtlamp, pl_light)
             pl_light.setProperty(plLightInfo.kLPShadowOnly, shadow_only)
+            if self.mgr.getVer() != pvPrime:
+                pl_light.setProperty(plLightInfo.kLPShadowLightGroup, has_lg)
 
         # AFAICT ambient lighting is never set in PlasmaMax...
         # If you can think of a compelling reason to support it, be my guest.
@@ -227,6 +229,16 @@ class LightConverter:
             pl_light.setProperty(plLightInfo.kLPOverAll, True)
 
         pl_light.projection = layer.key
+
+    def _export_shadow_master(self, bo, rtlamp, pl_light):
+        pClass = plDirectShadowMaster if isinstance(pl_light, plDirectionalLightInfo) else plPointShadowMaster
+        shadow = self.mgr.find_create_object(pClass, bl=bo)
+
+        shadow.attenDist = rtlamp.shadow_falloff
+        shadow.maxDist = rtlamp.shadow_distance
+        shadow.minDist = rtlamp.shadow_distance * 0.75
+        shadow.power = rtlamp.shadow_power / 100.0
+        shadow.setProperty(plShadowMaster.kSelfShadow, rtlamp.shadow_self)
 
     def find_material_light_keys(self, bo, bm):
         """Given a blender material, we find the keys of all matching Plasma RT Lights.

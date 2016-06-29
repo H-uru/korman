@@ -17,17 +17,31 @@ import bpy
 from bpy.props import *
 
 class PlasmaLamp(bpy.types.PropertyGroup):
-    light_group = BoolProperty(name="Group Only",
-                               description="This lamp will only affect materials that reference a group this lamp is a member of",
-                               options=set(),
-                               default=True)
     affect_characters = BoolProperty(name="Affect Avatars",
-                                     description="This lamp affects avatars (can only be disabled if the lamp is \"Group Only\")",
+                                     description="This lamp affects avatars",
                                      options=set(),
                                      default=True)
-    cast_shadows = BoolProperty(name="Cast RT Shadows",
+
+    # Shadow settings
+    cast_shadows = BoolProperty(name="Cast",
                                 description="This lamp casts runtime shadows",
                                 default=True)
+    shadow_falloff = FloatProperty(name="Falloff",
+                                   description="Distance from the Lamp past which we don't cast shadows",
+                                   min=5.0, max=50.0, default=10.0,
+                                   options=set())
+    shadow_distance = FloatProperty(name="Fade Distance",
+                                    description="Distance at which the shadow has completely faded out",
+                                    min=0.0, max=500.0, default=0.0,
+                                    options=set())
+    shadow_power = IntProperty(name="Power",
+                                 description="Multiplier for the shadow's intensity",
+                                 min=0, max=200, default=100,
+                                 options=set(), subtype="PERCENTAGE")
+    shadow_self = BoolProperty(name="Self-Shadow",
+                               description="This light can cause objects to cast shadows on themselves",
+                               default=False,
+                               options=set())
 
     soft_region = StringProperty(name="Soft Volume",
                                  description="Soft region this light is active inside",
@@ -38,3 +52,6 @@ class PlasmaLamp(bpy.types.PropertyGroup):
                                description="Size of the area for the Area Lamp in the Z direction",
                                min=0.0, default=200.0,
                                options=set())
+
+    def has_light_group(self, bo):
+        return bool(bo.users_group)
