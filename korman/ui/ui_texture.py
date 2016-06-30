@@ -66,6 +66,21 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
         layer_props = texture.plasma_layer
         layout = self.layout
 
+        col = layout.column()
+        col.active = texture.use_mipmap
+        col.prop(layer_props, "is_detail_map", text="Use Detail Blending")
+
+        split = layout.split()
+        col = split.column(align=True)
+        col.active = texture.use_mipmap and layer_props.is_detail_map
+        col.prop(layer_props, "detail_fade_start")
+        col.prop(layer_props, "detail_fade_stop")
+        col = split.column(align=True)
+        col.active = texture.use_mipmap and layer_props.is_detail_map
+        col.prop(layer_props, "detail_opacity_start")
+        col.prop(layer_props, "detail_opacity_stop")
+        layout.separator()
+
         split = layout.split()
         col = split.column()
         col.label("Animation:")
