@@ -23,6 +23,7 @@
 #   include <windows.h>
 #endif // _WIN32
 
+#include <cmath>
 #include <gl/gl.h>
 #include <PRP/Surface/plMipmap.h>
 
@@ -32,11 +33,27 @@
 
 #define TEXTARGET_TEXTURE_2D 0
 
+static inline bool _get_float(PyObject* source, const char* attr, float& result) {
+    PyObjectRef pyfloat = PyObject_GetAttrString(source, attr);
+    if (pyfloat) {
+        result = (float)PyFloat_AsDouble(pyfloat);
+        return PyErr_Occurred() == NULL;
+    }
+    return false;
+}
+
 extern "C" {
+
+enum {
+    TEX_DETAIL_ALPHA = 0,
+    TEX_DETAIL_ADD = 1,
+    TEX_DETAIL_MULTIPLY = 2,
+};
 
 typedef struct {
     PyObject_HEAD
     PyObject* m_blenderImage;
+    PyObject* m_textureKey;
     bool m_ownIt;
     GLint m_prevImage;
     bool m_changedState;
@@ -50,13 +67,15 @@ typedef struct {
 } pyMipmap;
 
 static void pyGLTexture_dealloc(pyGLTexture* self) {
-    if (self->m_blenderImage) Py_DECREF(self->m_blenderImage);
+    Py_XDECREF(self->m_textureKey);
+    Py_XDECREF(self->m_blenderImage);
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
 static PyObject* pyGLTexture_new(PyTypeObject* type, PyObject* args, PyObject* kwds) {
     pyGLTexture* self = (pyGLTexture*)type->tp_alloc(type, 0);
     self->m_blenderImage = NULL;
+    self->m_textureKey = NULL;
     self->m_ownIt = false;
     self->m_prevImage = 0;
     self->m_changedState = false;
@@ -65,15 +84,17 @@ static PyObject* pyGLTexture_new(PyTypeObject* type, PyObject* args, PyObject* k
 }
 
 static int pyGLTexture___init__(pyGLTexture* self, PyObject* args, PyObject* kwds) {
-    PyObject* blender_image;
-    if (!PyArg_ParseTuple(args, "O", &blender_image)) {
-        PyErr_SetString(PyExc_TypeError, "expected a bpy.types.Image");
+    if (!PyArg_ParseTuple(args, "O", &self->m_textureKey)) {
+        PyErr_SetString(PyExc_TypeError, "expected a korman.exporter.material._Texture");
+        return -1;
+    }
+    self->m_blenderImage = PyObject_GetAttrString(self->m_textureKey, "image");
+    if (!self->m_blenderImage) {
+        PyErr_SetString(PyExc_RuntimeError, "Could not fetch Blender Image");
         return -1;
     }
 
-    // Save a reference to the Blender image
-    Py_INCREF(blender_image);
-    self->m_blenderImage = blender_image;
+    Py_INCREF(self->m_textureKey);
 
     // Done!
     return 0;
@@ -161,6 +182,90 @@ struct _LevelData
     { }
 };
 
+static inline int _get_num_levels(pyGLTexture* self) {
+    PyObjectRef size = PyObject_GetAttrString(self->m_blenderImage, "size");
+    float width = (float)PyFloat_AsDouble(PySequence_GetItem(size, 0));
+    float height = (float)PyFloat_AsDouble(PySequence_GetItem(size, 1));
+
+    int num_levels = (int)std::floor(std::log2(std::max(width, height))) + 1;
+
+    // Major Workaround Ahoy
+    // There is a bug in Cyan's level size algorithm that causes it to not allocate enough memory
+    // for the color block in certain mipmaps. I personally have encountered an access violation on
+    // 1x1 DXT5 mip levels -- the code only allocates an alpha block and not a color block. Paradox
+    // reports that if any dimension is smaller than 4px in a mip level, OpenGL doesn't like Cyan generated
+    // data. So, we're going to lop off the last two mip levels, which should be 1px and 2px as the smallest.
+    // This bug is basically unfixable without crazy hacks because of the way Plasma reads in texture data.
+    //     "<Deledrius> I feel like any texture at a 1x1 level is essentially academic.  I mean, JPEG/DXT
+    //                  doesn't even compress that, and what is it?  Just the average color of the whole
+    //                  texture in a single pixel?"
+    // :)
+    return std::max(num_levels - 2, 2);
+}
+
+static int _generate_detail_alpha(pyGLTexture* self, GLint level, float* result) {
+    float dropoff_start, dropoff_stop, detail_max, detail_min;
+    if (!_get_float(self->m_textureKey, "detail_fade_start", dropoff_start))
+        return -1;
+    if (!_get_float(self->m_textureKey, "detail_fade_stop", dropoff_stop))
+        return -1;
+    if (!_get_float(self->m_textureKey, "detail_opacity_start", detail_max))
+        return -1;
+    if (!_get_float(self->m_textureKey, "detail_opacity_stop", detail_min))
+        return -1;
+
+    dropoff_start /= 100.f;
+    dropoff_start *= _get_num_levels(self);
+    dropoff_stop /= 100.f;
+    dropoff_stop *= _get_num_levels(self);
+    detail_max /= 100.f;
+    detail_min /= 100.f;
+
+    float alpha = (level - dropoff_start) * (detail_min - detail_max) / (dropoff_stop - dropoff_start) + detail_max;
+    if (detail_min < detail_max)
+        *result = std::min(detail_max, std::max(detail_min, alpha));
+    else
+        *result = std::min(detail_min, std::max(detail_max, alpha));
+    return 0;
+}
+
+static int _generate_detail_map(pyGLTexture* self, uint8_t* buf, size_t bufsz, GLint level) {
+    float alpha;
+    if (_generate_detail_alpha(self, level, &alpha) != 0)
+        return -1;
+    PyObjectRef pydetail_blend = PyObject_GetAttrString(self->m_textureKey, "detail_blend");
+    if (!pydetail_blend)
+        return -1;
+
+    size_t detail_blend = PyLong_AsSize_t(pydetail_blend);
+    switch (detail_blend) {
+    case TEX_DETAIL_ALPHA: {
+            for (size_t i = 0; i < bufsz; i += 4) {
+                buf[i+3] = (uint8_t)(((float)buf[i+3]) * alpha);
+            }
+        }
+        break;
+    case TEX_DETAIL_ADD: {
+            for (size_t i = 0; i < bufsz; i += 4) {
+                buf[i+0] = (uint8_t)(((float)buf[i+0]) * alpha);
+                buf[i+1] = (uint8_t)(((float)buf[i+1]) * alpha);
+                buf[i+2] = (uint8_t)(((float)buf[i+2]) * alpha);
+            }
+        }
+        break;
+    case TEX_DETAIL_MULTIPLY: {
+            float invert_alpha = (1.f - alpha) * 255.f;
+            for (size_t i = 0; i < bufsz; i += 4) {
+                buf[i+3] = (uint8_t)((invert_alpha + (float)buf[i+3]) * alpha);
+            }
+        }
+        break;
+    default:
+        return -1;
+    }
+    return 0;
+}
+
 static _LevelData _get_level_data(pyGLTexture* self, GLint level, bool bgra, bool quiet) {
     GLint width, height;
     glGetTexLevelParameteriv(GL_TEXTURE_2D, level, GL_TEXTURE_WIDTH, &width);
@@ -205,6 +310,16 @@ static PyObject* pyGLTexture_get_level_data(pyGLTexture* self, PyObject* args, P
         memcpy(eptr, temp, row_stride);
     } while ((sptr += row_stride) < (eptr -= row_stride));
     delete[] temp;
+
+    // Detail blend
+    PyObjectRef is_detail_map = PyObject_GetAttrString(self->m_textureKey, "is_detail_map");
+    if (PyLong_AsLong(is_detail_map) != 0) {
+        if (_generate_detail_map(self, data.m_data, data.m_dataSize, level) != 0) {
+            delete[] data.m_data;
+            PyErr_SetString(PyExc_RuntimeError, "error while baking detail map");
+            return NULL;
+        }
+    }
 
     if (calc_alpha) {
         for (size_t i = 0; i < data.m_dataSize; i += 4)
@@ -268,8 +383,13 @@ static PyObject* pyGLTexture_get_has_alpha(pyGLTexture* self, void*) {
     return PyBool_FromLong(0);
 }
 
+static PyObject* pyGLTexture_get_num_levels(pyGLTexture* self, void*) {
+    return PyLong_FromLong(_get_num_levels(self));
+}
+
 static PyGetSetDef pyGLTexture_GetSet[] = {
     { _pycs("has_alpha"), (getter)pyGLTexture_get_has_alpha, NULL, NULL, NULL },
+    { _pycs("num_levels"), (getter)pyGLTexture_get_num_levels, NULL, NULL, NULL },
     { NULL, NULL, NULL, NULL, NULL }
 };
 

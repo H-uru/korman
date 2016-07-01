@@ -21,12 +21,19 @@ import weakref
 
 from . import explosions
 from .. import helpers
-from .. import korlib
+from ..korlib import *
 from . import utils
 
 class _Texture:
-    def __init__(self, texture=None, image=None, use_alpha=None, force_calc_alpha=False):
-        assert (texture or image)
+    _DETAIL_BLEND = {
+        TEX_DETAIL_ALPHA: "AL",
+        TEX_DETAIL_ADD: "AD",
+        TEX_DETAIL_MULTIPLY: "ML",
+    }
+
+    def __init__(self, **kwargs):
+        texture, image = kwargs.get("texture"), kwargs.get("image")
+        assert texture or image
 
         if texture is not None:
             if image is None:
@@ -34,16 +41,29 @@ class _Texture:
             self.calc_alpha = texture.use_calculate_alpha
             self.mipmap = texture.use_mipmap
         else:
+            self.layer = kwargs.get("layer")
             self.calc_alpha = False
             self.mipmap = False
 
-        if force_calc_alpha or self.calc_alpha:
-            self.calc_alpha = True
-            self.use_alpha  = True
-        elif use_alpha is None:
-            self.use_alpha = (image.channels == 4 and image.use_alpha)
+        if kwargs.get("is_detail_map", False):
+            self.is_detail_map = True
+            self.detail_blend = kwargs["detail_blend"]
+            self.detail_fade_start = kwargs["detail_fade_start"]
+            self.detail_fade_stop = kwargs["detail_fade_stop"]
+            self.detail_opacity_start = kwargs["detail_opacity_start"]
+            self.detail_opacity_stop = kwargs["detail_opacity_stop"]
+            self.calc_alpha = False
+            self.use_alpha = True
         else:
-            self.use_alpha = use_alpha
+            self.is_detail_map = False
+            use_alpha = kwargs.get("use_alpha")
+            if kwargs.get("force_calc_alpha", False) or self.calc_alpha:
+                self.calc_alpha = True
+                self.use_alpha  = True
+            elif use_alpha is None:
+                self.use_alpha = (image.channels == 4 and image.use_alpha)
+            else:
+                self.use_alpha = use_alpha
 
         self.image = image
 
@@ -51,13 +71,14 @@ class _Texture:
         if not isinstance(other, _Texture):
             return False
 
-        if self.image == other.image:
-            if self.calc_alpha == other.calc_alpha:
-                self._update(other)
-                return True
+        # Yeah, the string name is a unique identifier. So shoot me.
+        if str(self) == str(other):
+            self._update(other)
+            return True
+        return False
 
     def __hash__(self):
-        return hash(self.image.name) ^ hash(self.calc_alpha)
+        return hash(str(self))
 
     def __str__(self):
         if self.mipmap:
@@ -66,10 +87,17 @@ class _Texture:
             name = str(Path(self.image.name).with_suffix(".bmp"))
         if self.calc_alpha:
             name = "ALPHAGEN_{}".format(name)
+
+        if self.is_detail_map:
+            name = "DETAILGEN_{}-{}-{}-{}-{}_{}".format(self._DETAIL_BLEND[self.detail_blend],
+                                                        self.detail_fade_start, self.detail_fade_stop,
+                                                        self.detail_opacity_start, self.detail_opacity_stop,
+                                                        name)
         return name
 
     def _update(self, other):
         """Update myself with any props that might be overridable from another copy of myself"""
+        # NOTE: detail map properties should NEVER be overridden. NEVER. EVER. kthx.
         if other.use_alpha:
             self.use_alpha = True
         if other.mipmap:
@@ -424,6 +452,7 @@ class MaterialConverter:
     def _export_texture_type_image(self, bo, layer, slot):
         """Exports a Blender ImageTexture to a plLayer"""
         texture = slot.texture
+        layer_props = texture.plasma_layer
 
         # Does the image have any alpha at all?
         if texture.image is not None:
@@ -462,7 +491,17 @@ class MaterialConverter:
             dtm.visWidth, dtm.visHeight = 1024, 1024
             layer.texture = dtm.key
         else:
-            key = _Texture(texture=texture, use_alpha=has_alpha, force_calc_alpha=slot.use_stencil)
+            detail_blend = TEX_DETAIL_ALPHA
+            if layer_props.is_detail_map and texture.use_mipmap:
+                if slot.blend_type == "ADD":
+                    detail_blend = TEX_DETAIL_ADD
+                elif slot.blend_type == "MULTIPLY":
+                    detail_blend = TEX_DETAIL_MULTIPLY
+
+            key = _Texture(texture=texture, use_alpha=has_alpha, force_calc_alpha=slot.use_stencil,
+                           is_detail_map=layer_props.is_detail_map, detail_blend=detail_blend,
+                           detail_fade_start=layer_props.detail_fade_start, detail_fade_stop=layer_props.detail_fade_stop,
+                           detail_opacity_start=layer_props.detail_opacity_start, detail_opacity_stop=layer_props.detail_opacity_stop)
             if key not in self._pending:
                 print("            Stashing '{}' for conversion as '{}'".format(texture.image.name, str(key)))
                 self._pending[key] = [layer.key,]
@@ -481,7 +520,7 @@ class MaterialConverter:
             print("        Stashing '{}' for conversion as '{}'".format(image.name, str(key)))
             self._pending[key] = [layer.key,]
         else:
-            print("        Found another user of '{}'".format(image.name))
+            print("        Found another user of '{}'".format(key))
             self._pending[key].append(layer.key)
 
     def finalize(self):
@@ -498,32 +537,18 @@ class MaterialConverter:
                 self._resize_image(image, eWidth, eHeight)
 
             # Some basic mipmap settings.
-            numLevels = math.floor(math.log(max(eWidth, eHeight), 2)) + 1 if key.mipmap else 1
             compression = plBitmap.kDirectXCompression if key.mipmap else plBitmap.kUncompressed
             dxt = plBitmap.kDXT5 if key.use_alpha or key.calc_alpha else plBitmap.kDXT1
 
-            # Major Workaround Ahoy
-            # There is a bug in Cyan's level size algorithm that causes it to not allocate enough memory
-            # for the color block in certain mipmaps. I personally have encountered an access violation on
-            # 1x1 DXT5 mip levels -- the code only allocates an alpha block and not a color block. Paradox
-            # reports that if any dimension is smaller than 4px in a mip level, OpenGL doesn't like Cyan generated
-            # data. So, we're going to lop off the last two mip levels, which should be 1px and 2px as the smallest.
-            # This bug is basically unfixable without crazy hacks because of the way Plasma reads in texture data.
-            #     "<Deledrius> I feel like any texture at a 1x1 level is essentially academic.  I mean, JPEG/DXT
-            #                  doesn't even compress that, and what is it?  Just the average color of the whole
-            #                  texture in a single pixel?"
-            # :)
-            if key.mipmap:
-                # If your mipmap only has 2 levels (or less), then you deserve to phail...
-                numLevels = max(numLevels - 2, 2)
-
             # Grab the image data from OpenGL and stuff it into the plBitmap
-            helper = korlib.GLTexture(image)
+            helper = GLTexture(key)
             with helper as glimage:
                 if key.mipmap:
+                    numLevels = glimage.num_levels
                     print("    Generating mip levels")
                     glimage.generate_mipmap()
                 else:
+                    numLevels = 1
                     print("    Stuffing image data")
 
                 # Uncompressed bitmaps are BGRA
@@ -606,7 +631,8 @@ class MaterialConverter:
             result = False
         else:
             # Using bpy.types.Image.pixels is VERY VERY VERY slow...
-            with korlib.GLTexture(image) as glimage:
+            key = _Texture(image=image)
+            with GLTexture(key) as glimage:
                 result = glimage.has_alpha
 
         self._alphatest[image] = result

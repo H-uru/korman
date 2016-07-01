@@ -52,3 +52,24 @@ class PlasmaLayer(bpy.types.PropertyGroup):
     anim_loop = BoolProperty(name="Loop",
                              description="Loop layer animation",
                              default=True)
+
+    is_detail_map = BoolProperty(name="Detail Fade",
+                                 description="Texture fades out as distance from the camera increases",
+                                 default=False,
+                                 options=set())
+    detail_fade_start = IntProperty(name="Falloff Start",
+                                    description="",
+                                    min=0, max=100, default=0,
+                                    options=set(), subtype="PERCENTAGE")
+    detail_fade_stop = IntProperty(name="Falloff Stop",
+                                   description="",
+                                   min=0, max=100, default=100,
+                                   options=set(), subtype="PERCENTAGE")
+    detail_opacity_start = IntProperty(name="Opacity Start",
+                                       description="",
+                                       min=0, max=100, default=50,
+                                       options=set(), subtype="PERCENTAGE")
+    detail_opacity_stop = IntProperty(name="Opacity Stop",
+                                      description="",
+                                      min=0, max=100, default=0,
+                                      options=set(), subtype="PERCENTAGE")

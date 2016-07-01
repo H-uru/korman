@@ -34,3 +34,5 @@ except ImportError:
         assert not stream.eof()
         size = stream.readInt()
         return (header, size)
+else:
+    from .texture import TEX_DETAIL_ALPHA, TEX_DETAIL_ADD, TEX_DETAIL_MULTIPLY
