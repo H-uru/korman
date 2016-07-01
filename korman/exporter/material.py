@@ -24,6 +24,8 @@ from .. import helpers
 from ..korlib import *
 from . import utils
 
+_MAX_STENCILS = 6
+
 class _Texture:
     _DETAIL_BLEND = {
         TEX_DETAIL_ALPHA: "AL",
@@ -125,14 +127,40 @@ class MaterialConverter:
         print("    Exporting Material '{}'".format(bm.name))
 
         hsgmat = self._mgr.add_object(hsGMaterial, name=bm.name, bl=bo)
-        slots = [slot for slot in bm.texture_slots if slot is not None and slot.use and
-                 slot.texture is not None and slot.texture.type in self._tex_exporters]
+        slots = [(idx, slot) for idx, slot in enumerate(bm.texture_slots) if slot is not None and slot.use \
+                 and slot.texture is not None and slot.texture.type in self._tex_exporters]
 
-        # Okay, I know this isn't Pythonic... But we're doing it this way because we might actually
-        # export many slots in one go. Think stencils.
-        i = 0
-        while i < len(slots):
-            i += self.export_texture_slot(bo, bm, hsgmat, slots, i)
+        # There is a major difference in how Blender and Plasma handle stencils.
+        # In Blender, the stencil is on top and applies to every layer below is. In Plasma, the stencil
+        # is below the SINGLE layer it affects. The main texture is marked BindNext and RestartPassHere.
+        # The pipeline indicates that we can render 8 layers simultaneously, so we will collect all
+        # stencils and apply this arrangement. We're going to limit to 6 stencils however. 1 layer for
+        # main texture and 1 piggyback.
+        num_stencils = sum((1 for i in slots if i[1].use_stencil))
+        if num_stencils > _MAX_STENCILS:
+            raise ExportError("Material '{}' uses too many stencils. The maximum is {}".format(bm.name, _MAX_STENCILS))
+        stencils = []
+
+        # Loop over layers
+        for idx, slot in slots:
+            if slot.use_stencil:
+                stencils.append((idx, slot))
+            else:
+                tex_layer = self.export_texture_slot(bo, bm, hsgmat, slot, idx)
+                hsgmat.addLayer(tex_layer.key)
+                if stencils:
+                    tex_state = tex_layer.state
+                    if not tex_state.blendFlags & hsGMatState.kBlendMask:
+                        tex_state.blendFlags |= hsGMatState.kBlendAlpha
+                    tex_state.miscFlags |= hsGMatState.kMiscRestartPassHere | hsGMatState.kMiscBindNext
+                    curr_stencils = len(stencils)
+                    for i in range(curr_stencils):
+                        stencil_idx, stencil = stencils[i]
+                        stencil_name = "STENCILGEN_{}@{}_{}".format(stencil.name, bm.name, slot.name)
+                        stencil_layer = self.export_texture_slot(bo, bm, hsgmat, stencil, stencil_idx, name=stencil_name)
+                        if i+1 < curr_stencils:
+                            stencil_layer.state.miscFlags |= hsGMatState.kMiscBindNext
+                        hsgmat.addLayer(stencil_layer.key)
 
         # Plasma makes several assumptions that every hsGMaterial has at least one layer. If this
         # material had no Textures, we will need to initialize a default layer
@@ -166,11 +194,9 @@ class MaterialConverter:
         # Wasn't that easy?
         return hsgmat.key
 
-    def export_texture_slot(self, bo, bm, hsgmat, slots, idx, blend_flags=True):
-        slot = slots[idx]
-        num_exported = 1
-
-        name = "{}_{}".format(bm.name if bm is not None else bo.name, slot.name)
+    def export_texture_slot(self, bo, bm, hsgmat, slot, idx, name=None, blend_flags=True):
+        if name is None:
+            name = "{}_{}".format(bm.name if bm is not None else bo.name, slot.name)
         print("        Exporting Plasma Layer '{}'".format(name))
         layer = self._mgr.add_object(plLayer, name=name, bl=bo)
         if bm is not None:
@@ -204,22 +230,6 @@ class MaterialConverter:
                 state.clampFlags |= hsGMatState.kClampTexture
             state.ZFlags |= hsGMatState.kZNoZWrite
             layer.ambient = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
-
-            # Plasma actually wants the next layer first, so let's export him
-            nextIdx = idx + 1
-            if len(slots) == nextIdx:
-                raise ExportError("Texture Slot '{}' wants to be a stencil, but there are no more TextureSlots.".format(slot.name))
-            print("            --- BEGIN STENCIL ---")
-            self.export_texture_slot(bo, bm, hsgmat, slots, nextIdx)
-            print("            ---  END STENCIL  ---")
-            num_exported += 1
-
-            # Now that we've exported the bugger, flag him as binding with this texture
-            prev_layer = hsgmat.layers[-1].object
-            prev_state = prev_layer.state
-            prev_state.miscFlags |= hsGMatState.kMiscBindNext | hsGMatState.kMiscRestartPassHere
-            if not prev_state.blendFlags & hsGMatState.kBlendMask:
-                prev_state.blendFlags |= hsGMatState.kBlendAlpha
         elif blend_flags:
             # Standard layer flags ahoy
             if slot.blend_type == "ADD":
@@ -241,13 +251,10 @@ class MaterialConverter:
         self._tex_exporters[texture.type](bo, layer, slot)
 
         # Export any layer animations
-        layer = self._export_layer_animations(bo, bm, slot, idx, layer)
-
-        if hsgmat is None:
-            return layer
-        else:
-            hsgmat.addLayer(layer.key)
-            return num_exported
+        # NOTE: animated stencils are nonsense.
+        if slot.use_stencil:
+            layer = self._export_layer_animations(bo, bm, slot, idx, layer)
+        return layer
 
     def _export_layer_animations(self, bo, bm, tex_slot, idx, base_layer):
         """Exports animations on this texture and chains the Plasma layers as needed"""
@@ -263,17 +270,13 @@ class MaterialConverter:
                     if data_path is None:
                         collection.extend(action.fcurves)
                     else:
-                        collection.extend([i for i in action.fcurves if i.data_path.startswith(data_path)])
+                        collection.extend((i for i in action.fcurves if i.data_path.startswith(data_path)))
                     return action
             return None
 
-        # First, we must gather relevant FCurves from both the material and the texture itself
-        # Because, you know, that totally makes sense...
         fcurves = []
         mat_action = harvest_fcurves(bm, fcurves, "texture_slots[{}]".format(idx))
-        tex_action = harvest_fcurves(tex_slot.texture, fcurves)
-
-        # No fcurves, no animation
+        tex_action = harvest_fcurves(bm.texture_slots[idx].texture, fcurves)
         if not fcurves:
             return base_layer
 
@@ -588,6 +591,14 @@ class MaterialConverter:
 
     def get_materials(self, bo):
         return self._obj2mat[bo]
+
+    def get_texture_animation_key(self, bo, bm, tex_name):
+        """Finds or creates the appropriate key for sending messages to an animated Texture"""
+        tex_slot = bm.texture_slots.get(tex_name, None)
+        if tex_slot is None:
+            raise ExportError("Material '{}' does not contain Texture '{}'".format(bm.name, tex_name))
+        name = "{}_{}_LayerAnim".format(bm.name, tex_name)
+        return self._mgr.find_create_key(plLayerAnimation, bl=bo, name=name)
 
     @property
     def _mgr(self):

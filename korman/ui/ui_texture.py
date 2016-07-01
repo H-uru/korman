@@ -62,7 +62,7 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
     bl_label = "Plasma Layer Options"
 
     def draw(self, context):
-        texture = context.texture
+        texture, slot = context.texture, context.texture_slot
         layer_props = texture.plasma_layer
         layout = self.layout
 
@@ -84,12 +84,13 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
         split = layout.split()
         col = split.column()
         col.label("Animation:")
-        col.enabled = self._has_animation_data(context)
+        col.enabled = self._has_animation_data(context) and not slot.use_stencil
         col.prop(layer_props, "anim_auto_start")
         col.prop(layer_props, "anim_loop")
 
         col = split.column()
         col.label("General:")
+        col.active = not slot.use_stencil
         col.prop(layer_props, "opacity", text="Opacity")
         col.prop(layer_props, "alpha_halo")
 

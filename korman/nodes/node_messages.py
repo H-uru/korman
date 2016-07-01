@@ -121,13 +121,19 @@ class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "anim_type")
-        if self.anim_type == "OBJECT":
-            layout.prop_search(self, "object_name", bpy.data, "objects")
-        else:
-            layout.prop_search(self, "material_name", bpy.data, "materials")
-            material = bpy.data.materials.get(self.material_name, None)
-            if material is not None:
-                layout.prop_search(self, "texture_name", material, "texture_slots")
+        layout.prop_search(self, "object_name", bpy.data, "objects")
+
+        if self.anim_type != "OBJECT":
+            bo = bpy.data.objects.get(self.object_name)
+            if bo is None or not hasattr(bo.data, "materials"):
+                layout.label("Invalid Object", icon="ERROR")
+            else:
+                layout.prop_search(self, "material_name", bo.data, "materials")
+                material = bpy.data.materials.get(self.material_name, None)
+                if material is None:
+                    layout.label("Invalid Material", icon="ERROR")
+                else:
+                    layout.prop_search(self, "texture_name", material, "texture_slots")
 
         layout.prop(self, "go_to")
         layout.prop(self, "action")
@@ -164,10 +170,10 @@ class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
         msg = plAnimCmdMsg()
 
         # We're either sending this off to an AGMasterMod or a LayerAnim
+        obj = bpy.data.objects.get(self.object_name, None)
+        if obj is None:
+            self.raise_error("invalid object: '{}'".format(self.object_name))
         if self.anim_type == "OBJECT":
-            obj = bpy.data.objects.get(self.object_name, None)
-            if obj is None:
-                self.raise_error("invalid object: '{}'".format(self.object_name))
             if not exporter.animation.is_animated(obj):
                 self.raise_error("invalid animation")
             group = obj.plasma_modifiers.animation_group
@@ -182,11 +188,7 @@ class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
             material = bpy.data.materials.get(self.material_name, None)
             if material is None:
                 self.raise_error("invalid material: '{}'".format(self.material_name))
-            tex_slot = material.texture_slots.get(self.texture_name, None)
-            if tex_slot is None:
-                self.raise_error("invalid texture: '{}'".format(self.texture_name))
-            name = "{}_{}_LayerAnim".format(self.material_name, self.texture_name)
-            target = exporter.mgr.find_create_key(plLayerAnimation, name=name, so=so)
+            target = exporter.mesh.material.get_texture_animation_key(obj, material, self.texture_name)
         if target is None:
             raise RuntimeError()
         msg.addReceiver(target)

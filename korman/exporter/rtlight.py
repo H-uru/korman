@@ -203,7 +203,7 @@ class LightConverter:
         # one layer. We could exploit the fUnderLay and fOverLay system to export everything, but meh.
         if len(tex_slots) > 1:
             self._exporter().warn("Only one texture slot can be exported per Lamp. Picking the first one: '{}'".format(slot.name), indent=3)
-        layer = mat.export_texture_slot(bo, None, None, tex_slots, 0, blend_flags=False)
+        layer = mat.export_texture_slot(bo, None, None, slot, 0, blend_flags=False)
         state = layer.state
 
         # Colors science'd from PRPs
