@@ -241,12 +241,14 @@ class MeshConverter:
             geospan = geospans[i][0]
             numVerts = len(data.vertices)
 
-            # Soft vertex limit at 0x8000 for PotS and below. Works fine as long as it's a uint16
-            # MOUL only allows signed int16s, however :/
-            if numVerts > _MAX_VERTS_PER_SPAN or (numVerts > _WARN_VERTS_PER_SPAN and self._mgr.getVer() >= pvMoul):
+            # There is a soft limit of 0x8000 vertices per span in Plasma, but the limit is
+            # theoretically 0xFFFF because this field is a 16-bit integer. However, bad things
+            # happen in MOUL when we have over 0x8000 vertices. I've also received tons of reports
+            # of stack dumps in PotS when modifiers are applied, so we're going to limit to 0x8000.
+            #     TODO: consider busting up the mesh into multiple geospans?
+            #           or hack plDrawableSpans::composeGeometry to do it for us?
+            if numVerts > _WARN_VERTS_PER_SPAN:
                 raise explosions.TooManyVerticesError(bo.data.name, geospan.material.name, numVerts)
-            elif numVerts > _WARN_VERTS_PER_SPAN:
-                pass # FIXME
 
             # If we're still here, let's add our data to the GeometrySpan
             geospan.indices = data.triangles
