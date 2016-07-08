@@ -203,14 +203,20 @@ class LightBaker:
         return bake
 
     def _pop_lightgroups(self):
+        groups, materials = bpy.data.groups, bpy.data.materials
         for mat_name, lg in self._lightgroups.items():
-            material = bpy.data.materials[mat_name]
+            material = materials[mat_name]
             _fake = material.light_group
-            if _fake is not None and _fake.name.startswith("_LIGHTMAPGEN"):
-                for i in _fake.objects:
-                    _fake.objects.unlink(i)
-                _fake.user_clear()
-                bpy.data.groups.remove(_fake)
+            if _fake is not None:
+                # I have seen issues where the light group is not always removed correctly if we
+                # just call groups.remove(_fake) -- so let's search for this LG's name and remove
+                # that result. Should actually fix the problem... I hope.
+                group_name = "_LIGHTMAPGEN_{}".format(mat_name)
+                _hack_lg = groups.get(group_name, None)
+                if _hack_lg is not None:
+                    groups.remove(_hack_lg)
+                else:
+                    print("    TITS! Group '{}' will be left over...".format(group_name))
             material.light_group = lg
         self._lightgroups.clear()
 
@@ -340,6 +346,10 @@ class LightBaker:
 @persistent
 def _toss_garbage(scene):
     """Removes all LIGHTMAPGEN and autocolor garbage before saving"""
+    for i in bpy.data.groups:
+        if i.name.startswith("_LIGHTMAPGEN"):
+            i.user_clear()
+            bpy.data.groups.remove(i)
     for i in bpy.data.images:
         if i.name.endswith("_LIGHTMAPGEN.png"):
             i.user_clear()
