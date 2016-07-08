@@ -226,7 +226,7 @@ class PlasmaLightingMod(PlasmaModifierProperties):
 
     force_rt_lights = BoolProperty(name="Force RT Lighting",
                                    description="Unleashes satan by forcing the engine to dynamically light this object",
-                                   default=True,
+                                   default=False,
                                    options=set())
     force_preshade = BoolProperty(name="Force Vertex Shading",
                                   description="Ensures vertex lights are baked, even if illogical",
