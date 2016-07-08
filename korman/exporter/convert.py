@@ -259,7 +259,7 @@ class Exporter:
             return True
         if bo.name in self.actors:
             return True
-        if self.animation.has_transform_animation(bo):
+        if bo.plasma_object.has_transform_animation:
             return True
 
         for mod in bo.plasma_modifiers.modifiers:

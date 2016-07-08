@@ -130,6 +130,13 @@ class MeshConverter:
             raise explosions.TooManyUVChannelsError(bo, bm)
         geospan.format = numUVWchans
 
+        # Begin total guesswork WRT flags
+        mods = bo.plasma_modifiers
+        if mods.lightmap.enabled:
+            geospan.props |= plGeometrySpan.kLiteVtxNonPreshaded
+        if mods.lighting.rt_lights:
+            geospan.props |= plGeometrySpan.kPropRunTimeLight
+
         # Harvest lights
         permaLights, permaProjs = self._exporter().light.find_material_light_keys(bo, bm)
         for i in permaLights:

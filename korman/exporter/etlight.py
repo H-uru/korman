@@ -118,13 +118,14 @@ class LightBaker:
         # Return how many thingos we baked
         return sum(map(len, bake.values()))
 
-    def _generate_lightgroup(self, mesh, user_lg=None):
+    def _generate_lightgroup(self, bo, user_lg=None):
         """Makes a new light group for the baking process that excludes all Plasma RT lamps"""
 
         if user_lg is not None:
             user_lg = bpy.data.groups.get(user_lg)
         shouldibake = (user_lg is not None and bool(user_lg.objects))
 
+        mesh = bo.data
         for material in mesh.materials:
             if material is None:
                 # material is not assigned to this material... (why is this even a thing?)
@@ -143,13 +144,20 @@ class LightBaker:
                     source = lg.objects
                 dest = bpy.data.groups.new("_LIGHTMAPGEN_{}".format(name))
 
-                # Only use non-RT lights
+                # Rules:
+                # 1) No animated lights, period.
+                # 2) If we accept runtime lighting, no Plasma Objects
+                rtl_mod = bo.plasma_modifiers.lighting
                 for obj in source:
-                    if obj.plasma_object.enabled:
+                    if obj.plasma_object.has_animation_data:
+                        continue
+                    if rtl_mod.rt_lights and obj.plasma_object.enabled:
                         continue
                     dest.objects.link(obj)
                     shouldibake = True
             else:
+                # The aforementioned rules do not apply. You better hope you know WTF you are
+                # doing. I'm not going to help!
                 dest = user_lg
             material.light_group = dest
         return shouldibake
@@ -185,7 +193,7 @@ class LightBaker:
                     bake[key].append(i)
                 else:
                     bake[key] = [i,]
-            elif not mods.water_basic.enabled:
+            elif mods.lighting.preshade:
                 vcols = i.data.vertex_colors
                 for j in _VERTEX_COLOR_LAYERS:
                     if j in vcols:
@@ -212,7 +220,7 @@ class LightBaker:
         uv_textures = mesh.uv_textures
 
         # Create a special light group for baking
-        if not self._generate_lightgroup(mesh, modifier.light_group):
+        if not self._generate_lightgroup(bo, modifier.light_group):
             return False
 
         # We need to ensure that we bake onto the "BlahObject_LIGHTMAPGEN" image
@@ -285,7 +293,7 @@ class LightBaker:
         vcols = mesh.vertex_colors
 
         # Create a special light group for baking
-        if not self._generate_lightgroup(mesh):
+        if not self._generate_lightgroup(bo):
             return False
 
         # I have heard tale of some moar "No valid image to bake to" boogs if there is a really

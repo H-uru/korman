@@ -105,7 +105,7 @@ class PlasmaCollider(PlasmaModifierProperties):
     def post_export(self, exporter, bo, so):
         test_bo = bo
         while test_bo is not None:
-            if exporter.animation.has_transform_animation(test_bo):
+            if test_bo.plasma_object.has_transform_animation:
                 self._make_physical_movable(so)
                 break
             test_bo = test_bo.parent

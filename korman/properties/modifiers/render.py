@@ -216,6 +216,67 @@ class PlasmaLightMapGen(PlasmaModifierProperties):
     def resolution(self):
         return int(self.quality)
 
+
+class PlasmaLightingMod(PlasmaModifierProperties):
+    pl_id = "lighting"
+
+    bl_category = "Render"
+    bl_label = "Lighting"
+    bl_description = "Fine tune Plasma lighting settings"
+
+    force_rt_lights = BoolProperty(name="Force RT Lighting",
+                                   description="Unleashes satan by forcing the engine to dynamically light this object",
+                                   default=True,
+                                   options=set())
+    force_preshade = BoolProperty(name="Force Vertex Shading",
+                                  description="Ensures vertex lights are baked, even if illogical",
+                                  default=False,
+                                  options=set())
+
+    @property
+    def allow_preshade(self):
+        bo = self.id_data
+        if bo.plasma_modifiers.water_basic.enabled:
+            return False
+        if bo.plasma_modifiers.lightmap.enabled:
+            return False
+        return True
+
+    def export(self, exporter, bo, so):
+        # Exposes no new keyed objects, mostly a hint to the ET light code
+        pass
+
+    @property
+    def preshade(self):
+        bo = self.id_data
+        if self.allow_preshade:
+            if self.force_preshade:
+                return True
+            # RT lights means no preshading unless requested
+            if self.rt_lights:
+                return False
+            if not bo.plasma_object.has_transform_animation:
+                return True
+        return False
+
+    @property
+    def rt_lights(self):
+        """Are RT lights forcibly enabled or do we otherwise want them?"""
+        return (self.enabled and self.force_rt_lights) or self.want_rt_lights
+
+    @property
+    def want_rt_lights(self):
+        """Gets whether or not this object ought to be lit dynamically"""
+        bo = self.id_data
+        if bo.plasma_modifiers.lightmap.enabled:
+            return False
+        if bo.plasma_modifiers.water_basic.enabled:
+            return True
+        if bo.plasma_object.has_transform_animation:
+            return True
+        return False
+
+
 class PlasmaViewFaceMod(PlasmaModifierProperties):
     pl_id = "viewfacemod"
 

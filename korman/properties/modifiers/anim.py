@@ -112,7 +112,7 @@ class PlasmaAnimationGroupModifier(ActionModifier, PlasmaModifierProperties):
     active_child_index = IntProperty(options={"HIDDEN"})
 
     def export(self, exporter, bo, so):
-        if not exporter.animation.is_animated(bo):
+        if not bo.plasma_object.has_animation_data:
             raise ExportError("'{}': Object is not animated".format(bo.name))
 
         # The message forwarder is the guy that makes sure that everybody knows WTF is going on

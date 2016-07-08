@@ -45,6 +45,42 @@ def followmod(modifier, layout, context):
     if modifier.leader_type == "kFollowObject":
         layout.prop_search(modifier, "leader_object", bpy.data, "objects", icon="OUTLINER_OB_MESH")
 
+def lighting(modifier, layout, context):
+    split = layout.split()
+    col = split.column()
+    col.prop(modifier, "force_rt_lights")
+    col = split.column()
+    col.active = modifier.allow_preshade
+    col.prop(modifier, "force_preshade")
+    layout.separator()
+
+    lightmap = modifier.id_data.plasma_modifiers.lightmap
+    have_static_lights = lightmap.enabled or modifier.preshade
+    def yes_no(val):
+        return "Yes" if val else "No"
+
+    col = layout.column(align=True)
+    col.label("Plasma Lighting Summary:")
+    if modifier.rt_lights and have_static_lights:
+        col.label(" You have unleashed Satan!", icon="GHOST_ENABLED")
+    else:
+        col.label(" Satan remains ensconced deep in the abyss...", icon="GHOST_ENABLED")
+    col.label("Animated lights will be cast at runtime.", icon="LAYER_USED")
+    col.label("Projection lights will be cast at runtime.", icon="LAYER_USED")
+    col.label("Specular lights will be cast to specular materials at runtime.", icon="LAYER_USED")
+    col.label("Other Plasma lights {} be cast at runtime.".format("will" if modifier.rt_lights else "will NOT"),
+              icon="LAYER_USED")
+
+    if lightmap.enabled and lightmap.light_group:
+            col.label(" All '{}' lights will be baked to a lightmap".format(lightmap.light_group),
+                      icon="LAYER_USED")
+    elif have_static_lights:
+        light_type = "Blender-only" if modifier.rt_lights else "unanimated"
+        map_type = "a lightmap" if lightmap.enabled else "vertex colors"
+        col.label("Other {} lights will be baked to {}.".format(light_type, map_type), icon="LAYER_USED")
+    else:
+        col.label("No static lights will be baked.", icon="LAYER_USED")
+
 def lightmap(modifier, layout, context):
     layout.row(align=True).prop(modifier, "quality", expand=True)
     layout.prop(modifier, "render_layers", text="Active Render Layers")

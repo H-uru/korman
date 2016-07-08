@@ -52,6 +52,28 @@ class PlasmaObject(bpy.types.PropertyGroup):
                              default=False,
                              options={"HIDDEN"})
 
+    @property
+    def has_animation_data(self):
+        bo = self.id_data
+        if bo.animation_data is not None:
+            if bo.animation_data.action is not None:
+                return True
+        data = getattr(bo, "data", None)
+        if data is not None:
+            if data.animation_data is not None:
+                if data.animation_data.action is not None:
+                    return True
+        return False
+
+    @property
+    def has_transform_animation(self):
+        bo = self.id_data
+        if bo.animation_data is not None:
+            if bo.animation_data.action is not None:
+                data_paths = frozenset((i.data_path for i in bo.animation_data.action.fcurves))
+                return {"location", "rotation_euler", "scale"} & data_paths
+        return False
+
 
 class PlasmaNet(bpy.types.PropertyGroup):
     manual_sdl = BoolProperty(name="Override SDL",

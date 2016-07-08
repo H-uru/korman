@@ -188,7 +188,7 @@ class LightConverter:
 
         # If the lamp has any sort of animation attached, then it needs to be marked movable.
         # Otherwise, Plasma may not use it for lighting.
-        if projectors or self._exporter().animation.is_animated(bo):
+        if projectors or bo.plasma_object.has_animation_data:
             pl_light.setProperty(plLightInfo.kLPMovable, True)
 
         # *Sigh*
