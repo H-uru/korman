@@ -132,17 +132,16 @@ class LightBaker:
                 continue
 
             # Already done it?
-            name = material.name
-            lg = material.light_group
-            if name not in self._lightgroups:
-                self._lightgroups[name] = lg
+            lg, mat_name = material.light_group, material.name
+            if mat_name not in self._lightgroups:
+                self._lightgroups[mat_name] = lg
 
             if user_lg is None:
                 if not lg or bool(lg.objects) is False:
                     source = [i for i in bpy.data.objects if i.type == "LAMP"]
                 else:
                     source = lg.objects
-                dest = bpy.data.groups.new("_LIGHTMAPGEN_{}".format(name))
+                dest = bpy.data.groups.new("_LIGHTMAPGEN_{}_{}".format(bo.name, mat_name))
 
                 # Rules:
                 # 1) No animated lights, period.
@@ -203,22 +202,16 @@ class LightBaker:
         return bake
 
     def _pop_lightgroups(self):
-        groups, materials = bpy.data.groups, bpy.data.materials
+        materials = bpy.data.materials
         for mat_name, lg in self._lightgroups.items():
-            material = materials[mat_name]
-            _fake = material.light_group
-            if _fake is not None:
-                # I have seen issues where the light group is not always removed correctly if we
-                # just call groups.remove(_fake) -- so let's search for this LG's name and remove
-                # that result. Should actually fix the problem... I hope.
-                group_name = "_LIGHTMAPGEN_{}".format(mat_name)
-                _hack_lg = groups.get(group_name, None)
-                if _hack_lg is not None:
-                    groups.remove(_hack_lg)
-                else:
-                    print("    TITS! Group '{}' will be left over...".format(group_name))
-            material.light_group = lg
+            materials[mat_name].light_group = lg
         self._lightgroups.clear()
+
+        groups = bpy.data.groups
+        for i in groups:
+            if i.name.startswith("_LIGHTMAPGEN_"):
+                i.user_clear()
+                bpy.data.groups.remove(i)
 
     def _prep_for_lightmap(self, bo, toggle):
         mesh = bo.data
@@ -346,10 +339,6 @@ class LightBaker:
 @persistent
 def _toss_garbage(scene):
     """Removes all LIGHTMAPGEN and autocolor garbage before saving"""
-    for i in bpy.data.groups:
-        if i.name.startswith("_LIGHTMAPGEN"):
-            i.user_clear()
-            bpy.data.groups.remove(i)
     for i in bpy.data.images:
         if i.name.endswith("_LIGHTMAPGEN.png"):
             i.user_clear()
