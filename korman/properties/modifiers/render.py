@@ -277,6 +277,46 @@ class PlasmaLightingMod(PlasmaModifierProperties):
         return False
 
 
+class PlasmaShadowCasterMod(PlasmaModifierProperties):
+    pl_id = "rtshadow"
+
+    bl_category = "Render"
+    bl_label = "Cast RT Shadow"
+    bl_description = "Cast runtime shadows"
+
+    blur = IntProperty(name="Blur",
+                       description="Blur factor for the shadow map",
+                       min=0, max=100, default=0,
+                       subtype="PERCENTAGE", options=set())
+    boost = IntProperty(name="Boost",
+                        description="Multiplies the shadow's power",
+                        min=0, max=5000, default=100,
+                        subtype="PERCENTAGE", options=set())
+    falloff = IntProperty(name="Falloff",
+                          description="Multiplier for each lamp's falloff value",
+                          min=10, max=1000, default=100,
+                          subtype="PERCENTAGE", options=set())
+
+    limit_resolution = BoolProperty(name="Limit Resolution",
+                                    description="Increase performance by halving the resolution of the shadow map",
+                                    default=False,
+                                    options=set())
+    self_shadow = BoolProperty(name="Self Shadow",
+                               description="Object can cast shadows on itself",
+                               default=False,
+                               options=set())
+
+    def export(self, exporter, bo, so):
+        caster = exporter.mgr.find_create_object(plShadowCaster, so=so, name=self.key_name)
+        caster.attenScale = self.falloff / 100.0
+        caster.blurScale = self.blur / 100.0
+        caster.boost = self.boost / 100.0
+        if self.limit_resolution:
+            caster.castFlags |= plShadowCaster.kLimitRes
+        if self.self_shadow:
+            caster.castFlags |= plShadowCaster.kSelfShadow
+
+
 class PlasmaViewFaceMod(PlasmaModifierProperties):
     pl_id = "viewfacemod"
 

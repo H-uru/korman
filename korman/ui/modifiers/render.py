@@ -100,6 +100,17 @@ def lightmap(modifier, layout, context):
         if tex.image.name == im_name:
             layout.template_preview(tex, show_buttons=False)
 
+def rtshadow(modifier, layout, context):
+    split = layout.split()
+    col = split.column()
+    col.prop(modifier, "blur")
+    col.prop(modifier, "boost")
+    col.prop(modifier, "falloff")
+
+    col = split.column()
+    col.prop(modifier, "limit_resolution")
+    col.prop(modifier, "self_shadow")
+
 def viewfacemod(modifier, layout, context):
     layout.prop(modifier, "preset_options")
 
