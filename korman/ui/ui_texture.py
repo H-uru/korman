@@ -66,21 +66,6 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
         layer_props = texture.plasma_layer
         layout = self.layout
 
-        col = layout.column()
-        col.active = texture.use_mipmap
-        col.prop(layer_props, "is_detail_map", text="Use Detail Blending")
-
-        split = layout.split()
-        col = split.column(align=True)
-        col.active = texture.use_mipmap and layer_props.is_detail_map
-        col.prop(layer_props, "detail_fade_start")
-        col.prop(layer_props, "detail_fade_stop")
-        col = split.column(align=True)
-        col.active = texture.use_mipmap and layer_props.is_detail_map
-        col.prop(layer_props, "detail_opacity_start")
-        col.prop(layer_props, "detail_opacity_stop")
-        layout.separator()
-
         split = layout.split()
         col = split.column()
         col.label("Animation:")
@@ -89,10 +74,29 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
         col.prop(layer_props, "anim_loop")
 
         col = split.column()
-        col.label("General:")
+        col.label("Miscellaneous:")
         col.active = not slot.use_stencil
         col.prop(layer_props, "opacity", text="Opacity")
+        layout.separator()
+
+        split = layout.split()
+        col = split.column()
+        col.active = texture.use_mipmap
+        col.prop(layer_props, "is_detail_map", text="Detail Blending")
+        col = col.column(align=True)
+        col.active = texture.use_mipmap and layer_props.is_detail_map
+        col.prop(layer_props, "detail_fade_start")
+        col.prop(layer_props, "detail_fade_stop")
+        col.separator()
+        col.prop(layer_props, "detail_opacity_start")
+        col.prop(layer_props, "detail_opacity_stop")
+
+        col = split.column()
+        col.label("Z Depth:")
         col.prop(layer_props, "alpha_halo")
+        col.prop(layer_props, "skip_depth_write")
+        col.prop(layer_props, "skip_depth_test")
+        col.prop(layer_props, "z_bias")
 
     def _has_animation_data(self, context):
         tex = getattr(context, "texture", None)

@@ -27,11 +27,9 @@ class PlasmaLayer(bpy.types.PropertyGroup):
 
     opacity = FloatProperty(name="Layer Opacity",
                                   description="Opacity of the texture",
-                                  default=100,
-                                  min=0,
-                                  max=100,
-                                  subtype="PERCENTAGE")
-    alpha_halo = BoolProperty(name="Fix Alpha Halo",
+                                  default=100.0, min=0.0, max=100.0,
+                                  precision=0, subtype="PERCENTAGE")
+    alpha_halo = BoolProperty(name="High Alpha Test",
                               description="Fixes halos seen around semitransparent objects resulting from sorting errors",
                               default=False)
 
@@ -73,3 +71,16 @@ class PlasmaLayer(bpy.types.PropertyGroup):
                                       description="",
                                       min=0, max=100, default=0,
                                       options=set(), subtype="PERCENTAGE")
+
+    z_bias = BoolProperty(name="Z Bias",
+                          description="Request Z bias offset to defeat Z-fighting",
+                          default=False,
+                          options=set())
+    skip_depth_test = BoolProperty(name="Skip Depth Test",
+                                   description="Causes this layer to be rendered, even if behind others",
+                                   default=False,
+                                   options=set())
+    skip_depth_write = BoolProperty(name="Skip Depth Write",
+                                    description="Don't save the depth information, allowing rendering of layers behind this one",
+                                    default=False,
+                                    options=set())
