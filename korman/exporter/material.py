@@ -252,7 +252,7 @@ class MaterialConverter:
 
         # Export any layer animations
         # NOTE: animated stencils are nonsense.
-        if slot.use_stencil:
+        if not slot.use_stencil:
             layer = self._export_layer_animations(bo, bm, slot, idx, layer)
         return layer
 
