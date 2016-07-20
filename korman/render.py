@@ -32,6 +32,7 @@ properties_material.MATERIAL_PT_shading.COMPAT_ENGINES.add("PLASMA_GAME")
 properties_material.MATERIAL_PT_specular.COMPAT_ENGINES.add("PLASMA_GAME")
 properties_material.MATERIAL_PT_options.COMPAT_ENGINES.add("PLASMA_GAME")
 properties_material.MATERIAL_PT_preview.COMPAT_ENGINES.add("PLASMA_GAME")
+properties_material.MATERIAL_PT_transp.COMPAT_ENGINES.add("PLASMA_GAME")
 del properties_material
 
 from bl_ui import properties_data_mesh
