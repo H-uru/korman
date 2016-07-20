@@ -189,8 +189,11 @@ class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
             if material is None:
                 self.raise_error("invalid material: '{}'".format(self.material_name))
             target = exporter.mesh.material.get_texture_animation_key(obj, material, self.texture_name)
+
         if target is None:
             raise RuntimeError()
+        if isinstance(target.object, plLayerSDLAnimation):
+            self.raise_error("Cannot control an SDL Animation")
         msg.addReceiver(target)
 
         # Check the enum properties to see what commands we need to add

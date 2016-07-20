@@ -282,7 +282,7 @@ class MaterialConverter:
 
         fcurves = []
         mat_action = harvest_fcurves(bm, fcurves, "texture_slots[{}]".format(idx))
-        tex_action = harvest_fcurves(bm.texture_slots[idx].texture, fcurves)
+        tex_action = harvest_fcurves(tex_slot.texture, fcurves)
         if not fcurves:
             return base_layer
 
@@ -294,7 +294,7 @@ class MaterialConverter:
             if ctrl is not None:
                 if layer_animation is None:
                     name = "{}_LayerAnim".format(base_layer.key.name)
-                    layer_animation = self._mgr.find_create_object(plLayerAnimation, bl=bo, name=name)
+                    layer_animation = self.get_texture_animation_key(bo, bm, tex_slot=tex_slot).object
                 setattr(layer_animation, attr, ctrl)
 
         # Alrighty, if we exported any controllers, layer_animation is a plLayerAnimation. We need to do
@@ -318,6 +318,8 @@ class MaterialConverter:
                 atc.flags |= plAnimTimeConvert.kLoop
                 atc.loopBegin = atc.begin
                 atc.loopEnd = atc.end
+            if layer_props.anim_sdl_var:
+                layer_animation.varName = layer_props.anim_sdl_var
             return layer_animation
 
         # Well, we had some FCurves but they were garbage... Too bad.
@@ -598,13 +600,21 @@ class MaterialConverter:
     def get_materials(self, bo):
         return self._obj2mat.get(bo, [])
 
-    def get_texture_animation_key(self, bo, bm, tex_name):
+    def get_texture_animation_key(self, bo, bm, tex_name=None, tex_slot=None):
         """Finds or creates the appropriate key for sending messages to an animated Texture"""
-        tex_slot = bm.texture_slots.get(tex_name, None)
+        assert tex_name or tex_slot
+
         if tex_slot is None:
-            raise ExportError("Material '{}' does not contain Texture '{}'".format(bm.name, tex_name))
+            tex_slot = bm.texture_slots.get(tex_name, None)
+            if tex_slot is None:
+                raise ExportError("Material '{}' does not contain Texture '{}'".format(bm.name, tex_name))
+        if tex_name is None:
+            tex_name = tex_slot.name
+
         name = "{}_{}_LayerAnim".format(bm.name, tex_name)
-        return self._mgr.find_create_key(plLayerAnimation, bl=bo, name=name)
+        layer = tex_slot.texture.plasma_layer
+        pClass = plLayerSDLAnimation if layer.anim_sdl_var else plLayerAnimation
+        return self._mgr.find_create_key(pClass, bl=bo, name=name)
 
     @property
     def _mgr(self):

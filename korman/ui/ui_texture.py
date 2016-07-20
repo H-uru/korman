@@ -69,15 +69,26 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
         split = layout.split()
         col = split.column()
         col.label("Animation:")
-        col.enabled = self._has_animation_data(context) and not slot.use_stencil
+        col.active = self._has_animation_data(context) and not slot.use_stencil
         col.prop(layer_props, "anim_auto_start")
         col.prop(layer_props, "anim_loop")
+        col.separator()
+        col.label("SDL Animation:")
+        col.prop(layer_props, "anim_sdl_var", text="")
 
         col = split.column()
         col.label("Miscellaneous:")
         col.active = not slot.use_stencil
         col.prop(layer_props, "opacity", text="Opacity")
-        layout.separator()
+        col.separator()
+
+        col = col.column()
+        col.enabled = True
+        col.label("Z Depth:")
+        col.prop(layer_props, "alpha_halo")
+        col.prop(layer_props, "skip_depth_write")
+        col.prop(layer_props, "skip_depth_test")
+        col.prop(layer_props, "z_bias")
 
         split = layout.split()
         col = split.column()
@@ -87,16 +98,11 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
         col.active = texture.use_mipmap and layer_props.is_detail_map
         col.prop(layer_props, "detail_fade_start")
         col.prop(layer_props, "detail_fade_stop")
-        col.separator()
+        col = split.column(align=True)
+        col.active = texture.use_mipmap and layer_props.is_detail_map
+        col.label(text="")
         col.prop(layer_props, "detail_opacity_start")
         col.prop(layer_props, "detail_opacity_stop")
-
-        col = split.column()
-        col.label("Z Depth:")
-        col.prop(layer_props, "alpha_halo")
-        col.prop(layer_props, "skip_depth_write")
-        col.prop(layer_props, "skip_depth_test")
-        col.prop(layer_props, "z_bias")
 
     def _has_animation_data(self, context):
         tex = getattr(context, "texture", None)

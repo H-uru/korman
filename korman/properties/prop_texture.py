@@ -50,6 +50,9 @@ class PlasmaLayer(bpy.types.PropertyGroup):
     anim_loop = BoolProperty(name="Loop",
                              description="Loop layer animation",
                              default=True)
+    anim_sdl_var = StringProperty(name="SDL Variable",
+                                  description="Name of the SDL Variable to use for this animation",
+                                  options=set())
 
     is_detail_map = BoolProperty(name="Detail Fade",
                                  description="Texture fades out as distance from the camera increases",
