@@ -270,12 +270,23 @@ class Exporter:
 
     def _post_process_scene_objects(self):
         print("\nPostprocessing SceneObjects...")
+
+        mat_mgr = self.mesh.material
         for bl_obj in self._objects:
             sceneobject = self.mgr.find_object(plSceneObject, bl=bl_obj)
             if sceneobject is None:
                 # no SO? fine then. turd.
                 continue
-            bl_obj.plasma_net.export(bl_obj, sceneobject)
+
+            # Synchronization is applied for the root SO and all animated layers (WTF)
+            # So, we have to keep in mind shared layers (whee) in the synch options kode
+            net = bl_obj.plasma_net
+            net.propagate_synch_options(sceneobject, sceneobject)
+            for mat in mat_mgr.get_materials(bl_obj):
+                for layer in mat.object.layers:
+                    layer = layer.object
+                    if isinstance(layer, plLayerAnimation):
+                        net.propagate_synch_options(sceneobject, layer)
 
             # Modifiers don't have to expose post-processing, but if they do, run it
             for mod in bl_obj.plasma_modifiers.modifiers:

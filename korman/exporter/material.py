@@ -590,7 +590,7 @@ class MaterialConverter:
                 layer.object.texture = mipmap.key
 
     def get_materials(self, bo):
-        return self._obj2mat[bo]
+        return self._obj2mat.get(bo, [])
 
     def get_texture_animation_key(self, bo, bm, tex_name):
         """Finds or creates the appropriate key for sending messages to an animated Texture"""

@@ -81,8 +81,8 @@ class PlasmaNet(bpy.types.PropertyGroup):
                               default=False)
     sdl_names = set()
 
-    def export(self, bo, so):
-        volatile, exclude = set(), set()
+    def propagate_synch_options(self, scnobj, synobj):
+        volatile, exclude = set(synobj.volatiles), set(synobj.excludes)
         if self.manual_sdl:
             for attr in self.sdl_names:
                 value = getattr(self, attr)
@@ -91,15 +91,21 @@ class PlasmaNet(bpy.types.PropertyGroup):
                 elif value == "exclude":
                     exclude.add(attr)
         else:
+            # This SynchedObject may have already excluded or volatile'd everything
+            # If so, bail.
+            if synobj.synchFlags & plSynchedObject.kExcludeAllPersistentState or \
+               synobj.synchFlags & plSynchedObject.kAllStateIsVolatile:
+                return
+
             # Is this a kickable?
-            if so.sim is not None:
-                phys = so.sim.object.physical.object
+            if scnobj.sim is not None:
+                phys = scnobj.sim.object.physical.object
                 has_kickable = (phys.memberGroup == plSimDefs.kGroupDynamic)
             else:
                 has_kickable = False
 
             # Is there a PythonFileMod?
-            for modKey in so.modifiers:
+            for modKey in scnobj.modifiers:
                 if isinstance(modKey.object, plPythonFileMod):
                     has_pfm = True
                     break
@@ -115,21 +121,25 @@ class PlasmaNet(bpy.types.PropertyGroup):
                 exclude.add("Sound")
                 exclude.add("XRegion")
             else:
-                so.synchFlags |= plSynchedObject.kExcludeAllPersistentState
+                exclude.update(self.sdl_names)
+
+        # It doesn't make sense for a state to be both excluded and volatile.
+        # So, if it somehow appears in both lists, we will exclude that state.
+        volatile = volatile.difference(exclude)
 
         # Inspect and apply volatile states, if any
         if len(volatile) == len(self.sdl_names):
-            so.synchFlags |= plSynchedObject.kAllStateIsVolatile
+            synobj.synchFlags |= plSynchedObject.kAllStateIsVolatile
         elif volatile:
-            so.synchFlags |= plSynchedObject.kHasVolatileState
-            so.volatiles = sorted(volatile)
+            synobj.synchFlags |= plSynchedObject.kHasVolatileState
+            synobj.volatiles = sorted(volatile)
 
         # Inspect and apply exclude states, if any
         if len(exclude) == len(self.sdl_names):
-            so.synchFlags |= plSynchedObject.kExcludeAllPersistentState
+            synobj.synchFlags |= plSynchedObject.kExcludeAllPersistentState
         elif exclude:
-            so.synchFlags |= plSynchedObject.kExcludePersistentState
-            so.excludes = sorted(exclude)
+            synobj.synchFlags |= plSynchedObject.kExcludePersistentState
+            synobj.excludes = sorted(exclude)
 
     @classmethod
     def register(cls):
