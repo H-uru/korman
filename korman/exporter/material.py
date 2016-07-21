@@ -247,11 +247,11 @@ class MaterialConverter:
         if layer_props.alpha_halo:
             state.blendFlags |= hsGMatState.kBlendAlphaTestHigh
         if layer_props.z_bias:
-            state.zFlags |= hsGMatState.kZIncLayer
+            state.ZFlags |= hsGMatState.kZIncLayer
         if layer_props.skip_depth_test:
-            state.zFlags |= hsGMatState.kZNoZRead
+            state.ZFlags |= hsGMatState.kZNoZRead
         if layer_props.skip_depth_write:
-            state.zFlags |= hsGMatState.kZNoZWrite
+            state.ZFlags |= hsGMatState.kZNoZWrite
 
         # Export the specific texture type
         self._tex_exporters[texture.type](bo, layer, slot)
