@@ -505,7 +505,7 @@ class PlasmaSoundMsgNode(PlasmaMessageNode, bpy.types.Node):
                            description="Is the sound looping?",
                            items=[("kSetLooping", "Yes", "The sound is looping",),
                                   ("CURRENT", "(Don't Change)", "Don't change the loop status"),
-                                  ("kSetUnLooping", "No", "The sound is NOT looping")],
+                                  ("kUnSetLooping", "No", "The sound is NOT looping")],
                            default="CURRENT")
     action = EnumProperty(name="Action",
                           description="What do you want the sound to do?",
