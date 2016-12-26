@@ -24,7 +24,7 @@
 #endif // _WIN32
 
 #include <cmath>
-#include <gl/gl.h>
+#include <GL/gl.h>
 #include <PRP/Surface/plMipmap.h>
 
 #ifndef GL_GENERATE_MIPMAP
