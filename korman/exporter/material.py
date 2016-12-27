@@ -509,6 +509,10 @@ class MaterialConverter:
                 elif slot.blend_type == "MULTIPLY":
                     detail_blend = TEX_DETAIL_MULTIPLY
 
+            # Herp, derp... Detail blends are all based on alpha
+            if layer_props.is_detail_map and not state.blendFlags & hsGMatState.kBlendMask:
+                state.blendFlags |= hsGMatState.kBlendAlpha
+
             key = _Texture(texture=texture, use_alpha=has_alpha, force_calc_alpha=slot.use_stencil,
                            is_detail_map=layer_props.is_detail_map, detail_blend=detail_blend,
                            detail_fade_start=layer_props.detail_fade_start, detail_fade_stop=layer_props.detail_fade_stop,
