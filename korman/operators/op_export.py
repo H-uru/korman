@@ -49,6 +49,7 @@ class ExportOperator(bpy.types.Operator):
 
     # This wigs out and very bad things happen if it's not directly on the operator...
     filepath = StringProperty(subtype="FILE_PATH")
+    filter_glob = StringProperty(default="*.age", options={'HIDDEN'})
 
     def draw(self, context):
         layout = self.layout
@@ -116,6 +117,11 @@ class ExportOperator(bpy.types.Operator):
     def invoke(self, context, event):
         # Called when a user hits "export" from the menu
         # We will prompt them for the export info, then call execute()
+        if not self.filepath:
+            blend_filepath = context.blend_data.filepath
+            if not blend_filepath:
+                blend_filepath = "Korman"
+            self.filepath = str(Path(blend_filepath).with_suffix(".age"))
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
 
