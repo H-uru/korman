@@ -488,7 +488,8 @@ class MaterialConverter:
 
             if texture.invert_alpha and has_alpha:
                 state.blendFlags |= hsGMatState.kBlendInvertAlpha
-        if texture.extension == "CLIP":
+
+        if texture.extension in {"CLIP", "EXTEND"}:
             state.clampFlags |= hsGMatState.kClampTexture
 
         # Now, let's export the plBitmap
