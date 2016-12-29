@@ -190,6 +190,7 @@ class MeshConverter:
         for i, tessface in enumerate(mesh.tessfaces):
             data = geodata[tessface.material_index]
             face_verts = []
+            use_smooth = tessface.use_smooth
 
             # Unpack the UV coordinates from each UV Texture layer
             # NOTE: Blender has no third (W) coordinate
@@ -229,7 +230,14 @@ class MeshConverter:
                     source = mesh.vertices[vertex]
                     geoVertex = plGeometrySpan.TempVertex()
                     geoVertex.position = hsVector3(*source.co)
-                    geoVertex.normal = hsVector3(*source.normal)
+
+                    # If this face has smoothing, use the vertex normal
+                    # Otherwise, use the face normal
+                    if use_smooth:
+                        geoVertex.normal = hsVector3(*source.normal)
+                    else:
+                        geoVertex.normal = hsVector3(*tessface.normal)
+
                     geoVertex.color = hsColor32(*vertex_color)
                     geoVertex.uvs = [hsVector3(uv[0], 1.0 - uv[1], 0.0) for uv in uvws]
                     data.blender2gs[vertex][coluv] = len(data.vertices)
