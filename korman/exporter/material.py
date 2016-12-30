@@ -276,7 +276,7 @@ class MaterialConverter:
         dv_layer.UVWSrc = du_uv + 1
 
         if self._bumpLUT is None:
-            self._bumpLUT = plMipmap("BumpLutTexture")
+            self._bumpLUT = plMipmap("BumpLutTexture", 16, 16, 1, plBitmap.kUncompressed, plBitmap.kRGB8888)
             GLTexture.create_bump_LUT(self._bumpLUT)
 
             page = self._mgr.get_textures_page(du_layer.key)
