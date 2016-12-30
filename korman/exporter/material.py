@@ -145,21 +145,22 @@ class MaterialConverter:
 
         # Loop over layers
         for idx, slot in slots:
+            # Prepend any BumpMapping magic layers
             if slot.use_map_normal:
                 if bo in self._bumpMats:
                     raise ExportError("Material '{}' has more than one bumpmap layer".format(bm.name))
+                du, dw, dv = self.export_bumpmap_slot(bo, bm, hsgmat, slot, idx)
+                hsgmat.addLayer(du.key) # Du
+                hsgmat.addLayer(dw.key) # Dw
+                hsgmat.addLayer(dv.key) # Dv
 
-                bump_layers = self.export_bumpmap_slot(bo, bm, hsgmat, slot, idx)
-                hsgmat.addLayer(bump_layers[0].key) # Du
-                hsgmat.addLayer(bump_layers[1].key) # Dw
-                hsgmat.addLayer(bump_layers[2].key) # Dv
-                hsgmat.addLayer(bump_layers[3].key) # Normal map
-                self._bumpMats[bo] = (bump_layers[3].UVWSrc, bump_layers[3].transform)
-            elif slot.use_stencil:
+            if slot.use_stencil:
                 stencils.append((idx, slot))
             else:
                 tex_layer = self.export_texture_slot(bo, bm, hsgmat, slot, idx)
                 hsgmat.addLayer(tex_layer.key)
+                if slot.use_map_normal:
+                    self._bumpMats[bo] = (tex_layer.UVWSrc, tex_layer.transform)
                 if stencils:
                     tex_state = tex_layer.state
                     if not tex_state.blendFlags & hsGMatState.kBlendMask:
@@ -206,62 +207,26 @@ class MaterialConverter:
         # Wasn't that easy?
         return hsgmat.key
 
-
     def export_bumpmap_slot(self, bo, bm, hsgmat, slot, idx):
         name = "{}_{}".format(bm.name if bm is not None else bo.name, slot.name)
-        print("        Exporting Plasma Bumpmap Layer '{}'".format(name))
-
-        # The normal map layer
-        nm_layer = self._mgr.add_object(plLayer, name=name, bl=bo)
-
-        # UVW Channel
-        if slot.texture_coords == "UV":
-            for i, uvchan in enumerate(bo.data.uv_layers):
-                if uvchan.name == slot.uv_layer:
-                    nm_layer.UVWSrc = i
-                    print("            Using UV Map #{} '{}'".format(i, name))
-                    break
-            else:
-                print("            No UVMap specified... Blindly using the first one, maybe it exists :|")
-
-        # Transform
-        xform = hsMatrix44()
-        xform.setTranslate(hsVector3(*slot.offset))
-        xform.setScale(hsVector3(*slot.scale))
-        nm_layer.transform = xform
-
-        state = nm_layer.state
-        state.blendFlags = hsGMatState.kBlendDot3
-        state.miscFlags = hsGMatState.kMiscBumpLayer
-
-        strength = max(min(1.0, slot.normal_factor), 0.0)
-
-        nm_layer.ambient = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
-        nm_layer.preshade = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
-        nm_layer.runtime = hsColorRGBA(strength, 0.0, 0.0, 1.0)
-        nm_layer.specular = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
-
-        texture = slot.texture
-
-        # Export the specific texture type
-        self._tex_exporters[texture.type](bo, nm_layer, slot)
-
+        print("        Exporting Plasma Bumpmap Layers for '{}'".format(name))
 
         # Okay, now we need to make 3 layers for the Du, Dw, and Dv
         du_layer = self._mgr.add_object(plLayer, name="{}_DU_BumpLut".format(name), bl=bo)
         dw_layer = self._mgr.add_object(plLayer, name="{}_DW_BumpLut".format(name), bl=bo)
         dv_layer = self._mgr.add_object(plLayer, name="{}_DV_BumpLut".format(name), bl=bo)
 
-        for layer in [du_layer, dw_layer, dv_layer]:
+        for layer in (du_layer, dw_layer, dv_layer):
             layer.ambient = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
             layer.preshade = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
             layer.runtime = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
             layer.specular = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
 
-            layer.state.ZFlags = hsGMatState.kZNoZWrite
-            layer.state.clampFlags = hsGMatState.kClampTexture
-            layer.state.miscFlags = hsGMatState.kMiscBindNext
-            layer.state.blendFlags = hsGMatState.kBlendAdd
+            state = layer.state
+            state.ZFlags = hsGMatState.kZNoZWrite
+            state.clampFlags = hsGMatState.kClampTexture
+            state.miscFlags = hsGMatState.kMiscBindNext
+            state.blendFlags = hsGMatState.kBlendAdd
 
         if not slot.use_map_specular:
             du_layer.state.blendFlags = hsGMatState.kBlendMADD
@@ -286,14 +251,14 @@ class MaterialConverter:
         dw_layer.texture = self._bumpLUT.key
         dv_layer.texture = self._bumpLUT.key
 
-        return (du_layer, dw_layer, dv_layer, nm_layer)
+        return (du_layer, dw_layer, dv_layer)
 
     def export_texture_slot(self, bo, bm, hsgmat, slot, idx, name=None, blend_flags=True):
         if name is None:
             name = "{}_{}".format(bm.name if bm is not None else bo.name, slot.name)
         print("        Exporting Plasma Layer '{}'".format(name))
         layer = self._mgr.add_object(plLayer, name=name, bl=bo)
-        if bm is not None:
+        if bm is not None and not slot.use_map_normal:
             self._propagate_material_settings(bm, layer)
 
         # UVW Channel
@@ -312,7 +277,7 @@ class MaterialConverter:
         xform.setScale(hsVector3(*slot.scale))
         layer.transform = xform
 
-        wantStencil, canStencil = slot.use_stencil, slot.use_stencil and bm is not None
+        wantStencil, canStencil = slot.use_stencil, slot.use_stencil and bm is not None and not slot.use_map_normal
         if wantStencil and not canStencil:
             self._exporter().report.warn("{} wants to stencil, but this is not a real Material".format(slot.name))
 
@@ -334,25 +299,34 @@ class MaterialConverter:
         texture = slot.texture
 
         # Apply custom layer properties
-        layer_props = texture.plasma_layer
-        layer.opacity = layer_props.opacity / 100
-        if layer_props.opacity < 100:
-            state.blendFlags |= hsGMatState.kBlendAlpha
-        if layer_props.alpha_halo:
-            state.blendFlags |= hsGMatState.kBlendAlphaTestHigh
-        if layer_props.z_bias:
-            state.ZFlags |= hsGMatState.kZIncLayer
-        if layer_props.skip_depth_test:
-            state.ZFlags |= hsGMatState.kZNoZRead
-        if layer_props.skip_depth_write:
-            state.ZFlags |= hsGMatState.kZNoZWrite
+        if slot.use_map_normal:
+            state.blendFlags = hsGMatState.kBlendDot3
+            state.miscFlags = hsGMatState.kMiscBumpLayer
+            strength = max(min(1.0, slot.normal_factor), 0.0)
+            layer.ambient = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+            layer.preshade = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+            layer.runtime = hsColorRGBA(strength, 0.0, 0.0, 1.0)
+            layer.specular = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+        else:
+            layer_props = texture.plasma_layer
+            layer.opacity = layer_props.opacity / 100
+            if layer_props.opacity < 100:
+                state.blendFlags |= hsGMatState.kBlendAlpha
+            if layer_props.alpha_halo:
+                state.blendFlags |= hsGMatState.kBlendAlphaTestHigh
+            if layer_props.z_bias:
+                state.ZFlags |= hsGMatState.kZIncLayer
+            if layer_props.skip_depth_test:
+                state.ZFlags |= hsGMatState.kZNoZRead
+            if layer_props.skip_depth_write:
+                state.ZFlags |= hsGMatState.kZNoZWrite
 
         # Export the specific texture type
         self._tex_exporters[texture.type](bo, layer, slot)
 
         # Export any layer animations
-        # NOTE: animated stencils are nonsense.
-        if not slot.use_stencil:
+        # NOTE: animated stencils and bumpmaps are nonsense.
+        if not slot.use_stencil and not slot.use_map_normal:
             layer = self._export_layer_animations(bo, bm, slot, idx, layer)
         return layer
 
