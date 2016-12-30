@@ -233,9 +233,11 @@ class MaterialConverter:
         state.blendFlags = hsGMatState.kBlendDot3
         state.miscFlags = hsGMatState.kMiscBumpLayer
 
+        strength = max(min(1.0, slot.normal_factor), 0.0)
+
         nm_layer.ambient = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
         nm_layer.preshade = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
-        nm_layer.runtime = hsColorRGBA(1.0, 0.0, 0.0, 1.0) # Solid Red
+        nm_layer.runtime = hsColorRGBA(strength, 0.0, 0.0, 1.0)
         nm_layer.specular = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
 
         texture = slot.texture
@@ -260,7 +262,9 @@ class MaterialConverter:
             layer.state.miscFlags = hsGMatState.kMiscBindNext
             layer.state.blendFlags = hsGMatState.kBlendAdd
 
-        du_layer.state.blendFlags = hsGMatState.kBlendMADD
+        if not slot.use_map_specular:
+            du_layer.state.blendFlags = hsGMatState.kBlendMADD
+
         du_layer.state.miscFlags |= hsGMatState.kMiscBumpDu | hsGMatState.kMiscRestartPassHere
         dw_layer.state.miscFlags |= hsGMatState.kMiscBumpDw
         dv_layer.state.miscFlags |= hsGMatState.kMiscBumpDv
