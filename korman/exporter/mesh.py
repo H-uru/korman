@@ -15,6 +15,7 @@
 
 import bpy
 from PyHSPlasma import *
+from math import fabs
 import weakref
 
 from . import explosions
@@ -174,6 +175,7 @@ class MeshConverter:
 
     def _export_geometry(self, bo, mesh, materials, geospans):
         geodata = [_GeoData(len(mesh.vertices)) for i in materials]
+        has_bumpmap = self.material.has_bump_layer(bo)
 
         # Locate relevant vertex color layers now...
         color, alpha = None, None
@@ -191,6 +193,8 @@ class MeshConverter:
             data = geodata[tessface.material_index]
             face_verts = []
             use_smooth = tessface.use_smooth
+            dPosDu = hsVector3(0.0, 0.0, 0.0)
+            dPosDv = hsVector3(0.0, 0.0, 0.0)
 
             # Unpack the UV coordinates from each UV Texture layer
             # NOTE: Blender has no third (W) coordinate
@@ -213,6 +217,24 @@ class MeshConverter:
                                    ((src.color2[0] + src.color2[1] + src.color2[2]) / 3),
                                    ((src.color3[0] + src.color3[1] + src.color3[2]) / 3),
                                    ((src.color4[0] + src.color4[1] + src.color4[2]) / 3))
+
+            if has_bumpmap is not None:
+                gradPass = []
+                gradUVWs = []
+
+                if len(tessface.vertices) != 3:
+                    gradPass.append([tessface.vertices[0], tessface.vertices[1], tessface.vertices[2]])
+                    gradPass.append([tessface.vertices[0], tessface.vertices[2], tessface.vertices[3]])
+                    gradUVWs.append([tuple([uvw[0] for uvw in tessface_uvws]), tuple([uvw[1] for uvw in tessface_uvws]), tuple([uvw[2] for uvw in tessface_uvws])])
+                    gradUVWs.append([tuple([uvw[0] for uvw in tessface_uvws]), tuple([uvw[2] for uvw in tessface_uvws]), tuple([uvw[3] for uvw in tessface_uvws])])
+                else:
+                    gradPass.append(tessface.vertices)
+                    gradUVWs.append([tuple([uvw[0] for uvw in tessface_uvws]), tuple([uvw[1] for uvw in tessface_uvws]), tuple([uvw[2] for uvw in tessface_uvws])])
+
+                for p,vids in enumerate(gradPass):
+                    dPosDu += self._get_bump_gradient(has_bumpmap[1], gradUVWs[p], mesh, vids, has_bumpmap[0], 0)
+                    dPosDv += self._get_bump_gradient(has_bumpmap[1], gradUVWs[p], mesh, vids, has_bumpmap[0], 1)
+                dPosDv = -dPosDv
 
             # Convert to per-material indices
             for j, vertex in enumerate(tessface.vertices):
@@ -240,9 +262,20 @@ class MeshConverter:
 
                     geoVertex.color = hsColor32(*vertex_color)
                     geoVertex.uvs = [hsVector3(uv[0], 1.0 - uv[1], 0.0) for uv in uvws]
+
                     data.blender2gs[vertex][coluv] = len(data.vertices)
                     data.vertices.append(geoVertex)
+
                 face_verts.append(data.blender2gs[vertex][coluv])
+
+                if has_bumpmap is not None:
+                    idx = len(uvws)
+                    geoVert = data.vertices[data.blender2gs[vertex][coluv]]
+                    # We can't edit in place :\
+                    uvMaps = geoVert.uvs
+                    uvMaps[idx] += dPosDu
+                    uvMaps[idx + 1] += dPosDv
+                    geoVert.uvs = uvMaps
 
             # Convert to triangles, if need be...
             if len(face_verts) == 3:
@@ -265,9 +298,73 @@ class MeshConverter:
             if numVerts > _WARN_VERTS_PER_SPAN:
                 raise explosions.TooManyVerticesError(bo.data.name, geospan.material.name, numVerts)
 
+            # If we're bump mapping, we need to normalize our magic UVW channels
+            if has_bumpmap is not None:
+                geospan.format += 2
+                for v,vtx in enumerate(data.vertices):
+                    uvMap = vtx.uvs
+                    uvMap[geospan.format - 2].normalize()
+                    uvMap[geospan.format - 1].normalize()
+                    vtx.uvs = uvMap
+
             # If we're still here, let's add our data to the GeometrySpan
             geospan.indices = data.triangles
             geospan.vertices = data.vertices
+
+
+    def _get_bump_gradient(self, xform, uvws, mesh, vIds, uvIdx, iUV):
+        v0 = hsVector3(*mesh.vertices[vIds[0]].co)
+        v1 = hsVector3(*mesh.vertices[vIds[1]].co)
+        v2 = hsVector3(*mesh.vertices[vIds[2]].co)
+
+        uv0 = [(uv[0], uv[1], 0.0) for uv in uvws[0]][uvIdx]
+        uv1 = [(uv[0], uv[1], 0.0) for uv in uvws[1]][uvIdx]
+        uv2 = [(uv[0], uv[1], 0.0) for uv in uvws[2]][uvIdx]
+
+        notUV = int(not iUV)
+        kRealSmall = 1.e-6
+
+        delta = uv0[notUV] - uv1[notUV]
+        if fabs(delta) < kRealSmall:
+            if uv0[iUV] - uv1[iUV] < 0:
+                return v1 - v0
+            else:
+                return v0 - v1
+
+        delta = uv2[notUV] - uv1[notUV]
+        if fabs(delta) < kRealSmall:
+            if uv2[iUV] - uv1[iUV] < 0:
+                return v1 - v2
+            else:
+                return v2 - v1
+
+        delta = uv2[notUV] - uv0[notUV]
+        if fabs(delta) < kRealSmall:
+            if uv2[iUV] - uv0[iUV] < 0:
+                return v0 - v2
+            else:
+                return v2 - v0
+
+
+        # On to the real fun...
+        delta = uv0[notUV] - uv1[notUV]
+        delta = 1.0 / delta
+        v0Mv1 = v0 - v1
+        v0Mv1 *= delta
+        v0uv = (uv0[iUV] - uv1[iUV]) * delta
+
+        delta = uv2[notUV] - uv1[notUV]
+        delta = 1.0 / delta
+        v2Mv1 = v2 - v1
+        v2Mv1 *= delta
+        v2uv = (uv2[iUV] - uv1[iUV]) * delta
+
+        if v0uv > v2uv:
+            return v0Mv1 - v2Mv1
+        else:
+            return v2Mv1 - v0Mv1
+
+
 
     def export_object(self, bo):
         # If this object has modifiers, then it's a unique mesh, and we don't need to try caching it
