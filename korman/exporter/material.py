@@ -110,6 +110,7 @@ class MaterialConverter:
     def __init__(self, exporter):
         self._obj2mat = {}
         self._bumpMats = {}
+        self._bumpLUT = None
         self._exporter = weakref.ref(exporter)
         self._pending = {}
         self._alphatest = {}
@@ -274,8 +275,18 @@ class MaterialConverter:
         dw_layer.UVWSrc = du_uv | plLayerInterface.kUVWNormal
         dv_layer.UVWSrc = du_uv + 1
 
-        return (du_layer, dw_layer, dv_layer, nm_layer)
+        if self._bumpLUT is None:
+            self._bumpLUT = plMipmap("BumpLutTexture")
+            GLTexture.create_bump_LUT(self._bumpLUT)
 
+            page = self._mgr.get_textures_page(du_layer.key)
+            self._mgr.AddObject(page, self._bumpLUT)
+
+        du_layer.texture = self._bumpLUT.key
+        dw_layer.texture = self._bumpLUT.key
+        dv_layer.texture = self._bumpLUT.key
+
+        return (du_layer, dw_layer, dv_layer, nm_layer)
 
     def export_texture_slot(self, bo, bm, hsgmat, slot, idx, name=None, blend_flags=True):
         if name is None:
