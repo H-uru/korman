@@ -300,8 +300,8 @@ class MeshConverter:
 
             # If we're bump mapping, we need to normalize our magic UVW channels
             if has_bumpmap is not None:
-                geospan.format += 2
-                for v,vtx in enumerate(data.vertices):
+                geospan.format += 2 # We dded 2 special bumpmapping UV layers
+                for v, vtx in enumerate(data.vertices):
                     uvMap = vtx.uvs
                     uvMap[geospan.format - 2].normalize()
                     uvMap[geospan.format - 1].normalize()
@@ -326,25 +326,15 @@ class MeshConverter:
 
         delta = uv0[notUV] - uv1[notUV]
         if fabs(delta) < kRealSmall:
-            if uv0[iUV] - uv1[iUV] < 0:
-                return v1 - v0
-            else:
-                return v0 - v1
+            return v1 - v0 if uv0[iUV] - uv1[iUV] < 0 else v0 - v1
 
         delta = uv2[notUV] - uv1[notUV]
         if fabs(delta) < kRealSmall:
-            if uv2[iUV] - uv1[iUV] < 0:
-                return v1 - v2
-            else:
-                return v2 - v1
+            return v1 - v2 if uv2[iUV] - uv1[iUV] < 0 else v2 - v1
 
         delta = uv2[notUV] - uv0[notUV]
         if fabs(delta) < kRealSmall:
-            if uv2[iUV] - uv0[iUV] < 0:
-                return v0 - v2
-            else:
-                return v2 - v0
-
+            return v0 - v2 if uv2[iUV] - uv0[iUV] < 0 else v2 - v0
 
         # On to the real fun...
         delta = uv0[notUV] - uv1[notUV]
@@ -359,12 +349,7 @@ class MeshConverter:
         v2Mv1 *= delta
         v2uv = (uv2[iUV] - uv1[iUV]) * delta
 
-        if v0uv > v2uv:
-            return v0Mv1 - v2Mv1
-        else:
-            return v2Mv1 - v0Mv1
-
-
+        return v0Mv1 - v2Mv1 if v0uv > v2uv else v2Mv1 - v0Mv1
 
     def export_object(self, bo):
         # If this object has modifiers, then it's a unique mesh, and we don't need to try caching it
