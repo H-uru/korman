@@ -38,6 +38,7 @@ include_directories(${PYTHON_INCLUDE_DIRS})
 include_directories(${Vorbis_INCLUDE_DIR})
 
 add_library(_korlib SHARED ${korlib_HEADERS} ${korlib_SOURCES})
+set_target_properties(_korlib PROPERTIES PREFIX "")
 if(NOT WIN32)
     set_target_properties(_korlib PROPERTIES SUFFIX ".so")
 else()
