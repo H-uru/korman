@@ -148,6 +148,9 @@ class AnimationConverter:
         yield applicator
 
     def _convert_omni_lamp_animation(self, name, fcurves, lamp):
+        if not fcurves:
+            return None
+
         energy_fcurve = next((i for i in fcurves if i.data_path == "energy"), None)
         distance_fcurve = next((i for i in fcurves if i.data_path == "distance"), None)
         if energy_fcurve is None and distance_fcurve is None:
@@ -231,6 +234,9 @@ class AnimationConverter:
                 yield applicator
 
     def _convert_spot_lamp_animation(self, name, fcurves, lamp):
+        if not fcurves:
+            return None
+
         blend_fcurve = next((i for i in fcurves if i.data_path == "spot_blend"), None)
         size_fcurve = next((i for i in fcurves if i.data_path == "spot_size"), None)
         if blend_fcurve is None and size_fcurve is None:
