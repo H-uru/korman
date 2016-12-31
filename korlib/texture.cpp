@@ -364,10 +364,10 @@ static PyObject* pyGLTexture_store_in_mipmap(pyGLTexture* self, PyObject* args) 
 
 static uint32_t MakeUInt32Color(float r, float g, float b, float a)
 {
-    return (uint32_t(a * 255.9f) << 24)
-            |(uint32_t(r * 255.9f) << 16)
-            |(uint32_t(g * 255.9f) << 8)
-            |(uint32_t(b * 255.9f) << 0);
+    return  (uint32_t(a * 255.9f) << 24) |
+            (uint32_t(r * 255.9f) << 16) |
+            (uint32_t(g * 255.9f) << 8) |
+            (uint32_t(b * 255.9f) << 0);
 }
 
 static PyObject* pyGLTexture_create_bump_LUT(pyGLTexture* self, PyObject* args) {
@@ -392,19 +392,20 @@ static PyObject* pyGLTexture_create_bump_LUT(pyGLTexture* self, PyObject* args) 
     int startH = delH / 2 + 1;
     int doneH = 0;
 
-    uint32_t* pix = (uint32_t*)const_cast<void*>(texture->getImageData());
+    uint8_t* data = new uint8_t[texture->getTotalSize()];
+    uint32_t* pix = (uint32_t*)data;
     int i;
 
     // Red ramps, one with G,B = 0,0, one with G,B = 127,127
-    for (i = 0; i < startH; i++) {
-        for(int j = 0; j < kLUTWidth; j++) {
+    for (i = 0; i < startH; ++i) {
+        for(int j = 0; j < kLUTWidth; ++j) {
             float x = float(j) / (kLUTWidth - 1);
             *pix++ = MakeUInt32Color(x, 0.0f, 0.0f, 1.0f);
         }
     }
     doneH = i;
-    for (i = i; i < doneH + delH; i++) {
-        for (int j = 0; j < kLUTWidth; j++) {
+    for (i = i; i < doneH + delH; ++i) {
+        for (int j = 0; j < kLUTWidth; ++j) {
             float x = float(j) / (kLUTWidth - 1);
             *pix++ = MakeUInt32Color(x, 0.5f, 0.5f, 1.0f);
         }
@@ -412,15 +413,15 @@ static PyObject* pyGLTexture_create_bump_LUT(pyGLTexture* self, PyObject* args) 
     doneH = i;
 
     // Green ramps, one with R,B = 0,0, one with R,B = 127,127
-    for (i = i; i < doneH + delH; i++) {
-        for (int j = 0; j < kLUTWidth; j++) {
+    for (i = i; i < doneH + delH; ++i) {
+        for (int j = 0; j < kLUTWidth; ++j) {
             float x = float(j) / (kLUTWidth - 1);
             *pix++ = MakeUInt32Color(0.0f, x, 0.0f, 1.0f);
         }
     }
     doneH = i;
-    for (i = i; i < doneH + delH; i++) {
-        for (int j = 0; j < kLUTWidth; j++) {
+    for (i = i; i < doneH + delH; ++i) {
+        for (int j = 0; j < kLUTWidth; ++j) {
             float x = float(j) / (kLUTWidth - 1);
             *pix++ = MakeUInt32Color(0.5f, x, 0.5f, 1.0f);
         }
@@ -428,19 +429,21 @@ static PyObject* pyGLTexture_create_bump_LUT(pyGLTexture* self, PyObject* args) 
     doneH = i;
 
     // Blue ramps, one with R,G = 0,0, one with R,G = 127,127
-    for (i = i; i < doneH + delH; i++) {
-        for (int j = 0; j < kLUTWidth; j++) {
+    for (i = i; i < doneH + delH; ++i) {
+        for (int j = 0; j < kLUTWidth; ++j) {
             float x = float(j) / (kLUTWidth - 1);
             *pix++ = MakeUInt32Color(0.0f, 0.0f, x, 1.0f);
         }
     }
     doneH = i;
-    for (i = i; i < kLUTHeight; i++) {
-        for (int j = 0; j < kLUTWidth; j++) {
+    for (i = i; i < kLUTHeight; ++i) {
+        for (int j = 0; j < kLUTWidth; ++j) {
             float x = float(j) / (kLUTWidth - 1);
             *pix++ = MakeUInt32Color(0.5f, 0.5f, x, 1.0f);
         }
     }
+
+    texture->setImageData(data, texture->getTotalSize());
 
     Py_RETURN_NONE;
 }
@@ -449,10 +452,10 @@ static PyMethodDef pyGLTexture_Methods[] = {
     { _pycs("__enter__"), (PyCFunction)pyGLTexture__enter__, METH_NOARGS, NULL },
     { _pycs("__exit__"), (PyCFunction)pyGLTexture__enter__, METH_VARARGS, NULL },
 
+    { _pycs("create_bump_LUT"), (PyCFunction)pyGLTexture_create_bump_LUT, METH_STATIC | METH_VARARGS, NULL },
     { _pycs("generate_mipmap"), (PyCFunction)pyGLTexture_generate_mipmap, METH_NOARGS, NULL },
     { _pycs("get_level_data"), (PyCFunction)pyGLTexture_get_level_data, METH_KEYWORDS | METH_VARARGS, NULL },
     { _pycs("store_in_mipmap"), (PyCFunction)pyGLTexture_store_in_mipmap, METH_VARARGS, NULL },
-    { _pycs("create_bump_LUT"), (PyCFunction)pyGLTexture_create_bump_LUT, METH_STATIC | METH_VARARGS, NULL },
     { NULL, NULL, 0, NULL }
 };
 
