@@ -65,7 +65,7 @@ class LightConverter:
 
     def convert_attenuation(self, lamp):
         intens = abs(lamp.energy)
-        attenEnd = lamp.distance * 2 if lamp.use_sphere else lamp.distance
+        attenEnd = lamp.distance if lamp.use_sphere else lamp.distance * 2
         return (intens, attenEnd)
 
     def convert_attenuation_linear(self, intensity, end):
