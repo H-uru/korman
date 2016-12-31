@@ -201,26 +201,26 @@ class GLTexture:
         doneH = 0
 
         doneH = startH * kLUTWidth * 4
-        buf[0:doneH] = [b for x in range(kLUTWidth) for b in [0, 0, int((x / denom) * 255.9), 255]] * startH
+        buf[0:doneH] = [b for x in range(kLUTWidth) for b in (0, 0, int((x / denom) * 255.9), 255)] * startH
 
         startH = doneH
         doneH += delH * kLUTWidth * 4
-        buf[startH:doneH] = [b for x in range(kLUTWidth) for b in [127, 127, int((x / denom) * 255.9), 255]] * delH
+        buf[startH:doneH] = [b for x in range(kLUTWidth) for b in (127, 127, int((x / denom) * 255.9), 255)] * delH
 
         startH = doneH
         doneH += delH * kLUTWidth * 4
-        buf[startH:doneH] = [b for x in range(kLUTWidth) for b in [0, int((x / denom) * 255.9), 0, 255]] * delH
+        buf[startH:doneH] = [b for x in range(kLUTWidth) for b in (0, int((x / denom) * 255.9), 0, 255)] * delH
 
         startH = doneH
         doneH += delH * kLUTWidth * 4
-        buf[startH:doneH] = [b for x in range(kLUTWidth) for b in [127, int((x / denom) * 255.9), 127, 255]] * delH
+        buf[startH:doneH] = [b for x in range(kLUTWidth) for b in (127, int((x / denom) * 255.9), 127, 255)] * delH
 
         startH = doneH
         doneH += delH * kLUTWidth * 4
-        buf[startH:doneH] = [b for x in range(kLUTWidth) for b in [int((x / denom) * 255.9), 0, 0, 255]] * delH
+        buf[startH:doneH] = [b for x in range(kLUTWidth) for b in (int((x / denom) * 255.9), 0, 0, 255)] * delH
 
         startH = doneH
         doneH += delH * kLUTWidth * 4
-        buf[startH:doneH] = [b for x in range(kLUTWidth) for b in [int((x / denom) * 255.9), 127, 127, 255]] * startH
+        buf[startH:doneH] = [b for x in range(kLUTWidth) for b in (int((x / denom) * 255.9), 127, 127, 255)] * startH
 
         mipmap.setRawImage(bytes(buf))

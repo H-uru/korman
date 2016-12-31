@@ -175,7 +175,7 @@ class MeshConverter:
 
     def _export_geometry(self, bo, mesh, materials, geospans):
         geodata = [_GeoData(len(mesh.vertices)) for i in materials]
-        has_bumpmap = self.material.has_bump_layer(bo)
+        has_bumpmap = self.material.get_bump_layer(bo)
 
         # Locate relevant vertex color layers now...
         color, alpha = None, None
@@ -225,13 +225,19 @@ class MeshConverter:
                 if len(tessface.vertices) != 3:
                     gradPass.append([tessface.vertices[0], tessface.vertices[1], tessface.vertices[2]])
                     gradPass.append([tessface.vertices[0], tessface.vertices[2], tessface.vertices[3]])
-                    gradUVWs.append([tuple([uvw[0] for uvw in tessface_uvws]), tuple([uvw[1] for uvw in tessface_uvws]), tuple([uvw[2] for uvw in tessface_uvws])])
-                    gradUVWs.append([tuple([uvw[0] for uvw in tessface_uvws]), tuple([uvw[2] for uvw in tessface_uvws]), tuple([uvw[3] for uvw in tessface_uvws])])
+                    gradUVWs.append((tuple((uvw[0] for uvw in tessface_uvws)),
+                                     tuple((uvw[1] for uvw in tessface_uvws)),
+                                     tuple((uvw[2] for uvw in tessface_uvws))))
+                    gradUVWs.append((tuple((uvw[0] for uvw in tessface_uvws)),
+                                     tuple((uvw[2] for uvw in tessface_uvws)),
+                                     tuple((uvw[3] for uvw in tessface_uvws))))
                 else:
                     gradPass.append(tessface.vertices)
-                    gradUVWs.append([tuple([uvw[0] for uvw in tessface_uvws]), tuple([uvw[1] for uvw in tessface_uvws]), tuple([uvw[2] for uvw in tessface_uvws])])
+                    gradUVWs.append((tuple((uvw[0] for uvw in tessface_uvws)),
+                                     tuple((uvw[1] for uvw in tessface_uvws)),
+                                     tuple((uvw[2] for uvw in tessface_uvws))))
 
-                for p,vids in enumerate(gradPass):
+                for p, vids in enumerate(gradPass):
                     dPosDu += self._get_bump_gradient(has_bumpmap[1], gradUVWs[p], mesh, vids, has_bumpmap[0], 0)
                     dPosDv += self._get_bump_gradient(has_bumpmap[1], gradUVWs[p], mesh, vids, has_bumpmap[0], 1)
                 dPosDv = -dPosDv
@@ -301,7 +307,7 @@ class MeshConverter:
             # If we're bump mapping, we need to normalize our magic UVW channels
             if has_bumpmap is not None:
                 geospan.format += 2 # We dded 2 special bumpmapping UV layers
-                for v, vtx in enumerate(data.vertices):
+                for vtx in data.vertices:
                     uvMap = vtx.uvs
                     uvMap[geospan.format - 2].normalize()
                     uvMap[geospan.format - 1].normalize()
@@ -317,9 +323,9 @@ class MeshConverter:
         v1 = hsVector3(*mesh.vertices[vIds[1]].co)
         v2 = hsVector3(*mesh.vertices[vIds[2]].co)
 
-        uv0 = [(uv[0], uv[1], 0.0) for uv in uvws[0]][uvIdx]
-        uv1 = [(uv[0], uv[1], 0.0) for uv in uvws[1]][uvIdx]
-        uv2 = [(uv[0], uv[1], 0.0) for uv in uvws[2]][uvIdx]
+        uv0 = (uvws[0][uvIdx][0], uvws[0][uvIdx][1], 0.0)
+        uv1 = (uvws[1][uvIdx][0], uvws[1][uvIdx][1], 0.0)
+        uv2 = (uvws[2][uvIdx][0], uvws[2][uvIdx][1], 0.0)
 
         notUV = int(not iUV)
         kRealSmall = 1.e-6

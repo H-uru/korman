@@ -110,7 +110,6 @@ class MaterialConverter:
     def __init__(self, exporter):
         self._obj2mat = {}
         self._bumpMats = {}
-        self._bumpLUT = None
         self._exporter = weakref.ref(exporter)
         self._pending = {}
         self._alphatest = {}
@@ -240,16 +239,18 @@ class MaterialConverter:
         dw_layer.UVWSrc = du_uv | plLayerInterface.kUVWNormal
         dv_layer.UVWSrc = du_uv + 1
 
-        if self._bumpLUT is None:
-            self._bumpLUT = plMipmap("BumpLutTexture", 16, 16, 1, plBitmap.kUncompressed, plBitmap.kRGB8888)
-            GLTexture.create_bump_LUT(self._bumpLUT)
+        page = self._mgr.get_textures_page(du_layer.key)
+        LUT_key = self._mgr.find_key(plMipmap, loc=page, name="BumpLutTexture")
 
-            page = self._mgr.get_textures_page(du_layer.key)
-            self._mgr.AddObject(page, self._bumpLUT)
+        if LUT_key is None:
+            bumpLUT = plMipmap("BumpLutTexture", 16, 16, 1, plBitmap.kUncompressed, plBitmap.kRGB8888)
+            GLTexture.create_bump_LUT(bumpLUT)
+            self._mgr.AddObject(page, bumpLUT)
+            LUT_key = bumpLUT.key
 
-        du_layer.texture = self._bumpLUT.key
-        dw_layer.texture = self._bumpLUT.key
-        dv_layer.texture = self._bumpLUT.key
+        du_layer.texture = LUT_key
+        dw_layer.texture = LUT_key
+        dv_layer.texture = LUT_key
 
         return (du_layer, dw_layer, dv_layer)
 
@@ -673,7 +674,7 @@ class MaterialConverter:
     def get_materials(self, bo):
         return self._obj2mat.get(bo, [])
 
-    def has_bump_layer(self, bo):
+    def get_bump_layer(self, bo):
         return self._bumpMats.get(bo, None)
 
     def get_texture_animation_key(self, bo, bm, tex_name=None, tex_slot=None):
