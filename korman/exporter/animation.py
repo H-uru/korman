@@ -162,7 +162,7 @@ class AnimationConverter:
         if distance_fcurve is not None:
             channel = plScalarControllerChannel()
             channel.controller = self.make_scalar_leaf_controller(distance_fcurve,
-                                                                  lambda x: x * 2 if lamp.use_sphere else x)
+                                                                  lambda x: x if lamp.use_sphere else x * 2)
             applicator = plOmniCutoffApplicator()
             applicator.channelName = name
             applicator.channel = channel
@@ -175,7 +175,7 @@ class AnimationConverter:
         elif falloff == "INVERSE_LINEAR":
             def convert_linear_atten(distance, energy):
                 intens = abs(energy[0])
-                atten_end = distance[0] * 2 if lamp.use_sphere else distance[0]
+                atten_end = distance[0] if lamp.use_sphere else distance[0] * 2
                 return light_converter.convert_attenuation_linear(intens, atten_end)
 
             keyframes = self._process_fcurves([distance_fcurve, energy_fcurve], convert_linear_atten,
@@ -190,7 +190,7 @@ class AnimationConverter:
         elif falloff == "INVERSE_SQUARE":
             def convert_quadratic_atten(distance, energy):
                 intens = abs(energy[0])
-                atten_end = distance[0] * 2 if lamp.use_sphere else distance[0]
+                atten_end = distance[0] if lamp.use_sphere else distance[0] * 2
                 return light_converter.convert_attenuation_quadratic(intens, atten_end)
 
             keyframes = self._process_fcurves([distance_fcurve, energy_fcurve], convert_quadratic_atten,
