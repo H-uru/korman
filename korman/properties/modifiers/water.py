@@ -19,7 +19,157 @@ import math
 from PyHSPlasma import *
 
 from .base import PlasmaModifierProperties
-from ...exporter import ExportError
+from ...exporter import ExportError, ExportAssertionError
+
+class PlasmaSwimRegion(PlasmaModifierProperties, bpy.types.PropertyGroup):
+    pl_id = "swimregion"
+
+    bl_category = "Water"
+    bl_label = "Swimming Surface"
+    bl_description = "Surface that the avatar can swim on"
+    bl_icon = "MOD_WAVE"
+
+    _CURRENTS = {
+        "NONE": plSwimRegionInterface,
+        "CIRCULAR": plSwimCircularCurrentRegion,
+        "STRAIGHT": plSwimStraightCurrentRegion,
+    }
+
+    region_name = StringProperty(name="Region",
+                                 description="Swimming detector region",
+                                 options=set())
+
+    down_buoyancy = FloatProperty(name="Downward Buoyancy",
+                                  description="Distance the avatar sinks into the water",
+                                  min=0.0, max=100.0, default=3.0,
+                                  options=set())
+    up_buoyancy = FloatProperty(name="Up Buoyancy",
+                                description="Distance the avatar rises up after sinking",
+                                min=0.0, max=100.0, default=0.05,
+                                options=set())
+    up_velocity = FloatProperty(name="Up Velcocity",
+                                description="Rate at which the avatar rises",
+                                min=0.0, max=100.0, default=3.0,
+                                options=set())
+
+    current_type = EnumProperty(name="Water Current",
+                                description="",
+                                items=[("NONE", "None", "No current"),
+                                       ("CIRCULAR", "Circular", "Circular current"),
+                                       ("STRAIGHT", "Straight", "Straight current")],
+                                options=set())
+    rotation = FloatProperty(name="Rotation",
+                             description="Rate of rotation about the current object",
+                             min=-100.0, max=100.0, default=1.0,
+                             options=set())
+    near_distance = FloatProperty(name="Near Distance",
+                                  description="Maximum distance at which the current is at the Near Velocity rate",
+                                  min=0.0, max=10000.0, default=1.0,
+                                  options=set())
+    far_distance = FloatProperty(name="Far Distance",
+                                 description="Distance at which the current is at the Far Velocity rate",
+                                 min=0.0, max=10000.0, default=1.0,
+                                 options=set())
+    near_velocity = FloatProperty(name="Near Velocity",
+                                  description="Current velocity near the region center",
+                                  min=-100.0, max=100.0, default=0.0,
+                                  options=set())
+    far_velocity = FloatProperty(name="Far Velocity",
+                                 description="Current velocity far from the region center",
+                                 min=-100.0, max=100.0, default=0.0,
+                                 options=set())
+    current_object = StringProperty(name="Current Object",
+                                    description="Object whose Y-axis defines the direction of the current",
+                                    options=set())
+
+    def export(self, exporter, bo, so):
+        swimIface = self.get_key(exporter, so).object
+        swimIface.downBuoyancy = self.down_buoyancy
+        swimIface.upBuoyancy = self.up_buoyancy
+        swimIface.maxUpwardVel = self.up_velocity
+        if isinstance(swimIface, plSwimCircularCurrentRegion):
+            swimIface.rotation = self.rotation
+            swimIface.pullNearDistSq = pow(self.near_distance, 2)
+            swimIface.pullFarDistSq = pow(self.far_distance, 2)
+            swimIface.pullNearVel = self.near_velocity
+            swimIface.pullFarVel = self.far_velocity
+        elif isinstance(swimIface, plSwimStraightCurrentRegion):
+            swimIface.nearDist = self.near_distance
+            swimIface.farDist = self.far_distance
+            swimIface.nearVel = self.near_velocity
+            swimIface.farVel = self.far_velocity
+        if isinstance(swimIface, (plSwimCircularCurrentRegion, plSwimStraightCurrentRegion)):
+            if not self.current_object:
+                raise ExportError("Swimming Surface '{}' does not specify a current object".format(bo.name))
+            current_bo = bpy.data.objects.get(self.current_object, None)
+            if current_bo is None:
+                raise ExportError("Swimming Surface '{}' specifies an invalid current object '{}'".format(bo.name, self.current_object))
+            swimIface.currentObj = exporter.mgr.find_create_key(plSceneObject, bl=current_bo)
+
+        # The surface needs bounds for LOS -- this is generally a flat plane, or I would think...
+        # NOTE: If the artist has this on a WaveSet, they probably intend for the avatar to swim on
+        #       the surface of the water BUT wave sets are supposed to conform to the bottom of the
+        #       pool. Therefore, we need to flatten out a temporary mesh in that case.
+        # Ohey! CWE doesn't let you swim at all if the surface isn't flat...
+        swim_phys_name = "{}_SwimSurfaceLOS".format(bo.name)
+        if bo.plasma_modifiers.water_basic.enabled:
+            simIface, physical = exporter.physics.generate_flat_proxy(bo, so, bo.location[2], swim_phys_name)
+        else:
+            try:
+                simIface, physical = exporter.physics.generate_flat_proxy(bo, so, None, swim_phys_name)
+            except ExportAssertionError:
+                raise ExportError("Swimming Surface '{}' must be flat".format(bo.name))
+        physical.LOSDBs |= plSimDefs.kLOSDBSwimRegion
+
+        # Detector region bounds
+        if self.region_name:
+            region_bo = bpy.data.objects.get(self.region_name, None)
+            if region_bo is None:
+                raise ExportError("Swim Surface '{}' references invalid region '{}'".format(bo.name, self.region_name))
+            region_so = exporter.mgr.find_create_object(plSceneObject, bl=region_bo)
+    
+            # Good news: if this phys has already been exported, this is basically a noop
+            det_name = "{}_SwimDetector".format(self.region_name)
+            bounds = region_bo.plasma_modifiers.collision.bounds
+            simIface, physical = exporter.physics.generate_physical(region_bo, region_so, bounds, det_name)
+            physical.memberGroup = plSimDefs.kGroupDetector
+            physical.reportGroup |= 1 << plSimDefs.kGroupAvatar
+
+            # I am a little concerned if we already have a plSwimDetector... I am not certain how
+            # well Plasma would tolerate having a plSwimMsg with multiple regions referenced.
+            # If you're brave, maybe you will test this...
+            # What? Me test it?
+            # I are chicken.
+            # Mmmmm chicken ***drool***
+            if exporter.mgr.find_key(plSwimDetector, name=det_name, so=region_so) is None:
+                enter_msg, exit_msg = plSwimMsg(), plSwimMsg()
+                for i in (enter_msg, exit_msg):
+                    i.BCastFlags = plMessage.kLocalPropagate | plMessage.kPropagateToModifiers
+                    i.sender = region_so.key
+                    i.swimRegion = swimIface.key
+                enter_msg.isEntering = True
+                exit_msg.isEntering = False
+
+                detector = exporter.mgr.add_object(plSwimDetector, name=det_name, so=region_so)
+                detector.enterMsg = enter_msg
+                detector.exitMsg = exit_msg
+        else:
+            # OK, I lied. It is perfectly legal to NOT have a detector... Think about Ahnonay,
+            # if you want to have currents inside of a large body of water, only your main
+            # swimming surface should have a detector. m'kay? But still, we might want to make note
+            # of this sitation. Just in case someone is like "WTF! Why am I not swimming?!?!1111111"
+            # Because you need to have a detector, dummy.
+            exporter.report.warn("Swimming Surface '{}' does not specify a detector region".format(bo.name), indent=2)
+
+    def get_key(self, exporter, so=None):
+        pClass = self._CURRENTS[self.current_type]
+        return exporter.mgr.find_create_key(pClass, bl=self.id_data, so=so)
+
+    def harvest_actors(self):
+        if self.current_type != "NONE" and self.current_object:
+            return set((self.current_object,))
+        return set()
+
 
 class PlasmaWaterModifier(PlasmaModifierProperties, bpy.types.PropertyGroup):
     pl_id = "water_basic"

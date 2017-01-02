@@ -18,12 +18,24 @@ import mathutils
 from PyHSPlasma import *
 import weakref
 
+from .explosions import ExportAssertionError
 from ..helpers import TemporaryObject
 from . import utils
 
 class PhysicsConverter:
     def __init__(self, exporter):
         self._exporter = weakref.ref(exporter)
+
+    def _convert_indices(self, mesh):
+        indices = []
+        for face in mesh.tessfaces:
+            v = face.vertices
+            if len(v) == 3:
+                indices += v
+            elif len(v) == 4:
+                indices += (v[0], v[1], v[2],)
+                indices += (v[0], v[2], v[3],)
+        return indices
 
     def _convert_mesh_data(self, bo, physical, indices=True):
         mesh = bo.to_mesh(bpy.context.scene, True, "RENDER", calc_tessface=False)
@@ -51,17 +63,49 @@ class PhysicsConverter:
                 vertices = [hsVector3(i.co.x, i.co.y, i.co.z) for i in mesh.vertices]
 
             if indices:
-                indices = []
-                for face in mesh.tessfaces:
-                    v = face.vertices
-                    if len(v) == 3:
-                        indices += v
-                    elif len(v) == 4:
-                        indices += (v[0], v[1], v[2],)
-                        indices += (v[0], v[2], v[3],)
-                return (vertices, indices)
+                return (vertices, self._convert_indices(mesh))
             else:
                 return vertices
+
+    def generate_flat_proxy(self, bo, so, z_coord=None, name=None):
+        """Generates a flat physical object"""
+        if so.sim is None:
+            if name is None:
+                name = bo.name
+
+            simIface = self._mgr.add_object(pl=plSimulationInterface, bl=bo)
+            physical = self._mgr.add_object(pl=plGenericPhysical, bl=bo, name=name)
+
+            simIface.physical = physical.key
+            physical.object = so.key
+            physical.sceneNode = self._mgr.get_scene_node(bl=bo)
+
+            mesh = bo.to_mesh(bpy.context.scene, True, "RENDER", calc_tessface=False)
+            with TemporaryObject(mesh, bpy.data.meshes.remove) as mesh:
+                # We will apply all xform, seeing as how this is a special case...
+                mesh.transform(bo.matrix_world)
+                mesh.update(calc_tessface=True)
+
+                if z_coord is None:
+                    # Ensure all vertices are coplanar
+                    z_coords = [i.co.z for i in mesh.vertices]
+                    delta = max(z_coords) - min(z_coords)
+                    if delta > 0.0002:
+                        raise ExportAssertionError()
+                    vertices = [hsVector3(i.co.x, i.co.y, i.co.z) for i in mesh.vertices]
+                else:
+                    # Flatten out all points to the given Z-coordinate
+                    vertices = [hsVector3(i.co.x, i.co.y, z_coord) for i in mesh.vertices]
+                physical.verts = vertices
+                physical.indices = self._convert_indices(mesh)
+                physical.boundsType = plSimDefs.kProxyBounds
+        else:
+            simIface = so.sim.object
+            physical = simIface.physical.object
+            if name is not None:
+                physical.key.name = name
+
+        return (simIface, physical)
 
     def generate_physical(self, bo, so, bounds, name=None):
         """Generates a physical object for the given object pair"""

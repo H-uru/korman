@@ -15,6 +15,45 @@
 
 import bpy
 
+def swimregion(modifier, layout, context):
+    split = layout.split()
+    col = split.column()
+    col.label("Detector Region:")
+    col.prop_search(modifier, "region_name", bpy.data, "objects", text="")
+
+    region_bo = bpy.data.objects.get(modifier.region_name, None)
+    col = split.column()
+    col.enabled = region_bo is not None
+    bounds_src = region_bo if region_bo is not None else modifier.id_data
+    col.label("Detector Bounds:")
+    col.prop(bounds_src.plasma_modifiers.collision, "bounds", text="")
+
+    split = layout.split()
+    col = split.column(align=True)
+    col.label("Buoyancy:")
+    col.prop(modifier, "down_buoyancy", text="Down")
+    col.prop(modifier, "up_buoyancy", text="Up")
+
+    col = split.column()
+    col.label("Current:")
+    col.prop(modifier, "current_type", text="")
+    if modifier.current_type == "CIRCULAR":
+        col.prop(modifier, "rotation")
+
+    if modifier.current_type != "NONE":
+        split = layout.split()
+        col = split.column(align=True)
+        col.label("Distance:")
+        col.prop(modifier, "near_distance", text="Near")
+        col.prop(modifier, "far_distance", text="Far")
+
+        col = split.column(align=True)
+        col.label("Velocity:")
+        col.prop(modifier, "near_velocity", text="Near")
+        col.prop(modifier, "far_velocity", text="Far")
+
+        layout.prop_search(modifier, "current_object", bpy.data, "objects")
+
 def water_basic(modifier, layout, context):
     layout.prop_search(modifier, "wind_object_name", bpy.data, "objects")
     layout.prop_search(modifier, "envmap_name", bpy.data, "textures")
