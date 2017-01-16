@@ -76,7 +76,8 @@ _attrib_key_types = {
     "ptAttribGUIPopUpMenu": plFactory.ClassIndex("pfGUIPopUpMenu"),
     "ptAttribGUISkin": plFactory.ClassIndex("pfGUISkin"),
     "ptAttribWaveSet": plFactory.ClassIndex("plWaveSet7"),
-    "ptAttribSwimCurrent": (plFactory.ClassIndex("plSwimCircularCurrentRegion"),
+    "ptAttribSwimCurrent": (plFactory.ClassIndex("plSwimRegionInterface"),
+                            plFactory.ClassIndex("plSwimCircularCurrentRegion"),
                             plFactory.ClassIndex("plSwimStraightCurrentRegion")),
     "ptAttribClusterList": plFactory.ClassIndex("plClusterGroup"),
     "ptAttribMaterialAnimation": plFactory.ClassIndex("plLayerAnimation"),
@@ -457,6 +458,9 @@ class PlasmaAttribObjectNode(PlasmaAttribNodeBase, bpy.types.Node):
             agmod = exporter.mgr.find_create_key(plAGModifier, so=ref_so, name=anim.key_name)
             agmaster = exporter.mgr.find_create_key(plAGMasterModifier, so=ref_so, name=anim.key_name)
             return agmaster
+        elif attrib == "ptAttribSwimCurrent":
+            swimregion = bo.plasma_modifiers.swimregion
+            return swimregion.get_key(exporter, ref_so)
         elif attrib == "ptAttribWaveSet":
             waveset = bo.plasma_modifiers.water_basic
             if not waveset.enabled:

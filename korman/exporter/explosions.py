@@ -23,6 +23,11 @@ class BlenderOptionNotSupportedError(ExportError):
         super(ExportError, self).__init__("Unsupported Blender Option: '{}'".format(opt))
 
 
+class ExportAssertionError(ExportError):
+    def __init__(self):
+        super(ExportError, self).__init__("Assertion failed")
+
+
 class TooManyUVChannelsError(ExportError):
     def __init__(self, obj, mat):
         msg = "There are too many UV Textures on the material '{}' associated with object '{}'.".format(
