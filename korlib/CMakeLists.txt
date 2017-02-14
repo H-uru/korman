@@ -5,10 +5,13 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 # Stolen shamelessly from PyHSPlasma
 find_package(PythonLibs REQUIRED)
-find_package(PythonInterp "${PYTHONLIBS_VERSION_STRING}" REQUIRED)
+# Use only the major.minor version -- no patch, no +, etc
+STRING(REGEX REPLACE "([0-9]\\.[0-9])[0-9.+]*" "\\1" PYTHONLIBS_VERSION_STRING_FILTERED "${PYTHONLIBS_VERSION_STRING}")
+find_package(PythonInterp "${PYTHONLIBS_VERSION_STRING_FILTERED}" REQUIRED)
 # make sure the versions match
-if (NOT "${PYTHONLIBS_VERSION_STRING}" STREQUAL "${PYTHON_VERSION_STRING}")
-    message(FATAL_ERROR "Versions of Python libraries (${PYTHONLIBS_VERSION_STRING}) and Python interpreter (${PYTHON_VERSION_STRING}) do not match. Please configure the paths manually.")
+STRING(REGEX REPLACE "([0-9]\\.[0-9])[0-9.+]*" "\\1" PYTHON_VERSION_STRING_FILTERED "${PYTHON_VERSION_STRING}")
+if (NOT "${PYTHONLIBS_VERSION_STRING_FILTERED}" STREQUAL "${PYTHON_VERSION_STRING_FILTERED}")
+    message(FATAL_ERROR "Versions of Python libraries (${PYTHONLIBS_VERSION_STRING_FILTERED}) and Python interpreter (${PYTHON_VERSION_STRING_FILTERED}) do not match. Please configure the paths manually.")
 endif()
 
 find_package(HSPlasma REQUIRED)
