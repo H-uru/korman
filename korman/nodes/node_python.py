@@ -34,6 +34,7 @@ _attrib2param = {
     "ptAttribFloat": plPythonParameter.kFloat,
     "ptAttribBoolean": plPythonParameter.kBoolean,
     "ptAttribString": plPythonParameter.kString,
+    "ptAttribDropDownList": plPythonParameter.kString,
     "ptAttribSceneobject": plPythonParameter.kSceneObject,
     "ptAttribSceneobjectList": plPythonParameter.kSceneObjectList,
     "ptAttribActivator": plPythonParameter.kActivator,
@@ -99,6 +100,7 @@ class PlasmaAttribute(bpy.types.PropertyGroup):
 
     _simple_attrs = {
         "ptAttribString": "value_string",
+        "ptAttribDropDownList": "value_string",
         "ptAttribInt": "value_int",
         "ptAttribFloat": "value_float",
         "ptAttribBoolean": "value_bool",
@@ -474,6 +476,24 @@ class PlasmaAttribObjectNode(idprops.IDPropObjectMixin, PlasmaAttribNodeBase, bp
         return {"target_object": "object_name"}
 
 
+class PlasmaAttribDropDownListNode(PlasmaAttribNodeBase, bpy.types.Node):
+    bl_category = "PYTHON"
+    bl_idname = "PlasmaAttribDropDownListNode"
+    bl_label = "Drop Down List Attribute"
+
+    pl_attrib = "ptAttribDropDownList"
+    value = StringProperty()
+
+    def draw_buttons(self, context, layout):
+        layout.prop(self, "value", text=self.attribute_name)
+
+    def update(self):
+        super().update()
+        attrib = self.to_socket
+        if attrib is not None and not self.value:
+            self.value = attrib.simple_value
+
+
 class PlasmaAttribStringNode(PlasmaAttribNodeBase, bpy.types.Node):
     bl_category = "PYTHON"
     bl_idname = "PlasmaAttribStringNode"
@@ -590,6 +610,7 @@ _attrib_colors = {
     "ptAttribResponder": (0.031, 0.110, 0.290, 1.0),
     "ptAttribResponderList": (0.031, 0.110, 0.290, 1.0),
     "ptAttribString": (0.675, 0.659, 0.494, 1.0),
+    "ptAttribDropDownList": (0.475, 0.459, 0.494, 1.0),
 
     PlasmaAttribNumericNode.pl_attrib: (0.443, 0.439, 0.392, 1.0),
     PlasmaAttribObjectNode.pl_attrib: (0.565, 0.267, 0.0, 1.0),
