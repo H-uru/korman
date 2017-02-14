@@ -141,6 +141,7 @@ class MaterialConverter:
         if num_stencils > _MAX_STENCILS:
             raise ExportError("Material '{}' uses too many stencils. The maximum is {}".format(bm.name, _MAX_STENCILS))
         stencils = []
+        restart_pass_next = False
 
         # Loop over layers
         for idx, slot in slots:
@@ -157,9 +158,15 @@ class MaterialConverter:
                 stencils.append((idx, slot))
             else:
                 tex_layer = self.export_texture_slot(bo, bm, hsgmat, slot, idx)
+                if restart_pass_next:
+                    tex_layer.state.miscFlags |= hsGMatState.kMiscRestartPassHere
+                    restart_pass_next = False
                 hsgmat.addLayer(tex_layer.key)
                 if slot.use_map_normal:
                     self._bumpMats[bo] = (tex_layer.UVWSrc, tex_layer.transform)
+                    # After a bumpmap layer(s), the next layer *must* be in a
+                    # new pass, otherwise it gets added in non-intuitive ways
+                    restart_pass_next = True
                 if stencils:
                     tex_state = tex_layer.state
                     if not tex_state.blendFlags & hsGMatState.kBlendMask:
