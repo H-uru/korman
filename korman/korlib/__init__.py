@@ -18,6 +18,42 @@ try:
 except ImportError:
     from .texture import *
 
+    def create_bump_LUT(mipmap):
+        kLUTHeight = 16
+        kLUTWidth = 16
+
+        buf = bytearray(kLUTHeight * kLUTWidth * 4)
+
+        denom = kLUTWidth - 1
+        delH = (kLUTHeight - 1) // 5
+        startH = delH // 2 + 1
+        doneH = 0
+
+        doneH = startH * kLUTWidth * 4
+        buf[0:doneH] = [b for x in range(kLUTWidth) for b in (0, 0, int((x / denom) * 255.9), 255)] * startH
+
+        startH = doneH
+        doneH += delH * kLUTWidth * 4
+        buf[startH:doneH] = [b for x in range(kLUTWidth) for b in (127, 127, int((x / denom) * 255.9), 255)] * delH
+
+        startH = doneH
+        doneH += delH * kLUTWidth * 4
+        buf[startH:doneH] = [b for x in range(kLUTWidth) for b in (0, int((x / denom) * 255.9), 0, 255)] * delH
+
+        startH = doneH
+        doneH += delH * kLUTWidth * 4
+        buf[startH:doneH] = [b for x in range(kLUTWidth) for b in (127, int((x / denom) * 255.9), 127, 255)] * delH
+
+        startH = doneH
+        doneH += delH * kLUTWidth * 4
+        buf[startH:doneH] = [b for x in range(kLUTWidth) for b in (int((x / denom) * 255.9), 0, 0, 255)] * delH
+
+        startH = doneH
+        doneH += delH * kLUTWidth * 4
+        buf[startH:doneH] = [b for x in range(kLUTWidth) for b in (int((x / denom) * 255.9), 127, 127, 255)] * startH
+
+        mipmap.setRawImage(bytes(buf))
+
     def inspect_voribsfile(stream, header):
         raise NotImplementedError("Ogg Vorbis not supported unless _korlib is compiled")
 

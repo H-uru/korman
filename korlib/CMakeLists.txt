@@ -19,6 +19,7 @@ find_package(Vorbis REQUIRED)
 # Da files
 set(korlib_HEADERS
     buffer.h
+    bumpmap.h
     korlib.h
     sound.h
     texture.h
@@ -26,6 +27,7 @@ set(korlib_HEADERS
 
 set(korlib_SOURCES
     buffer.cpp
+    bumpmap.cpp
     module.cpp
     sound.cpp
     texture.cpp

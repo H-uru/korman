@@ -244,7 +244,7 @@ class MaterialConverter:
 
         if LUT_key is None:
             bumpLUT = plMipmap("BumpLutTexture", 16, 16, 1, plBitmap.kUncompressed, plBitmap.kRGB8888)
-            GLTexture.create_bump_LUT(bumpLUT)
+            create_bump_LUT(bumpLUT)
             self._mgr.AddObject(page, bumpLUT)
             LUT_key = bumpLUT.key
 
