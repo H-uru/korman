@@ -319,9 +319,14 @@ class AnimationConverter:
             pos = kwargs.get(pos_path)
             scale = kwargs.get(scale_path)
 
+            # Since only some position curves may be supplied, construct dict with all positions
+            # TODO: probably the same is needed for scale but I don't need it now!
+            allpos = dict(enumerate(pos_default))
+            allpos.update(pos)
+
             matrix = hsMatrix44()
             # Note: scale and pos are dicts, so we can't unpack
-            matrix.setTranslate(hsVector3(pos[0], pos[1], pos[2]))
+            matrix.setTranslate(hsVector3(allpos[0], allpos[1], allpos[2]))
             matrix.setScale(hsVector3(scale[0], scale[1], scale[2]))
             return matrix
 
