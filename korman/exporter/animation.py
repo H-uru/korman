@@ -320,14 +320,15 @@ class AnimationConverter:
             scale = kwargs.get(scale_path)
 
             # Since only some position curves may be supplied, construct dict with all positions
-            # TODO: probably the same is needed for scale but I don't need it now!
             allpos = dict(enumerate(pos_default))
+            allscale = dict(enumerate(scale_default))
             allpos.update(pos)
+            allscale.update(scale)
 
             matrix = hsMatrix44()
             # Note: scale and pos are dicts, so we can't unpack
             matrix.setTranslate(hsVector3(allpos[0], allpos[1], allpos[2]))
-            matrix.setScale(hsVector3(scale[0], scale[1], scale[2]))
+            matrix.setScale(hsVector3(allscale[0], allscale[1], allscale[2]))
             return matrix
 
         fcurves = [i for i in fcurves if i.data_path == pos_path or i.data_path == scale_path]
@@ -672,7 +673,10 @@ class AnimationConverter:
                         continue
                     for i in range(chan_values):
                         if i not in chan_keyframes.values:
-                            fcurve = grouped_fcurves[chan][i]
+                            if i in grouped_fcurves[chan]:
+                                fcurve = grouped_fcurves[chan][i]
+                            else:
+                                fcurve = defaults[chan][i]
                             if isinstance(fcurve, bpy.types.FCurve):
                                 chan_keyframes.values[i] = fcurve.evaluate(chan_keyframes.frame_num_blender)
                             else:
