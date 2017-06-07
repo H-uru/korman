@@ -88,7 +88,7 @@ class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         # Region Sensor
         volsens = nodes.new("PlasmaVolumeSensorNode")
         volsens.name = "RegionSensor"
-        volsens.region = bo.name
+        volsens.region_object = bo
         volsens.bounds = self.bounds
         volsens.find_input_socket("enter").allow = True
         volsens.find_input_socket("exit").allow = True
