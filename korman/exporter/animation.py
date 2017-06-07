@@ -673,15 +673,16 @@ class AnimationConverter:
                         continue
                     for i in range(chan_values):
                         if i not in chan_keyframes.values:
-                            if i in grouped_fcurves[chan]:
+                            try:
                                 fcurve = grouped_fcurves[chan][i]
+                            except:
+                                chan_keyframes.values[i] = defaults[chan]
                             else:
-                                fcurve = defaults[chan][i]
-                            if isinstance(fcurve, bpy.types.FCurve):
-                                chan_keyframes.values[i] = fcurve.evaluate(chan_keyframes.frame_num_blender)
-                            else:
-                                # it's actually a default value!
-                                chan_keyframes.values[i] = fcurve
+                                if isinstance(fcurve, bpy.types.FCurve):
+                                    chan_keyframes.values[i] = fcurve.evaluate(chan_keyframes.frame_num_blender)
+                                else:
+                                    # it's actually a default value!
+                                    chan_keyframes.values[i] = fcurve
 
             # All values are calculated! Now we convert the disparate key data into a single keyframe.
             kwargs = { data_path: keyframe.values for data_path, keyframe in keyframes.items() }
