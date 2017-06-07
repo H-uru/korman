@@ -116,3 +116,13 @@ class IDPropObjectMixin(IDPropMixin):
         cls = object.__getattribute__(self, "__class__")
         idprops = cls._idprop_mapping()
         return { i: bpy.data.objects for i in idprops.values() }
+
+
+def poll_empty_objects(self, value):
+    return value.type == "EMPTY"
+
+def poll_mesh_objects(self, value):
+    return value.type == "MESH"
+
+def poll_envmap_textures(self, value):
+    return isinstance(value, bpy.types.EnvironmentMapTexture)

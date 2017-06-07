@@ -20,8 +20,9 @@ from PyHSPlasma import *
 
 from .base import PlasmaModifierProperties
 from ...exporter import ExportError, ExportAssertionError
+from ... import idprops
 
-class PlasmaSwimRegion(PlasmaModifierProperties, bpy.types.PropertyGroup):
+class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.types.PropertyGroup):
     pl_id = "swimregion"
 
     bl_category = "Water"
@@ -35,9 +36,10 @@ class PlasmaSwimRegion(PlasmaModifierProperties, bpy.types.PropertyGroup):
         "STRAIGHT": plSwimStraightCurrentRegion,
     }
 
-    region_name = StringProperty(name="Region",
-                                 description="Swimming detector region",
-                                 options=set())
+    region = PointerProperty(name="Region",
+                             description="Swimming detector region",
+                             type=bpy.types.Object,
+                             poll=idprops.poll_mesh_objects)
 
     down_buoyancy = FloatProperty(name="Downward Buoyancy",
                                   description="Distance the avatar sinks into the water",
@@ -78,9 +80,10 @@ class PlasmaSwimRegion(PlasmaModifierProperties, bpy.types.PropertyGroup):
                                  description="Current velocity far from the region center",
                                  min=-100.0, max=100.0, default=0.0,
                                  options=set())
-    current_object = StringProperty(name="Current Object",
-                                    description="Object whose Y-axis defines the direction of the current",
-                                    options=set())
+    current = PointerProperty(name="Current Object",
+                              description="Object whose Y-axis defines the direction of the current",
+                              type=bpy.types.Object,
+                              poll=idprops.poll_empty_objects)
 
     def export(self, exporter, bo, so):
         swimIface = self.get_key(exporter, so).object
@@ -99,12 +102,9 @@ class PlasmaSwimRegion(PlasmaModifierProperties, bpy.types.PropertyGroup):
             swimIface.nearVel = self.near_velocity
             swimIface.farVel = self.far_velocity
         if isinstance(swimIface, (plSwimCircularCurrentRegion, plSwimStraightCurrentRegion)):
-            if not self.current_object:
+            if self.current is None:
                 raise ExportError("Swimming Surface '{}' does not specify a current object".format(bo.name))
-            current_bo = bpy.data.objects.get(self.current_object, None)
-            if current_bo is None:
-                raise ExportError("Swimming Surface '{}' specifies an invalid current object '{}'".format(bo.name, self.current_object))
-            swimIface.currentObj = exporter.mgr.find_create_key(plSceneObject, bl=current_bo)
+            swimIface.currentObj = exporter.mgr.find_create_key(plSceneObject, bl=self.current)
 
         # The surface needs bounds for LOS -- this is generally a flat plane, or I would think...
         # NOTE: If the artist has this on a WaveSet, they probably intend for the avatar to swim on
@@ -122,16 +122,13 @@ class PlasmaSwimRegion(PlasmaModifierProperties, bpy.types.PropertyGroup):
         physical.LOSDBs |= plSimDefs.kLOSDBSwimRegion
 
         # Detector region bounds
-        if self.region_name:
-            region_bo = bpy.data.objects.get(self.region_name, None)
-            if region_bo is None:
-                raise ExportError("Swim Surface '{}' references invalid region '{}'".format(bo.name, self.region_name))
-            region_so = exporter.mgr.find_create_object(plSceneObject, bl=region_bo)
+        if self.region is not None:
+            region_so = exporter.mgr.find_create_object(plSceneObject, bl=self.region)
     
             # Good news: if this phys has already been exported, this is basically a noop
-            det_name = "{}_SwimDetector".format(self.region_name)
-            bounds = region_bo.plasma_modifiers.collision.bounds
-            simIface, physical = exporter.physics.generate_physical(region_bo, region_so, bounds, det_name)
+            det_name = "{}_SwimDetector".format(self.region.name)
+            bounds = self.region.plasma_modifiers.collision.bounds
+            simIface, physical = exporter.physics.generate_physical(self.region, region_so, bounds, det_name)
             physical.memberGroup = plSimDefs.kGroupDetector
             physical.reportGroup |= 1 << plSimDefs.kGroupAvatar
 
@@ -166,25 +163,34 @@ class PlasmaSwimRegion(PlasmaModifierProperties, bpy.types.PropertyGroup):
         return exporter.mgr.find_create_key(pClass, bl=self.id_data, so=so)
 
     def harvest_actors(self):
-        if self.current_type != "NONE" and self.current_object:
-            return set((self.current_object,))
+        if self.current_type != "NONE" and self.current:
+            return set((self.current.name,))
         return set()
 
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"current": "current_object",
+                "region": "region_name"}
 
-class PlasmaWaterModifier(PlasmaModifierProperties, bpy.types.PropertyGroup):
+
+class PlasmaWaterModifier(idprops.IDPropMixin, PlasmaModifierProperties, bpy.types.PropertyGroup):
     pl_id = "water_basic"
 
     bl_category = "Water"
     bl_label = "Basic Water"
     bl_description = "Basic water properties"
 
-    wind_object_name = StringProperty(name="Wind Object",
-                                      description="Object whose Y axis represents the wind direction")
+    wind_object = PointerProperty(name="Wind Object",
+                                  description="Object whose Y axis represents the wind direction",
+                                  type=bpy.types.Object,
+                                  poll=idprops.poll_empty_objects)
     wind_speed = FloatProperty(name="Wind Speed",
                                description="Magnitude of the wind",
                                default=1.0)
-    envmap_name = StringProperty(name="EnvMap",
-                                 description="Texture defining an environment map for this water object")
+    envmap = PointerProperty(name="EnvMap",
+                             description="Texture defining an environment map for this water object",
+                             type=bpy.types.Texture,
+                             poll=idprops.poll_envmap_textures)
     envmap_radius = FloatProperty(name="Environment Sphere Radius",
                                   description="How far away the first object you want to see is",
                                   min=5.0, max=10000.0,
@@ -232,12 +238,9 @@ class PlasmaWaterModifier(PlasmaModifierProperties, bpy.types.PropertyGroup):
 
     def export(self, exporter, bo, so):
         waveset = exporter.mgr.find_create_object(plWaveSet7, name=bo.name, so=so)
-        if self.wind_object_name:
-            wind_obj = bpy.data.objects.get(self.wind_object_name, None)
-            if wind_obj is None:
-                raise ExportError("{}: Wind Object '{}' not found".format(bo.name, self.wind_object_name))
-            if wind_obj.plasma_object.enabled and wind_obj.plasma_modifiers.animation.enabled:
-                waveset.refObj = exporter.mgr.find_create_key(plSceneObject, bl=wind_obj)
+        if self.wind_object:
+            if self.wind_object.plasma_object.enabled and self.wind_object.plasma_modifiers.animation.enabled:
+                waveset.refObj = exporter.mgr.find_create_key(plSceneObject, bl=self.wind_object)
                 waveset.setFlag(plWaveSet7.kHasRefObject, True)
 
             # This is much like what happened in PyPRP
@@ -259,15 +262,9 @@ class PlasmaWaterModifier(PlasmaModifierProperties, bpy.types.PropertyGroup):
         state.depthFalloff = hsVector3(self.depth_opacity, self.depth_reflection, self.depth_wave)
 
         # Environment Map
-        if self.envmap_name:
-            texture = bpy.data.textures.get(self.envmap_name, None)
-            if texture is None:
-                raise ExportError("{}: Texture '{}' not found".format(self.key_name, self.envmap_name))
-            if texture.type != "ENVIRONMENT_MAP":
-                raise ExportError("{}: Texture '{}' is not an ENVIRONMENT MAP".format(self.key_name, self.envmap_name))
-
+        if self.envmap:
             # maybe, just maybe, we're absuing our privledges?
-            dem = exporter.mesh.material.export_dynamic_env(bo, None, texture, plDynamicEnvMap)
+            dem = exporter.mesh.material.export_dynamic_env(bo, None, self.envmap, plDynamicEnvMap)
             waveset.envMap = dem.key
             state.envCenter = dem.position
             state.envRefresh = dem.refreshRate
@@ -293,15 +290,30 @@ class PlasmaWaterModifier(PlasmaModifierProperties, bpy.types.PropertyGroup):
         if not mods.water_shore.enabled:
             mods.water_shore.convert_default(state)
 
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"wind_object": "wind_object_name",
+                "envmap": "envmap_name"}
+
+    def _idprop_sources(self):
+        return {"wind_object_name": bpy.data.objects,
+                "envmap_name": bpy.data.textures}
+
     @property
     def key_name(self):
         return "{}_WaveSet7".format(self.id_data.name)
 
 
-class PlasmaShoreObject(bpy.types.PropertyGroup):
+class PlasmaShoreObject(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
     display_name = StringProperty(name="Display Name")
-    object_name = StringProperty(name="Shore Object",
-                                 description="Object that waves crash upon")
+    shore_object = PointerProperty(name="Shore Object",
+                                   description="Object that waves crash upon",
+                                   type=bpy.types.Object,
+                                   poll=idprops.poll_mesh_objects)
+
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"shore_object": "object_name"}
 
 
 class PlasmaWaterShoreModifier(PlasmaModifierProperties):
@@ -365,10 +377,9 @@ class PlasmaWaterShoreModifier(PlasmaModifierProperties):
         wavestate = waveset.state
 
         for i in self.shores:
-            shore = bpy.data.objects.get(i.object_name, None)
-            if shore is None:
-                raise ExportError("'{}': Shore Object '{}' does not exist".format(self.key_name, i.object_name))
-            waveset.addShore(exporter.mgr.find_create_key(plSceneObject, bl=shore))
+            if i.shore_object is None:
+                raise ExportError("'{}': Shore Object for '{}' is invalid".format(self.key_name, i.display_name))
+            waveset.addShore(exporter.mgr.find_create_key(plSceneObject, bl=i.shore_object))
 
         wavestate.wispiness = self.wispiness / 100.0
         wavestate.minColor = hsColorRGBA(*self.shore_tint, alpha=(self.shore_opacity / 100.0))
