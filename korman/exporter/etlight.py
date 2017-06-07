@@ -146,12 +146,9 @@ class LightBaker:
 
     def _generate_lightgroup(self, bo, user_lg=None):
         """Makes a new light group for the baking process that excludes all Plasma RT lamps"""
-
-        if user_lg is not None:
-            user_lg = bpy.data.groups.get(user_lg)
         shouldibake = (user_lg is not None and bool(user_lg.objects))
-
         mesh = bo.data
+
         for material in mesh.materials:
             if material is None:
                 # material is not assigned to this material... (why is this even a thing?)
@@ -245,7 +242,7 @@ class LightBaker:
         uv_textures = mesh.uv_textures
 
         # Create a special light group for baking
-        if not self._generate_lightgroup(bo, modifier.light_group):
+        if not self._generate_lightgroup(bo, modifier.lights):
             return False
 
         # We need to ensure that we bake onto the "BlahObject_LIGHTMAPGEN" image

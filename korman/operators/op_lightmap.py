@@ -32,8 +32,6 @@ class LightmapAutobakePreviewOperator(_LightingOperator, bpy.types.Operator):
     bl_label = "Preview Lightmap"
     bl_options = {"INTERNAL"}
 
-    light_group = StringProperty(name="Light Group")
-
     def __init__(self):
         super().__init__()
 

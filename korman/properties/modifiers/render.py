@@ -22,6 +22,7 @@ from .base import PlasmaModifierProperties
 from ...exporter.etlight import _NUM_RENDER_LAYERS
 from ...exporter import utils
 from ...exporter.explosions import ExportError
+from ... import idprops
 
 
 class PlasmaFadeMod(PlasmaModifierProperties):
@@ -81,7 +82,7 @@ class PlasmaFadeMod(PlasmaModifierProperties):
             mod.farTrans = self.far_trans
 
 
-class PlasmaFollowMod(PlasmaModifierProperties):
+class PlasmaFollowMod(idprops.IDPropObjectMixin, PlasmaModifierProperties):
     pl_id = "followmod"
 
     bl_category = "Render"
@@ -108,8 +109,9 @@ class PlasmaFollowMod(PlasmaModifierProperties):
                                       ("kFollowObject", "Object", "Follow an object"),
                                 ])
 
-    leader_object = StringProperty(name="Leader Object",
-                                   description="Object to follow")
+    leader = PointerProperty(name="Leader Object",
+                             description="Object to follow",
+                             type=bpy.types.Object)
 
     def export(self, exporter, bo, so):
         fm = exporter.mgr.find_create_object(plFollowMod, so=so, name=self.key_name)
@@ -122,21 +124,21 @@ class PlasmaFollowMod(PlasmaModifierProperties):
         if self.leader_type == "kFollowObject":
             # If this object is following another object, make sure that the
             # leader has been selected and is a valid SO.
-            if self.leader_object:
-                leader_obj = bpy.data.objects.get(self.leader_object, None)
-                if leader_obj is None:
-                    raise ExportError("'{}': Follow's leader object is invalid".format(self.key_name))
-                else:
-                    fm.leader = exporter.mgr.find_create_key(plSceneObject, bl=leader_obj)
+            if self.leader:
+                fm.leader = exporter.mgr.find_create_key(plSceneObject, bl=self.leader)
             else:
                 raise ExportError("'{}': Follow's leader object must be selected".format(self.key_name))
+
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"leader": "leader_object"}
 
     @property
     def requires_actor(self):
         return True
 
 
-class PlasmaLightMapGen(PlasmaModifierProperties):
+class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties):
     pl_id = "lightmap"
 
     bl_category = "Render"
@@ -159,8 +161,9 @@ class PlasmaLightMapGen(PlasmaModifierProperties):
                                        size=_NUM_RENDER_LAYERS,
                                        default=((True,) * _NUM_RENDER_LAYERS))
 
-    light_group = StringProperty(name="Light Group",
-                                 description="Group that defines the collection of lights to bake")
+    lights = PointerProperty(name="Light Group",
+                             description="Group that defines the collection of lights to bake",
+                             type=bpy.types.Group)
 
     uv_map = StringProperty(name="UV Texture",
                             description="UV Texture used as the basis for the lightmap")
@@ -207,6 +210,13 @@ class PlasmaLightMapGen(PlasmaModifierProperties):
 
             # Mmm... cheating
             mat_mgr.export_prepared_layer(layer, lightmap_im)
+
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"lights": "light_group"}
+
+    def _idprop_sources(self):
+        return {"light_group": bpy.data.groups}
 
     @property
     def key_name(self):
@@ -317,7 +327,7 @@ class PlasmaShadowCasterMod(PlasmaModifierProperties):
             caster.castFlags |= plShadowCaster.kSelfShadow
 
 
-class PlasmaViewFaceMod(PlasmaModifierProperties):
+class PlasmaViewFaceMod(idprops.IDPropObjectMixin, PlasmaModifierProperties):
     pl_id = "viewfacemod"
 
     bl_category = "Render"
@@ -340,8 +350,9 @@ class PlasmaViewFaceMod(PlasmaModifierProperties):
                                       ("kFacePlay", "Player", "Face the local player"),
                                       ("kFaceObj", "Object", "Face an object"),
                                 ])
-    target_object = StringProperty(name="Target Object",
-                                   description="Object to face")
+    target = PointerProperty(name="Target Object",
+                             description="Object to face",
+                             type=bpy.types.Object)
 
     pivot_on_y = BoolProperty(name="Pivot on local Y",
                               description="Swivel only around the local Y axis",
@@ -376,12 +387,8 @@ class PlasmaViewFaceMod(PlasmaModifierProperties):
             if self.follow_mode == "kFaceObj":
                 # If this swivel is following an object, make sure that the
                 # target has been selected and is a valid SO.
-                if self.target_object:
-                    target_obj = bpy.data.objects.get(self.target_object, None)
-                    if target_obj is None:
-                        raise ExportError("'{}': Swivel's target object is invalid".format(self.key_name))
-                    else:
-                        vfm.faceObj = exporter.mgr.find_create_key(plSceneObject, bl=target_obj)
+                if self.target:
+                    vfm.faceObj = exporter.mgr.find_create_key(plSceneObject, bl=self.target)
                 else:
                     raise ExportError("'{}': Swivel's target object must be selected".format(self.key_name))
 
@@ -395,12 +402,16 @@ class PlasmaViewFaceMod(PlasmaModifierProperties):
                 if self.offset_local:
                     vfm.setFlag(plViewFaceModifier.kOffsetLocal, True)
 
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"target": "target_object"}
+
     @property
     def requires_actor(self):
         return True
 
 
-class PlasmaVisControl(PlasmaModifierProperties):
+class PlasmaVisControl(idprops.IDPropObjectMixin, PlasmaModifierProperties):
     pl_id = "visregion"
 
     bl_category = "Render"
@@ -412,8 +423,10 @@ class PlasmaVisControl(PlasmaModifierProperties):
                         items=[("normal", "Normal", "Objects are only visible when the camera is inside this region"),
                                ("exclude", "Exclude", "Objects are only visible when the camera is outside this region"),
                                ("fx", "Special FX", "This is a list of objects used for special effects only")])
-    softvolume = StringProperty(name="Region",
-                                description="Object defining the SoftVolume for this VisRegion")
+    soft_region = PointerProperty(name="Region",
+                                  description="Object defining the SoftVolume for this VisRegion",
+                                  type=bpy.types.Object,
+                                  poll=idprops.poll_softvolume_objects)
     replace_normal = BoolProperty(name="Hide Drawables",
                                   description="Hides drawables attached to this region",
                                   default=True)
@@ -430,21 +443,31 @@ class PlasmaVisControl(PlasmaModifierProperties):
                 exporter.report.msg("[VisRegion] I'm a SoftVolume myself :)", indent=1)
                 rgn.region = this_sv.get_key(exporter, so)
             else:
-                exporter.report.msg("[VisRegion] SoftVolume '{}'", self.softvolume, indent=1)
-                sv_bo = bpy.data.objects.get(self.softvolume, None)
-                if sv_bo is None:
-                    raise ExportError("'{}': Invalid object '{}' for VisControl soft volume".format(bo.name, self.softvolume))
+                if not self.soft_region:
+                    raise ExportError("'{}': Visibility Control must have a Soft Volume selected".format(self.key_name))
+                sv_bo = self.soft_region
                 sv = sv_bo.plasma_modifiers.softvolume
+                exporter.report.msg("[VisRegion] SoftVolume '{}'", sv_bo.name, indent=1)
                 if not sv.enabled:
-                    raise ExportError("'{}': '{}' is not a SoftVolume".format(bo.name, self.softvolume))
+                    raise ExportError("'{}': '{}' is not a SoftVolume".format(self.key_name, sv_bo.name))
                 rgn.region = sv.get_key(exporter)
             rgn.setProperty(plVisRegion.kIsNot, self.mode == "exclude")
 
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"soft_region": "softvolume"}
 
-class VisRegion(bpy.types.PropertyGroup):
+
+class VisRegion(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
     enabled = BoolProperty(default=True)
-    region_name = StringProperty(name="Control",
-                                 description="Object defining a Plasma Visibility Control")
+    control_region = PointerProperty(name="Control",
+                                     description="Object defining a Plasma Visibility Control",
+                                     type=bpy.types.Object,
+                                     poll=idprops.poll_visregion_objects)
+
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"control_region": "region_name"}
 
 
 class PlasmaVisibilitySet(PlasmaModifierProperties):
@@ -474,7 +497,6 @@ class PlasmaVisibilitySet(PlasmaModifierProperties):
         for region in self.regions:
             if not region.enabled:
                 continue
-            rgn_bo = bpy.data.objects.get(region.region_name, None)
-            if rgn_bo is None:
-                raise ExportError("{}: Invalid VisControl '{}' in VisSet modifier".format(bo.name, region.region_name))
-            addRegion(exporter.mgr.find_create_key(plVisRegion, bl=rgn_bo))
+            if not region.control_region:
+                raise ExportError("{}: Not all Visibility Controls are set up properly in Visibility Set".format(bo.name))
+            addRegion(exporter.mgr.find_create_key(plVisRegion, bl=region.control_region))
