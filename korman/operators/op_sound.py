@@ -36,19 +36,16 @@ class PlasmaSoundOpenOperator(SoundOperator, bpy.types.Operator):
     def execute(self, context):
         # Check to see if the sound exists... Because the sneakily introduced bpy.data.sounds.load
         # check_existing doesn't tell us if it already exists... dammit...
-        # We don't want to take ownership forcefully if we don't have to.
         for i in bpy.data.sounds:
             if self.filepath == i.filepath:
                 sound = i
                 break
         else:
             sound = bpy.data.sounds.load(self.filepath)
-            sound.plasma_owned = True
-            sound.use_fake_user = True
 
         # Now do the stanky leg^H^H^H^H^H^H^H^H^H^H deed and put the sound on the mod
         dest = eval(self.data_path)
-        setattr(dest, self.sound_property, sound.name)
+        setattr(dest, self.sound_property, sound)
         return {"FINISHED"}
 
     def invoke(self, context, event):

@@ -22,10 +22,8 @@ def _draw_fade_ui(modifier, layout, label):
 
 class SoundListUI(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        if item.sound_data:
-            sound = bpy.data.sounds.get(item.sound_data)
-            icon = "SOUND" if sound is not None else "ERROR"
-            layout.prop(item, "name", emboss=False, icon=icon, text="")
+        if item.sound:
+            layout.prop(item, "name", emboss=False, icon="SOUND", text="")
             layout.prop(item, "enabled", text="")
         else:
             layout.label("[Empty]")
@@ -51,13 +49,13 @@ def soundemit(modifier, layout, context):
     else:
         # Sound datablock picker
         row = layout.row(align=True)
-        row.prop_search(sound, "sound_data", bpy.data, "sounds", text="")
+        row.prop_search(sound, "sound_data_proxy", bpy.data, "sounds", text="")
         open_op = row.operator("sound.plasma_open", icon="FILESEL", text="")
         open_op.data_path = repr(sound)
         open_op.sound_property = "sound_data"
 
         # Pack/Unpack
-        data = bpy.data.sounds.get(sound.sound_data)
+        data = sound.sound
         if data is not None:
             if data.packed_file is None:
                 row.operator("sound.plasma_pack", icon="UGLYPACKAGE", text="")
@@ -65,7 +63,7 @@ def soundemit(modifier, layout, context):
                 row.operator_menu_enum("sound.plasma_unpack", "method", icon="PACKAGE", text="")
 
         # If an invalid sound data block is spec'd, let them know about it.
-        if sound.sound_data and not sound.is_valid:
+        if data and not sound.is_valid:
             layout.label(text="Invalid sound specified", icon="ERROR")
 
         # Core Props
@@ -102,4 +100,4 @@ def soundemit(modifier, layout, context):
         if not sv.enabled:
             col.separator()
             col.label("Soft Region:")
-            col.prop_search(sound, "soft_region", bpy.data, "objects", text="")
+            col.prop(sound, "sfx_region", text="")

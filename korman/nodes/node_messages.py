@@ -21,6 +21,7 @@ from PyHSPlasma import *
 from .node_core import *
 from ..properties.modifiers.region import footstep_surfaces, footstep_surface_ids
 from ..exporter import ExportError
+from .. import idprops
 
 class PlasmaMessageSocketBase(PlasmaNodeSocketBase):
     bl_color = (0.004, 0.282, 0.349, 1.0)
@@ -484,14 +485,19 @@ class PlasmaSceneObjectMsgRcvrNode(PlasmaNodeBase, bpy.types.Node):
         return ref_so_key
 
 
-class PlasmaSoundMsgNode(PlasmaMessageNode, bpy.types.Node):
+class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageNode, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaSoundMsgNode"
     bl_label = "Sound"
     bl_width_default = 190
 
-    object_name = StringProperty(name="Object",
-                                 description="Sound emitter object")
+    def _poll_sound_emitters(self, value):
+        return value.plasma_modifiers.soundemit.enabled
+
+    emitter_object = PointerProperty(name="Object",
+                                     description="Sound emitter object",
+                                     type=bpy.types.Object,
+                                     poll=_poll_sound_emitters)
     sound_name = StringProperty(name="Sound",
                                 description="Sound datablock")
 
@@ -540,20 +546,19 @@ class PlasmaSoundMsgNode(PlasmaMessageNode, bpy.types.Node):
         msg.setCmd(plSoundMsg.kAddCallbacks)
 
     def convert_message(self, exporter, so):
-        sound_bo = bpy.data.objects.get(self.object_name, None)
-        if sound_bo is None:
-            self.raise_error("'{}' is not a valid object".format(self.object_name))
-        soundemit = sound_bo.plasma_modifiers.soundemit
+        if self.emitter_object is None:
+            self.raise_error("Sound emitter must be set")
+        soundemit = self.emitter_object.plasma_modifiers.soundemit
         if not soundemit.enabled:
-            self.raise_error("'{}' is not a valid Sound Emitter".format(self.object_name))
+            self.raise_error("'{}' is not a valid Sound Emitter".format(self.emitter_object.name))
 
         # Always test the specified audible for validity
         if self.sound_name and soundemit.sounds.get(self.sound_name, None) is None:
-            self.raise_error("Invalid Sound '{}' requested from Sound Emitter '{}'".format(self.sound_name, self.object_name))
+            self.raise_error("Invalid Sound '{}' requested from Sound Emitter '{}'".format(self.sound_name, self.emitter_object.name))
 
         # Remember that 3D stereo sounds are exported as two emitters...
         # But, if we only have one sound attached, who cares, we can just address the message to all
-        audible_key = exporter.mgr.find_create_key(plAudioInterface, bl=sound_bo)
+        audible_key = exporter.mgr.find_create_key(plAudioInterface, bl=self.emitter_object)
         indices = (-1,) if not self.sound_name or len(soundemit.sounds) == 1 else soundemit.get_sound_indices(self.sound_name)
         for idx in indices:
             msg = plSoundMsg()
@@ -586,10 +591,9 @@ class PlasmaSoundMsgNode(PlasmaMessageNode, bpy.types.Node):
             yield msg
 
     def draw_buttons(self, context, layout):
-        layout.prop_search(self, "object_name", bpy.data, "objects")
-        bo = bpy.data.objects.get(self.object_name, None)
-        if bo is not None:
-            soundemit = bo.plasma_modifiers.soundemit
+        layout.prop(self, "emitter_object")
+        if self.emitter_object is not None:
+            soundemit = self.emitter_object.plasma_modifiers.soundemit
             if soundemit.enabled:
                 layout.prop_search(self, "sound_name", soundemit, "sounds", icon="SOUND")
             else:
@@ -607,6 +611,10 @@ class PlasmaSoundMsgNode(PlasmaMessageNode, bpy.types.Node):
     @property
     def has_callbacks(self):
         return True
+
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"emitter_object": "object_name"}
 
 
 class PlasmaTimerCallbackMsgNode(PlasmaMessageNode, bpy.types.Node):

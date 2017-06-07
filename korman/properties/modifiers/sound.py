@@ -23,6 +23,7 @@ from PyHSPlasma import *
 from ... import korlib
 from .base import PlasmaModifierProperties
 from ...exporter import ExportError
+from ... import idprops
 
 class PlasmaSfxFade(bpy.types.PropertyGroup):
     fade_type = EnumProperty(name="Type",
@@ -38,9 +39,17 @@ class PlasmaSfxFade(bpy.types.PropertyGroup):
                            options=set(), subtype="TIME", unit="TIME")
 
 
-class PlasmaSound(bpy.types.PropertyGroup):
-    def _sound_picked(self, context):
-        if not self.sound_data:
+class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
+    def _get_name_proxy(self):
+        if self.sound is not None:
+            return self.sound.name
+        return ""
+
+    def _set_name_proxy(self, value):
+        self.sound = bpy.data.sounds.get(value, None)
+
+        # This is the actual pointer update callback
+        if not self.sound:
             self.name = "[Empty]"
             return
 
@@ -54,24 +63,33 @@ class PlasmaSound(bpy.types.PropertyGroup):
         else:
             self.is_valid = True
             self.is_stereo = header.numChannels == 2
-        self._update_name(context)
+        self._update_name()
 
-    def _update_name(self, context):
+    def _update_name(self, context=None):
         if self.is_stereo and self.channel != {"L", "R"}:
-            self.name = "{}:{}".format(self.sound_data, "L" if "L" in self.channel else "R")
+            self.name = "{}:{}".format(self._sound_name, "L" if "L" in self.channel else "R")
         else:
-            self.name = self.sound_data
+            self.name = self._sound_name
 
     enabled = BoolProperty(name="Enabled", default=True, options=set())
-    sound_data = StringProperty(name="Sound", description="Sound Datablock",
-                                options=set(), update=_sound_picked)
+    sound = PointerProperty(name="Sound",
+                            description="Sound Datablock",
+                            type=bpy.types.Sound)
+
+    # This is needed because pointer properties do not seem to allow update CBs... Bug?
+    sound_data_proxy = StringProperty(name="Sound",
+                                      description="Name of sound datablock",
+                                      get=_get_name_proxy,
+                                      set=_set_name_proxy,
+                                      options=set())
 
     is_stereo = BoolProperty(default=True, options={"HIDDEN"})
     is_valid = BoolProperty(default=False, options={"HIDDEN"})
 
-    soft_region = StringProperty(name="Soft Volume",
+    sfx_region = PointerProperty(name="Soft Volume",
                                  description="Soft region this sound can be heard in",
-                                 options=set())
+                                 type=bpy.types.Object,
+                                 poll=idprops.poll_softvolume_objects)
 
     sfx_type = EnumProperty(name="Category",
                             description="Describes the purpose of this sound",
@@ -170,9 +188,9 @@ class PlasmaSound(bpy.types.PropertyGroup):
 
     def _convert_sound(self, exporter, so, pClass, wavHeader, dataSize, channel=None):
         if channel is None:
-            name = "Sfx-{}_{}".format(so.key.name, self.sound_data)
+            name = "Sfx-{}_{}".format(so.key.name, self._sound_name)
         else:
-            name = "Sfx-{}_{}:{}".format(so.key.name, self.sound_data, channel)
+            name = "Sfx-{}_{}:{}".format(so.key.name, self._sound_name, channel)
         exporter.report.msg("[{}] {}", pClass.__name__[2:], name, indent=1)
         sound = exporter.mgr.find_create_object(pClass, so=so, name=name)
 
@@ -181,13 +199,10 @@ class PlasmaSound(bpy.types.PropertyGroup):
         sv_mod, sv_key = self.id_data.plasma_modifiers.softvolume, None
         if sv_mod.enabled:
             sv_key = sv_mod.get_key(exporter, so)
-        elif self.soft_region:
-            sv_bo = bpy.data.objects.get(self.soft_region, None)
-            if sv_bo is None:
-                raise ExportError("'{}': Invalid object '{}' for SoundEmit '{}' soft volume".format(self.id_data.name, self.soft_region, self.sound_data))
-            sv_mod = sv_bo.plasma_modifiers.softvolume
+        elif self.sfx_region:
+            sv_mod = self.sfx_region.plasma_modifiers.softvolume
             if not sv_mod.enabled:
-                raise ExportError("'{}': SoundEmit '{}', '{}' is not a SoftVolume".format(self.id_data.name, self.sound_data, self.soft_region))
+                raise ExportError("'{}': SoundEmit '{}', '{}' is not a SoftVolume".format(self.id_data.name, self._sound_name, self.sfx_region.name))
             sv_key = sv_mod.get_key(exporter)
         if sv_key is not None:
             sv_key.object.listenState |= plSoftVolume.kListenCheck | plSoftVolume.kListenDirty | plSoftVolume.kListenRegistered
@@ -305,21 +320,36 @@ class PlasmaSound(bpy.types.PropertyGroup):
             key = sound.key
         return key
 
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"sound": "sound_data",
+                "sfx_region": "soft_region"}
+
+    def _idprop_sources(self):
+        return {"sound_data": bpy.data.sounds,
+                "soft_region": bpy.data.objects}
+
     @property
     def is_3d_stereo(self):
         return self.sfx_type == "kSoundFX" and self.channel == {"L", "R"} and self.is_stereo
 
     def _raise_error(self, msg):
-        raise ExportError("SoundEmitter '{}': Sound '{}' {}".format(self.id_data.name, self.sound_data, msg))
+        if self.sound:
+            raise ExportError("SoundEmitter '{}': Sound '{}' {}".format(self.id_data.name, self.sound.name, msg))
+        else:
+            raise ExportError("SoundEmitter '{}': {}".format(self.id_data.name, msg))
 
     @property
     def _sound(self):
-        try:
-            sound = bpy.data.sounds.get(self.sound_data)
-        except:
-            self._raise_error("is not loaded")
-        else:
-            return sound
+        if not self.sound:
+            self._raise_error("has an invalid sound specified")
+        return self.sound
+
+    @property
+    def _sound_name(self):
+        if self.sound:
+            return self.sound.name
+        return ""
 
 
 class PlasmaSoundEmitter(PlasmaModifierProperties):
@@ -341,7 +371,7 @@ class PlasmaSoundEmitter(PlasmaModifierProperties):
 
         # Pass this off to each individual sound for conversion
         for i in self.sounds:
-            if i.sound_data and i.enabled:
+            if i.enabled:
                 i.convert_sound(exporter, so, winaud)
 
     def get_sound_indices(self, name=None, sound=None):
@@ -374,26 +404,6 @@ class PlasmaSoundEmitter(PlasmaModifierProperties):
             else:
                 raise ValueError(name)
 
-    @classmethod
-    def register(cls):
-        bpy.types.Sound.plasma_owned = BoolProperty(default=False, options={"HIDDEN"})
-
     @property
     def requires_actor(self):
         return True
-
-
-@persistent
-def _toss_orphaned_sounds(scene):
-    used_sounds = set()
-    for i in bpy.data.objects:
-        soundemit = i.plasma_modifiers.soundemit
-        used_sounds.update((j.sound_data for j in soundemit.sounds))
-    dead_sounds = [i for i in bpy.data.sounds if i.plasma_owned and i.name not in used_sounds]
-    for i in dead_sounds:
-        i.use_fake_user = False
-        i.user_clear()
-        bpy.data.sounds.remove(i)
-
-# collects orphaned Plasma owned sound datablocks
-bpy.app.handlers.save_pre.append(_toss_orphaned_sounds)
