@@ -130,5 +130,8 @@ def poll_empty_objects(self, value):
 def poll_mesh_objects(self, value):
     return value.type == "MESH"
 
+def poll_softvolume_objects(self, value):
+    return value.plasma_modifiers.softvolume.enabled
+
 def poll_envmap_textures(self, value):
     return isinstance(value, bpy.types.EnvironmentMapTexture)

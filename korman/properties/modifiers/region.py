@@ -19,6 +19,7 @@ from PyHSPlasma import *
 
 from ...exporter import ExportError
 from ...helpers import TemporaryObject
+from ... import idprops
 
 from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz
 from .physics import bounds_types
@@ -145,7 +146,7 @@ class PlasmaPanicLinkRegion(PlasmaModifierProperties):
         return True
 
 
-class PlasmaSoftVolume(PlasmaModifierProperties):
+class PlasmaSoftVolume(idprops.IDPropMixin, PlasmaModifierProperties):
     pl_id = "softvolume"
 
     bl_category = "Region"
@@ -156,8 +157,9 @@ class PlasmaSoftVolume(PlasmaModifierProperties):
     use_nodes = BoolProperty(name="Use Nodes",
                              description="Make this a node-based Soft Volume",
                              default=False)
-    node_tree_name = StringProperty(name="Node Tree",
-                                    description="Node Tree detailing soft volume logic")
+    node_tree = PointerProperty(name="Node Tree",
+                                description="Node Tree detailing soft volume logic",
+                                type=bpy.types.NodeTree)
 
     # Basic
     invert = BoolProperty(name="Invert",
@@ -179,9 +181,10 @@ class PlasmaSoftVolume(PlasmaModifierProperties):
             so = exporter.mgr.find_create_object(plSceneObject, bl=self.id_data)
 
         if self.use_nodes:
-            output = self.node_tree.find_output("PlasmaSoftVolumeOutputNode")
+            tree = self.get_node_tree()
+            output = tree.find_output("PlasmaSoftVolumeOutputNode")
             if output is None:
-                raise ExportError("SoftVolume '{}' Node Tree '{}' has no output node!".format(self.key_name, self.node_tree))
+                raise ExportError("SoftVolume '{}' Node Tree '{}' has no output node!".format(self.key_name, tree.name))
             return output.get_key(exporter, so)
         else:
             pClass = plSoftVolumeInvert if self.invert else plSoftVolumeSimple
@@ -221,13 +224,19 @@ class PlasmaSoftVolume(PlasmaModifierProperties):
             sv.volume = isect
 
     def _export_sv_nodes(self, exporter, bo, so):
-        if self.node_tree_name not in exporter.node_trees_exported:
-            exporter.node_trees_exported.add(self.node_tree_name)
-            self.node_tree.export(exporter, bo, so)
+        tree = self.get_node_tree()
+        if tree.name not in exporter.node_trees_exported:
+            exporter.node_trees_exported.add(tree.name)
+            tree.export(exporter, bo, so)
 
-    @property
-    def node_tree(self):
-        tree = bpy.data.node_groups.get(self.node_tree_name, None)
-        if tree is None:
-            raise ExportError("SoftVolume '{}': Node Tree '{}' does not exist!".format(self.key_name, self.node_tree_name))
-        return tree
+    def get_node_tree(self):
+        if self.node_tree is None:
+            raise ExportError("SoftVolume '{}' does not specify a valid Node Tree!".format(self.key_name))
+        return self.node_tree
+
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"node_tree": "node_tree_name"}
+
+    def _idprop_sources(self):
+        return {"node_tree_name": bpy.data.node_groups}

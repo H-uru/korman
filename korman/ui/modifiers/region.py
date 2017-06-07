@@ -28,7 +28,7 @@ def softvolume(modifier, layout, context):
     row = layout.row()
     row.prop(modifier, "use_nodes", text="", icon="NODETREE")
     if modifier.use_nodes:
-        row.prop_search(modifier, "node_tree_name", bpy.data, "node_groups")
+        row.prop(modifier, "node_tree")
     else:
         row.label("Simple Soft Volume")
 
