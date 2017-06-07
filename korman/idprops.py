@@ -118,6 +118,12 @@ class IDPropObjectMixin(IDPropMixin):
         return { i: bpy.data.objects for i in idprops.values() }
 
 
+def poll_animated_objects(self, value):
+    if value.animation_data is not None:
+        if value.animation_data.action is not None:
+            return True
+    return False
+
 def poll_empty_objects(self, value):
     return value.type == "EMPTY"
 

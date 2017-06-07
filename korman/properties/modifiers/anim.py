@@ -19,6 +19,7 @@ from PyHSPlasma import *
 
 from .base import PlasmaModifierProperties
 from ...exporter import ExportError, utils
+from ... import idprops
 
 def _convert_frame_time(frame_num):
     fps = bpy.context.scene.render.fps
@@ -92,9 +93,15 @@ class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
                 atcanim.loopEnd = atcanim.end
 
 
-class AnimGroupObject(bpy.types.PropertyGroup):
-    object_name = StringProperty(name="Child Animation",
-                                 description="Object whose action is a child animation")
+class AnimGroupObject(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
+    child_anim = PointerProperty(name="Child Animation",
+                                 description="Object whose action is a child animation",
+                                 type=bpy.types.Object,
+                                 poll=idprops.poll_animated_objects)
+
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"child_anim": "object_name"}
 
 
 class PlasmaAnimationGroupModifier(ActionModifier, PlasmaModifierProperties):
@@ -123,7 +130,7 @@ class PlasmaAnimationGroupModifier(ActionModifier, PlasmaModifierProperties):
         agmaster.msgForwarder = msgfwd.key
         agmaster.isGrouped, agmaster.isGroupMaster = True, True
         for i in self.children:
-            child_bo = bpy.data.objects.get(i.object_name, None)
+            child_bo = i.child_anim
             if child_bo is None:
                 msg = "Animation Group '{}' specifies an invalid object '{}'. Ignoring..."
                 exporter.report.warn(msg.format(self.key_name, i.object_name), ident=2)
