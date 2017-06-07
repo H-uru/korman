@@ -14,6 +14,7 @@ endif()
 find_package(HSPlasma REQUIRED)
 find_package(Ogg REQUIRED)
 find_package(OpenGL REQUIRED)
+find_package(string_theory REQUIRED)
 find_package(Vorbis REQUIRED)
 
 # Da files
@@ -35,6 +36,7 @@ include_directories(${HSPlasma_INCLUDE_DIRS})
 include_directories(${Ogg_INCLUDE_DIR})
 include_directories(${OPENGL_INCLUDE_DIR})
 include_directories(${PYTHON_INCLUDE_DIRS})
+include_directories(${STRING_THEORY_INCLUDE_DIRS})
 include_directories(${Vorbis_INCLUDE_DIR})
 
 add_library(_korlib SHARED ${korlib_HEADERS} ${korlib_SOURCES})
@@ -43,4 +45,6 @@ if(NOT WIN32)
 else()
     set_target_properties(_korlib PROPERTIES SUFFIX ".pyd")
 endif()
-target_link_libraries(_korlib HSPlasma ${Ogg_LIBRARIES} ${OPENGL_LIBRARIES} ${PYTHON_LIBRARIES} ${Vorbis_LIBRARIES})
+target_link_libraries(_korlib HSPlasma ${Ogg_LIBRARIES} ${OPENGL_LIBRARIES}
+                                       ${PYTHON_LIBRARIES} ${STRING_THEORY_LIBRARIES}
+                                       ${Vorbis_LIBRARIES})
