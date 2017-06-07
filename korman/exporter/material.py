@@ -19,7 +19,7 @@ from pathlib import Path
 from PyHSPlasma import *
 import weakref
 
-from . import explosions
+from .explosions import *
 from .. import helpers
 from ..korlib import *
 from . import utils
@@ -546,6 +546,9 @@ class MaterialConverter:
 
             image = key.image
             oWidth, oHeight = image.size
+            if oWidth == 0 and oHeight == 0:
+                raise ExportError("Image '{}' could not be loaded.".format(image.name))
+
             eWidth = helpers.ensure_power_of_two(oWidth)
             eHeight = helpers.ensure_power_of_two(oHeight)
             if (eWidth != oWidth) or (eHeight != oHeight):
