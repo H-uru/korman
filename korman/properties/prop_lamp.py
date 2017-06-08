@@ -16,7 +16,9 @@
 import bpy
 from bpy.props import *
 
-class PlasmaLamp(bpy.types.PropertyGroup):
+from .. import idprops
+
+class PlasmaLamp(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
     affect_characters = BoolProperty(name="Affect Avatars",
                                      description="This lamp affects avatars",
                                      options=set(),
@@ -43,9 +45,10 @@ class PlasmaLamp(bpy.types.PropertyGroup):
                                default=False,
                                options=set())
 
-    soft_region = StringProperty(name="Soft Volume",
-                                 description="Soft region this light is active inside",
-                                 options=set())
+    lamp_region = PointerProperty(name="Soft Volume",
+                                  description="Soft region this light is active inside",
+                                  type=bpy.types.Object,
+                                  poll=idprops.poll_softvolume_objects)
 
     # For LimitedDirLights
     size_height = FloatProperty(name="Height",
@@ -55,3 +58,7 @@ class PlasmaLamp(bpy.types.PropertyGroup):
 
     def has_light_group(self, bo):
         return bool(bo.users_group)
+
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"lamp_region": "soft_region"}

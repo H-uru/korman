@@ -53,7 +53,7 @@ class PlasmaLampPanel(LampButtonsPanel, bpy.types.Panel):
 
         if not context.object.plasma_modifiers.softvolume.enabled:
             layout.separator()
-            layout.prop_search(rtlamp, "soft_region", bpy.data, "objects")
+            layout.prop(rtlamp, "lamp_region")
 
 
 def _draw_area_lamp(self, context):
