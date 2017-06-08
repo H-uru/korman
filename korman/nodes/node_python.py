@@ -19,6 +19,7 @@ from pathlib import Path
 from PyHSPlasma import *
 
 from .node_core import *
+from .. import idprops
 
 _single_user_attribs = {
     "ptAttribBoolean", "ptAttribInt", "ptAttribFloat", "ptAttribString", "ptAttribDropDownList",
@@ -419,7 +420,7 @@ class PlasmaAttribNumericNode(PlasmaAttribNodeBase, bpy.types.Node):
             return self.value_float
 
 
-class PlasmaAttribObjectNode(PlasmaAttribNodeBase, bpy.types.Node):
+class PlasmaAttribObjectNode(idprops.IDPropObjectMixin, PlasmaAttribNodeBase, bpy.types.Node):
     bl_category = "PYTHON"
     bl_idname = "PlasmaAttribObjectNode"
     bl_label = "Object Attribute"
@@ -427,8 +428,9 @@ class PlasmaAttribObjectNode(PlasmaAttribNodeBase, bpy.types.Node):
     pl_attrib = ("ptAttribSceneobject", "ptAttribSceneobjectList", "ptAttribAnimation",
                  "ptAttribSwimCurrent", "ptAttribWaveSet")
 
-    object_name = StringProperty(name="Object",
-                                 description="Object containing the required data")
+    target_object = PointerProperty(name="Object",
+                                    description="Object containing the required data",
+                                    type=bpy.types.Object)
 
     def init(self, context):
         super().init(context)
@@ -436,7 +438,7 @@ class PlasmaAttribObjectNode(PlasmaAttribNodeBase, bpy.types.Node):
         self.outputs[0].link_limit = 1
 
     def draw_buttons(self, context, layout):
-        layout.prop_search(self, "object_name", bpy.data, "objects", text=self.attribute_name)
+        layout.prop(self, "target_object", text=self.attribute_name)
 
     def get_key(self, exporter, so):
         attrib = self.to_socket
@@ -444,9 +446,9 @@ class PlasmaAttribObjectNode(PlasmaAttribNodeBase, bpy.types.Node):
             self.raise_error("must be connected to a Python File node!")
         attrib = attrib.attribute_type
 
-        bo = bpy.data.objects.get(self.object_name, None)
+        bo = self.target_object
         if bo is None:
-            self.raise_error("invalid object specified: '{}'".format(self.object_name))
+            self.raise_error("Target object must be specified")
         ref_so_key = exporter.mgr.find_create_key(plSceneObject, bl=bo)
         ref_so = ref_so_key.object
 
@@ -467,6 +469,10 @@ class PlasmaAttribObjectNode(PlasmaAttribNodeBase, bpy.types.Node):
                 self.raise_error("water modifier not enabled on '{}'".format(self.object_name))
             return exporter.mgr.find_create_key(plWaveSet7, so=ref_so, bl=bo)
 
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"target_object": "object_name"}
+
 
 class PlasmaAttribStringNode(PlasmaAttribNodeBase, bpy.types.Node):
     bl_category = "PYTHON"
@@ -486,7 +492,7 @@ class PlasmaAttribStringNode(PlasmaAttribNodeBase, bpy.types.Node):
             self.value = attrib.simple_value
 
 
-class PlasmaAttribTextureNode(PlasmaAttribNodeBase, bpy.types.Node):
+class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.types.Node):
     bl_category = "PYTHON"
     bl_idname = "PlasmaAttribTextureNode"
     bl_label = "Texture Attribute"
@@ -494,8 +500,31 @@ class PlasmaAttribTextureNode(PlasmaAttribNodeBase, bpy.types.Node):
 
     pl_attrib = ("ptAttribMaterial", "ptAttribMaterialList",
                  "ptAttribDynamicMap", "ptAttribMaterialAnimation")
-    material_name = StringProperty(name="Material")
-    texture_name = StringProperty(name="Texture")
+
+    def _poll_texture(self, value):
+        if self.material is not None:
+            # is this the type of dealio that we're looking for?
+            attrib = self.to_socket
+            if attrib is not None:
+                attrib = attrib.attribute_type
+                if attrib == "ptAttribDynamicMap":
+                    if not self._is_dyntext(value):
+                        return False
+                elif attrib == "ptAttribMaterialAnimation":
+                    if not self._is_animated(self.material, value):
+                        return False
+
+            # must be a legal option... but is it a member of this material?
+            return value.name in self.material.texture_slots
+        return False
+
+    material = PointerProperty(name="Material",
+                               description="Material the texture is attached to",
+                               type=bpy.types.Material)
+    texture = PointerProperty(name="Texture",
+                              description="Texture to expose to Python",
+                              type=bpy.types.Texture,
+                              poll=_poll_texture)
 
     def init(self, context):
         super().init(context)
@@ -509,35 +538,46 @@ class PlasmaAttribTextureNode(PlasmaAttribNodeBase, bpy.types.Node):
             layout.prop_search(self, "texture_name", material, "texture_slots")
 
     def get_key(self, exporter, so):
-        material = bpy.data.materials.get(self.material_name, None)
-        if material is None:
-            self.raise_error("invalid Material '{}'".format(self.material_name))
-        tex_slot = material.texture_slots.get(self.texture_name, None)
-        if tex_slot is None:
-            self.raise_error("invalid Texture '{}'".format(self.texture_name))
+        if self.material is None:
+            self.raise_error("Material must be specified")
+        if self.texture is None:
+            self.raise_error("Texture must be specified")
+
         attrib = self.to_socket
         if attrib is None:
             self.raise_error("must be connected to a Python File node!")
         attrib = attrib.attribute_type
-
-        # Helpers
-        texture = tex_slot.texture
-        is_animated = ((material.animation_data is not None and material.animation_data.action is not None)
-                       or (texture.animation_data is not None and texture.animation_data.action is not None))
-        is_dyntext = texture.type == "IMAGE" and texture.image is None
+        material = self.material
+        texture = self.texture
 
         # Your attribute stuff here...
         if attrib == "ptAttribDynamicMap":
-            if not is_dyntext:
+            if not self._is_dyntext(material, texture):
                 self.raise_error("Texture '{}' is not a Dynamic Text Map".format(self.texture_name))
-            name = "{}_{}_DynText".format(self.material_name, self.texture_name)
+            name = "{}_{}_DynText".format(material.name, texture.name)
             return exporter.mgr.find_create_key(plDynamicTextMap, name=name, so=so)
-        elif is_animated:
-            name = "{}_{}_LayerAnim".format(self.material_name, self.texture_name)
+        elif self._is_animated(material, texture):
+            name = "{}_{}_LayerAnim".format(material_name, texture.name)
             return exporter.mgr.find_create_key(plLayerAnimation, name=name, so=so)
         else:
-            name = "{}_{}".format(self.material_name, self.texture_name)
+            name = "{}_{}".format(material.name, texture.name)
             return exporter.mgr.find_create_key(plLayer, name=name, so=so)
+
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"material": "material_name",
+                "texture": "texture_name"}
+
+    def _idprop_sources(self):
+        return {"material_name": bpy.data.materials,
+                "texture_name": bpy.data.textures}
+
+    def _is_animated(self, material, texture):
+        return   ((material.animation_data is not None and material.animation_data.action is not None)
+               or (texture.animation_data is not None and texture.animation_data.action is not None))
+
+    def _is_dyntext(self, texture):
+        return texture.type == "IMAGE" and texture.image is None
 
 
 _attrib_colors = {
