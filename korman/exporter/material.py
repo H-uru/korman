@@ -476,11 +476,11 @@ class MaterialConverter:
         # Whoever wrote this PyHSPlasma binding didn't follow the convention. Sigh.
         visregions = []
         for region in texture.plasma_layer.vis_regions:
-            rgn = bpy.data.objects.get(region.region_name, None)
+            rgn = region.control_region
             if rgn is None:
-                raise ExportError("'{}': VisControl '{}' not found".format(texture.name, region.region_name))
+                raise ExportError("'{}': Has an invalid Visibility Control".format(texture.name))
             if not rgn.plasma_modifiers.visregion.enabled:
-                raise ExportError("'{}': '{}' is not a VisControl".format(texture.name, region.region_name))
+                raise ExportError("'{}': '{}' is not a VisControl".format(texture.name, rgn.name))
             visregions.append(self._mgr.find_create_key(plVisRegion, bl=rgn))
         pl_env.visRegions = visregions
 
