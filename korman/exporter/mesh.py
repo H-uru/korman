@@ -119,6 +119,24 @@ class MeshConverter:
         self._dspans = {}
         self._mesh_geospans = {}
 
+    def _calc_num_uvchans(self, bo, mesh):
+        max_user_texs = plGeometrySpan.kUVCountMask
+        num_user_texs = len(mesh.tessface_uv_textures)
+        total_texs = num_user_texs
+
+        # Bump Mapping requires 2 magic channels
+        if self.material.get_bump_layer(bo) is not None:
+            total_texs += 2
+            max_user_texs -= 2
+
+        # Lightmapping requires its own LIGHTMAPGEN channel
+        # NOTE: the LIGHTMAPGEN texture has already been created, so it is in num_user_texs
+        if bo.plasma_modifiers.lightmap.enabled:
+            num_user_texs -= 1
+            max_user_texs -= 1
+
+        return (num_user_texs, total_texs, max_user_texs)
+
     def _create_geospan(self, bo, mesh, bm, hsgmatKey):
         """Initializes a plGeometrySpan from a Blender Object and an hsGMaterial"""
         geospan = plGeometrySpan()
@@ -126,10 +144,10 @@ class MeshConverter:
 
         # GeometrySpan format
         # For now, we really only care about the number of UVW Channels
-        numUVWchans = len(mesh.tessface_uv_textures)
-        if numUVWchans > plGeometrySpan.kUVCountMask:
-            raise explosions.TooManyUVChannelsError(bo, bm)
-        geospan.format = numUVWchans
+        user_uvws, total_uvws, max_user_uvws = self._calc_num_uvchans(bo, mesh)
+        if total_uvws > plGeometrySpan.kUVCountMask:
+            raise explosions.TooManyUVChannelsError(bo, bm, user_uvws, max_user_uvws)
+        geospan.format = total_uvws
 
         # Begin total guesswork WRT flags
         mods = bo.plasma_modifiers
@@ -294,6 +312,7 @@ class MeshConverter:
         for i, data in enumerate(geodata):
             geospan = geospans[i][0]
             numVerts = len(data.vertices)
+            numUVs = geospan.format & plGeometrySpan.kUVCountMask
 
             # There is a soft limit of 0x8000 vertices per span in Plasma, but the limit is
             # theoretically 0xFFFF because this field is a 16-bit integer. However, bad things
@@ -306,11 +325,10 @@ class MeshConverter:
 
             # If we're bump mapping, we need to normalize our magic UVW channels
             if has_bumpmap is not None:
-                geospan.format += 2 # We dded 2 special bumpmapping UV layers
                 for vtx in data.vertices:
                     uvMap = vtx.uvs
-                    uvMap[geospan.format - 2].normalize()
-                    uvMap[geospan.format - 1].normalize()
+                    uvMap[numUVs - 2].normalize()
+                    uvMap[numUVs - 1].normalize()
                     vtx.uvs = uvMap
 
             # If we're still here, let's add our data to the GeometrySpan
