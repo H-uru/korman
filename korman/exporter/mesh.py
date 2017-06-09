@@ -285,21 +285,31 @@ class MeshConverter:
                         geoVertex.normal = hsVector3(*tessface.normal)
 
                     geoVertex.color = hsColor32(*vertex_color)
-                    geoVertex.uvs = [hsVector3(uv[0], 1.0 - uv[1], 0.0) for uv in uvws]
+                    uvs = [hsVector3(uv[0], 1.0 - uv[1], 0.0) for uv in uvws]
+                    if bumpmap is not None:
+                        uvs.append(dPosDu)
+                        uvs.append(dPosDv)
+                    geoVertex.uvs = uvs
 
-                    data.blender2gs[vertex][coluv] = len(data.vertices)
+                    idx = len(data.vertices)
+                    data.blender2gs[vertex][coluv] = idx
                     data.vertices.append(geoVertex)
+                    face_verts.append(idx)
+                else:
+                    # If we have a bump mapping layer, then we need to add the bump gradients for
+                    # this face to the vertex's magic channels
+                    if bumpmap is not None:
+                        num_user_uvs = len(uvws)
+                        geoVertex = data.vertices[data.blender2gs[vertex][coluv]]
 
-                face_verts.append(data.blender2gs[vertex][coluv])
-
-                if bumpmap is not None:
-                    idx = len(uvws)
-                    geoVert = data.vertices[data.blender2gs[vertex][coluv]]
-                    # We can't edit in place :\
-                    uvMaps = geoVert.uvs
-                    uvMaps[idx] += dPosDu
-                    uvMaps[idx + 1] += dPosDv
-                    geoVert.uvs = uvMaps
+                        # Unfortunately, PyHSPlasma returns a copy of everything. Previously, editing
+                        # in place would result in silent failures; however, as of python_refactor,
+                        # PyHSPlasma now returns tuples to indicate this.
+                        geoUVs = list(geoVertex.uvs)
+                        geoUVs[num_user_uvs] += dPosDu
+                        geoUVs[num_user_uvs+1] += dPosDv
+                        geoVertex.uvs = geoUVs
+                    face_verts.append(data.blender2gs[vertex][coluv])
 
             # Convert to triangles, if need be...
             if len(face_verts) == 3:
