@@ -193,7 +193,7 @@ class MeshConverter:
 
     def _export_geometry(self, bo, mesh, materials, geospans):
         geodata = [_GeoData(len(mesh.vertices)) for i in materials]
-        has_bumpmap = self.material.get_bump_layer(bo)
+        bumpmap = self.material.get_bump_layer(bo)
 
         # Locate relevant vertex color layers now...
         color, alpha = None, None
@@ -236,7 +236,7 @@ class MeshConverter:
                                    ((src.color3[0] + src.color3[1] + src.color3[2]) / 3),
                                    ((src.color4[0] + src.color4[1] + src.color4[2]) / 3))
 
-            if has_bumpmap is not None:
+            if bumpmap is not None:
                 gradPass = []
                 gradUVWs = []
 
@@ -256,8 +256,8 @@ class MeshConverter:
                                      tuple((uvw[2] for uvw in tessface_uvws))))
 
                 for p, vids in enumerate(gradPass):
-                    dPosDu += self._get_bump_gradient(has_bumpmap[1], gradUVWs[p], mesh, vids, has_bumpmap[0], 0)
-                    dPosDv += self._get_bump_gradient(has_bumpmap[1], gradUVWs[p], mesh, vids, has_bumpmap[0], 1)
+                    dPosDu += self._get_bump_gradient(bumpmap[1], gradUVWs[p], mesh, vids, bumpmap[0], 0)
+                    dPosDv += self._get_bump_gradient(bumpmap[1], gradUVWs[p], mesh, vids, bumpmap[0], 1)
                 dPosDv = -dPosDv
 
             # Convert to per-material indices
@@ -292,7 +292,7 @@ class MeshConverter:
 
                 face_verts.append(data.blender2gs[vertex][coluv])
 
-                if has_bumpmap is not None:
+                if bumpmap is not None:
                     idx = len(uvws)
                     geoVert = data.vertices[data.blender2gs[vertex][coluv]]
                     # We can't edit in place :\
@@ -324,7 +324,7 @@ class MeshConverter:
                 raise explosions.TooManyVerticesError(bo.data.name, geospan.material.name, numVerts)
 
             # If we're bump mapping, we need to normalize our magic UVW channels
-            if has_bumpmap is not None:
+            if bumpmap is not None:
                 for vtx in data.vertices:
                     uvMap = vtx.uvs
                     uvMap[numUVs - 2].normalize()
@@ -346,18 +346,18 @@ class MeshConverter:
         uv2 = (uvws[2][uvIdx][0], uvws[2][uvIdx][1], 0.0)
 
         notUV = int(not iUV)
-        kRealSmall = 1.e-6
+        _REAL_SMALL = 0.000001
 
         delta = uv0[notUV] - uv1[notUV]
-        if fabs(delta) < kRealSmall:
+        if fabs(delta) < _REAL_SMALL:
             return v1 - v0 if uv0[iUV] - uv1[iUV] < 0 else v0 - v1
 
         delta = uv2[notUV] - uv1[notUV]
-        if fabs(delta) < kRealSmall:
+        if fabs(delta) < _REAL_SMALL:
             return v1 - v2 if uv2[iUV] - uv1[iUV] < 0 else v2 - v1
 
         delta = uv2[notUV] - uv0[notUV]
-        if fabs(delta) < kRealSmall:
+        if fabs(delta) < _REAL_SMALL:
             return v0 - v2 if uv2[iUV] - uv0[iUV] < 0 else v2 - v0
 
         # On to the real fun...
