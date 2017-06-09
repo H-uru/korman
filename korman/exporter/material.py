@@ -357,8 +357,9 @@ class MaterialConverter:
             return None
 
         fcurves = []
+        texture = tex_slot.texture
         mat_action = harvest_fcurves(bm, fcurves, "texture_slots[{}]".format(idx))
-        tex_action = harvest_fcurves(tex_slot.texture, fcurves)
+        tex_action = harvest_fcurves(texture, fcurves)
         if not fcurves:
             return base_layer
 
@@ -370,7 +371,7 @@ class MaterialConverter:
             if ctrl is not None:
                 if layer_animation is None:
                     name = "{}_LayerAnim".format(base_layer.key.name)
-                    layer_animation = self.get_texture_animation_key(bo, bm, tex_slot=tex_slot).object
+                    layer_animation = self.get_texture_animation_key(bo, bm, texture).object
                 setattr(layer_animation, attr, ctrl)
 
         # Alrighty, if we exported any controllers, layer_animation is a plLayerAnimation. We need to do
@@ -695,19 +696,15 @@ class MaterialConverter:
     def get_bump_layer(self, bo):
         return self._bump_mats.get(bo, None)
 
-    def get_texture_animation_key(self, bo, bm, tex_name=None, tex_slot=None):
+    def get_texture_animation_key(self, bo, bm, texture):
         """Finds or creates the appropriate key for sending messages to an animated Texture"""
-        assert tex_name or tex_slot
 
-        if tex_slot is None:
-            tex_slot = bm.texture_slots.get(tex_name, None)
-            if tex_slot is None:
-                raise ExportError("Material '{}' does not contain Texture '{}'".format(bm.name, tex_name))
-        if tex_name is None:
-            tex_name = tex_slot.name
+        tex_name = texture.name
+        if not tex_name in bm.texture_slots:
+            raise ExportError("Texture '{}' not used in Material '{}'".format(bm.name, tex_name))
 
         name = "{}_{}_LayerAnim".format(bm.name, tex_name)
-        layer = tex_slot.texture.plasma_layer
+        layer = texture.plasma_layer
         pClass = plLayerSDLAnimation if layer.anim_sdl_var else plLayerAnimation
         return self._mgr.find_create_key(pClass, bl=bo, name=name)
 
