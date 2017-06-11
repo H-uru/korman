@@ -42,14 +42,13 @@ class Exporter:
         return Path(self._op.filepath).stem
 
     def run(self):
-        with logger.ExportLogger(self._op.filepath) as _log:
-            print("Exporting '{}.age'".format(self.age_name))
+        with logger.ExportLogger(self._op.filepath) as self.report:
+            self.report.msg("Exporting '{}.age'", self.age_name)
             start = time.perf_counter()
 
             # Step 0: Init export resmgr and stuff
             self.mgr = manager.ExportManager(self)
             self.mesh = mesh.MeshConverter(self)
-            self.report = logger.ExportAnalysis()
             self.physics = physics.PhysicsConverter(self)
             self.light = rtlight.LightConverter(self)
             self.animation = animation.AnimationConverter(self)
@@ -95,10 +94,10 @@ class Exporter:
 
             # And finally we crow about how awesomely fast we are...
             end = time.perf_counter()
-            print("\nExported {}.age in {:.2f} seconds".format(self.age_name, end-start))
+            self.report.msg("\nExported {}.age in {:.2f} seconds", self.age_name, end-start)
 
     def _bake_static_lighting(self):
-        oven = etlight.LightBaker()
+        oven = etlight.LightBaker(self.report)
         oven.bake_static_lighting(self._objects)
 
     def _collect_objects(self):
@@ -163,7 +162,7 @@ class Exporter:
         parent = bo.parent
         if parent is not None:
             if parent.plasma_object.enabled:
-                print("    Attaching to parent SceneObject '{}'".format(parent.name))
+                self.report.msg("Attaching to parent SceneObject '{}'", parent.name, indent=1)
                 parent_ci = self._export_coordinate_interface(None, parent)
                 parent_ci.addChild(so.key)
             else:
@@ -187,8 +186,9 @@ class Exporter:
         return so.coord.object
 
     def _export_scene_objects(self):
+        log_msg = self.report.msg
         for bl_obj in self._objects:
-            print("\n[SceneObject '{}']".format(bl_obj.name))
+            log_msg("\n[SceneObject '{}']".format(bl_obj.name))
 
             # First pass: do things specific to this object type.
             #             note the function calls: to export a MESH, it's _export_mesh_blobj
@@ -196,10 +196,10 @@ class Exporter:
             try:
                 export_fn = getattr(self, export_fn)
             except AttributeError:
-                print("WARNING: '{}' is a Plasma Object of Blender type '{}'".format(bl_obj.name, bl_obj.type))
-                print("... And I have NO IDEA what to do with that! Tossing.")
+                self.report.warn("""'{}' is a Plasma Object of Blender type '{}'
+                                 ... And I have NO IDEA what to do with that! Tossing.""".format(bl_obj.name, bl_obj.type))
                 continue
-            print("    Blender Object '{}' of type '{}'".format(bl_obj.name, bl_obj.type))
+            log_msg("Blender Object '{}' of type '{}'".format(bl_obj.name, bl_obj.type), indent=1)
 
             # Create a sceneobject if one does not exist.
             # Before we call the export_fn, we need to determine if this object is an actor of any
@@ -211,7 +211,7 @@ class Exporter:
 
             # And now we puke out the modifiers...
             for mod in bl_obj.plasma_modifiers.modifiers:
-                print("    Exporting '{}' modifier as '{}'".format(mod.bl_label, mod.key_name))
+                log_msg("Exporting '{}' modifier".format(mod.bl_label), indent=1)
                 mod.export(self, bl_obj, sceneobject)
 
     def _export_empty_blobj(self, so, bo):
@@ -227,14 +227,14 @@ class Exporter:
         if bo.data.materials:
             self.mesh.export_object(bo)
         else:
-            print("    No material(s) on the ObData, so no drawables")
+            self.report.msg("No material(s) on the ObData, so no drawables", indent=1)
 
     def _export_referenced_node_trees(self):
-        print("\nChecking Logic Trees...")
+        self.report.msg("\nChecking Logic Trees...")
         need_to_export = ((name, bo, so) for name, (bo, so) in self.want_node_trees.items()
                                          if name not in self.node_trees_exported)
         for tree, bo, so in need_to_export:
-            print("    NodeTree '{}'".format(tree))
+            self.report.msg("NodeTree '{}'", tree, indent=1)
             bpy.data.node_groups[tree].export(self, bo, so)
 
     def _harvest_actors(self):
@@ -269,8 +269,6 @@ class Exporter:
         return False
 
     def _post_process_scene_objects(self):
-        print("\nPostprocessing SceneObjects...")
-
         mat_mgr = self.mesh.material
         for bl_obj in self._objects:
             sceneobject = self.mgr.find_object(plSceneObject, bl=bl_obj)
@@ -292,5 +290,4 @@ class Exporter:
             for mod in bl_obj.plasma_modifiers.modifiers:
                 proc = getattr(mod, "post_export", None)
                 if proc is not None:
-                    print("    '{}' modifier '{}'".format(bl_obj.name, mod.key_name))
                     proc(self, bl_obj, sceneobject)

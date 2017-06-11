@@ -125,7 +125,7 @@ class MaterialConverter:
 
     def export_material(self, bo, bm):
         """Exports a Blender Material as an hsGMaterial"""
-        print("    Exporting Material '{}'".format(bm.name))
+        self._report.msg("Exporting Material '{}'", bm.name, indent=1)
 
         hsgmat = self._mgr.add_object(hsGMaterial, name=bm.name, bl=bo)
         slots = [(idx, slot) for idx, slot in enumerate(bm.texture_slots) if slot is not None and slot.use \
@@ -198,7 +198,7 @@ class MaterialConverter:
         return hsgmat.key
 
     def export_waveset_material(self, bo, bm):
-        print("    Exporting WaveSet Material '{}'".format(bm.name))
+        self._report.msg("Exporting WaveSet Material '{}'", bm.name, indent=1)
 
         # WaveSets MUST have their own material
         unique_name = "{}_WaveSet7".format(bm.name)
@@ -215,7 +215,7 @@ class MaterialConverter:
 
     def export_bumpmap_slot(self, bo, bm, hsgmat, slot, idx):
         name = "{}_{}".format(bm.name if bm is not None else bo.name, slot.name)
-        print("        Exporting Plasma Bumpmap Layers for '{}'".format(name))
+        self._report.msg("Exporting Plasma Bumpmap Layers for '{}'", name, indent=2)
 
         # Okay, now we need to make 3 layers for the Du, Dw, and Dv
         du_layer = self._mgr.add_object(plLayer, name="{}_DU_BumpLut".format(name), bl=bo)
@@ -264,7 +264,7 @@ class MaterialConverter:
     def export_texture_slot(self, bo, bm, hsgmat, slot, idx, name=None, blend_flags=True):
         if name is None:
             name = "{}_{}".format(bm.name if bm is not None else bo.name, slot.name)
-        print("        Exporting Plasma Layer '{}'".format(name))
+        self._report.msg("Exporting Plasma Layer '{}'", name, indent=2)
         layer = self._mgr.add_object(plLayer, name=name, bl=bo)
         if bm is not None and not slot.use_map_normal:
             self._propagate_material_settings(bm, layer)
@@ -274,10 +274,10 @@ class MaterialConverter:
             for i, uvchan in enumerate(bo.data.uv_layers):
                 if uvchan.name == slot.uv_layer:
                     layer.UVWSrc = i
-                    print("            Using UV Map #{} '{}'".format(i, name))
+                    self._report.msg("Using UV Map #{} '{}'", i, name, indent=3)
                     break
             else:
-                print("            No UVMap specified... Blindly using the first one, maybe it exists :|")
+                self._report.msg("No UVMap specified... Blindly using the first one, maybe it exists :|", indent=3)
 
         # Transform
         xform = hsMatrix44()
@@ -447,7 +447,8 @@ class MaterialConverter:
         name = "{}_DynEnvMap".format(viewpt.name)
         pl_env = self._mgr.find_object(pl_class, bl=bo, name=name)
         if pl_env is not None:
-            print("            EnvMap for viewpoint {} already exported... NOTE: Your settings here will be overridden by the previous object!".format(viewpt.name))
+            self._report.msg("EnvMap for viewpoint {} already exported... NOTE: Your settings here will be overridden by the previous object!",
+                             viewpt.name, indent=3)
             if isinstance(pl_env, plDynamicCamMap):
                 pl_env.addTargetNode(self._mgr.find_key(plSceneObject, bl=bo))
                 pl_env.addMatLayer(layer.key)
@@ -457,7 +458,7 @@ class MaterialConverter:
         oRes = bl_env.resolution
         eRes = helpers.ensure_power_of_two(oRes)
         if oRes != eRes:
-            print("            Overriding EnvMap size to ({}x{}) -- POT".format(eRes, eRes))
+            self._report.msg("Overriding EnvMap size to ({}x{}) -- POT", eRes, eRes, indent=3)
 
         # And now for the general ho'hum-ness
         pl_env = self._mgr.add_object(pl_class, bl=bo, name=name)
@@ -595,10 +596,11 @@ class MaterialConverter:
                            detail_fade_start=layer_props.detail_fade_start, detail_fade_stop=layer_props.detail_fade_stop,
                            detail_opacity_start=layer_props.detail_opacity_start, detail_opacity_stop=layer_props.detail_opacity_stop)
             if key not in self._pending:
-                print("            Stashing '{}' for conversion as '{}'".format(texture.image.name, str(key)))
+                self._report.msg("Stashing '{}' for conversion as '{}'",
+                                 texture.image.name, str(key), indent=3)
                 self._pending[key] = [layer.key,]
             else:
-                print("            Found another user of '{}'".format(texture.image.name))
+                self._report.msg("Found another user of '{}'", texture.image.name, indent=3)
                 self._pending[key].append(layer.key)
 
     def _export_texture_type_none(self, bo, layer, texture):
@@ -609,16 +611,16 @@ class MaterialConverter:
         """This exports an externally prepared layer and image"""
         key = _Texture(image=image)
         if key not in self._pending:
-            print("        Stashing '{}' for conversion as '{}'".format(image.name, str(key)))
+            self._report.msg("Stashing '{}' for conversion as '{}'", image.name, key, indent=2)
             self._pending[key] = [layer.key,]
         else:
-            print("        Found another user of '{}'".format(key))
+            self._report.msg("Found another user of '{}'", key, indent=2)
             self._pending[key].append(layer.key)
 
     def finalize(self):
         for key, layers in self._pending.items():
             name = str(key)
-            print("\n[Mipmap '{}']".format(name))
+            self._report.msg("\n[Mipmap '{}']", name)
 
             image = key.image
             oWidth, oHeight = image.size
@@ -628,7 +630,8 @@ class MaterialConverter:
             eWidth = helpers.ensure_power_of_two(oWidth)
             eHeight = helpers.ensure_power_of_two(oHeight)
             if (eWidth != oWidth) or (eHeight != oHeight):
-                print("    Image is not a POT ({}x{}) resizing to {}x{}".format(oWidth, oHeight, eWidth, eHeight))
+                self._report.msg("Image is not a POT ({}x{}) resizing to {}x{}",
+                                 oWidth, oHeight, eWidth, eHeight, indent=1)
                 self._resize_image(image, eWidth, eHeight)
 
             # Some basic mipmap settings.
@@ -640,11 +643,11 @@ class MaterialConverter:
             with helper as glimage:
                 if key.mipmap:
                     numLevels = glimage.num_levels
-                    print("    Generating mip levels")
+                    self._report.msg("Generating mip levels", indent=1)
                     glimage.generate_mipmap()
                 else:
                     numLevels = 1
-                    print("    Stuffing image data")
+                    self._report.msg("Stuffing image data", indent=1)
 
                 # Uncompressed bitmaps are BGRA
                 fmt = compression == plBitmap.kUncompressed
@@ -653,7 +656,7 @@ class MaterialConverter:
                 # this mipmap for per-page textures :(
                 data = []
                 for i in range(numLevels):
-                    data.append(glimage.get_level_data(i, key.calc_alpha, fmt))
+                    data.append(glimage.get_level_data(i, key.calc_alpha, fmt, report=self._report))
 
             # Be a good citizen and reset the Blender Image to pre-futzing state
             image.reload()
@@ -663,9 +666,9 @@ class MaterialConverter:
             mgr = self._mgr
             pages = {}
 
-            print("    Adding to Layer(s)")
+            self._report.msg("Adding to Layer(s)", indent=1)
             for layer in layers:
-                print("        {}".format(layer.name))
+                self._report.msg(layer.name, indent=2)
                 page = mgr.get_textures_page(layer) # Layer's page or Textures.prp
 
                 # If we haven't created this plMipmap in the page (either layer's page or Textures.prp),
@@ -721,6 +724,10 @@ class MaterialConverter:
         layer.preshade = utils.color(bm.diffuse_color)
         layer.runtime = utils.color(bm.diffuse_color)
         layer.specular = utils.color(bm.specular_color)
+
+    @property
+    def _report(self):
+        return self._exporter().report
 
     def _resize_image(self, image, width, height):
         image.scale(width, height)

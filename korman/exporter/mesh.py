@@ -177,8 +177,8 @@ class MeshConverter:
 
         for loc in self._dspans.values():
             for dspan in loc.values():
-                print("\n[DrawableSpans '{}']".format(dspan.key.name))
-                print("    Composing geometry data")
+                self._report.msg("\n[DrawableSpans '{}']", dspan.key.name)
+                self._report.msg("Composing geometry data", indent=1)
 
                 # This mega-function does a lot:
                 # 1. Converts SourceSpans (geospans) to Icicles and bakes geometry into plGBuffers
@@ -189,7 +189,7 @@ class MeshConverter:
 
                 # Might as well say something else just to fascinate anyone who is playing along
                 # at home (and actually enjoys reading these lawgs)
-                print("    Bounds and SpaceTree in the saddle")
+                self._report.msg("Bounds and SpaceTree in the saddle", indent=1)
 
     def _export_geometry(self, bo, mesh, materials, geospans):
         geodata = [_GeoData(len(mesh.vertices)) for i in materials]
@@ -422,7 +422,8 @@ class MeshConverter:
             _diindices = {}
             for geospan, pass_index in geospans:
                 dspan = self._find_create_dspan(bo, geospan.material.object, pass_index)
-                print("    Exported hsGMaterial '{}' geometry into '{}'".format(geospan.material.name, dspan.key.name))
+                self._report.msg("Exported hsGMaterial '{}' geometry into '{}'",
+                                 geospan.material.name, dspan.key.name, indent=1)
                 idx = dspan.addSourceSpan(geospan)
                 if dspan not in _diindices:
                     _diindices[dspan] = [idx,]
@@ -497,3 +498,7 @@ class MeshConverter:
     @property
     def _mgr(self):
         return self._exporter().mgr
+
+    @property
+    def _report(self):
+        return self._exporter().report

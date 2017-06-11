@@ -16,6 +16,7 @@
 import bpy
 from bpy.app.handlers import persistent
 
+from .logger import ExportLogger
 from .mesh import _VERTEX_COLOR_LAYERS
 from ..helpers import *
 
@@ -24,8 +25,9 @@ _NUM_RENDER_LAYERS = 20
 class LightBaker:
     """ExportTime Lighting"""
 
-    def __init__(self):
+    def __init__(self, report=None):
         self._lightgroups = {}
+        self._report = report if report is not None else ExportLogger()
         self._uvtexs = {}
 
     def _apply_render_settings(self, toggle, vcols):
@@ -63,7 +65,7 @@ class LightBaker:
     def bake_static_lighting(self, objs):
         """Bakes all static lighting for Plasma geometry"""
 
-        print("\nBaking Static Lighting...")
+        self._report.msg("\nBaking Static Lighting...")
         bake = self._harvest_bakable_objects(objs)
 
         with GoodNeighbor() as toggle:
@@ -82,24 +84,26 @@ class LightBaker:
         bpy.context.scene.layers = (True,) * _NUM_RENDER_LAYERS
 
         # Step 1: Prepare... Apply UVs, etc, etc, etc
-        print("    Preparing to bake...")
+        self._report.msg("Preparing to bake...", indent=1)
         for key in bake.keys():
             if key[0] == "lightmap":
                 for i in range(len(bake[key])-1, -1, -1):
                     obj = bake[key][i]
                     if not self._prep_for_lightmap(obj, toggle):
-                        print("        Lightmap '{}' will not be baked -- no applicable lights".format(obj.name))
+                        self._report.msg("Lightmap '{}' will not be baked -- no applicable lights",
+                                         obj.name, indent=2)
                         bake[key].pop(i)
             elif key[0] == "vcol":
                 for i in range(len(bake[key])-1, -1, -1):
                     obj = bake[key][i]
                     if not self._prep_for_vcols(obj, toggle):
                         if self._has_valid_material(obj):
-                            print("        VCols '{}' will not be baked -- no applicable lights".format(obj.name))
+                            self._report.msg("VCols '{}' will not be baked -- no applicable lights",
+                                             obj.name, indent=2)
                         bake[key].pop(i)
             else:
                 raise RuntimeError(key[0])
-        print("    ...")
+        self._report.msg("    ...")
 
         # Step 2: BAKE!
         for key, value in bake.items():
@@ -107,10 +111,10 @@ class LightBaker:
                 continue
 
             if key[0] == "lightmap":
-                print("    {} Lightmap(s) [H:{:X}]".format(len(value), hash(key)))
+                self._report.msg("{} Lightmap(s) [H:{:X}]", len(value), hash(key), indent=1)
                 self._bake_lightmaps(value, key[1:])
             elif key[0] == "vcol":
-                print("    {} Crap Light(s)".format(len(value)))
+                self._report.msg("{} Crap Light(s)", len(value), indent=1)
                 self._bake_vcols(value)
             else:
                 raise RuntimeError(key[0])

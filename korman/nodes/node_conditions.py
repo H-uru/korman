@@ -427,18 +427,18 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
             suffix = "Exit"
 
         theName = "{}_{}_{}".format(self.id_data.name, self.name, suffix)
-        print("        [LogicModifier '{}']".format(theName))
+        exporter.report.msg("[LogicModifier '{}']", theName, indent=2)
         logicKey = exporter.mgr.find_create_key(plLogicModifier, name=theName, so=so)
         logicmod = logicKey.object
         logicmod.setLogicFlag(plLogicModifier.kMultiTrigger, True)
         logicmod.notify = self.generate_notify_msg(exporter, so, "satisfies")
 
         # Now, the detector objects
-        print("        [ObjectInVolumeDetector '{}']".format(theName))
+        exporter.report.msg("[ObjectInVolumeDetector '{}']", theName, indent=2)
         detKey = exporter.mgr.find_create_key(plObjectInVolumeDetector, name=theName, so=so)
         det = detKey.object
 
-        print("        [VolumeSensorConditionalObject '{}']".format(theName))
+        exporter.report.msg("[VolumeSensorConditionalObject '{}']", theName, indent=2)
         volKey = exporter.mgr.find_create_key(plVolumeSensorConditionalObject, name=theName, so=so)
         volsens = volKey.object
 

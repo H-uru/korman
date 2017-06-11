@@ -266,14 +266,19 @@ static int _generate_detail_map(pyGLTexture* self, uint8_t* buf, size_t bufsz, G
     return 0;
 }
 
-static _LevelData _get_level_data(pyGLTexture* self, GLint level, bool bgra, bool quiet) {
+static _LevelData _get_level_data(pyGLTexture* self, GLint level, bool bgra, PyObject* report) {
     GLint width, height;
     glGetTexLevelParameteriv(GL_TEXTURE_2D, level, GL_TEXTURE_WIDTH, &width);
     glGetTexLevelParameteriv(GL_TEXTURE_2D, level, GL_TEXTURE_HEIGHT, &height);
     GLenum fmt = bgra ? GL_BGRA_EXT : GL_RGBA;
 
-    if (!quiet)
-        PySys_WriteStdout("        Level #%i: %ix%i\n", level, width, height);
+    // Print out the debug message
+    if (report && report != Py_None) {
+        PyObjectRef msg_func = PyObject_GetAttrString(report, "msg");
+        PyObjectRef args = Py_BuildValue("siii", "Level #{}: {}x{}", level, width, height);
+        PyObjectRef kwargs = Py_BuildValue("{s:i}", "indent", 2);
+        PyObjectRef result = PyObject_Call(msg_func, args, kwargs);
+    }
 
     size_t bufsz;
     bufsz = (width * height * 4);
@@ -284,18 +289,18 @@ static _LevelData _get_level_data(pyGLTexture* self, GLint level, bool bgra, boo
 
 static PyObject* pyGLTexture_get_level_data(pyGLTexture* self, PyObject* args, PyObject* kwargs) {
     static char* kwlist[] = { _pycs("level"), _pycs("calc_alpha"), _pycs("bgra"),
-                              _pycs("quiet"), _pycs("fast"), NULL };
+                              _pycs("report"), _pycs("fast"), NULL };
     GLint level = 0;
     bool calc_alpha = false;
     bool bgra = false;
-    bool quiet = false;
+    PyObject* report = nullptr;
     bool fast = false;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|ibbbb", kwlist, &level, &calc_alpha, &bgra, &quiet, &fast)) {
-        PyErr_SetString(PyExc_TypeError, "get_level_data expects an optional int, bool, bool, bool, bool");
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|ibbOb", kwlist, &level, &calc_alpha, &bgra, &report, &fast)) {
+        PyErr_SetString(PyExc_TypeError, "get_level_data expects an optional int, bool, bool, obejct, bool");
         return NULL;
     }
 
-    _LevelData data = _get_level_data(self, level, bgra, quiet);
+    _LevelData data = _get_level_data(self, level, bgra, report);
     if (fast)
         return pyBuffer_Steal(data.m_data, data.m_dataSize);
 
@@ -372,7 +377,7 @@ static PyMethodDef pyGLTexture_Methods[] = {
 };
 
 static PyObject* pyGLTexture_get_has_alpha(pyGLTexture* self, void*) {
-    _LevelData data = _get_level_data(self, 0, false, true);
+    _LevelData data = _get_level_data(self, 0, false, nullptr);
     for (size_t i = 3; i < data.m_dataSize; i += 4) {
         if (data.m_data[i] != 255) {
             delete[] data.m_data;
