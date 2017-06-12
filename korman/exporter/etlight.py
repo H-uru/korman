@@ -27,8 +27,24 @@ class LightBaker:
 
     def __init__(self, report=None):
         self._lightgroups = {}
-        self._report = report if report is not None else ExportLogger()
+        if report is None:
+            self._report = ExportLogger()
+            self.add_progress_steps(self._report)
+            self._report.progress_start("PREVIEWING LIGHTING")
+            self._own_report = True
+        else:
+            self._report = report
+            self._own_report = False
         self._uvtexs = {}
+
+    def __del__(self):
+        if self._own_report:
+            self._report.progress_end()
+
+    @staticmethod
+    def add_progress_steps(report):
+        report.progress_add_step("Searching for Bahro")
+        report.progress_add_step("Baking Static Lighting")
 
     def _apply_render_settings(self, toggle, vcols):
         render = bpy.context.scene.render
@@ -79,11 +95,15 @@ class LightBaker:
             return result
 
     def _bake_static_lighting(self, bake, toggle):
+        inc_progress = self._report.progress_increment
+
         # Step 0.9: Make all layers visible.
         #           This prevents context operators from phailing.
         bpy.context.scene.layers = (True,) * _NUM_RENDER_LAYERS
 
         # Step 1: Prepare... Apply UVs, etc, etc, etc
+        self._report.progress_advance()
+        self._report.progress_range = len(bake)
         self._report.msg("Preparing to bake...", indent=1)
         for key in bake.keys():
             if key[0] == "lightmap":
@@ -103,21 +123,23 @@ class LightBaker:
                         bake[key].pop(i)
             else:
                 raise RuntimeError(key[0])
+            inc_progress()
         self._report.msg("    ...")
 
         # Step 2: BAKE!
+        self._report.progress_advance()
+        self._report.progress_range = len(bake)
         for key, value in bake.items():
-            if not value:
-                continue
-
-            if key[0] == "lightmap":
-                self._report.msg("{} Lightmap(s) [H:{:X}]", len(value), hash(key), indent=1)
-                self._bake_lightmaps(value, key[1:])
-            elif key[0] == "vcol":
-                self._report.msg("{} Crap Light(s)", len(value), indent=1)
-                self._bake_vcols(value)
-            else:
-                raise RuntimeError(key[0])
+            if value:
+                if key[0] == "lightmap":
+                    self._report.msg("{} Lightmap(s) [H:{:X}]", len(value), hash(key), indent=1)
+                    self._bake_lightmaps(value, key[1:])
+                elif key[0] == "vcol":
+                    self._report.msg("{} Crap Light(s)", len(value), indent=1)
+                    self._bake_vcols(value)
+                else:
+                    raise RuntimeError(key[0])
+            inc_progress()
 
         # Return how many thingos we baked
         return sum(map(len, bake.values()))

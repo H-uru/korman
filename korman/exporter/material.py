@@ -618,6 +618,10 @@ class MaterialConverter:
             self._pending[key].append(layer.key)
 
     def finalize(self):
+        self._report.progress_advance()
+        self._report.progress_range = len(self._pending)
+        inc_progress = self._report.progress_increment
+
         for key, layers in self._pending.items():
             name = str(key)
             self._report.msg("\n[Mipmap '{}']", name)
@@ -683,6 +687,7 @@ class MaterialConverter:
                 else:
                     mipmap = pages[page]
                 layer.object.texture = mipmap.key
+            inc_progress()
 
     def get_materials(self, bo):
         return self._obj2mat.get(bo, [])
