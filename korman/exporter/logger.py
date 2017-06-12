@@ -97,6 +97,18 @@ class ExportProgressLogger(_ExportLogger):
         self._time_start_overall = 0
         self._time_start_step = 0
 
+    def __exit__(self, type, value, traceback):
+        if value is not None:
+            export_time = time.perf_counter() - self._time_start_overall
+            with self._print_condition:
+                self._progress_print_step(done=(self._step_progress == self._step_max), error=True)
+                self._progress_print_line("\nABORTED AFTER {:.2f}s".format(export_time))
+                self._progress_print_heading("ERROR")
+                self._progress_print_line(str(value))
+                self._progress_print_heading()
+                self._progress_alive = False
+        return super().__exit__(type, value, traceback)
+
     def progress_add_step(self, name):
         assert self._step_id == -1
         self._progress_steps.append(name)
@@ -164,18 +176,18 @@ class ExportProgressLogger(_ExportLogger):
         else:
             self._progress_print_line("-" * _HEADING_SIZE)
 
-    def _progress_print_step(self, done=False):
+    def _progress_print_step(self, done=False, error=False):
         with self._print_condition:
             if done:
                 stage = "DONE IN {:.2f}s".format(time.perf_counter() - self._time_start_step)
                 print_func = self._progress_print_line
                 self._progress_print_volatile("")
             else:
-                if self._step_max != 0:
+                if self._step_max != 0 and self._step_progress != 0:
                     stage = "{} of {}".format(self._step_progress, self._step_max)
                 else:
                     stage = ""
-                print_func = self._progress_print_volatile
+                print_func = self._progress_print_line if error else self._progress_print_volatile
 
             line = "{}\t(step {}/{}): {}".format(self._progress_steps[self._step_id], self._step_id+1,
                                                 len(self._progress_steps), stage)
