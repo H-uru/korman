@@ -13,6 +13,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from ..korlib import ConsoleToggler
 from pathlib import Path
 import threading
 import time
@@ -40,6 +41,8 @@ class _ExportLogger:
         return self
 
     def __exit__(self, type, value, traceback):
+        if value is not None:
+            ConsoleToggler().keep_console = True
         self._file.close()
         return False
 

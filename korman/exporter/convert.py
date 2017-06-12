@@ -14,6 +14,7 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+from ..korlib import ConsoleToggler
 from pathlib import Path
 from PyHSPlasma import *
 import time
@@ -43,7 +44,7 @@ class Exporter:
 
     def run(self):
         log = logger.ExportVerboseLogger if self._op.verbose else logger.ExportProgressLogger
-        with log(self._op.filepath) as self.report:
+        with ConsoleToggler(self._op.show_console), log(self._op.filepath) as self.report:
             # Step 0: Init export resmgr and stuff
             self.mgr = manager.ExportManager(self)
             self.mesh = mesh.MeshConverter(self)

@@ -71,4 +71,5 @@ except ImportError:
         size = stream.readInt()
         return (header, size)
 else:
+    from .console import ConsoleToggler
     from .texture import TEX_DETAIL_ALPHA, TEX_DETAIL_ADD, TEX_DETAIL_MULTIPLY
