@@ -109,7 +109,7 @@ class _Texture:
 class MaterialConverter:
     def __init__(self, exporter):
         self._obj2mat = {}
-        self._bumpMats = {}
+        self._bump_mats = {}
         self._exporter = weakref.ref(exporter)
         self._pending = {}
         self._alphatest = {}
@@ -147,7 +147,7 @@ class MaterialConverter:
         for idx, slot in slots:
             # Prepend any BumpMapping magic layers
             if slot.use_map_normal:
-                if bo in self._bumpMats:
+                if bo in self._bump_mats:
                     raise ExportError("Material '{}' has more than one bumpmap layer".format(bm.name))
                 du, dw, dv = self.export_bumpmap_slot(bo, bm, hsgmat, slot, idx)
                 hsgmat.addLayer(du.key) # Du
@@ -163,7 +163,7 @@ class MaterialConverter:
                     restart_pass_next = False
                 hsgmat.addLayer(tex_layer.key)
                 if slot.use_map_normal:
-                    self._bumpMats[bo] = (tex_layer.UVWSrc, tex_layer.transform)
+                    self._bump_mats[bo] = (tex_layer.UVWSrc, tex_layer.transform)
                     # After a bumpmap layer(s), the next layer *must* be in a
                     # new pass, otherwise it gets added in non-intuitive ways
                     restart_pass_next = True
@@ -682,7 +682,7 @@ class MaterialConverter:
         return self._obj2mat.get(bo, [])
 
     def get_bump_layer(self, bo):
-        return self._bumpMats.get(bo, None)
+        return self._bump_mats.get(bo, None)
 
     def get_texture_animation_key(self, bo, bm, tex_name=None, tex_slot=None):
         """Finds or creates the appropriate key for sending messages to an animated Texture"""

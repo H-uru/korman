@@ -119,6 +119,24 @@ class MeshConverter:
         self._dspans = {}
         self._mesh_geospans = {}
 
+    def _calc_num_uvchans(self, bo, mesh):
+        max_user_texs = plGeometrySpan.kUVCountMask
+        num_user_texs = len(mesh.tessface_uv_textures)
+        total_texs = num_user_texs
+
+        # Bump Mapping requires 2 magic channels
+        if self.material.get_bump_layer(bo) is not None:
+            total_texs += 2
+            max_user_texs -= 2
+
+        # Lightmapping requires its own LIGHTMAPGEN channel
+        # NOTE: the LIGHTMAPGEN texture has already been created, so it is in num_user_texs
+        if bo.plasma_modifiers.lightmap.enabled:
+            num_user_texs -= 1
+            max_user_texs -= 1
+
+        return (num_user_texs, total_texs, max_user_texs)
+
     def _create_geospan(self, bo, mesh, bm, hsgmatKey):
         """Initializes a plGeometrySpan from a Blender Object and an hsGMaterial"""
         geospan = plGeometrySpan()
@@ -126,10 +144,10 @@ class MeshConverter:
 
         # GeometrySpan format
         # For now, we really only care about the number of UVW Channels
-        numUVWchans = len(mesh.tessface_uv_textures)
-        if numUVWchans > plGeometrySpan.kUVCountMask:
-            raise explosions.TooManyUVChannelsError(bo, bm)
-        geospan.format = numUVWchans
+        user_uvws, total_uvws, max_user_uvws = self._calc_num_uvchans(bo, mesh)
+        if total_uvws > plGeometrySpan.kUVCountMask:
+            raise explosions.TooManyUVChannelsError(bo, bm, user_uvws, max_user_uvws)
+        geospan.format = total_uvws
 
         # Begin total guesswork WRT flags
         mods = bo.plasma_modifiers
@@ -175,7 +193,7 @@ class MeshConverter:
 
     def _export_geometry(self, bo, mesh, materials, geospans):
         geodata = [_GeoData(len(mesh.vertices)) for i in materials]
-        has_bumpmap = self.material.get_bump_layer(bo)
+        bumpmap = self.material.get_bump_layer(bo)
 
         # Locate relevant vertex color layers now...
         color, alpha = None, None
@@ -218,7 +236,7 @@ class MeshConverter:
                                    ((src.color3[0] + src.color3[1] + src.color3[2]) / 3),
                                    ((src.color4[0] + src.color4[1] + src.color4[2]) / 3))
 
-            if has_bumpmap is not None:
+            if bumpmap is not None:
                 gradPass = []
                 gradUVWs = []
 
@@ -238,8 +256,8 @@ class MeshConverter:
                                      tuple((uvw[2] for uvw in tessface_uvws))))
 
                 for p, vids in enumerate(gradPass):
-                    dPosDu += self._get_bump_gradient(has_bumpmap[1], gradUVWs[p], mesh, vids, has_bumpmap[0], 0)
-                    dPosDv += self._get_bump_gradient(has_bumpmap[1], gradUVWs[p], mesh, vids, has_bumpmap[0], 1)
+                    dPosDu += self._get_bump_gradient(bumpmap[1], gradUVWs[p], mesh, vids, bumpmap[0], 0)
+                    dPosDv += self._get_bump_gradient(bumpmap[1], gradUVWs[p], mesh, vids, bumpmap[0], 1)
                 dPosDv = -dPosDv
 
             # Convert to per-material indices
@@ -267,21 +285,31 @@ class MeshConverter:
                         geoVertex.normal = hsVector3(*tessface.normal)
 
                     geoVertex.color = hsColor32(*vertex_color)
-                    geoVertex.uvs = [hsVector3(uv[0], 1.0 - uv[1], 0.0) for uv in uvws]
+                    uvs = [hsVector3(uv[0], 1.0 - uv[1], 0.0) for uv in uvws]
+                    if bumpmap is not None:
+                        uvs.append(dPosDu)
+                        uvs.append(dPosDv)
+                    geoVertex.uvs = uvs
 
-                    data.blender2gs[vertex][coluv] = len(data.vertices)
+                    idx = len(data.vertices)
+                    data.blender2gs[vertex][coluv] = idx
                     data.vertices.append(geoVertex)
+                    face_verts.append(idx)
+                else:
+                    # If we have a bump mapping layer, then we need to add the bump gradients for
+                    # this face to the vertex's magic channels
+                    if bumpmap is not None:
+                        num_user_uvs = len(uvws)
+                        geoVertex = data.vertices[data.blender2gs[vertex][coluv]]
 
-                face_verts.append(data.blender2gs[vertex][coluv])
-
-                if has_bumpmap is not None:
-                    idx = len(uvws)
-                    geoVert = data.vertices[data.blender2gs[vertex][coluv]]
-                    # We can't edit in place :\
-                    uvMaps = geoVert.uvs
-                    uvMaps[idx] += dPosDu
-                    uvMaps[idx + 1] += dPosDv
-                    geoVert.uvs = uvMaps
+                        # Unfortunately, PyHSPlasma returns a copy of everything. Previously, editing
+                        # in place would result in silent failures; however, as of python_refactor,
+                        # PyHSPlasma now returns tuples to indicate this.
+                        geoUVs = list(geoVertex.uvs)
+                        geoUVs[num_user_uvs] += dPosDu
+                        geoUVs[num_user_uvs+1] += dPosDv
+                        geoVertex.uvs = geoUVs
+                    face_verts.append(data.blender2gs[vertex][coluv])
 
             # Convert to triangles, if need be...
             if len(face_verts) == 3:
@@ -294,6 +322,7 @@ class MeshConverter:
         for i, data in enumerate(geodata):
             geospan = geospans[i][0]
             numVerts = len(data.vertices)
+            numUVs = geospan.format & plGeometrySpan.kUVCountMask
 
             # There is a soft limit of 0x8000 vertices per span in Plasma, but the limit is
             # theoretically 0xFFFF because this field is a 16-bit integer. However, bad things
@@ -305,12 +334,11 @@ class MeshConverter:
                 raise explosions.TooManyVerticesError(bo.data.name, geospan.material.name, numVerts)
 
             # If we're bump mapping, we need to normalize our magic UVW channels
-            if has_bumpmap is not None:
-                geospan.format += 2 # We dded 2 special bumpmapping UV layers
+            if bumpmap is not None:
                 for vtx in data.vertices:
                     uvMap = vtx.uvs
-                    uvMap[geospan.format - 2].normalize()
-                    uvMap[geospan.format - 1].normalize()
+                    uvMap[numUVs - 2].normalize()
+                    uvMap[numUVs - 1].normalize()
                     vtx.uvs = uvMap
 
             # If we're still here, let's add our data to the GeometrySpan
@@ -328,18 +356,18 @@ class MeshConverter:
         uv2 = (uvws[2][uvIdx][0], uvws[2][uvIdx][1], 0.0)
 
         notUV = int(not iUV)
-        kRealSmall = 1.e-6
+        _REAL_SMALL = 0.000001
 
         delta = uv0[notUV] - uv1[notUV]
-        if fabs(delta) < kRealSmall:
+        if fabs(delta) < _REAL_SMALL:
             return v1 - v0 if uv0[iUV] - uv1[iUV] < 0 else v0 - v1
 
         delta = uv2[notUV] - uv1[notUV]
-        if fabs(delta) < kRealSmall:
+        if fabs(delta) < _REAL_SMALL:
             return v1 - v2 if uv2[iUV] - uv1[iUV] < 0 else v2 - v1
 
         delta = uv2[notUV] - uv0[notUV]
-        if fabs(delta) < kRealSmall:
+        if fabs(delta) < _REAL_SMALL:
             return v0 - v2 if uv2[iUV] - uv0[iUV] < 0 else v2 - v0
 
         # On to the real fun...
