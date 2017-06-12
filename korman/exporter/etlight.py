@@ -16,7 +16,7 @@
 import bpy
 from bpy.app.handlers import persistent
 
-from .logger import ExportLogger
+from .logger import ExportProgressLogger
 from .mesh import _VERTEX_COLOR_LAYERS
 from ..helpers import *
 
@@ -28,7 +28,7 @@ class LightBaker:
     def __init__(self, report=None):
         self._lightgroups = {}
         if report is None:
-            self._report = ExportLogger()
+            self._report = ExportProgressLogger()
             self.add_progress_steps(self._report)
             self._report.progress_start("PREVIEWING LIGHTING")
             self._own_report = True
