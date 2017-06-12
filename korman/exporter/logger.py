@@ -22,11 +22,13 @@ _MAX_ELIPSES = 3
 _MAX_TIME_UNTIL_ELIPSES = 2.0
 
 class _ExportLogger:
-    def __init__(self, age_path=None):
+    def __init__(self, print_logs, age_path=None):
         self._porting = []
         self._warnings = []
         self._age_path = Path(age_path) if age_path is not None else None
         self._file = None
+        self._print_logs = print_logs
+        self._time_start_overall = 0
 
     def __enter__(self):
         assert self._age_path is not None
@@ -49,6 +51,8 @@ class _ExportLogger:
             if len(args) > 1:
                 msg = msg.format(*args[1:], **kwargs)
             self._file.writelines((msg, "\n"))
+            if self._print_logs:
+                print(msg)
 
     def port(self, *args, **kwargs):
         assert args
@@ -58,7 +62,36 @@ class _ExportLogger:
             msg = msg.format(*args[1:], **kwargs)
         if self._file is not None:
             self._file.writelines((msg, "\n"))
+        if self._print_logs:
+            print(msg)
         self._porting.append(args[0])
+
+
+    def progress_add_step(self, name):
+        pass
+
+    def progress_advance(self):
+        pass
+
+    def progress_complete_step(self):
+        pass
+
+    def progress_end(self):
+        if self._age_path is not None:
+            export_time = time.perf_counter() - self._time_start_overall
+            self.msg("\nExported '{}' in {:.2f}s", self._age_path.name, export_time)
+
+        # Ensure the got dawg thread goes good-bye
+        self._thread.join(timeout=5.0)
+        assert not self._thread.is_alive()
+
+    def progress_increment(self):
+        pass
+
+    def progress_start(self, action):
+        if self._age_path is not None:
+            self.msg("Exporting '{}'", self._age_path.name)
+        self._time_start_overall = time.perf_counter()
 
     def save(self):
         # TODO
@@ -72,12 +105,14 @@ class _ExportLogger:
             msg = msg.format(*args[1:], **kwargs)
         if self._file is not None:
             self._file.writelines((msg, "\n"))
+        if self._print_logs:
+            print(msg)
         self._warnings.append(args[0])
 
 
 class ExportProgressLogger(_ExportLogger):
     def __init__(self, age_path=None):
-        super().__init__(age_path)
+        super().__init__(False, age_path)
 
         # Long running operations like the Blender bake_image call make it seem like we've hung
         # because it is difficult to inspect the progress of Blender's internal operators. The best
@@ -94,7 +129,6 @@ class ExportProgressLogger(_ExportLogger):
         self._step_id = -1
         self._step_max = 0
         self._step_progress = 0
-        self._time_start_overall = 0
         self._time_start_step = 0
 
     def __exit__(self, type, value, traceback):
@@ -202,12 +236,10 @@ class ExportProgressLogger(_ExportLogger):
     progress_range = property(_progress_get_max, _progress_set_max)
 
     def progress_start(self, action):
-        if self._age_path is not None:
-            self.msg("Exporting '{}'", self._age_path.name)
+        super().progress_start(action)
         self._progress_print_heading("Korman")
         self._progress_print_heading(action)
         self._progress_alive = True
-        self._time_start_overall = time.perf_counter()
         self._thread.start()
 
     def _progress_thread(self):
@@ -243,3 +275,17 @@ class ExportProgressLogger(_ExportLogger):
         if self._step_max != 0:
             self._progress_print_step()
     progress_value = property(_progress_get_current, _progress_set_current)
+
+
+class ExportVerboseLogger(_ExportLogger):
+    def __init__(self, age_path):
+        super().__init__(True, age_path)
+        self.progress_range = 0
+        self.progress_value = 0
+
+    def __exit__(self, type, value, traceback):
+        if value is not None:
+            export_time = time.perf_counter() - self._time_start_overall
+            self.msg("\nAborted after {:.2f}s", export_time)
+            self.msg("Error: {}", value)
+        return super().__exit__(type, value, traceback)

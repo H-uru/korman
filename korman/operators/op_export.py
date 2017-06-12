@@ -45,6 +45,10 @@ class ExportOperator(bpy.types.Operator):
                                    "description": "Version of the Plasma Engine to target",
                                    "default": "pvPots",  # This should be changed when moul is easier to target!
                                    "items": game_versions}),
+
+        "verbose": (BoolProperty, {"name": "Display Verbose Log",
+                                   "description": "Shows the verbose export log in the console",
+                                   "default": False}),
     }
 
     # This wigs out and very bad things happen if it's not directly on the operator...
@@ -58,6 +62,7 @@ class ExportOperator(bpy.types.Operator):
         # The crazy mess we're doing with props on the fly means we have to explicitly draw them :(
         layout.prop(age, "version")
         layout.prop(age, "bake_lighting")
+        layout.prop(age, "verbose")
         layout.prop(age, "profile_export")
 
     def __getattr__(self, attr):

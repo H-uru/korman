@@ -42,7 +42,8 @@ class Exporter:
         return Path(self._op.filepath).stem
 
     def run(self):
-        with logger.ExportProgressLogger(self._op.filepath) as self.report:
+        log = logger.ExportVerboseLogger if self._op.verbose else logger.ExportProgressLogger
+        with log(self._op.filepath) as self.report:
             # Step 0: Init export resmgr and stuff
             self.mgr = manager.ExportManager(self)
             self.mesh = mesh.MeshConverter(self)
