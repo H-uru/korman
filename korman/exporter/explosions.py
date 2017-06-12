@@ -29,9 +29,9 @@ class ExportAssertionError(ExportError):
 
 
 class TooManyUVChannelsError(ExportError):
-    def __init__(self, obj, mat):
-        msg = "There are too many UV Textures on the material '{}' associated with object '{}'.".format(
-           mat.name, obj.name)
+    def __init__(self, obj, mat, numUVTexs, maxUVTexCount=8):
+        msg = "There are too many UV Textures on the material '{}' associated with object '{}'. You can have at most {} (there are {})".format(
+           mat.name, obj.name, maxUVTexCount, numUVTexs)
         super(ExportError, self).__init__(msg)
 
 

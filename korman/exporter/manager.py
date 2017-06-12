@@ -174,14 +174,16 @@ class ExportManager:
             key = self.add_object(pl=pClass, name=name, bl=bl, so=so).key
         return key
 
-    def find_key(self, pClass, bl=None, name=None, so=None):
+    def find_key(self, pClass, bl=None, name=None, so=None, loc=None):
         """Given a blender Object and a Plasma class, find (or create) an exported plKey"""
-        assert bl or so
+        assert loc or bl or so
 
-        if so is None:
-            location = self._pages[bl.plasma_object.page]
-        else:
+        if loc is not None:
+            location = loc
+        elif so is not None:
             location = so.key.location
+        else:
+            location = self._pages[bl.plasma_object.page]
 
         if name is None:
             if bl is not None:
