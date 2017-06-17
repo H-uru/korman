@@ -173,7 +173,7 @@ class PlasmaSound(bpy.types.PropertyGroup):
             name = "Sfx-{}_{}".format(so.key.name, self.sound_data)
         else:
             name = "Sfx-{}_{}:{}".format(so.key.name, self.sound_data, channel)
-        print("    [{}] {}".format(pClass.__name__[2:], name))
+        exporter.report.msg("[{}] {}", pClass.__name__[2:], name, indent=1)
         sound = exporter.mgr.find_create_object(pClass, so=so, name=name)
 
         # If this object is a soft volume itself, we will use our own soft region.

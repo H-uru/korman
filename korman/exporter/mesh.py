@@ -174,11 +174,15 @@ class MeshConverter:
 
     def finalize(self):
         """Prepares all baked Plasma geometry to be flushed to the disk"""
+        self._report.progress_advance()
+        self._report.progress_range = len(self._dspans)
+        inc_progress = self._report.progress_increment
+        log_msg = self._report.msg
 
+        log_msg("\nFinalizing Geometry")
         for loc in self._dspans.values():
             for dspan in loc.values():
-                print("\n[DrawableSpans '{}']".format(dspan.key.name))
-                print("    Composing geometry data")
+                log_msg("[DrawableSpans '{}']", dspan.key.name, indent=1)
 
                 # This mega-function does a lot:
                 # 1. Converts SourceSpans (geospans) to Icicles and bakes geometry into plGBuffers
@@ -186,10 +190,7 @@ class MeshConverter:
                 # 3. Builds the plSpaceTree
                 # 4. Clears the SourceSpans
                 dspan.composeGeometry(True, True)
-
-                # Might as well say something else just to fascinate anyone who is playing along
-                # at home (and actually enjoys reading these lawgs)
-                print("    Bounds and SpaceTree in the saddle")
+                inc_progress()
 
     def _export_geometry(self, bo, mesh, materials, geospans):
         geodata = [_GeoData(len(mesh.vertices)) for i in materials]
@@ -422,7 +423,8 @@ class MeshConverter:
             _diindices = {}
             for geospan, pass_index in geospans:
                 dspan = self._find_create_dspan(bo, geospan.material.object, pass_index)
-                print("    Exported hsGMaterial '{}' geometry into '{}'".format(geospan.material.name, dspan.key.name))
+                self._report.msg("Exported hsGMaterial '{}' geometry into '{}'",
+                                 geospan.material.name, dspan.key.name, indent=1)
                 idx = dspan.addSourceSpan(geospan)
                 if dspan not in _diindices:
                     _diindices[dspan] = [idx,]
@@ -497,3 +499,7 @@ class MeshConverter:
     @property
     def _mgr(self):
         return self._exporter().mgr
+
+    @property
+    def _report(self):
+        return self._exporter().report

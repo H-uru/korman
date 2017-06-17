@@ -43,19 +43,19 @@ class LightConverter:
         # If you change these calculations, be sure to update the AnimationConverter!
         intens, attenEnd = self.convert_attenuation(bl)
         if bl.falloff_type == "CONSTANT":
-            print("        Attenuation: No Falloff")
+            self._report.msg("Attenuation: No Falloff", indent=2)
             pl.attenConst = intens
             pl.attenLinear = 0.0
             pl.attenQuadratic = 0.0
             pl.attenCutoff = attenEnd
         elif bl.falloff_type == "INVERSE_LINEAR":
-            print("        Attenuation: Inverse Linear")
+            self._report.msg("Attenuation: Inverse Linear", indent=2)
             pl.attenConst = 1.0
             pl.attenLinear = self.convert_attenuation_linear(intens, attenEnd)
             pl.attenQuadratic = 0.0
             pl.attenCutoff = attenEnd
         elif bl.falloff_type == "INVERSE_SQUARE":
-            print("        Attenuation: Inverse Square")
+            self._report.msg("Attenuation: Inverse Square", indent=2)
             pl.attenConst = 1.0
             pl.attenLinear = 0.0
             pl.attenQuadratic = self.convert_attenuation_quadratic(intens, attenEnd)
@@ -75,18 +75,18 @@ class LightConverter:
         return max(0.0, (intensity * _FAR_POWER - 1.0) / pow(end, 2))
 
     def _convert_area_lamp(self, bl, pl):
-        print("    [LimitedDirLightInfo '{}']".format(bl.name))
+        self._report.msg("[LimitedDirLightInfo '{}']", bl.name, indent=1)
 
         pl.width = bl.size
         pl.depth = bl.size if bl.shape == "SQUARE" else bl.size_y
         pl.height = bl.plasma_lamp.size_height
 
     def _convert_point_lamp(self, bl, pl):
-        print("    [OmniLightInfo '{}']".format(bl.name))
+        self._report.msg("[OmniLightInfo '{}']", bl.name, indent=1)
         self._convert_attenuation(bl, pl)
 
     def _convert_spot_lamp(self, bl, pl):
-        print("    [SpotLightInfo '{}']".format(bl.name))
+        self._report.msg("[SpotLightInfo '{}']", bl.name, indent=1)
         self._convert_attenuation(bl, pl)
 
         # Spot lights have a few more things...
@@ -102,7 +102,7 @@ class LightConverter:
             pl.falloff = 1.0
 
     def _convert_sun_lamp(self, bl, pl):
-        print("    [DirectionalLightInfo '{}']".format(bl.name))
+        self._report.msg("[DirectionalLightInfo '{}']", bl.name, indent=1)
 
     def export_rtlight(self, so, bo):
         bl_light = bo.data
@@ -132,18 +132,18 @@ class LightConverter:
 
         # Apply the colors
         if bl_light.use_diffuse and not shadow_only:
-            print("        Diffuse: {}".format(diff_str))
+            self._report.msg("Diffuse: {}", diff_str, indent=2)
             pl_light.diffuse = hsColorRGBA(*diff_color)
         else:
-            print("        Diffuse: OFF")
+            self._report.msg("Diffuse: OFF", indent=2)
             pl_light.diffuse = hsColorRGBA(0.0, 0.0, 0.0, energy)
 
         if bl_light.use_specular and not shadow_only:
-            print("        Specular: {}".format(spec_str))
+            self._report.msg("Specular: {}", spec_str, indent=2)
             pl_light.setProperty(plLightInfo.kLPHasSpecular, True)
             pl_light.specular = hsColorRGBA(*spec_color)
         else:
-            print("        Specular: OFF")
+            self._report.msg("Specular: OFF", indent=2)
             pl_light.specular = hsColorRGBA(0.0, 0.0, 0.0, energy)
 
         rtlamp = bl_light.plasma_lamp
@@ -202,7 +202,7 @@ class LightConverter:
         # projection Lamp with our own faux Material. Unfortunately, Plasma only supports projecting
         # one layer. We could exploit the fUnderLay and fOverLay system to export everything, but meh.
         if len(tex_slots) > 1:
-            self._exporter().warn("Only one texture slot can be exported per Lamp. Picking the first one: '{}'".format(slot.name), indent=3)
+            self._report.warn("Only one texture slot can be exported per Lamp. Picking the first one: '{}'".format(slot.name), indent=3)
         layer = mat.export_texture_slot(bo, None, None, slot, 0, blend_flags=False)
         state = layer.state
 
@@ -243,7 +243,7 @@ class LightConverter:
     def find_material_light_keys(self, bo, bm):
         """Given a blender material, we find the keys of all matching Plasma RT Lights.
            NOTE: We return a tuple of lists: ([permaLights], [permaProjs])"""
-        print("    Searching for runtime lights...")
+        self._report.msg("Searching for runtime lights...", indent=1)
         permaLights = []
         permaProjs = []
 
@@ -272,16 +272,17 @@ class LightConverter:
                             break
                     else:
                         # didn't find a layer where both lamp and object were, skip it.
-                        print("        [{}] '{}': not in same layer, skipping...".format(lamp.type, obj.name))
+                        self._report.msg("[{}] '{}': not in same layer, skipping...",
+                                         lamp.type, obj.name, indent=2)
                         continue
 
                 # This is probably where PermaLight vs PermaProj should be sorted out...
                 pl_light = self.get_light_key(obj, lamp, None)
                 if self._is_projection_lamp(lamp):
-                    print("        [{}] PermaProj '{}'".format(lamp.type, obj.name))
+                    self._report.msg("[{}] PermaProj '{}'", lamp.type, obj.name, indent=2)
                     permaProjs.append(pl_light)
                 else:
-                    print("        [{}] PermaLight '{}'".format(lamp.type, obj.name))
+                    self._report.msg("[{}] PermaLight '{}'", lamp.type, obj.name, indent=2)
                     permaLights.append(pl_light)
 
         return (permaLights, permaProjs)
@@ -308,3 +309,7 @@ class LightConverter:
     @property
     def mgr(self):
         return self._exporter().mgr
+
+    @property
+    def _report(self):
+        return self._exporter().report

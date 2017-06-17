@@ -22,6 +22,7 @@ import pstats
 from .. import exporter
 from ..properties.prop_world import PlasmaAge
 from ..properties.modifiers.logic import game_versions
+from ..korlib import ConsoleToggler
 
 class ExportOperator(bpy.types.Operator):
     """Exports ages for Cyan Worlds' Plasma Engine"""
@@ -45,6 +46,14 @@ class ExportOperator(bpy.types.Operator):
                                    "description": "Version of the Plasma Engine to target",
                                    "default": "pvPots",  # This should be changed when moul is easier to target!
                                    "items": game_versions}),
+
+        "verbose": (BoolProperty, {"name": "Display Verbose Log",
+                                   "description": "Shows the verbose export log in the console",
+                                   "default": False}),
+
+        "show_console": (BoolProperty, {"name": "Display Log Console",
+                                        "description": "Forces the Blender System Console open during the export",
+                                        "default": True}),
     }
 
     # This wigs out and very bad things happen if it's not directly on the operator...
@@ -58,6 +67,10 @@ class ExportOperator(bpy.types.Operator):
         # The crazy mess we're doing with props on the fly means we have to explicitly draw them :(
         layout.prop(age, "version")
         layout.prop(age, "bake_lighting")
+        row = layout.row()
+        row.enabled = ConsoleToggler.is_platform_supported()
+        row.prop(age, "show_console")
+        layout.prop(age, "verbose")
         layout.prop(age, "profile_export")
 
     def __getattr__(self, attr):

@@ -76,14 +76,14 @@ class GLTexture:
         # It will simplify our state tracking a bit.
         bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_GENERATE_MIPMAP, 1)
 
-    def get_level_data(self, level=0, calc_alpha=False, bgra=False, quiet=False, fast=False):
+    def get_level_data(self, level=0, calc_alpha=False, bgra=False, report=None, fast=False):
         """Gets the uncompressed pixel data for a requested mip level, optionally calculating the alpha
            channel from the image color data
         """
         width = self._get_tex_param(bgl.GL_TEXTURE_WIDTH, level)
         height = self._get_tex_param(bgl.GL_TEXTURE_HEIGHT, level)
-        if not quiet:
-            print("        Level #{}: {}x{}".format(level, width, height))
+        if report is not None:
+            report.msg("Level #{}: {}x{}", level, width, height, indent=2)
 
         # Grab the image data
         size = width * height * 4
@@ -138,7 +138,7 @@ class GLTexture:
 
     @property
     def has_alpha(self):
-        data = self.get_level_data(quiet=True, fast=True)
+        data = self.get_level_data(report=None, fast=True)
         for i in range(3, len(data), 4):
             if data[i] != 255:
                 return True

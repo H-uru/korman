@@ -427,10 +427,10 @@ class PlasmaVisControl(PlasmaModifierProperties):
         else:
             this_sv = bo.plasma_modifiers.softvolume
             if this_sv.enabled:
-                print("    [VisRegion] I'm a SoftVolume myself :)")
+                exporter.report.msg("[VisRegion] I'm a SoftVolume myself :)", indent=1)
                 rgn.region = this_sv.get_key(exporter, so)
             else:
-                print("    [VisRegion] SoftVolume '{}'".format(self.softvolume))
+                exporter.report.msg("[VisRegion] SoftVolume '{}'", self.softvolume, indent=1)
                 sv_bo = bpy.data.objects.get(self.softvolume, None)
                 if sv_bo is None:
                     raise ExportError("'{}': Invalid object '{}' for VisControl soft volume".format(bo.name, self.softvolume))

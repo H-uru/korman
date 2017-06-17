@@ -14,6 +14,7 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+from ..korlib import ConsoleToggler
 from pathlib import Path
 from PyHSPlasma import *
 import time
@@ -42,18 +43,27 @@ class Exporter:
         return Path(self._op.filepath).stem
 
     def run(self):
-        with logger.ExportLogger(self._op.filepath) as _log:
-            print("Exporting '{}.age'".format(self.age_name))
-            start = time.perf_counter()
-
+        log = logger.ExportVerboseLogger if self._op.verbose else logger.ExportProgressLogger
+        with ConsoleToggler(self._op.show_console), log(self._op.filepath) as self.report:
             # Step 0: Init export resmgr and stuff
             self.mgr = manager.ExportManager(self)
             self.mesh = mesh.MeshConverter(self)
-            self.report = logger.ExportAnalysis()
             self.physics = physics.PhysicsConverter(self)
             self.light = rtlight.LightConverter(self)
             self.animation = animation.AnimationConverter(self)
             self.sumfile = sumfile.SumFile()
+
+            # Step 0.9: Init the progress mgr
+            self.report.progress_add_step("Collecting Objects")
+            self.report.progress_add_step("Harvesting Actors")
+            if self._op.bake_lighting:
+                etlight.LightBaker.add_progress_steps(self.report)
+            self.report.progress_add_step("Exporting Scene Objects")
+            self.report.progress_add_step("Exporting Logic Nodes")
+            self.report.progress_add_step("Finalizing Plasma Logic")
+            self.report.progress_add_step("Exporting Textures")
+            self.report.progress_add_step("Composing Geometry")
+            self.report.progress_start("EXPORTING AGE")
 
             # Step 1: Create the age info and the pages
             self._export_age_info()
@@ -91,17 +101,18 @@ class Exporter:
             # Step 5.1: Save out the export report.
             #           If the export fails and this doesn't save, we have bigger problems than
             #           these little warnings and notices.
+            self.report.progress_end()
             self.report.save()
 
-            # And finally we crow about how awesomely fast we are...
-            end = time.perf_counter()
-            print("\nExported {}.age in {:.2f} seconds".format(self.age_name, end-start))
-
     def _bake_static_lighting(self):
-        oven = etlight.LightBaker()
+        oven = etlight.LightBaker(self.report)
         oven.bake_static_lighting(self._objects)
 
     def _collect_objects(self):
+        self.report.progress_advance()
+        self.report.progress_range = len(bpy.data.objects)
+        inc_progress = self.report.progress_increment
+
         # Grab a naive listing of enabled pages
         age = bpy.context.scene.world.plasma_age
         pages_enabled = frozenset([page.name for page in age.pages if page.enabled])
@@ -136,6 +147,7 @@ class Exporter:
                     self._objects.append(obj)
                 elif page not in all_pages:
                     error.add(page, obj.name)
+            inc_progress()
         error.raise_if_error()
 
     def _export_age_info(self):
@@ -163,7 +175,7 @@ class Exporter:
         parent = bo.parent
         if parent is not None:
             if parent.plasma_object.enabled:
-                print("    Attaching to parent SceneObject '{}'".format(parent.name))
+                self.report.msg("Attaching to parent SceneObject '{}'", parent.name, indent=1)
                 parent_ci = self._export_coordinate_interface(None, parent)
                 parent_ci.addChild(so.key)
             else:
@@ -187,8 +199,13 @@ class Exporter:
         return so.coord.object
 
     def _export_scene_objects(self):
+        self.report.progress_advance()
+        self.report.progress_range = len(self._objects)
+        inc_progress = self.report.progress_increment
+        log_msg = self.report.msg
+
         for bl_obj in self._objects:
-            print("\n[SceneObject '{}']".format(bl_obj.name))
+            log_msg("\n[SceneObject '{}']".format(bl_obj.name))
 
             # First pass: do things specific to this object type.
             #             note the function calls: to export a MESH, it's _export_mesh_blobj
@@ -196,10 +213,10 @@ class Exporter:
             try:
                 export_fn = getattr(self, export_fn)
             except AttributeError:
-                print("WARNING: '{}' is a Plasma Object of Blender type '{}'".format(bl_obj.name, bl_obj.type))
-                print("... And I have NO IDEA what to do with that! Tossing.")
+                self.report.warn("""'{}' is a Plasma Object of Blender type '{}'
+                                 ... And I have NO IDEA what to do with that! Tossing.""".format(bl_obj.name, bl_obj.type))
                 continue
-            print("    Blender Object '{}' of type '{}'".format(bl_obj.name, bl_obj.type))
+            log_msg("Blender Object '{}' of type '{}'".format(bl_obj.name, bl_obj.type), indent=1)
 
             # Create a sceneobject if one does not exist.
             # Before we call the export_fn, we need to determine if this object is an actor of any
@@ -211,8 +228,9 @@ class Exporter:
 
             # And now we puke out the modifiers...
             for mod in bl_obj.plasma_modifiers.modifiers:
-                print("    Exporting '{}' modifier as '{}'".format(mod.bl_label, mod.key_name))
+                log_msg("Exporting '{}' modifier".format(mod.bl_label), indent=1)
                 mod.export(self, bl_obj, sceneobject)
+            inc_progress()
 
     def _export_empty_blobj(self, so, bo):
         # We don't need to do anything here. This function just makes sure we don't error out
@@ -227,21 +245,33 @@ class Exporter:
         if bo.data.materials:
             self.mesh.export_object(bo)
         else:
-            print("    No material(s) on the ObData, so no drawables")
+            self.report.msg("No material(s) on the ObData, so no drawables", indent=1)
 
     def _export_referenced_node_trees(self):
-        print("\nChecking Logic Trees...")
-        need_to_export = ((name, bo, so) for name, (bo, so) in self.want_node_trees.items()
-                                         if name not in self.node_trees_exported)
+        self.report.progress_advance()
+        self.report.progress_range = len(self.want_node_trees)
+        inc_progress = self.report.progress_increment
+
+        self.report.msg("\nChecking Logic Trees...")
+        need_to_export = [(name, bo, so) for name, (bo, so) in self.want_node_trees.items()
+                                         if name not in self.node_trees_exported]
+        self.report.progress_value = len(self.want_node_trees) - len(need_to_export)
+
         for tree, bo, so in need_to_export:
-            print("    NodeTree '{}'".format(tree))
+            self.report.msg("NodeTree '{}'", tree, indent=1)
             bpy.data.node_groups[tree].export(self, bo, so)
+            inc_progress()
 
     def _harvest_actors(self):
+        self.report.progress_advance()
+        self.report.progress_range = len(self._objects) + len(bpy.data.textures)
+        inc_progress = self.report.progress_increment
+
         for bl_obj in self._objects:
             for mod in bl_obj.plasma_modifiers.modifiers:
                 if mod.enabled:
                     self.actors.update(mod.harvest_actors())
+            inc_progress()
 
         # This is a little hacky, but it's an edge case... I guess?
         # We MUST have CoordinateInterfaces for EnvironmentMaps (DCMs, bah)
@@ -251,6 +281,7 @@ class Exporter:
                 viewpt = envmap.viewpoint_object
                 if viewpt is not None:
                     self.actors.add(viewpt.name)
+            inc_progress()
 
     def has_coordiface(self, bo):
         if bo.type in {"CAMERA", "EMPTY", "LAMP"}:
@@ -269,7 +300,9 @@ class Exporter:
         return False
 
     def _post_process_scene_objects(self):
-        print("\nPostprocessing SceneObjects...")
+        self.report.progress_advance()
+        self.report.progress_range = len(self._objects)
+        inc_progress = self.report.progress_increment
 
         mat_mgr = self.mesh.material
         for bl_obj in self._objects:
@@ -292,5 +325,5 @@ class Exporter:
             for mod in bl_obj.plasma_modifiers.modifiers:
                 proc = getattr(mod, "post_export", None)
                 if proc is not None:
-                    print("    '{}' modifier '{}'".format(bl_obj.name, mod.key_name))
                     proc(self, bl_obj, sceneobject)
+            inc_progress()
