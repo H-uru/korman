@@ -425,7 +425,7 @@ class PlasmaAttribObjectNode(PlasmaAttribNodeBase, bpy.types.Node):
     bl_label = "Object Attribute"
 
     pl_attrib = ("ptAttribSceneobject", "ptAttribSceneobjectList", "ptAttribAnimation",
-                 "ptAttribWaveSet")
+                 "ptAttribSwimCurrent", "ptAttribWaveSet")
 
     object_name = StringProperty(name="Object",
                                  description="Object containing the required data")
