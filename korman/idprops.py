@@ -138,3 +138,20 @@ def poll_visregion_objects(self, value):
 
 def poll_envmap_textures(self, value):
     return isinstance(value, bpy.types.EnvironmentMapTexture)
+
+@bpy.app.handlers.persistent
+def _upgrade_node_trees(dummy):
+    """
+    Logic node haxxor incoming!
+    Logic nodes appear to have issues with silently updating themselves. I expect that Blender is
+    doing something strange in the UI code that causes our metaprogramming tricks to be bypassed.
+    Therefore, we will loop through all Plasma node trees and forcibly update them on blend load.
+    """
+
+    for tree in bpy.data.node_groups:
+        if tree.bl_idname != "PlasmaNodeTree":
+            continue
+        for node in tree.nodes:
+            if isinstance(node, IDPropMixin):
+                assert node._try_upgrade_idprops()
+bpy.app.handlers.load_post.append(_upgrade_node_trees)
