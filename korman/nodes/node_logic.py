@@ -20,8 +20,9 @@ from PyHSPlasma import *
 
 from .node_core import *
 from ..properties.modifiers.physics import bounds_types, bounds_type_index
+from .. import idprops
 
-class PlasmaExcludeRegionNode(PlasmaNodeBase, bpy.types.Node):
+class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.Node):
     bl_category = "LOGIC"
     bl_idname = "PlasmaExcludeRegionNode"
     bl_label = "Exclude Region"
@@ -31,17 +32,17 @@ class PlasmaExcludeRegionNode(PlasmaNodeBase, bpy.types.Node):
     pl_attribs = {"ptAttribExcludeRegion"}
 
     def _get_bounds(self):
-        bo = bpy.data.objects.get(self.region, None)
-        if bo is not None:
-            return bounds_type_index(bo.plasma_modifiers.collision.bounds)
+        if self.region_object is not None:
+            return bounds_type_index(self.region_object.plasma_modifiers.collision.bounds)
         return bounds_type_index("hull")
     def _set_bounds(self, value):
-        bo = bpy.data.objects.get(self.region, None)
-        if bo is not None:
-            bo.plasma_modifiers.collision.bounds = value
+        if self.region_object is not None:
+            self.region_object.plasma_modifiers.collision.bounds = value
 
-    region = StringProperty(name="Region",
-                            description="Region object's name")
+    region_object = PointerProperty(name="Region",
+                                    description="Region object's name",
+                                    type=bpy.types.Object,
+                                    poll=idprops.poll_mesh_objects)
     bounds = EnumProperty(name="Bounds",
                           description="Region bounds",
                           items=bounds_types,
@@ -74,56 +75,58 @@ class PlasmaExcludeRegionNode(PlasmaNodeBase, bpy.types.Node):
     ])
 
     def draw_buttons(self, context, layout):
-        layout.prop_search(self, "region", bpy.data, "objects", icon="MESH_DATA")
+        layout.prop(self, "region_object", icon="MESH_DATA")
         layout.prop(self, "bounds")
         layout.prop(self, "block_cameras")
 
     def get_key(self, exporter, parent_so):
-        region_bo = bpy.data.objects.get(self.region, None)
-        if region_bo is None:
-            self.raise_error("invalid region object '{}'".format(self.region))
-        return exporter.mgr.find_create_key(plExcludeRegionModifier, bl=region_bo, name=self.key_name)
+        if self.region_object is None:
+            self.raise_error("Region must be set")
+        return exporter.mgr.find_create_key(plExcludeRegionModifier, bl=self.region_object, name=self.key_name)
 
     def harvest_actors(self):
-        return [i.safepoint_name for i in self.find_input_sockets("safe_points")]
+        return [i.safepoint.name for i in self.find_input_sockets("safe_points") if i.safepoint is not None]
 
     def export(self, exporter, bo, parent_so):
-        region_bo = bpy.data.objects.get(self.region, None)
-        if region_bo is None:
-            self.raise_error("invalid region object '{}'".format(self.region))
-        region_so = exporter.mgr.find_create_object(plSceneObject, bl=region_bo)
-        excludergn = exporter.mgr.find_create_object(plExcludeRegionModifier, so=region_so, name=self.key_name)
+        excludergn = self.get_key(exporter, parent_so).object
         excludergn.setFlag(plExcludeRegionModifier.kBlockCameras, self.block_cameras)
+        region_so = exporter.mgr.find_create_object(plSceneObject, bl=self.region_object)
 
         # Safe points
         for i in self.find_input_sockets("safe_point"):
-            if not i.safepoint_name:
-                continue
-            safept = bpy.data.objects.get(i.safepoint_name, None)
-            if safept is None:
-                self.raise_error("invalid SafePoint '{}'".format(i.safepoint_name))
-            excludergn.addSafePoint(exporter.mgr.find_create_key(plSceneObject, bl=safept))
+            safept = i.safepoint_object
+            if safept:
+                excludergn.addSafePoint(exporter.mgr.find_create_key(plSceneObject, bl=safept))
 
         # Ensure the region is exported
-        phys_name = "{}_XRgn".format(self.region)
-        simIface, physical = exporter.physics.generate_physical(region_bo, region_so, self.bounds, phys_name)
+        phys_name = "{}_XRgn".format(self.region_object.name)
+        simIface, physical = exporter.physics.generate_physical(self.region_object, region_so, self.bounds, phys_name)
         simIface.setProperty(plSimulationInterface.kPinned, True)
         physical.setProperty(plSimulationInterface.kPinned, True)
         physical.LOSDBs |= plSimDefs.kLOSDBUIBlockers
 
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"region_object": "region"}
 
-class PlasmaExcludeSafePointSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
+
+class PlasmaExcludeSafePointSocket(idprops.IDPropObjectMixin, PlasmaNodeSocketBase, bpy.types.NodeSocket):
     bl_color = (0.0, 0.0, 0.0, 0.0)
 
-    safepoint_name = StringProperty(name="Safe Point",
-                                    description="A point outside of this exclude region to move the avatar to")
+    safepoint_object = PointerProperty(name="Safe Point",
+                                       description="A point outside of this exclude region to move the avatar to",
+                                       type=bpy.types.Object)
 
     def draw(self, context, layout, node, text):
-        layout.prop_search(self, "safepoint_name", bpy.data, "objects", icon="EMPTY_DATA")
+        layout.prop(self, "safepoint_object", icon="EMPTY_DATA")
+
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"safepoint_object": "safepoint_name"}
 
     @property
     def is_used(self):
-        return bpy.data.objects.get(self.safepoint_name, None) is not None
+        return self.safepoint_object is not None
 
 
 class PlasmaExcludeMessageSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):

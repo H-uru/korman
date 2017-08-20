@@ -19,9 +19,9 @@ def swimregion(modifier, layout, context):
     split = layout.split()
     col = split.column()
     col.label("Detector Region:")
-    col.prop_search(modifier, "region_name", bpy.data, "objects", text="")
+    col.prop(modifier, "region", text="")
 
-    region_bo = bpy.data.objects.get(modifier.region_name, None)
+    region_bo = modifier.region
     col = split.column()
     col.enabled = region_bo is not None
     bounds_src = region_bo if region_bo is not None else modifier.id_data
@@ -52,11 +52,11 @@ def swimregion(modifier, layout, context):
         col.prop(modifier, "near_velocity", text="Near")
         col.prop(modifier, "far_velocity", text="Far")
 
-        layout.prop_search(modifier, "current_object", bpy.data, "objects")
+        layout.prop(modifier, "current")
 
 def water_basic(modifier, layout, context):
-    layout.prop_search(modifier, "wind_object_name", bpy.data, "objects")
-    layout.prop_search(modifier, "envmap_name", bpy.data, "textures")
+    layout.prop(modifier, "wind_object")
+    layout.prop(modifier, "envmap")
 
     row = layout.row()
     row.prop(modifier, "wind_speed")
@@ -128,7 +128,7 @@ def water_shore(modifier, layout, context):
     # Display the active shore
     if modifier.shores:
         shore = modifier.shores[modifier.active_shore_index]
-        layout.prop_search(shore, "object_name", bpy.data, "objects", icon="MESH_DATA")
+        layout.prop(shore, "shore_object", icon="MESH_DATA")
 
     split = layout.split()
     col = split.column()

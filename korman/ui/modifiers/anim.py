@@ -45,8 +45,8 @@ def animation(modifier, layout, context):
 
 class GroupListUI(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        label = item.object_name if item.object_name else "[No Child Specified]"
-        icon = "ACTION" if item.object_name else "ERROR"
+        label = item.child_anim.name if item.child_anim is not None else "[No Child Specified]"
+        icon = "ACTION" if item.child_anim is not None else "ERROR"
         layout.label(text=label, icon=icon)
 
 
@@ -68,7 +68,7 @@ def animation_group(modifier, layout, context):
     op.index = modifier.active_child_index
 
     if modifier.children:
-        layout.prop_search(modifier.children[modifier.active_child_index], "object_name", bpy.data, "objects", icon="ACTION")
+        layout.prop(modifier.children[modifier.active_child_index], "child_anim", icon="ACTION")
 
 
 class LoopListUI(bpy.types.UIList):

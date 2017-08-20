@@ -20,13 +20,14 @@ from PyHSPlasma import *
 from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz
 from ...exporter.explosions import ExportError
 from ...helpers import find_modifier
+from ... import idprops
 
 sitting_approach_flags = [("kApproachFront", "Front", "Approach from the font"),
                           ("kApproachLeft", "Left", "Approach from the left"),
                           ("kApproachRight", "Right", "Approach from the right"),
                           ("kApproachRear", "Rear", "Approach from the rear guard")]
 
-class PlasmaSittingBehavior(PlasmaModifierProperties, PlasmaModifierLogicWiz):
+class PlasmaSittingBehavior(idprops.IDPropObjectMixin, PlasmaModifierProperties, PlasmaModifierLogicWiz):
     pl_id = "sittingmod"
 
     bl_category = "Avatar"
@@ -39,10 +40,14 @@ class PlasmaSittingBehavior(PlasmaModifierProperties, PlasmaModifierLogicWiz):
                             default={"kApproachFront", "kApproachLeft", "kApproachRight"},
                             options={"ENUM_FLAG"})
 
-    clickable_obj = StringProperty(name="Clickable",
-                                   description="Object that defines the clickable area")
-    region_obj = StringProperty(name="Region",
-                                description="Object that defines the region mesh")
+    clickable_object = PointerProperty(name="Clickable",
+                                       description="Object that defines the clickable area",
+                                       type=bpy.types.Object,
+                                       poll=idprops.poll_mesh_objects)
+    region_object = PointerProperty(name="Region",
+                                    description="Object that defines the region mesh",
+                                    type=bpy.types.Object,
+                                    poll=idprops.poll_mesh_objects)
 
     facing_enabled = BoolProperty(name="Avatar Facing",
                                   description="The avatar must be facing the clickable's Y-axis",
@@ -53,8 +58,7 @@ class PlasmaSittingBehavior(PlasmaModifierProperties, PlasmaModifierLogicWiz):
 
     def export(self, exporter, bo, so):
         # The user absolutely MUST specify a clickable or this won't export worth crap.
-        clickable_obj = bpy.data.objects.get(self.clickable_obj, None)
-        if clickable_obj is None:
+        if self.clickable_object is None:
             raise ExportError("'{}': Sitting Behavior's clickable object is invalid".format(self.key_name))
 
         # Generate the logic nodes now
@@ -65,7 +69,7 @@ class PlasmaSittingBehavior(PlasmaModifierProperties, PlasmaModifierLogicWiz):
 
     def harvest_actors(self):
         if self.facing_enabled:
-            return (self.clickable_obj,)
+            return (self.clickable_object.name,)
         return ()
 
     def logicwiz(self, bo):
@@ -81,16 +85,16 @@ class PlasmaSittingBehavior(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         # Clickable
         clickable = nodes.new("PlasmaClickableNode")
         clickable.link_output(sittingmod, "satisfies", "condition")
-        clickable.clickable = self.clickable_obj
-        clickable.bounds = find_modifier(self.clickable_obj, "collision").bounds
+        clickable.clickable_object = self.clickable_object
+        clickable.bounds = find_modifier(self.clickable_object, "collision").bounds
 
         # Avatar Region (optional)
-        region_phys = find_modifier(self.region_obj, "collision")
+        region_phys = find_modifier(self.region_object, "collision")
         if region_phys is not None:
             region = nodes.new("PlasmaClickableRegionNode")
             region.link_output(clickable, "satisfies", "region")
             region.name = "ClickableAvRegion"
-            region.region = self.region_obj
+            region.region_object = self.region_object
             region.bounds = region_phys.bounds
 
         # Facing Target (optional)
@@ -104,6 +108,11 @@ class PlasmaSittingBehavior(PlasmaModifierProperties, PlasmaModifierLogicWiz):
             # this socket must be explicitly disabled, otherwise it automatically generates a default
             # facing target conditional for us. isn't that nice?
             clickable.find_input_socket("facing").allow_simple = False
+
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"clickable_object": "clickable_obj",
+                "region_object": "region_obj"}
 
     @property
     def key_name(self):

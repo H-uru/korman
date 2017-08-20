@@ -39,7 +39,7 @@ def advanced_logic(modifier, layout, context):
     if modifier.logic_groups:
         logic = modifier.logic_groups[modifier.active_group_index]
         layout.row().prop_menu_enum(logic, "version")
-        layout.prop_search(logic, "node_tree_name", bpy.data, "node_groups", icon="NODETREE")
+        layout.prop(logic, "node_tree", icon="NODETREE")
         try:
             layout.prop_search(logic, "node_name", logic.node_tree, "nodes", icon="NODE")
         except:

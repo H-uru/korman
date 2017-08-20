@@ -21,8 +21,9 @@ from PyHSPlasma import *
 
 from .node_core import *
 from ..properties.modifiers.physics import bounds_types
+from .. import idprops
 
-class PlasmaClickableNode(PlasmaNodeBase, bpy.types.Node):
+class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.Node):
     bl_category = "CONDITIONS"
     bl_idname = "PlasmaClickableNode"
     bl_label = "Clickable"
@@ -31,8 +32,10 @@ class PlasmaClickableNode(PlasmaNodeBase, bpy.types.Node):
     # These are the Python attributes we can fill in
     pl_attrib = {"ptAttribActivator", "ptAttribActivatorList", "ptAttribNamedActivator"}
 
-    clickable = StringProperty(name="Clickable",
-                               description="Mesh that is clickable")
+    clickable_object = PointerProperty(name="Clickable",
+                                       description="Mesh object that is clickable",
+                                       type=bpy.types.Object,
+                                       poll=idprops.poll_mesh_objects)
     bounds = EnumProperty(name="Bounds",
                           description="Clickable's bounds (NOTE: only used if your clickable is not a collider)",
                           items=bounds_types,
@@ -63,7 +66,7 @@ class PlasmaClickableNode(PlasmaNodeBase, bpy.types.Node):
     ])
 
     def draw_buttons(self, context, layout):
-        layout.prop_search(self, "clickable", bpy.data, "objects", icon="MESH_DATA")
+        layout.prop(self, "clickable_object", icon="MESH_DATA")
         layout.prop(self, "bounds")
 
     def export(self, exporter, parent_bo, parent_so):
@@ -127,27 +130,31 @@ class PlasmaClickableNode(PlasmaNodeBase, bpy.types.Node):
         # First: look up the clickable mesh. if it is not specified, then it's this BO.
         # We do this because we might be exporting from a BO that is not actually the clickable object.
         # Case: sitting modifier (exports from sit position empty)
-        if self.clickable:
-            clickable_bo = bpy.data.objects.get(self.clickable, None)
-            if clickable_bo is None:
-                self.raise_error("invalid Clickable object: '{}'".format(self.clickable))
-            clickable_so = exporter.mgr.find_create_object(plSceneObject, bl=clickable_bo)
-            return (clickable_bo, clickable_so)
+        if self.clickable_object:
+            clickable_so = exporter.mgr.find_create_object(plSceneObject, bl=self.clickable_object)
+            return (self.clickable_object, clickable_so)
         else:
             return (None, parent_so)
 
     def harvest_actors(self):
-        return (self.clickable,)
+        if self.clickable_object:
+            return (self.clickable_object.name,)
+
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"clickable_object": "clickable"}
 
 
-class PlasmaClickableRegionNode(PlasmaNodeBase, bpy.types.Node):
+class PlasmaClickableRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.Node):
     bl_category = "CONDITIONS"
     bl_idname = "PlasmaClickableRegionNode"
     bl_label = "Clickable Region Settings"
     bl_width_default = 200
 
-    region = StringProperty(name="Region",
-                            description="Object that defines the region mesh")
+    region_object = PointerProperty(name="Region",
+                                    description="Object that defines the region mesh",
+                                    type=bpy.types.Object,
+                                    poll=idprops.poll_mesh_objects)
     bounds = EnumProperty(name="Bounds",
                           description="Physical object's bounds (NOTE: only used if your clickable is not a collider)",
                           items=bounds_types,
@@ -161,14 +168,14 @@ class PlasmaClickableRegionNode(PlasmaNodeBase, bpy.types.Node):
     ])
 
     def draw_buttons(self, context, layout):
-        layout.prop_search(self, "region", bpy.data, "objects", icon="MESH_DATA")
+        layout.prop(self, "region_object", icon="MESH_DATA")
         layout.prop(self, "bounds")
 
     def convert_subcondition(self, exporter, parent_bo, parent_so, logicmod):
         # REMEMBER: parent_so doesn't have to be the actual region scene object...
-        region_bo = bpy.data.objects.get(self.region, None)
+        region_bo = self.region_object
         if region_bo is None:
-            self.raise_error("invalid Region object: '{}'".format(self.region))
+            self.raise_error("invalid Region")
         region_so = exporter.mgr.find_create_key(plSceneObject, bl=region_bo).object
 
         # Try to figure out the appropriate bounds type for the region....
@@ -197,6 +204,10 @@ class PlasmaClickableRegionNode(PlasmaNodeBase, bpy.types.Node):
         objinbox_key = exporter.mgr.find_create_key(plObjectInBoxConditionalObject, name=name, so=parent_so)
         objinbox_key.object.satisfied = True
         logicmod.addCondition(objinbox_key)
+
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"region_object": "region"}
 
 
 class PlasmaClickableRegionSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
@@ -310,7 +321,7 @@ class PlasmaVolumeReportNode(PlasmaNodeBase, bpy.types.Node):
             row.prop(self, "threshold", text="")
 
 
-class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
+class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.Node):
     bl_category = "CONDITIONS"
     bl_idname = "PlasmaVolumeSensorNode"
     bl_label = "Region Sensor"
@@ -320,8 +331,10 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
     pl_attrib = {"ptAttribActivator", "ptAttribActivatorList", "ptAttribNamedActivator"}
 
     # Region Mesh
-    region = StringProperty(name="Region",
-                            description="Object that defines the region mesh")
+    region_object = PointerProperty(name="Region",
+                                    description="Object that defines the region mesh",
+                                    type=bpy.types.Object,
+                                    poll=idprops.poll_mesh_objects)
     bounds = EnumProperty(name="Bounds",
                           description="Physical object's bounds",
                           items=bounds_types)
@@ -364,11 +377,13 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
         layout.prop(self, "report_on")
 
         # Okay, if they changed the name of the ObData, that's THEIR problem...
-        layout.prop_search(self, "region", bpy.data, "objects", icon="MESH_DATA")
+        layout.prop(self, "region_object", icon="MESH_DATA")
         layout.prop(self, "bounds")
 
     def get_key(self, exporter, parent_so):
         bo = self.region_object
+        if bo is None:
+            self.raise_error("Region cannot be empty")
         so = exporter.mgr.find_create_object(plSceneObject, bl=bo)
         rgn_enter, rgn_exit = None, None
 
@@ -393,6 +408,8 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
     def export(self, exporter, bo, parent_so):
         # We need to ensure we export to the correct SO
         region_bo = self.region_object
+        if region_bo is None:
+            self.raise_error("Region cannot be empty")
         region_so = exporter.mgr.find_create_object(plSceneObject, bl=region_bo)
         interface = exporter.mgr.find_create_object(plInterfaceInfoModifier, name=self.key_name, so=region_so)
 
@@ -457,12 +474,9 @@ class PlasmaVolumeSensorNode(PlasmaNodeBase, bpy.types.Node):
         logicmod.addCondition(volKey)
         return logicKey
 
-    @property
-    def region_object(self):
-        phys_bo = bpy.data.objects.get(self.region, None)
-        if phys_bo is None:
-            self.raise_error("invalid Region object: '{}'".format(self.region))
-        return phys_bo
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"region_object": "region"}
 
     @property
     def report_enters(self):

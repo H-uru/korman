@@ -19,6 +19,7 @@ from collections import OrderedDict
 from PyHSPlasma import *
 
 from .node_core import PlasmaNodeBase, PlasmaNodeSocketBase, PlasmaTreeOutputNodeBase
+from .. import idprops
 
 class PlasmaSoftVolumeOutputNode(PlasmaTreeOutputNodeBase, bpy.types.Node):
     bl_category = "SV"
@@ -71,7 +72,7 @@ class PlasmaSoftVolumePropertiesNode(PlasmaNodeBase, bpy.types.Node):
         softvolume.outsideStrength = self.outside_strength / 100
 
 
-class PlasmaSoftVolumeReferenceNode(PlasmaNodeBase, bpy.types.Node):
+class PlasmaSoftVolumeReferenceNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.Node):
     bl_category = "SV"
     bl_idname = "PlasmaSoftVolumeReferenceNode"
     bl_label = "Soft Region"
@@ -84,19 +85,24 @@ class PlasmaSoftVolumeReferenceNode(PlasmaNodeBase, bpy.types.Node):
         }),
     ])
 
-    soft_object = StringProperty(name="Soft Volume",
-                                 description="Object whose Soft Volume modifier we should use")
+    soft_volume = PointerProperty(name="Soft Volume",
+                                  description="Object whose Soft Volume modifier we should use",
+                                  type=bpy.types.Object,
+                                  poll=idprops.poll_softvolume_objects)
 
     def draw_buttons(self, context, layout):
-        layout.prop_search(self, "soft_object", bpy.data, "objects", icon="OBJECT_DATA", text="")
+        layout.prop(self, "soft_volume", text="")
 
     def get_key(self, exporter, so):
-        softvol = bpy.data.objects.get(self.soft_object, None)
-        if softvol is None:
-            self.raise_error("Volume Object '{}' not found".format(self.soft_object))
+        if self.soft_volume is None:
+            self.raise_error("Invalid SoftVolume object reference")
         # Don't use SO here because that's the tree owner's SO. This soft region will find or create
         # its own SceneObject. Yay!
-        return softvol.plasma_modifiers.softvolume.get_key(exporter)
+        return self.soft_volume.plasma_modifiers.softvolume.get_key(exporter)
+
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"soft_volume": "soft_object"}
 
 
 class PlasmaSoftVolumeInvertNode(PlasmaNodeBase, bpy.types.Node):

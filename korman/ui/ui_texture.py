@@ -52,7 +52,7 @@ class PlasmaEnvMapPanel(TextureButtonsPanel, bpy.types.Panel):
         op.index = layer_props.active_region_index
         rgns = layer_props.vis_regions
         if layer_props.vis_regions:
-            layout.prop_search(rgns[layer_props.active_region_index], "region_name", bpy.data, "objects")
+            layout.prop(rgns[layer_props.active_region_index], "control_region")
 
         layout.separator()
         layout.prop(layer_props, "envmap_color")

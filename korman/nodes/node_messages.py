@@ -21,6 +21,7 @@ from PyHSPlasma import *
 from .node_core import *
 from ..properties.modifiers.region import footstep_surfaces, footstep_surface_ids
 from ..exporter import ExportError
+from .. import idprops
 
 class PlasmaMessageSocketBase(PlasmaNodeSocketBase):
     bl_color = (0.004, 0.282, 0.349, 1.0)
@@ -43,7 +44,7 @@ class PlasmaMessageNode(PlasmaNodeBase):
         return False
 
 
-class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
+class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageNode, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaAnimCmdMsgNode"
     bl_label = "Animation Command"
@@ -54,12 +55,32 @@ class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
                              items=[("OBJECT", "Object", "Mesh Action"),
                                     ("TEXTURE", "Texture", "Texture Action")],
                              default="OBJECT")
-    object_name = StringProperty(name="Object",
-                                 description="Target object name")
-    material_name = StringProperty(name="Material",
-                                   description="Target material name")
-    texture_name = StringProperty(name="Texture",
-                                  description="Target texture slot name")
+
+    def _poll_material_textures(self, value):
+        if self.target_object is None:
+            return False
+        if self.target_material is None:
+            return False
+        return value.name in self.target_material.texture_slots
+
+    def _poll_mesh_materials(self, value):
+        if self.target_object is None:
+            return False
+        if self.target_object.type != "MESH":
+            return False
+        return value.name in self.target_object.data.materials
+
+    target_object = PointerProperty(name="Object",
+                                    description="Target object",
+                                    type=bpy.types.Object)
+    target_material = PointerProperty(name="Material",
+                                      description="Target material",
+                                      type=bpy.types.Material,
+                                      poll=_poll_mesh_materials)
+    target_texture = PointerProperty(name="Texture",
+                                     description="Target texture",
+                                     type=bpy.types.Texture,
+                                     poll=_poll_material_textures)
 
     go_to = EnumProperty(name="Go To",
                          description="Where should the animation start?",
@@ -121,19 +142,16 @@ class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "anim_type")
-        layout.prop_search(self, "object_name", bpy.data, "objects")
+        layout.prop(self, "target_object")
 
         if self.anim_type != "OBJECT":
-            bo = bpy.data.objects.get(self.object_name)
-            if bo is None or not hasattr(bo.data, "materials"):
-                layout.label("Invalid Object", icon="ERROR")
-            else:
-                layout.prop_search(self, "material_name", bo.data, "materials")
-                material = bpy.data.materials.get(self.material_name, None)
-                if material is None:
-                    layout.label("Invalid Material", icon="ERROR")
-                else:
-                    layout.prop_search(self, "texture_name", material, "texture_slots")
+            col = layout.column()
+            col.enabled = self.target_object is not None
+            col.prop(self, "target_material")
+
+            col = layout.column()
+            col.enabled = self.target_object is not None and self.target_material is not None
+            col.prop(self, "target_texture")
 
         layout.prop(self, "go_to")
         layout.prop(self, "action")
@@ -149,8 +167,7 @@ class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
         if self.anim_type != "OBJECT":
             loops = None
         else:
-            obj = bpy.data.objects.get(self.object_name, None)
-            loops = None if obj is None else obj.plasma_modifiers.animation_loop
+            loops = None if self.target_object is None else self.target_object.plasma_modifiers.animation_loop
         if loops is not None and loops.enabled:
             layout.prop_search(self, "loop_name", loops, "loops", icon="PMARKER_ACT")
         else:
@@ -170,9 +187,9 @@ class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
         msg = plAnimCmdMsg()
 
         # We're either sending this off to an AGMasterMod or a LayerAnim
-        obj = bpy.data.objects.get(self.object_name, None)
+        obj = self.target_object
         if obj is None:
-            self.raise_error("invalid object: '{}'".format(self.object_name))
+            self.raise_error("target object must be specified")
         if self.anim_type == "OBJECT":
             if not obj.plasma_object.has_animation_data:
                 self.raise_error("invalid animation")
@@ -185,10 +202,13 @@ class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
             else:
                 _agmod_trash, target = exporter.animation.get_anigraph_keys(obj)
         else:
-            material = bpy.data.materials.get(self.material_name, None)
+            material = self.target_material
             if material is None:
-                self.raise_error("invalid material: '{}'".format(self.material_name))
-            target = exporter.mesh.material.get_texture_animation_key(obj, material, self.texture_name)
+                self.raise_error("target material must be specified")
+            texture = self.target_texture
+            if texture is None:
+                self.raise_error("target texture must be specified")
+            target = exporter.mesh.material.get_texture_animation_key(obj, material, texture)
 
         if target is None:
             raise RuntimeError()
@@ -223,6 +243,17 @@ class PlasmaAnimCmdMsgNode(PlasmaMessageNode, bpy.types.Node):
     @property
     def has_callbacks(self):
         return self.event != "NONE"
+
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"target_object": "object_name",
+                "target_material": "material_name",
+                "target_texture": "texture_name"}
+
+    def _idprop_sources(self):
+        return {"object_name": bpy.data.objects,
+                "material_name": bpy.data.materials,
+                "texture_name": bpy.data.textures}
 
 
 class PlasmaEnableMsgNode(PlasmaMessageNode, bpy.types.Node):
@@ -376,14 +407,15 @@ class PlasmaLinkToAgeMsg(PlasmaMessageNode, bpy.types.Node):
         layout.prop(self, "spawn_point")
 
 
-class PlasmaOneShotMsgNode(PlasmaMessageNode, bpy.types.Node):
+class PlasmaOneShotMsgNode(idprops.IDPropObjectMixin, PlasmaMessageNode, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaOneShotMsgNode"
     bl_label = "One Shot"
     bl_width_default = 210
 
-    pos = StringProperty(name="Position",
-                         description="Object defining the OneShot position")
+    pos_object = PointerProperty(name="Position",
+                                 description="Object defining the OneShot position",
+                                 type=bpy.types.Object)
     seek = EnumProperty(name="Seek",
                         description="How the avatar should approach the OneShot position",
                         items=[("SMART", "Smart Seek", "Let the engine figure out the best path"),
@@ -416,7 +448,7 @@ class PlasmaOneShotMsgNode(PlasmaMessageNode, bpy.types.Node):
         row = layout.row()
         row.prop(self, "drivable")
         row.prop(self, "reversable")
-        layout.prop_search(self, "pos", bpy.data, "objects", icon="EMPTY_DATA")
+        layout.prop(self, "pos_object", icon="EMPTY_DATA")
         layout.prop(self, "seek")
 
     def export(self, exporter, bo, so):
@@ -430,21 +462,23 @@ class PlasmaOneShotMsgNode(PlasmaMessageNode, bpy.types.Node):
 
     def get_key(self, exporter, so):
         name = self.key_name
-        if self.pos:
-            bo = bpy.data.objects.get(self.pos, None)
-            if bo is None:
-                raise ExportError("Node '{}' in '{}' specifies an invalid Position Empty".format(self.name, self.id_data.name))
-            pos_so = exporter.mgr.find_create_object(plSceneObject, bl=bo)
+        if self.pos_object is not None:
+            pos_so = exporter.mgr.find_create_object(plSceneObject, bl=self.pos_object)
             return exporter.mgr.find_create_key(plOneShotMod, name=name, so=pos_so)
         else:
             return exporter.mgr.find_create_key(plOneShotMod, name=name, so=so)
 
     def harvest_actors(self):
-        return (self.pos,)
+        if self.pos_object:
+            return (self.pos_object.name,)
 
     @property
     def has_callbacks(self):
         return bool(self.marker)
+
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"pos_object": "pos"}
 
 
 class PlasmaOneShotCallbackSocket(PlasmaMessageSocketBase, bpy.types.NodeSocket):
@@ -455,7 +489,7 @@ class PlasmaOneShotCallbackSocket(PlasmaMessageSocketBase, bpy.types.NodeSocket)
         layout.prop(self, "marker")
 
 
-class PlasmaSceneObjectMsgRcvrNode(PlasmaNodeBase, bpy.types.Node):
+class PlasmaSceneObjectMsgRcvrNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaSceneObjectMsgRcvrNode"
     bl_label = "Send To Object"
@@ -470,28 +504,38 @@ class PlasmaSceneObjectMsgRcvrNode(PlasmaNodeBase, bpy.types.Node):
         }),
     ])
 
-    object_name = StringProperty(name="Object",
-                                 description="Object to send the message to")
+    target_object = PointerProperty(name="Object",
+                                    description="Object to send the message to",
+                                    type=bpy.types.Object)
 
     def draw_buttons(self, context, layout):
-        layout.prop_search(self, "object_name", bpy.data, "objects")
+        layout.prop(self, "target_object")
 
     def get_key(self, exporter, so):
-        bo = bpy.data.objects.get(self.object_name, None)
+        bo = self.target_object
         if bo is None:
-            self.raise_error("invalid object specified: '{}'".format(self.object_name))
+            self.raise_error("target object must be specified")
         ref_so_key = exporter.mgr.find_create_key(plSceneObject, bl=bo)
         return ref_so_key
 
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"target_object": "object_name"}
 
-class PlasmaSoundMsgNode(PlasmaMessageNode, bpy.types.Node):
+
+class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageNode, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaSoundMsgNode"
     bl_label = "Sound"
     bl_width_default = 190
 
-    object_name = StringProperty(name="Object",
-                                 description="Sound emitter object")
+    def _poll_sound_emitters(self, value):
+        return value.plasma_modifiers.soundemit.enabled
+
+    emitter_object = PointerProperty(name="Object",
+                                     description="Sound emitter object",
+                                     type=bpy.types.Object,
+                                     poll=_poll_sound_emitters)
     sound_name = StringProperty(name="Sound",
                                 description="Sound datablock")
 
@@ -540,20 +584,19 @@ class PlasmaSoundMsgNode(PlasmaMessageNode, bpy.types.Node):
         msg.setCmd(plSoundMsg.kAddCallbacks)
 
     def convert_message(self, exporter, so):
-        sound_bo = bpy.data.objects.get(self.object_name, None)
-        if sound_bo is None:
-            self.raise_error("'{}' is not a valid object".format(self.object_name))
-        soundemit = sound_bo.plasma_modifiers.soundemit
+        if self.emitter_object is None:
+            self.raise_error("Sound emitter must be set")
+        soundemit = self.emitter_object.plasma_modifiers.soundemit
         if not soundemit.enabled:
-            self.raise_error("'{}' is not a valid Sound Emitter".format(self.object_name))
+            self.raise_error("'{}' is not a valid Sound Emitter".format(self.emitter_object.name))
 
         # Always test the specified audible for validity
         if self.sound_name and soundemit.sounds.get(self.sound_name, None) is None:
-            self.raise_error("Invalid Sound '{}' requested from Sound Emitter '{}'".format(self.sound_name, self.object_name))
+            self.raise_error("Invalid Sound '{}' requested from Sound Emitter '{}'".format(self.sound_name, self.emitter_object.name))
 
         # Remember that 3D stereo sounds are exported as two emitters...
         # But, if we only have one sound attached, who cares, we can just address the message to all
-        audible_key = exporter.mgr.find_create_key(plAudioInterface, bl=sound_bo)
+        audible_key = exporter.mgr.find_create_key(plAudioInterface, bl=self.emitter_object)
         indices = (-1,) if not self.sound_name or len(soundemit.sounds) == 1 else soundemit.get_sound_indices(self.sound_name)
         for idx in indices:
             msg = plSoundMsg()
@@ -586,10 +629,9 @@ class PlasmaSoundMsgNode(PlasmaMessageNode, bpy.types.Node):
             yield msg
 
     def draw_buttons(self, context, layout):
-        layout.prop_search(self, "object_name", bpy.data, "objects")
-        bo = bpy.data.objects.get(self.object_name, None)
-        if bo is not None:
-            soundemit = bo.plasma_modifiers.soundemit
+        layout.prop(self, "emitter_object")
+        if self.emitter_object is not None:
+            soundemit = self.emitter_object.plasma_modifiers.soundemit
             if soundemit.enabled:
                 layout.prop_search(self, "sound_name", soundemit, "sounds", icon="SOUND")
             else:
@@ -607,6 +649,10 @@ class PlasmaSoundMsgNode(PlasmaMessageNode, bpy.types.Node):
     @property
     def has_callbacks(self):
         return True
+
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"emitter_object": "object_name"}
 
 
 class PlasmaTimerCallbackMsgNode(PlasmaMessageNode, bpy.types.Node):

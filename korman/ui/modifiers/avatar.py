@@ -21,14 +21,14 @@ def sittingmod(modifier, layout, context):
     layout.row().prop(modifier, "approach")
 
     col = layout.column()
-    col.prop_search(modifier, "clickable_obj", bpy.data, "objects", icon="MESH_DATA")
-    clickable = find_modifier(modifier.clickable_obj, "collision")
+    col.prop(modifier, "clickable_object", icon="MESH_DATA")
+    clickable = find_modifier(modifier.clickable_object, "collision")
     if clickable is not None:
         col.prop(clickable, "bounds")
 
     col = layout.column()
-    col.prop_search(modifier, "region_obj", bpy.data, "objects", icon="MESH_DATA")
-    region = find_modifier(modifier.region_obj, "collision")
+    col.prop(modifier, "region_object", icon="MESH_DATA")
+    region = find_modifier(modifier.region_object, "collision")
     if region is not None:
         col.prop(region, "bounds")
 

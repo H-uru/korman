@@ -43,7 +43,7 @@ def followmod(modifier, layout, context):
     layout.row().prop(modifier, "follow_mode", expand=True)
     layout.prop(modifier, "leader_type")
     if modifier.leader_type == "kFollowObject":
-        layout.prop_search(modifier, "leader_object", bpy.data, "objects", icon="OUTLINER_OB_MESH")
+        layout.prop(modifier, "leader", icon="OUTLINER_OB_MESH")
 
 def lighting(modifier, layout, context):
     split = layout.split()
@@ -84,11 +84,10 @@ def lighting(modifier, layout, context):
 def lightmap(modifier, layout, context):
     layout.row(align=True).prop(modifier, "quality", expand=True)
     layout.prop(modifier, "render_layers", text="Active Render Layers")
-    layout.prop_search(modifier, "light_group", bpy.data, "groups", icon="GROUP")
+    layout.prop(modifier, "lights")
     layout.prop_search(modifier, "uv_map", context.active_object.data, "uv_textures")
 
     operator = layout.operator("object.plasma_lightmap_preview", "Preview Lightmap", icon="RENDER_STILL")
-    operator.light_group = modifier.light_group
 
     # Kind of clever stuff to show the user a preview...
     # We can't show images, so we make a hidden ImageTexture called LIGHTMAPGEN_PREVIEW. We check
@@ -117,7 +116,7 @@ def viewfacemod(modifier, layout, context):
     if modifier.preset_options == "Custom":
         layout.row().prop(modifier, "follow_mode")
         if modifier.follow_mode == "kFaceObj":
-            layout.prop_search(modifier, "target_object", bpy.data, "objects", icon="OUTLINER_OB_MESH")
+            layout.prop(modifier, "target", icon="OUTLINER_OB_MESH")
             layout.separator()
 
         layout.prop(modifier, "pivot_on_y")
@@ -136,9 +135,10 @@ def viewfacemod(modifier, layout, context):
 
 class VisRegionListUI(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        myIcon = "ERROR" if bpy.data.objects.get(item.region_name, None) is None else "OBJECT_DATA"
-        label = item.region_name if item.region_name else "[No Object Specified]"
-        layout.label(label, icon=myIcon)
+        if item.control_region is None:
+            layout.label("[No Object Specified]", icon="ERROR")
+        else:
+            layout.label(item.control_region.name, icon="OBJECT_DATA")
         layout.prop(item, "enabled", text="")
 
 
@@ -156,7 +156,7 @@ def visibility(modifier, layout, context):
     op.index = modifier.active_region_index
 
     if modifier.regions:
-        layout.prop_search(modifier.regions[modifier.active_region_index], "region_name", bpy.data, "objects")
+        layout.prop(modifier.regions[modifier.active_region_index], "control_region")
 
 def visregion(modifier, layout, context):
     layout.prop(modifier, "mode")
@@ -164,7 +164,7 @@ def visregion(modifier, layout, context):
     # Only allow SoftVolume spec if this is not an FX and this object is not an SV itself
     sv = modifier.id_data.plasma_modifiers.softvolume
     if modifier.mode != "fx" and not sv.enabled:
-        layout.prop_search(modifier, "softvolume", bpy.data, "objects")
+        layout.prop(modifier, "soft_region")
 
     # Other settings
     layout.prop(modifier, "replace_normal")

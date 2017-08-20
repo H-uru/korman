@@ -16,10 +16,18 @@
 import bpy
 from bpy.props import *
 
-class EnvMapVisRegion(bpy.types.PropertyGroup):
+from .. import idprops
+
+class EnvMapVisRegion(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
     enabled = BoolProperty(default=True)
-    region_name = StringProperty(name="Control",
-                                 description="Object defining a Plasma Visibility Control")
+    control_region = PointerProperty(name="Control",
+                                     description="Object defining a Plasma Visibility Control",
+                                     type=bpy.types.Object,
+                                     poll=idprops.poll_visregion_objects)
+
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"control_region": "region_name"}
 
 
 class PlasmaLayer(bpy.types.PropertyGroup):
