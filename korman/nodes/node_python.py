@@ -372,7 +372,7 @@ class PlasmaAttribBoolNode(PlasmaAttribNodeBase, bpy.types.Node):
 
 class PlasmaAttribNumericNode(PlasmaAttribNodeBase, bpy.types.Node):
     bl_category = "PYTHON"
-    bl_idname = "PlasmaAttribIntNode"
+    bl_idname = "PlasmaAttribNumericNode"
     bl_label = "Numeric Attribute"
 
     def _on_update_int(self, context):
