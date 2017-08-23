@@ -15,6 +15,7 @@
 
 from .anim import *
 from .avatar import *
+from .gui import *
 from .logic import *
 from .physics import *
 from .region import *
