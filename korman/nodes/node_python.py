@@ -259,7 +259,7 @@ class PlasmaPythonFileNode(PlasmaNodeBase, bpy.types.Node):
                         self.inputs.remove(unconnected.pop())
 
 
-class PlasmaPythonFileNodeSocket(bpy.types.NodeSocket):
+class PlasmaPythonFileNodeSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
     attribute_id = IntProperty(options={"HIDDEN"})
 
     @property
@@ -291,7 +291,7 @@ class PlasmaPythonFileNodeSocket(bpy.types.NodeSocket):
         return self.node.attribute_map[self.attribute_id].simple_value
 
 
-class PlasmaPythonAttribNodeSocket(bpy.types.NodeSocket):
+class PlasmaPythonAttribNodeSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
     def draw(self, context, layout, node, text):
         attrib = node.to_socket
         if attrib is None:
