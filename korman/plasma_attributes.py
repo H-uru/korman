@@ -92,6 +92,12 @@ class PlasmaAttributeVisitor(ast.NodeVisitor):
     def visit_NameConstant(self, node):
         return node.value
 
+    def visit_UnaryOp(self, node):
+        if type(node.op) == ast.USub:
+            return -self.visit(node.operand)
+        elif type(node.op) == ast.UAdd:
+            return self.visit(node.operand)
+
     def generic_visit(self, node):
         ast.NodeVisitor.generic_visit(self, node)
 
