@@ -47,6 +47,47 @@ class SelectFileOperator(NodeOperator, bpy.types.Operator):
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
 
+pyAttribArgMap= {
+        "ptAttribute":
+            ["vislistid", "visliststates"],
+        "ptAttribBoolean":
+            ["default"],
+        "ptAttribInt":
+            ["default", "rang"],
+        "ptAttribFloat":
+            ["default", "rang"],
+        "ptAttribString":
+            ["default"],
+        "ptAttribDropDownList":
+            ["options"],
+        "ptAttribSceneobject":
+            ["netForce"],
+        "ptAttribSceneobjectList":
+            ["byObject", "netForce"],
+        "ptAttributeKeyList":
+            ["byObject", "netForce"],
+        "ptAttribActivator":
+            ["byObject", "netForce"],
+        "ptAttribActivatorList":
+            ["byObject", "netForce"],
+        "ptAttribResponder":
+            ["stateList", "byObject", "netForce", "netPropagate"],
+        "ptAttribResponderList":
+            ["stateList", "byObject", "netForce", "netPropagate"],
+        "ptAttribNamedActivator":
+            ["byObject", "netForce"],
+        "ptAttribNamedResponder":
+            ["stateList", "byObject", "netForce", "netPropagate"],
+        "ptAttribDynamicMap":
+            ["netForce"],
+        "ptAttribAnimation":
+            ["byObject", "netForce"],
+        "ptAttribBehavior":
+            ["netForce", "netProp"],
+        "ptAttribMaterialList":
+            ["byObject", "netForce"],
+    }
+
 
 class PlPyAttributeNodeOperator(NodeOperator, bpy.types.Operator):
     bl_idname = "node.plasma_attributes_to_node"
@@ -81,5 +122,21 @@ class PlPyAttributeNodeOperator(NodeOperator, bpy.types.Operator):
             default = attrib.get("default", None)
             if default is not None and cached.is_simple_value:
                 cached.simple_value = default
+
+            argmap = {}
+            args = attrib.get("args", None)
+            # Load our default argument mapping
+            if args is not None:
+                if cached.attribute_type in pyAttribArgMap.keys():
+                    argmap.update(dict(zip(pyAttribArgMap[cached.attribute_type], args)))
+                else:
+                    print("Found ptAttribute type '{}' with unknown arguments: {}".format(cached.attribute_type, args))
+            # Add in/set any arguments provided by keyword
+            if not set(pyAttribArgMap[cached.attribute_type]).isdisjoint(attrib.keys()):
+                argmap.update({key: attrib[key] for key in attrib if key in pyAttribArgMap[cached.attribute_type]})
+            # Attach the arguments to the attribute
+            if argmap:
+                cached.attribute_arguments.set_arguments(argmap)
+
         node.update()
         return {"FINISHED"}
