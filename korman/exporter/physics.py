@@ -37,11 +37,14 @@ class PhysicsConverter:
                 indices += (v[0], v[2], v[3],)
         return indices
 
-    def _convert_mesh_data(self, bo, physical, indices=True):
+    def _convert_mesh_data(self, bo, physical, indices=True, mesh_func=None):
         mesh = bo.to_mesh(bpy.context.scene, True, "RENDER", calc_tessface=False)
         mat = bo.matrix_world
 
-        with TemporaryObject(mesh, bpy.data.meshes.remove) as mesh:
+        with TemporaryObject(mesh, bpy.data.meshes.remove):
+            if mesh_func is not None:
+                mesh_func(mesh)
+
             # We can only use the plPhysical xforms if there is a CI...
             if self._exporter().has_coordiface(bo):
                 mesh.update(calc_tessface=indices)
@@ -81,7 +84,7 @@ class PhysicsConverter:
             physical.sceneNode = self._mgr.get_scene_node(bl=bo)
 
             mesh = bo.to_mesh(bpy.context.scene, True, "RENDER", calc_tessface=False)
-            with TemporaryObject(mesh, bpy.data.meshes.remove) as mesh:
+            with TemporaryObject(mesh, bpy.data.meshes.remove):
                 # We will apply all xform, seeing as how this is a special case...
                 mesh.transform(bo.matrix_world)
                 mesh.update(calc_tessface=True)
@@ -140,12 +143,23 @@ class PhysicsConverter:
         """Exports convex hull bounds based on the object"""
         physical.boundsType = plSimDefs.kHullBounds
 
-        vertices = self._convert_mesh_data(bo, physical, indices=False)
-        # --- TODO ---
-        # Until we have real convex hull processing, simply dump the verts into the physical
-        # Note that PyPRP has always done this... PhysX will optimize this for us. So, it's not
-        # the end of the world (but it is evil).
-        physical.verts = vertices
+        # Only certain builds of libHSPlasma are able to take artist generated triangle soups and
+        # bake them to convex hulls. Specifically, Windows 32-bit w/PhysX 2.6. Everything else just
+        # needs to have us provide some friendlier data...
+        def _bake_hull(mesh):
+            # The bmesh API for doing this is trash, so we will link this temporary mesh to an
+            # even more temporary object so we can use the traditional operator.
+            # Unless you want to write some code to do this by hand...??? (not me)
+            bo = bpy.data.objects.new("BMeshSucks", mesh)
+            bpy.context.scene.objects.link(bo)
+            with TemporaryObject(bo, bpy.data.objects.remove):
+                bpy.context.scene.objects.active = bo
+                bpy.ops.object.mode_set(mode="EDIT")
+                bpy.ops.mesh.select_all(action="SELECT")
+                bpy.ops.mesh.convex_hull(use_existing_faces=False)
+                bpy.ops.object.mode_set(mode="OBJECT")
+
+        physical.verts = self._convert_mesh_data(bo, physical, indices=False, mesh_func=_bake_hull)
 
     def _export_sphere(self, bo, physical):
         """Exports sphere bounds based on the object"""
