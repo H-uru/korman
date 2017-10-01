@@ -14,6 +14,7 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+from bpy.props import *
 
 class ToolboxOperator:
     @classmethod
@@ -70,17 +71,6 @@ class PlasmaConvertPlasmaObjectOperator(ToolboxOperator, bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PlasmaEnablePlasmaObjectOperator(ToolboxOperator, bpy.types.Operator):
-    bl_idname = "object.plasma_enable_all_objects"
-    bl_label = "Enable All Plasma Objects"
-    bl_description = "Marks all Objects as Plasma Objects for exporting"
-
-    def execute(self, context):
-        for i in bpy.data.objects:
-            i.plasma_object.enabled = True
-        return {"FINISHED"}
-
-
 class PlasmaEnableTexturesOperator(ToolboxOperator, bpy.types.Operator):
     bl_idname = "texture.plasma_enable_all_textures"
     bl_label = "Enable All Textures"
@@ -99,8 +89,21 @@ class PlasmaEnableTexturesOperator(ToolboxOperator, bpy.types.Operator):
         return {"FINISHED"}
 
 
+class PlasmaToggleAllPlasmaObjectsOperator(ToolboxOperator, bpy.types.Operator):
+    bl_idname = "object.plasma_toggle_all_objects"
+    bl_label = "Toggle All Plasma Objects"
+    bl_description = "Changes the state of all Plasma Objects"
+
+    enable = BoolProperty(name="Enable", description="Enable Plasma Object")
+
+    def execute(self, context):
+        for i in bpy.data.objects:
+            i.plasma_object.enabled = self.enable
+        return {"FINISHED"}
+
+
 class PlasmaTogglePlasmaObjectsOperator(ToolboxOperator, bpy.types.Operator):
-    bl_idname = "object.plasma_toggle_objects"
+    bl_idname = "object.plasma_toggle_selected_objects"
     bl_label = "Toggle Plasma Objects"
     bl_description = "Toggles the Plasma Object status of a selection"
 
