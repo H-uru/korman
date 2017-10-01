@@ -41,9 +41,38 @@ class PlasmaConvertLayerOpacitiesOperator(ToolboxOperator, bpy.types.Operator):
         return {"FINISHED"}
 
 
+class PlasmaConvertPlasmaObjectOperator(ToolboxOperator, bpy.types.Operator):
+    bl_idname = "object.plasma_convert_plasma_objects"
+    bl_label = "Convert Plasma Objects"
+    bl_description = "Converts PyPRP objects to Plasma Objects"
+
+    def execute(self, context):
+        # We will loop through all the objects and enable Plasma Object on every object that
+        # is either inserted into a valid page using the old-style text properties or is lacking
+        # a page property. Unfortunately, unless we start bundling some YAML interpreter, we cannot
+        # use the old AlcScript schtuff.
+        pages = { i.seq_suffix: i.name for i in context.scene.world.plasma_age.pages }
+        for i in bpy.data.objects:
+            pageid = i.game.properties.get("page_num", None)
+            if pageid is None:
+                i.plasma_object.enabled = True
+                continue
+
+            page_name = pages.get(pageid.value, None)
+            if page_name is None:
+                # a common hack to prevent exporting in PyPRP was to set page_num == -1,
+                # so don't warn about that.
+                if pageid.value != -1:
+                    print("Object '{}' in page_num '{}', which is not available :/".format(i.name, pageid.value))
+            else:
+                i.plasma_object.enabled = True
+                i.plasma_object.page = page_name
+        return {"FINISHED"}
+
+
 class PlasmaEnablePlasmaObjectOperator(ToolboxOperator, bpy.types.Operator):
     bl_idname = "object.plasma_enable_all_objects"
-    bl_label = "Plasma Objects"
+    bl_label = "Enable All Plasma Objects"
     bl_description = "Marks all Objects as Plasma Objects for exporting"
 
     def execute(self, context):
@@ -54,7 +83,7 @@ class PlasmaEnablePlasmaObjectOperator(ToolboxOperator, bpy.types.Operator):
 
 class PlasmaEnableTexturesOperator(ToolboxOperator, bpy.types.Operator):
     bl_idname = "texture.plasma_enable_all_textures"
-    bl_label = "Textures"
+    bl_label = "Enable All Textures"
     bl_description = "Ensures that all Textures are enabled"
 
     def execute(self, context):
