@@ -44,8 +44,9 @@ class PlasmaSoundOpenOperator(SoundOperator, bpy.types.Operator):
             sound = bpy.data.sounds.load(self.filepath)
 
         # Now do the stanky leg^H^H^H^H^H^H^H^H^H^H deed and put the sound on the mod
+        # NOTE: must use the name so that the mod can receive update callbacks
         dest = eval(self.data_path)
-        setattr(dest, self.sound_property, sound)
+        setattr(dest, self.sound_property, sound.name)
         return {"FINISHED"}
 
     def invoke(self, context, event):
@@ -60,8 +61,7 @@ class PlasmaSoundPackOperator(SoundOperator, bpy.types.Operator):
 
     def execute(self, context):
         soundemit = context.active_object.plasma_modifiers.soundemit
-        sound = bpy.data.sounds.get(soundemit.sounds[soundemit.active_sound_index].sound_data)
-        sound.pack()
+        soundemit.sounds[soundemit.active_sound_index].sound.pack()
         return {"FINISHED"}
 
 
@@ -80,6 +80,5 @@ class PlasmaSoundUnpackOperator(SoundOperator, bpy.types.Operator):
 
     def execute(self, context):
         soundemit = context.active_object.plasma_modifiers.soundemit
-        sound = bpy.data.sounds.get(soundemit.sounds[soundemit.active_sound_index].sound_data)
-        sound.unpack(self.method)
+        soundemit.sounds[soundemit.active_sound_index].sound.unpack(self.method)
         return {"FINISHED"}

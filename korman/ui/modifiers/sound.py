@@ -52,7 +52,7 @@ def soundemit(modifier, layout, context):
         row.prop_search(sound, "sound_data_proxy", bpy.data, "sounds", text="")
         open_op = row.operator("sound.plasma_open", icon="FILESEL", text="")
         open_op.data_path = repr(sound)
-        open_op.sound_property = "sound_data"
+        open_op.sound_property = "sound_data_proxy"
 
         # Pack/Unpack
         data = sound.sound
