@@ -35,6 +35,8 @@ class PlasmaToolboxPanel(ToolboxPanel, bpy.types.Panel):
 
         col.label("Plasma Objects:")
         col.operator("object.plasma_enable_all_objects", icon="OBJECT_DATA", text="Enable All")
+        all_plasma_objects = all((i.plasma_object.enabled for i in bpy.context.selected_objects))
+        col.operator("object.plasma_toggle_objects", icon="VIEW3D", text="Disable Selection" if all_plasma_objects else "Enable Selection")
 
         col.label("Convert:")
         col.operator("object.plasma_convert_plasma_objects", icon="OBJECT_DATA", text="Plasma Objects")

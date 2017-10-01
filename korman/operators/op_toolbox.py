@@ -97,3 +97,19 @@ class PlasmaEnableTexturesOperator(ToolboxOperator, bpy.types.Operator):
                         continue
                     slot.use = True
         return {"FINISHED"}
+
+
+class PlasmaTogglePlasmaObjectsOperator(ToolboxOperator, bpy.types.Operator):
+    bl_idname = "object.plasma_toggle_objects"
+    bl_label = "Toggle Plasma Objects"
+    bl_description = "Toggles the Plasma Object status of a selection"
+
+    @classmethod
+    def poll(cls, context):
+        return super().poll(context) and hasattr(bpy.context, "selected_objects")
+
+    def execute(self, context):
+        enable = not all((i.plasma_object.enabled for i in bpy.context.selected_objects))
+        for i in context.selected_objects:
+            i.plasma_object.enabled = enable
+        return {"FINISHED"}
