@@ -84,10 +84,6 @@ class _ExportLogger:
             export_time = time.perf_counter() - self._time_start_overall
             self.msg("\nExported '{}' in {:.2f}s", self._age_path.name, export_time)
 
-        # Ensure the got dawg thread goes good-bye
-        self._thread.join(timeout=5.0)
-        assert not self._thread.is_alive()
-
     def progress_increment(self):
         pass
 
