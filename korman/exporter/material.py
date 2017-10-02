@@ -520,7 +520,7 @@ class MaterialConverter:
 
             if layer is not None:
                 layer.UVWSrc = plLayerInterface.kUVWReflect
-                layer.state.miscFlags |= hsGMatState.kMiscUseRefractionXform
+                layer.state.miscFlags |= hsGMatState.kMiscUseReflectionXform
 
         # Because we might be working with a multi-faced env map. It's even worse than have two faces...
         for i in faces:
