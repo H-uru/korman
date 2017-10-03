@@ -590,7 +590,7 @@ class MaterialConverter:
 
             # Herp, derp... Detail blends are all based on alpha
             if layer_props.is_detail_map and not state.blendFlags & hsGMatState.kBlendMask:
-                state.blendFlags |= hsGMatState.kBlendAlpha
+                state.blendFlags |= hsGMatState.kBlendDetail
 
             key = _Texture(texture=texture, use_alpha=has_alpha, force_calc_alpha=slot.use_stencil,
                            is_detail_map=layer_props.is_detail_map, detail_blend=detail_blend,
