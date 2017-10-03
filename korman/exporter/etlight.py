@@ -233,7 +233,6 @@ class LightBaker:
         groups = bpy.data.groups
         for i in groups:
             if i.name.startswith("_LIGHTMAPGEN_"):
-                i.user_clear()
                 bpy.data.groups.remove(i)
 
     def _prep_for_lightmap(self, bo, toggle):
@@ -255,7 +254,6 @@ class LightBaker:
             im = data_images.new(im_name, width=size, height=size)
         elif im.size[0] != size:
             # Force delete and recreate the image because the size is out of date
-            im.user_clear()
             data_images.remove(im)
             im = data_images.new(im_name, width=size, height=size)
 
@@ -364,7 +362,6 @@ def _toss_garbage(scene):
     """Removes all LIGHTMAPGEN and autocolor garbage before saving"""
     for i in bpy.data.images:
         if i.name.endswith("_LIGHTMAPGEN.png"):
-            i.user_clear()
             bpy.data.images.remove(i)
     for i in bpy.data.meshes:
         for uv_tex in i.uv_textures:
