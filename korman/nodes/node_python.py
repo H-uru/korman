@@ -34,6 +34,7 @@ _attrib2param = {
     "ptAttribFloat": plPythonParameter.kFloat,
     "ptAttribBoolean": plPythonParameter.kBoolean,
     "ptAttribString": plPythonParameter.kString,
+    "ptAttribDropDownList": plPythonParameter.kString,
     "ptAttribSceneobject": plPythonParameter.kSceneObject,
     "ptAttribSceneobjectList": plPythonParameter.kSceneObjectList,
     "ptAttribActivator": plPythonParameter.kActivator,
@@ -85,6 +86,52 @@ _attrib_key_types = {
     "ptAttribGrassShader": plFactory.ClassIndex("plGrassShaderMod"),
 }
 
+
+class StringVectorProperty(bpy.types.PropertyGroup):
+    value = StringProperty()
+
+
+class PlasmaAttributeArguments(bpy.types.PropertyGroup):
+    byObject = BoolProperty()
+    default = StringProperty()
+    options = CollectionProperty(type=StringVectorProperty)
+    range_values = FloatVectorProperty(size=2)
+    netForce = BoolProperty()
+    netPropagate = BoolProperty()
+    stateList = CollectionProperty(type=StringVectorProperty)
+    visListId = IntProperty()
+    visListStates = CollectionProperty(type=StringVectorProperty)
+
+    def set_arguments(self, args):
+        for name in args:
+            if name == "byObject":
+                self.byObject = bool(args[name])
+            elif name == "default":
+                self.default = str(args[name])
+            elif name == "options":
+                for option in args[name]:
+                    item = self.options.add()
+                    item.value = str(option)
+            elif name in ("range", "rang"):
+                self.range_values = args[name]
+            elif name == "netForce":
+                self.netForce = bool(args[name])
+            elif name in ("netPropagate", "netProp"):
+                self.netPropagate = bool(args[name])
+            elif name == "stateList":
+                for state in args[name]:
+                    item = self.stateList.add()
+                    item.value = str(state)
+            elif name == "vislistid":
+                self.visListId = int(args[name])
+            elif name == "visliststates":
+                for state in args[name]:
+                    item = self.visListStates.add()
+                    item.value = str(state)
+            else:
+                print("Unknown argument '{}' with value '{}'!".format(name, args[name]))
+
+
 class PlasmaAttribute(bpy.types.PropertyGroup):
     attribute_id = IntProperty()
     attribute_type = StringProperty()
@@ -97,8 +144,12 @@ class PlasmaAttribute(bpy.types.PropertyGroup):
     value_float = FloatProperty()
     value_bool = BoolProperty()
 
+    # Special Arguments
+    attribute_arguments = PointerProperty(type=PlasmaAttributeArguments)
+
     _simple_attrs = {
         "ptAttribString": "value_string",
+        "ptAttribDropDownList": "value_string",
         "ptAttribInt": "value_int",
         "ptAttribFloat": "value_float",
         "ptAttribBoolean": "value_bool",
@@ -290,6 +341,10 @@ class PlasmaPythonFileNodeSocket(bpy.types.NodeSocket):
     def simple_value(self):
         return self.node.attribute_map[self.attribute_id].simple_value
 
+    @property
+    def attribute_arguments(self):
+        return self.node.attribute_map[self.attribute_id].attribute_arguments
+
 
 class PlasmaPythonAttribNodeSocket(bpy.types.NodeSocket):
     def draw(self, context, layout, node, text):
@@ -370,6 +425,31 @@ class PlasmaAttribBoolNode(PlasmaAttribNodeBase, bpy.types.Node):
             self.inited = True
 
 
+class PlasmaAttribDropDownListNode(PlasmaAttribNodeBase, bpy.types.Node):
+    bl_category = "PYTHON"
+    bl_idname = "PlasmaAttribDropDownListNode"
+    bl_label = "Drop Down List Attribute"
+
+    pl_attrib = "ptAttribDropDownList"
+
+    def _list_items(self, context):
+        attrib = self.to_socket
+        if attrib is not None:
+            return [(option.value, option.value, "") for option in attrib.attribute_arguments.options]
+        else:
+            return []
+    value = EnumProperty(items=_list_items)
+
+    def draw_buttons(self, context, layout):
+        layout.prop(self, "value", text=self.attribute_name)
+
+    def update(self):
+        super().update()
+        attrib = self.to_socket
+        if attrib is not None and not self.value:
+            self.value = attrib.simple_value
+
+
 class PlasmaAttribNumericNode(PlasmaAttribNodeBase, bpy.types.Node):
     bl_category = "PYTHON"
     bl_idname = "PlasmaAttribNumericNode"
@@ -395,11 +475,16 @@ class PlasmaAttribNumericNode(PlasmaAttribNodeBase, bpy.types.Node):
 
     def draw_buttons(self, context, layout):
         attrib = self.to_socket
+
         if attrib is None:
             layout.prop(self, "value_int", text="Value")
         elif attrib.attribute_type == "ptAttribFloat":
+            self._range_label(layout)
+            layout.alert = self._out_of_range(self.value_float)
             layout.prop(self, "value_float", text=attrib.name)
         elif attrib.attribute_type == "ptAttribInt":
+            self._range_label(layout)
+            layout.alert = self._out_of_range(self.value_int)
             layout.prop(self, "value_int", text=attrib.name)
         else:
             raise RuntimeError()
@@ -418,6 +503,19 @@ class PlasmaAttribNumericNode(PlasmaAttribNodeBase, bpy.types.Node):
             return self.value_int
         else:
             return self.value_float
+
+    def _range_label(self, layout):
+        attrib = self.to_socket
+        layout.label(text="Range: [{}, {}]".format(attrib.attribute_arguments.range_values[0], attrib.attribute_arguments.range_values[1]))
+
+    def _out_of_range(self, value):
+        attrib = self.to_socket
+        if attrib.attribute_arguments.range_values[0] == attrib.attribute_arguments.range_values[1]:
+            # Ignore degenerate intervals
+            return False
+        if attrib.attribute_arguments.range_values[0] <= value <= attrib.attribute_arguments.range_values[1]:
+            return False
+        return True
 
 
 class PlasmaAttribObjectNode(idprops.IDPropObjectMixin, PlasmaAttribNodeBase, bpy.types.Node):
@@ -585,6 +683,7 @@ _attrib_colors = {
     "ptAttribActivatorList": (0.188, 0.086, 0.349, 1.0),
     "ptAttribBoolean": (0.71, 0.706, 0.655, 1.0),
     "ptAttribExcludeRegion": (0.031, 0.110, 0.290, 1.0),
+    "ptAttribDropDownList": (0.475, 0.459, 0.494, 1.0),
     "ptAttribNamedActivator": (0.188, 0.086, 0.349, 1.0),
     "ptAttribNamedResponder": (0.031, 0.110, 0.290, 1.0),
     "ptAttribResponder": (0.031, 0.110, 0.290, 1.0),
