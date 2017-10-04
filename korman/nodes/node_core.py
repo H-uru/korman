@@ -37,6 +37,11 @@ class PlasmaNodeBase:
     def get_key(self, exporter, so):
         return None
 
+    def draw_label(self):
+        if hasattr(self, "pl_label_attr") and self.hide:
+            return str(getattr(self, self.pl_label_attrib, self.bl_label))
+        return self.bl_label
+
     def export(self, exporter, bo, so):
         pass
 

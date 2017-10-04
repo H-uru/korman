@@ -411,6 +411,7 @@ class PlasmaAttribBoolNode(PlasmaAttribNodeBase, bpy.types.Node):
         self.inited = True
 
     pl_attrib = "ptAttribBoolean"
+    pl_label_attrib = "value"
     value = BoolProperty()
     inited = BoolProperty(options={"HIDDEN"})
 
@@ -431,6 +432,7 @@ class PlasmaAttribDropDownListNode(PlasmaAttribNodeBase, bpy.types.Node):
     bl_label = "Drop Down List Attribute"
 
     pl_attrib = "ptAttribDropDownList"
+    pl_label_attrib = "value"
 
     def _list_items(self, context):
         attrib = self.to_socket
@@ -464,6 +466,7 @@ class PlasmaAttribNumericNode(PlasmaAttribNodeBase, bpy.types.Node):
         self.inited = True
 
     pl_attrib = ("ptAttribFloat", "ptAttribInt")
+    pl_label_attrib = "value"
     value_int = IntProperty(update=_on_update_int, options={"HIDDEN"})
     value_float = FloatProperty(update=_on_update_float, options={"HIDDEN"})
     inited = BoolProperty(options={"HIDDEN"})
@@ -578,6 +581,7 @@ class PlasmaAttribStringNode(PlasmaAttribNodeBase, bpy.types.Node):
     bl_label = "String Attribute"
 
     pl_attrib = "ptAttribString"
+    pl_label_attrib = "value"
     value = StringProperty()
 
     def draw_buttons(self, context, layout):
