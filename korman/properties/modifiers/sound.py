@@ -287,6 +287,7 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
             header = plWAVHeader()
             if magic == b"RIFF":
                 size = korlib.inspect_wavefile(stream, header)
+                return (header, size)
             elif magic == b"OggS":
                 size = korlib.inspect_vorbisfile(stream, header)
                 return (header, size)
