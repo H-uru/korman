@@ -56,20 +56,32 @@ except ImportError:
 
     def inspect_voribsfile(stream, header):
         raise NotImplementedError("Ogg Vorbis not supported unless _korlib is compiled")
+else:
+    from .console import ConsoleToggler
+    from .texture import TEX_DETAIL_ALPHA, TEX_DETAIL_ADD, TEX_DETAIL_MULTIPLY
+
+    def _wave_chunks(stream):
+        while not stream.eof():
+            chunk_name = stream.read(4)
+            chunk_offset = stream.pos
+            chunk_size = stream.readInt()
+            stream.skip(chunk_size)
+            yield {"name": chunk_name, "offset": chunk_offset, "size": chunk_size}
 
     def inspect_wavefile(stream, header):
         assert stream.read(4) == b"RIFF"
         stream.readInt()
         assert stream.read(4) == b"WAVE"
-        assert stream.read(3) == b"fmt"
+
+        # Read through the chunks until we find "fmt" and "data"
+        chunks = {}
+        for chunk in _wave_chunks(stream):
+            if chunk["name"] in {b"fmt ", b"data"}:
+                chunks[chunk["name"]] = chunk
+        assert chunks[b"fmt "]
+        assert chunks[b"data"]
+
+        stream.seek(chunks[b"fmt "]["offset"])
         header.read(stream)
 
-        # read thru the chunks until we find "data"
-        while stream.read(4) != b"data" and not stream.eof():
-            stream.skip(stream.readInt())
-        assert not stream.eof()
-        size = stream.readInt()
-        return (header, size)
-else:
-    from .console import ConsoleToggler
-    from .texture import TEX_DETAIL_ALPHA, TEX_DETAIL_ADD, TEX_DETAIL_MULTIPLY
+        return chunks[b"data"]["size"]
