@@ -240,7 +240,7 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
                 plfade.lengthInSecs = 0.0
             else:
                 plfade.lengthInSecs = blfade.length
-                plfade.type = getattr(plFadeParams, blfade.fade_type)
+                plfade.type = getattr(plSound.plFadeParams, blfade.fade_type)
             plfade.currTime = -1.0
 
         # Some manual fiddling -- this is hidden deep inside the 3dsm exporter...
