@@ -132,7 +132,7 @@ class PlPyAttributeNodeOperator(NodeOperator, bpy.types.Operator):
                 else:
                     print("Found ptAttribute type '{}' with unknown arguments: {}".format(cached.attribute_type, args))
             # Add in/set any arguments provided by keyword
-            if not set(pyAttribArgMap[cached.attribute_type]).isdisjoint(attrib.keys()):
+            if cached.attribute_type in pyAttribArgMap.keys() and not set(pyAttribArgMap[cached.attribute_type]).isdisjoint(attrib.keys()):
                 argmap.update({key: attrib[key] for key in attrib if key in pyAttribArgMap[cached.attribute_type]})
             # Attach the arguments to the attribute
             if argmap:
