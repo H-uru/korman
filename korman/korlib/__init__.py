@@ -63,8 +63,8 @@ else:
     def _wave_chunks(stream):
         while not stream.eof():
             chunk_name = stream.read(4)
-            chunk_offset = stream.pos
             chunk_size = stream.readInt()
+            chunk_offset = stream.pos
             stream.skip(chunk_size)
             yield {"name": chunk_name, "offset": chunk_offset, "size": chunk_size}
 
