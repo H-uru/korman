@@ -111,9 +111,42 @@ class _GeoData:
         self.vertices = []
 
 
-class MeshConverter:
+
+class _MeshManager:
     def __init__(self, exporter):
         self._exporter = weakref.ref(exporter)
+        self._mesh_overrides = {}
+
+    def __enter__(self):
+        report = self._exporter().report
+        report.progress_advance()
+        report.progress_range = len(bpy.data.objects)
+
+        # Some modifiers like "Array" will procedurally generate new geometry that will impact
+        # lightmap generation. The Blender Internal renderer does not seem to be smart enough to
+        # take this into account. Thus, we temporarily apply modifiers to ALL meshes (even ones that
+        # are not exported) such that we can generate proper lighting.
+        scene = bpy.context.scene
+        for i in bpy.data.objects:
+            if i.type == "MESH" and i.is_modified(scene, "RENDER"):
+                # Remember, storing actual pointers to the Blender objects can cause bad things to
+                # happen because Blender's memory management SUCKS!
+                self._mesh_overrides[i.name] = i.data.name
+                i.data = i.to_mesh(scene, True, "RENDER", calc_tessface=False)
+            report.progress_increment()
+        return self
+
+    def __exit__(self, type, value, traceback):
+        data_bos, data_meshes = bpy.data.objects, bpy.data.meshes
+        for obj_name, mesh_name in self._mesh_overrides.items():
+            bo = data_bos.get(obj_name)
+            trash_mesh, bo.data = bo.data, data_meshes.get(mesh_name)
+            data_meshes.remove(trash_mesh)
+
+
+class MeshConverter(_MeshManager):
+    def __init__(self, exporter):
+        super().__init__(exporter)
         self.material = material.MaterialConverter(exporter)
 
         self._dspans = {}
@@ -403,8 +436,11 @@ class MeshConverter:
                 diface.addDrawable(dspan_key, idx)
 
     def _export_mesh(self, bo):
-        # Step 0.7: Update the mesh such that we can do things and schtuff...
-        mesh = bo.to_mesh(bpy.context.scene, True, "RENDER", calc_tessface=True)
+        # Previously, this called bo.to_mesh to apply modifiers. However, due to limitations in the
+        # lightmap generation, this is now done for all modified mesh objects before any Plasma data
+        # is exported.
+        mesh = bo.data
+        mesh.calc_tessface()
 
         # Step 0.8: Figure out which materials are attached to this object. Because Blender is backwards,
         #           we can actually have materials that are None. gotdawgit!!!
@@ -412,33 +448,32 @@ class MeshConverter:
         if not materials:
             return None
 
-        with helpers.TemporaryObject(mesh, bpy.data.meshes.remove):
-            # Step 1: Export all of the doggone materials.
-            geospans = self._export_material_spans(bo, mesh, materials)
+        # Step 1: Export all of the doggone materials.
+        geospans = self._export_material_spans(bo, mesh, materials)
 
-            # Step 2: Export Blender mesh data to Plasma GeometrySpans
-            self._export_geometry(bo, mesh, materials, geospans)
+        # Step 2: Export Blender mesh data to Plasma GeometrySpans
+        self._export_geometry(bo, mesh, materials, geospans)
 
-            # Step 3: Add plGeometrySpans to the appropriate DSpan and create indices
-            _diindices = {}
-            for geospan, pass_index in geospans:
-                dspan = self._find_create_dspan(bo, geospan.material.object, pass_index)
-                self._report.msg("Exported hsGMaterial '{}' geometry into '{}'",
-                                 geospan.material.name, dspan.key.name, indent=1)
-                idx = dspan.addSourceSpan(geospan)
-                if dspan not in _diindices:
-                    _diindices[dspan] = [idx,]
-                else:
-                    _diindices[dspan].append(idx)
+        # Step 3: Add plGeometrySpans to the appropriate DSpan and create indices
+        _diindices = {}
+        for geospan, pass_index in geospans:
+            dspan = self._find_create_dspan(bo, geospan.material.object, pass_index)
+            self._report.msg("Exported hsGMaterial '{}' geometry into '{}'",
+                             geospan.material.name, dspan.key.name, indent=1)
+            idx = dspan.addSourceSpan(geospan)
+            if dspan not in _diindices:
+                _diindices[dspan] = [idx,]
+            else:
+                _diindices[dspan].append(idx)
 
-            # Step 3.1: Harvest Span indices and create the DIIndices
-            drawables = []
-            for dspan, indices in _diindices.items():
-                dii = plDISpanIndex()
-                dii.indices = indices
-                idx = dspan.addDIIndex(dii)
-                drawables.append((dspan.key, idx))
-            return drawables
+        # Step 3.1: Harvest Span indices and create the DIIndices
+        drawables = []
+        for dspan, indices in _diindices.items():
+            dii = plDISpanIndex()
+            dii.indices = indices
+            idx = dspan.addDIIndex(dii)
+            drawables.append((dspan.key, idx))
+        return drawables
 
     def _export_material_spans(self, bo, mesh, materials):
         """Exports all Materials and creates plGeometrySpans"""
