@@ -71,8 +71,8 @@ def lighting(modifier, layout, context):
     col.label("Other Plasma lights {} be cast at runtime.".format("will" if modifier.rt_lights else "will NOT"),
               icon="LAYER_USED")
 
-    if lightmap.enabled and lightmap.light_group:
-            col.label(" All '{}' lights will be baked to a lightmap".format(lightmap.light_group),
+    if lightmap.enabled and lightmap.lights:
+            col.label(" All '{}' lights will be baked to a lightmap".format(lightmap.lights),
                       icon="LAYER_USED")
     elif have_static_lights:
         light_type = "Blender-only" if modifier.rt_lights else "unanimated"
