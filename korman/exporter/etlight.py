@@ -17,24 +17,25 @@ import bpy
 from bpy.app.handlers import persistent
 
 from .logger import ExportProgressLogger
-from .mesh import _VERTEX_COLOR_LAYERS
+from .mesh import _MeshManager, _VERTEX_COLOR_LAYERS
 from ..helpers import *
 
 _NUM_RENDER_LAYERS = 20
 
-class LightBaker:
+class LightBaker(_MeshManager):
     """ExportTime Lighting"""
 
     def __init__(self, report=None):
         self._lightgroups = {}
         if report is None:
             self._report = ExportProgressLogger()
-            self.add_progress_steps(self._report)
+            self.add_progress_steps(self._report, True)
             self._report.progress_start("PREVIEWING LIGHTING")
             self._own_report = True
         else:
             self._report = report
             self._own_report = False
+        super().__init__(self._report)
         self._uvtexs = {}
 
     def __del__(self):
@@ -42,7 +43,9 @@ class LightBaker:
             self._report.progress_end()
 
     @staticmethod
-    def add_progress_steps(report):
+    def add_progress_steps(report, add_base=False):
+        if add_base:
+            _MeshManager.add_progress_presteps(report)
         report.progress_add_step("Searching for Bahro")
         report.progress_add_step("Baking Static Lighting")
 

@@ -18,6 +18,7 @@ from PyHSPlasma import *
 from math import fabs
 import weakref
 
+from ..exporter.logger import ExportProgressLogger
 from . import explosions
 from .. import helpers
 from . import material
@@ -113,14 +114,18 @@ class _GeoData:
 
 
 class _MeshManager:
-    def __init__(self, exporter):
-        self._exporter = weakref.ref(exporter)
+    def __init__(self, report=None):
+        if report is not None:
+            self._report = report
         self._mesh_overrides = {}
 
+    @staticmethod
+    def add_progress_presteps(report):
+        report.progress_add_step("Applying Blender Mods")
+
     def __enter__(self):
-        report = self._exporter().report
-        report.progress_advance()
-        report.progress_range = len(bpy.data.objects)
+        self._report.progress_advance()
+        self._report.progress_range = len(bpy.data.objects)
 
         # Some modifiers like "Array" will procedurally generate new geometry that will impact
         # lightmap generation. The Blender Internal renderer does not seem to be smart enough to
@@ -133,7 +138,7 @@ class _MeshManager:
                 # happen because Blender's memory management SUCKS!
                 self._mesh_overrides[i.name] = i.data.name
                 i.data = i.to_mesh(scene, True, "RENDER", calc_tessface=False)
-            report.progress_increment()
+            self._report.progress_increment()
         return self
 
     def __exit__(self, type, value, traceback):
@@ -146,11 +151,14 @@ class _MeshManager:
 
 class MeshConverter(_MeshManager):
     def __init__(self, exporter):
-        super().__init__(exporter)
+        self._exporter = weakref.ref(exporter)
         self.material = material.MaterialConverter(exporter)
 
         self._dspans = {}
         self._mesh_geospans = {}
+
+        # _report is a property on this subclass
+        super().__init__()
 
     def _calc_num_uvchans(self, bo, mesh):
         max_user_texs = plGeometrySpan.kUVCountMask

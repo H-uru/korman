@@ -39,10 +39,10 @@ class LightmapAutobakePreviewOperator(_LightingOperator, bpy.types.Operator):
         with GoodNeighbor() as toggle:
             toggle.track(context.scene, "layers", tuple(context.scene.layers))
 
-            bake = LightBaker()
-            if not bake.bake_static_lighting([context.active_object,]):
-                self.report({"INFO"}, "No valid lights found to bake.")
-                return {"FINISHED"}
+            with LightBaker() as bake:
+                if not bake.bake_static_lighting([context.active_object,]):
+                    self.report({"INFO"}, "No valid lights found to bake.")
+                    return {"FINISHED"}
 
         tex = bpy.data.textures.get("LIGHTMAPGEN_PREVIEW")
         if tex is None:

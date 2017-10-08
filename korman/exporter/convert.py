@@ -54,7 +54,7 @@ class Exporter:
             self.sumfile = sumfile.SumFile()
 
             # Step 0.8: Init the progress mgr
-            self.report.progress_add_step("Applying Blender Mods")
+            self.mesh.add_progress_presteps(self.report)
             self.report.progress_add_step("Collecting Objects")
             self.report.progress_add_step("Harvesting Actors")
             if self._op.bake_lighting:
