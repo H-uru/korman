@@ -352,13 +352,23 @@ class LightBaker:
         if isinstance(objs, bpy.types.Object):
             toggle.track(objs, "hide_render", False)
             for i in bpy.data.objects:
-                i.select = i == objs
+                if i == objs:
+                    # prevents proper baking to texture
+                    for mat in i.data.materials:
+                        toggle.track(mat, "use_vertex_color_paint", False)
+                    i.select = True
+                else:
+                    i.select = False
+
                 if isinstance(i.data, bpy.types.Mesh) and not self._has_valid_material(i):
                     toggle.track(i, "hide_render", True)
         else:
             for i in bpy.data.objects:
                 value = i in objs
                 if value:
+                    # prevents proper baking to texture
+                    for mat in i.data.materials:
+                        toggle.track(mat, "use_vertex_color_paint", False)
                     toggle.track(i, "hide_render", False)
                 elif isinstance(i.data, bpy.types.Mesh) and not self._has_valid_material(i):
                     toggle.track(i, "hide_render", True)
