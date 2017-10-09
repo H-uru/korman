@@ -23,6 +23,8 @@ class _LightingOperator:
 
     @classmethod
     def poll(cls, context):
+        if context.mode != "OBJECT":
+            return False
         if context.object is not None:
             return context.scene.render.engine == "PLASMA_GAME"
 

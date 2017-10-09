@@ -278,12 +278,19 @@ class LightBaker:
         uv_base = self._get_lightmap_uvtex(mesh, modifier)
         if uv_base is not None:
             uv_textures.active = uv_base
+
             # this will copy the UVs to the new UV texture
             uvtex = uv_textures.new("LIGHTMAPGEN")
             uv_textures.active = uvtex
-            self._associate_image_with_uvtex(uvtex, im)
-            # here we go...
+
+            # if the artist hid any UVs, they will not be baked to... fix this now
             bpy.ops.object.mode_set(mode="EDIT")
+            bpy.ops.uv.reveal()
+            bpy.ops.object.mode_set(mode="OBJECT")
+            self._associate_image_with_uvtex(uv_textures.active, im)
+            bpy.ops.object.mode_set(mode="EDIT")
+
+            # prep the uvtex for lightmapping
             bpy.ops.mesh.select_all(action="SELECT")
             bpy.ops.uv.average_islands_scale()
             bpy.ops.uv.pack_islands()
@@ -345,13 +352,23 @@ class LightBaker:
         if isinstance(objs, bpy.types.Object):
             toggle.track(objs, "hide_render", False)
             for i in bpy.data.objects:
-                i.select = i == objs
+                if i == objs:
+                    # prevents proper baking to texture
+                    for mat in i.data.materials:
+                        toggle.track(mat, "use_vertex_color_paint", False)
+                    i.select = True
+                else:
+                    i.select = False
+
                 if isinstance(i.data, bpy.types.Mesh) and not self._has_valid_material(i):
                     toggle.track(i, "hide_render", True)
         else:
             for i in bpy.data.objects:
                 value = i in objs
                 if value:
+                    # prevents proper baking to texture
+                    for mat in i.data.materials:
+                        toggle.track(mat, "use_vertex_color_paint", False)
                     toggle.track(i, "hide_render", False)
                 elif isinstance(i.data, bpy.types.Mesh) and not self._has_valid_material(i):
                     toggle.track(i, "hide_render", True)
