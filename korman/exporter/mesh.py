@@ -117,11 +117,20 @@ class _MeshManager:
     def __init__(self, report=None):
         if report is not None:
             self._report = report
-        self._mesh_overrides = {}
+        self._overrides = {}
 
     @staticmethod
     def add_progress_presteps(report):
         report.progress_add_step("Applying Blender Mods")
+
+    def _build_prop_dict(self, bstruct):
+        props = {}
+        for i in bstruct.bl_rna.properties:
+            ident = i.identifier
+            if ident == "rna_type":
+                continue
+            props[ident] = getattr(bstruct, ident) if getattr(i, "array_length", 0) == 0 else tuple(getattr(bstruct, ident))
+        return props
 
     def __enter__(self):
         self._report.progress_advance()
@@ -136,17 +145,35 @@ class _MeshManager:
             if i.type == "MESH" and i.is_modified(scene, "RENDER"):
                 # Remember, storing actual pointers to the Blender objects can cause bad things to
                 # happen because Blender's memory management SUCKS!
-                self._mesh_overrides[i.name] = i.data.name
+                self._overrides[i.name] = { "mesh": i.data.name, "modifiers": [] }
                 i.data = i.to_mesh(scene, True, "RENDER", calc_tessface=False)
+
+                # If the modifiers are left on the object, the lightmap bake can break under some
+                # situations. Therefore, we now cache the modifiers and clear them away...
+                if i.plasma_object.enabled:
+                    cache_mods = self._overrides[i.name]["modifiers"]
+                    for mod in i.modifiers:
+                        cache_mods.append(self._build_prop_dict(mod))
+                    i.modifiers.clear()
             self._report.progress_increment()
         return self
 
     def __exit__(self, type, value, traceback):
         data_bos, data_meshes = bpy.data.objects, bpy.data.meshes
-        for obj_name, mesh_name in self._mesh_overrides.items():
+        for obj_name, override in self._overrides.items():
             bo = data_bos.get(obj_name)
-            trash_mesh, bo.data = bo.data, data_meshes.get(mesh_name)
+
+            # Reapply the old mesh
+            trash_mesh, bo.data = bo.data, data_meshes.get(override["mesh"])
             data_meshes.remove(trash_mesh)
+
+            # If modifiers were removed, reapply them now.
+            for cached_mod in override["modifiers"]:
+                mod = bo.modifiers.new(cached_mod["name"], cached_mod["type"])
+                for key, value in cached_mod.items():
+                    if key in {"name", "type"}:
+                        continue
+                    setattr(mod, key, value)
 
 
 class MeshConverter(_MeshManager):
