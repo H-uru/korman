@@ -53,7 +53,8 @@ class Exporter:
             self.animation = animation.AnimationConverter(self)
             self.sumfile = sumfile.SumFile()
 
-            # Step 0.9: Init the progress mgr
+            # Step 0.8: Init the progress mgr
+            self.mesh.add_progress_presteps(self.report)
             self.report.progress_add_step("Collecting Objects")
             self.report.progress_add_step("Harvesting Actors")
             if self._op.bake_lighting:
@@ -65,44 +66,46 @@ class Exporter:
             self.report.progress_add_step("Composing Geometry")
             self.report.progress_start("EXPORTING AGE")
 
-            # Step 1: Create the age info and the pages
-            self._export_age_info()
+            # Step 0.9: Apply modifiers to all meshes temporarily.
+            with self.mesh:
+                # Step 1: Create the age info and the pages
+                self._export_age_info()
 
-            # Step 2: Gather a list of objects that we need to export, given what the user has told
-            #         us to export (both in the Age and Object Properties)... fun
-            self._collect_objects()
+                # Step 2: Gather a list of objects that we need to export, given what the user has told
+                #         us to export (both in the Age and Object Properties)... fun
+                self._collect_objects()
 
-            # Step 2.5: Run through all the objects we collected in Step 2 and see if any relationships
-            #           that the artist made requires something to have a CoordinateInterface
-            self._harvest_actors()
+                # Step 2.5: Run through all the objects we collected in Step 2 and see if any relationships
+                #           that the artist made requires something to have a CoordinateInterface
+                self._harvest_actors()
 
-            # Step 2.9: It is assumed that static lighting is available for the mesh exporter.
-            #           Indeed, in PyPRP it was a manual step. So... BAKE NAO!
-            if self._op.bake_lighting:
-                self._bake_static_lighting()
+                # Step 2.9: It is assumed that static lighting is available for the mesh exporter.
+                #           Indeed, in PyPRP it was a manual step. So... BAKE NAO!
+                if self._op.bake_lighting:
+                    self._bake_static_lighting()
 
-            # Step 3: Export all the things!
-            self._export_scene_objects()
+                # Step 3: Export all the things!
+                self._export_scene_objects()
 
-            # Step 3.1: Ensure referenced logic node trees are exported
-            self._export_referenced_node_trees()
+                # Step 3.1: Ensure referenced logic node trees are exported
+                self._export_referenced_node_trees()
 
-            # Step 3.2: Now that all Plasma Objects (save Mipmaps) are exported, we do any post
-            #          processing that needs to inspect those objects
-            self._post_process_scene_objects()
+                # Step 3.2: Now that all Plasma Objects (save Mipmaps) are exported, we do any post
+                #          processing that needs to inspect those objects
+                self._post_process_scene_objects()
 
-            # Step 4: Finalize...
-            self.mesh.material.finalize()
-            self.mesh.finalize()
+                # Step 4: Finalize...
+                self.mesh.material.finalize()
+                self.mesh.finalize()
 
-            # Step 5: FINALLY. Let's write the PRPs and crap.
-            self.mgr.save_age(Path(self._op.filepath))
+                # Step 5: FINALLY. Let's write the PRPs and crap.
+                self.mgr.save_age(Path(self._op.filepath))
 
-            # Step 5.1: Save out the export report.
-            #           If the export fails and this doesn't save, we have bigger problems than
-            #           these little warnings and notices.
-            self.report.progress_end()
-            self.report.save()
+                # Step 5.1: Save out the export report.
+                #           If the export fails and this doesn't save, we have bigger problems than
+                #           these little warnings and notices.
+                self.report.progress_end()
+                self.report.save()
 
     def _bake_static_lighting(self):
         oven = etlight.LightBaker(self.report)
