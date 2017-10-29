@@ -73,11 +73,10 @@ class PlasmaLadderModifier(PlasmaModifierProperties):
 
         # Generate the detector's physical bounds
         det_name = "{}_LadderDetector".format(self.id_data.name)
-        bounds = bo.plasma_modifiers.collision.bounds
+        bounds = "hull" if not bo.plasma_modifiers.collision.enabled else bo.plasma_modifiers.collision.bounds
         simIface, physical = exporter.physics.generate_physical(bo, so, bounds, det_name)
         physical.memberGroup = plSimDefs.kGroupDetector
         physical.reportGroup |= 1 << plSimDefs.kGroupAvatar
-        physical.boundsType = plSimDefs.kHullBounds
 
     @property
     def requires_actor(self):
