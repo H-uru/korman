@@ -188,20 +188,23 @@ class AnimationConverter:
                 applicator.channel = channel
                 yield applicator
         elif falloff == "INVERSE_SQUARE":
-            def convert_quadratic_atten(distance, energy):
-                intens = abs(energy[0])
-                atten_end = distance[0] if lamp.use_sphere else distance[0] * 2
-                return light_converter.convert_attenuation_quadratic(intens, atten_end)
+            if self._mgr.getVer() >= pvMoul:
+                def convert_quadratic_atten(distance, energy):
+                    intens = abs(energy[0])
+                    atten_end = distance[0] if lamp.use_sphere else distance[0] * 2
+                    return light_converter.convert_attenuation_quadratic(intens, atten_end)
 
-            keyframes = self._process_fcurves([distance_fcurve, energy_fcurve], convert_quadratic_atten,
-                                              {"distance": lamp.distance, "energy": lamp.energy})
-            if keyframes:
-                channel = plScalarControllerChannel()
-                channel.controller = self._make_scalar_leaf_controller(keyframes, False)
-                applicator = plOmniSqApplicator()
-                applicator.channelName = name
-                applicator.channel = channel
-                yield applicator
+                keyframes = self._process_fcurves([distance_fcurve, energy_fcurve], convert_quadratic_atten,
+                                                  {"distance": lamp.distance, "energy": lamp.energy})
+                if keyframes:
+                    channel = plScalarControllerChannel()
+                    channel.controller = self._make_scalar_leaf_controller(keyframes, False)
+                    applicator = plOmniSqApplicator()
+                    applicator.channelName = name
+                    applicator.channel = channel
+                    yield applicator
+            else:
+                self._exporter().report.port("Lamp Falloff '{}' animations only partially supported for this version of Plasma", falloff, indent=3)
         else:
             self._exporter().report.warn("Lamp Falloff '{}' animations are not supported".format(falloff), ident=3)
 
