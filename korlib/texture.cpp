@@ -368,7 +368,7 @@ static PyObject* pyGLTexture_store_in_mipmap(pyGLTexture* self, PyObject* args) 
 
 static PyMethodDef pyGLTexture_Methods[] = {
     { _pycs("__enter__"), (PyCFunction)pyGLTexture__enter__, METH_NOARGS, NULL },
-    { _pycs("__exit__"), (PyCFunction)pyGLTexture__enter__, METH_VARARGS, NULL },
+    { _pycs("__exit__"), (PyCFunction)pyGLTexture__exit__, METH_VARARGS, NULL },
 
     { _pycs("generate_mipmap"), (PyCFunction)pyGLTexture_generate_mipmap, METH_NOARGS, NULL },
     { _pycs("get_level_data"), (PyCFunction)pyGLTexture_get_level_data, METH_KEYWORDS | METH_VARARGS, NULL },
