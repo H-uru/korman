@@ -95,3 +95,7 @@ class PlasmaLayer(bpy.types.PropertyGroup):
                                     description="Don't save the depth information, allowing rendering of layers behind this one",
                                     default=False,
                                     options=set())
+    decal = BoolProperty(name="Decal",
+                         description="Render on top of parent surface",
+                         default=False,
+                         options=set())

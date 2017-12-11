@@ -71,6 +71,7 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
         col.label("Miscellaneous:")
         col.active = not slot.use_stencil
         col.prop(layer_props, "opacity", text="Opacity")
+        col.prop(layer_props, "decal")
 
         col = split.column()
         col.label("Z Depth:")

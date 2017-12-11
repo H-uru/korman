@@ -328,6 +328,9 @@ class MaterialConverter:
                 state.ZFlags |= hsGMatState.kZNoZRead
             if layer_props.skip_depth_write:
                 state.ZFlags |= hsGMatState.kZNoZWrite
+            if layer_props.decal:
+                hsgmat.compFlags |= hsGMaterial.kCompDecal
+                state.ZFlags |= hsGMatState.kZIncLayer | hsGMatState.kZNoZWrite
 
         # Export the specific texture type
         self._tex_exporters[texture.type](bo, layer, slot)
