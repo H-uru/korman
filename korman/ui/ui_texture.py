@@ -68,22 +68,11 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
 
         split = layout.split()
         col = split.column()
-        col.label("Animation:")
-        col.active = self._has_animation_data(context) and not slot.use_stencil
-        col.prop(layer_props, "anim_auto_start")
-        col.prop(layer_props, "anim_loop")
-        col.separator()
-        col.label("SDL Animation:")
-        col.prop(layer_props, "anim_sdl_var", text="")
-
-        col = split.column()
         col.label("Miscellaneous:")
         col.active = not slot.use_stencil
         col.prop(layer_props, "opacity", text="Opacity")
-        col.separator()
 
-        col = col.column()
-        col.enabled = True
+        col = split.column()
         col.label("Z Depth:")
         col.prop(layer_props, "alpha_halo")
         col.prop(layer_props, "skip_depth_write")
@@ -103,6 +92,18 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
         col.label(text="")
         col.prop(layer_props, "detail_opacity_start")
         col.prop(layer_props, "detail_opacity_stop")
+
+        split = layout.split()
+        col = split.column()
+        col.label("Animation:")
+        col.active = self._has_animation_data(context) and not slot.use_stencil
+        col.prop(layer_props, "anim_auto_start")
+        col.prop(layer_props, "anim_loop")
+        col = split.column()
+        col.label("")
+        col.label("SDL Animation:")
+        col.active = self._has_animation_data(context) and not slot.use_stencil
+        col.prop(layer_props, "anim_sdl_var", text="")
 
     def _has_animation_data(self, context):
         tex = getattr(context, "texture", None)
