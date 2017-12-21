@@ -34,47 +34,58 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
     # Allows user to specify their own name stem
     ladder_name = bpy.props.StringProperty(name="Name",
                                            description="Ladder name stem",
-                                           default="Ladder")
-
+                                           default="Ladder",
+                                           options=set())
     # Basic stats
     ladder_height = bpy.props.FloatProperty(name="Height",
                                           description="Height of ladder in feet",
                                           min=6, max=1000, step=200, precision=0, default=6,
-                                          unit="LENGTH", subtype="DISTANCE")
+                                          unit="LENGTH", subtype="DISTANCE",
+                                          options=set())
     ladder_width = bpy.props.FloatProperty(name="Width",
                                            description="Width of ladder in inches",
-                                           min=30, max=42, step=100, precision=0, default=30)
+                                           min=30, max=42, step=100, precision=0, default=30,
+                                           options=set())
     rung_height = bpy.props.FloatProperty(name="Rung height",
                                           description="Height of rungs in inches",
-                                          min=1, max=6, step=100, precision=0, default=6)
+                                          min=1, max=6, step=100, precision=0, default=6,
+                                          options=set())
     # Template generation
     gen_back_guide = bpy.props.BoolProperty(name="Ladder",
                                             description="Generates helper object where ladder back should be placed",
-                                            default=True)
+                                            default=True,
+                                            options=set())
     gen_ground_guides = bpy.props.BoolProperty(name="Ground",
                                                description="Generates helper objects where ground should be placed",
-                                               default=True)
+                                               default=True,
+                                               options=set())
     gen_rung_guides = bpy.props.BoolProperty(name="Rungs",
                                              description="Generates helper objects where rungs should be placed",
-                                             default=True)
+                                             default=True,
+                                             options=set())
     rung_width_type = bpy.props.EnumProperty(name="Rung Width",
                                              description="Type of rungs to generate",
                                              items=[("FULL", "Full Width Rungs", "The rungs cross the entire width of the ladder"),
                                                     ("HALF", "Half Width Rungs", "The rungs only cross half the ladder's width, on the side where the avatar will contact them"),],
-                                             default="FULL")
+                                             default="FULL",
+                                             options=set())
     # Game options
     has_upper_entry = bpy.props.BoolProperty(name="Has Upper Entry Point",
                                              description="Specifies whether the ladder has an upper entry",
-                                             default=True)
+                                             default=True,
+                                             options=set())
     upper_entry_enabled = bpy.props.BoolProperty(name="Upper Entry Enabled",
                                                  description="Specifies whether the ladder's upper entry is enabled by default at Age start",
-                                                 default=True)
+                                                 default=True,
+                                                 options=set())
     has_lower_entry = bpy.props.BoolProperty(name="Has Lower Entry Point",
                                              description="Specifies whether the ladder has a lower entry",
-                                             default=True)
+                                             default=True,
+                                             options=set())
     lower_entry_enabled = bpy.props.BoolProperty(name="Lower Entry Enabled",
                                                  description="Specifies whether the ladder's lower entry is enabled by default at Age start",
-                                                 default=True)
+                                                 default=True,
+                                                 options=set())
 
     def draw(self, context):
         layout = self.layout
