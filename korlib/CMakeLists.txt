@@ -12,6 +12,10 @@ find_package(OpenGL REQUIRED)
 find_package(string_theory REQUIRED)
 find_package(Vorbis REQUIRED)
 
+if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" MATCHES ".*Clang")
+    set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-unused-parameter ${CMAKE_CXX_FLAGS}")
+endif()
+
 # Da files
 set(korlib_HEADERS
     buffer.h
