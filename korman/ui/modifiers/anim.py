@@ -42,6 +42,18 @@ def animation(modifier, layout, context):
         col.prop_search(modifier, "loop_start", action, "pose_markers", icon="PMARKER")
         col.prop_search(modifier, "loop_end", action, "pose_markers", icon="PMARKER")
 
+def animation_filter(modifier, layout, context):
+    split = layout.split()
+
+    col = split.column()
+    col.label("Translation:")
+    col.prop(modifier, "no_transX", text="Filter X")
+    col.prop(modifier, "no_transY", text="Filter Y")
+    col.prop(modifier, "no_transZ", text="Filter Z")
+
+    col = split.column()
+    col.label("Rotation:")
+    col.prop(modifier, "no_rotation", text="Filter Rotation")
 
 class GroupListUI(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):

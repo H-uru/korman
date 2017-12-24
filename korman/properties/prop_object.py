@@ -53,6 +53,13 @@ class PlasmaObject(bpy.types.PropertyGroup):
                              options={"HIDDEN"})
 
     @property
+    def ci_type(self):
+        if self.id_data.plasma_modifiers.animation_filter.enabled:
+            return plFilterCoordInterface
+        else:
+            return plCoordinateInterface
+
+    @property
     def has_animation_data(self):
         bo = self.id_data
         if bo.animation_data is not None:

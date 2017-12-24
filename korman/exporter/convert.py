@@ -191,7 +191,8 @@ class Exporter:
         if so is None:
             so = self.mgr.find_create_object(plSceneObject, bl=bl)
         if so.coord is None:
-            ci = self.mgr.add_object(plCoordinateInterface, bl=bl, so=so)
+            ci_cls = bl.plasma_object.ci_type
+            ci = self.mgr.add_object(ci_cls, bl=bl, so=so)
 
             # Now we have the "fun" work of filling in the CI
             ci.localToWorld = utils.matrix44(bl.matrix_basis)
