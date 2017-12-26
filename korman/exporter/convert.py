@@ -307,6 +307,7 @@ class Exporter:
         self.report.progress_advance()
         self.report.progress_range = len(self._objects)
         inc_progress = self.report.progress_increment
+        self.report.msg("\nPost-Processing SceneObjects...")
 
         mat_mgr = self.mesh.material
         for bl_obj in self._objects:

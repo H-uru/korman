@@ -17,7 +17,7 @@ import bpy
 from bpy.props import *
 from PyHSPlasma import *
 
-from ...exporter import ExportError
+from ...exporter import ExportError, ExportAssertionError
 from ...helpers import TemporaryObject
 from ... import idprops
 
@@ -240,3 +240,72 @@ class PlasmaSoftVolume(idprops.IDPropMixin, PlasmaModifierProperties):
 
     def _idprop_sources(self):
         return {"node_tree_name": bpy.data.node_groups}
+
+
+class PlasmaSubworldRegion(PlasmaModifierProperties):
+    pl_id = "subworld_rgn"
+
+    bl_category = "Region"
+    bl_label = "Subworld Region"
+    bl_description = "Subworld transition region"
+
+    subworld = PointerProperty(name="Subworld",
+                               description="Subworld to transition into",
+                               type=bpy.types.Object,
+                               poll=idprops.poll_subworld_objects)
+    transition = EnumProperty(name="Transition",
+                              description="When to transition to the new subworld",
+                              items=[("enter", "On Enter", "Transition when the avatar enters the region"),
+                                     ("exit", "On Exit", "Transition when the avatar exits the region")],
+                              default="enter",
+                              options=set())
+
+    def export(self, exporter, bo, so):
+        # Due to the fact that our subworld modifier can produce both RidingAnimatedPhysical
+        # and [HK|PX]Subworlds depending on the situation, this could get hairy, fast. 
+        # Start by surveying the lay of the land.
+        from_sub, to_sub = bo.plasma_object.subworld, self.subworld
+        from_isded = exporter.physics.is_dedicated_subworld(from_sub)
+        to_isded = exporter.physics.is_dedicated_subworld(to_sub)
+        if 1:
+            def get_log_text(bo, isded):
+                main = "[Main World]" if bo is None else bo.name
+                sub = "Subworld" if isded or bo is None else "RidingAnimatedPhysical"
+                return main, sub
+            from_name, from_type = get_log_text(from_sub, from_isded)
+            to_name, to_type = get_log_text(to_sub, to_isded)
+            exporter.report.msg("Transition from '{}' ({}) to '{}' ({})",
+                                 from_name, from_type, to_name, to_type,
+                                 indent=2)
+
+        # I think the best solution here is to not worry about the excitement mentioned above.
+        # If we encounter anything truly interesting, we can fix it in CWE more easily IMO because
+        # the game actually knows more about the avatar's state than we do here in the exporter.
+        if to_isded or (from_isded and to_sub is None):
+            region = exporter.mgr.find_create_object(plSubworldRegionDetector, so=so)
+            if to_sub is not None:
+                region.subworld = exporter.mgr.find_create_key(plSceneObject, bl=to_sub)
+            region.onExit = self.transition == "exit"
+        else:
+            msg = plRideAnimatedPhysMsg()
+            msg.BCastFlags |= plMessage.kLocalPropagate | plMessage.kPropagateToModifiers
+            msg.sender = so.key
+            msg.entering = to_sub is not None
+
+            # In Cyan's PlasmaMAX RAP detector, it acts as more of a traditional region
+            # that changes us over to a dynamic character controller on region enter and
+            # reverts on region exit. We're going for an approach that is backwards compatible
+            # with subworlds, so our enter/exit regions are separate. Here, enter/exit message
+            # corresponds with when we should trigger the transition.
+            region = exporter.mgr.find_create_object(plRidingAnimatedPhysicalDetector, so=so)
+            if self.transition == "enter":
+                region.enterMsg = msg
+            elif self.transition == "exit":
+                region.exitMsg = msg
+            else:
+                raise ExportAssertionError()
+
+        # Fancy pants region collider type shit
+        simIface, physical = exporter.physics.generate_physical(bo, so, self.id_data.plasma_modifiers.collision.bounds, self.key_name)
+        physical.memberGroup = plSimDefs.kGroupDetector
+        physical.reportGroup |= 1 << plSimDefs.kGroupAvatar

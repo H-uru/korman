@@ -81,6 +81,16 @@ class PlasmaObject(bpy.types.PropertyGroup):
                 return {"location", "rotation_euler", "scale"} & data_paths
         return False
 
+    @property
+    def subworld(self):
+        bo = self.id_data
+        while bo is not None:
+            if bo.plasma_modifiers.subworld_def.enabled:
+                return bo
+            else:
+                bo = bo.parent
+        return None
+
 
 class PlasmaNet(bpy.types.PropertyGroup):
     manual_sdl = BoolProperty(name="Override SDL",
