@@ -46,6 +46,13 @@ VIProductVersion    "0.0.0.0"
 Var BlenderDir
 Var BlenderVer
 
+;;;;;;;;;;;;;;;;;
+; Install Types ;
+;;;;;;;;;;;;;;;;;
+InstType           "Korman (32-bits)"
+InstType           "Korman (64-bits)"
+InstType           /NOCUSTOM
+
 ;;;;;;;;;;;;;
 ; Functions ;
 ;;;;;;;;;;;;;
@@ -67,18 +74,32 @@ FunctionEnd
 
 ; Checks the install dir...
 Function .onVerifyInstDir
-    IfFileExists "$INSTDIR\..\blender.exe" verify_python
+    ; Test for valid Blender
+    IfFileExists "$INSTDIR\..\blender.exe" 0 fail
+    IfFileExists "$INSTDIR\..\${PYTHON_DLL}" 0 fail
+
+    ; Try to guess if we're x64--it doesn't have BlendThumb.dll
+    IfFileExists "$INSTDIR\..\BlendThumb64.dll" 0 done
+    IfFileExists "$INSTDIR\..\BlendThumb.dll" blender_x86 blender_x64
+
+    fail:
     Abort
 
-    verify_python:
-    IfFileExists "$INSTDIR\..\${PYTHON_DLL}" done
-    Abort
+    blender_x86:
+    SetCurInstType 0
+    Goto   done
+    blender_x64:
+    SetCurInstType 1
+    Goto   done
 
     done:
 FunctionEnd
 
 ; Tries to find the Blender directory in the registry.
 Function FindBlenderDir
+    ; To prevent overwriting user data, we will only do this once
+    StrCmp     $BlenderDir "" 0 done
+
     ; Try to grab the Blender directory from the default registry...
     ReadRegStr  $BlenderDir HKLM "Software\BlenderFoundation" "Install_Dir"
     ReadRegStr  $BlenderVer HKLM "Software\BlenderFoundation" "ShortVersion"
@@ -121,6 +142,7 @@ FunctionEnd
 !insertmacro MUI_PAGE_LICENSE                   "GPLv3.txt"
 !define MUI_PAGE_CUSTOMFUNCTION_PRE             FindBlenderDir
 !insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 
@@ -136,25 +158,47 @@ FunctionEnd
 ;;;;;;;;;;;;
 ; Sections ;
 ;;;;;;;;;;;;
-Section "Runtimes"
+Section "Visual C++ Runtime"
+    SectionIn     1 2 RO
+
     SetOutPath    "$TEMP\Korman"
-    File          "Files\vcredist_x86.exe"
+    File          "Files\x86\vcredist_x86.exe"
     ExecWait      "$TEMP\Korman\vcredist_x86.exe /q /norestart"
+    ${If} ${RunningX64}
+        File      "Files\x64\vcredist_x64.exe"
+        ExecWait  "$TEMP\Korman\vcredist_x64.exe /q /norestart"
+    ${EndIf}
     RMdir         "$TEMP\Korman"
 SectionEnd
 
-Section "Files"
-    ; The entire Korman
-    SetOutPath    "$INSTDIR\scripts\addons"
-    File          /r /x "__pycache__" /x "*.pyc" /x "*.komodo*" "..\korman"
+SectionGroup /e "Korman"
+    Section "Python Addon"
+        SectionIn     1 2 RO
 
-    ; Libraries
-    SetOutPath    "$INSTDIR\python\lib\site-packages"
-    File          "Files\HSPlasma.dll"
-    File          "Files\PyHSPlasma.pyd"
-    File          "Files\NxCooking.dll"
-    File          "Files\_korlib.pyd"
+        SetOutPath    "$INSTDIR\scripts\addons"
+        File          /r /x "__pycache__" /x "*.pyc" /x "*.komodo*" /x ".vs" "..\korman"
+    SectionEnd
 
+    Section "x86 Libraries"
+        SectionIn     1 RO
+
+        SetOutPath    "$INSTDIR\python\lib\site-packages"
+        File          "Files\x86\HSPlasma.dll"
+        File          "Files\x86\PyHSPlasma.pyd"
+        File          "Files\x86\_korlib.pyd"
+    SectionEnd
+
+    Section "x64 Libraries"
+        SectionIn     2 RO
+
+        SetOutPath    "$INSTDIR\python\lib\site-packages"
+        File          "Files\x64\HSPlasma.dll"
+        File          "Files\x64\PyHSPlasma.pyd"
+        File          "Files\x64\_korlib.pyd"
+    SectionEnd
+SectionGroupEnd
+
+Section #TheRemover
     WriteRegStr HKLM "Software\Korman" "" $INSTDIR
     WriteUninstaller "$INSTDIR\korman_uninstall.exe"
 SectionEnd
@@ -164,6 +208,7 @@ Section "Uninstall"
     RMDir /r "$INSTDIR\scripts\addons\korman"
     Delete "$INSTDIR\python\lib\site-packages\HSPlasma.dll"
     Delete "$INSTDIR\python\lib\site-packages\PyHSPlasma.pyd"
+    ; Leaving the NxCooking reference in for posterity
     Delete "$INSTDIR\python\lib\site-packages\NxCooking.dll"
     Delete "$INSTDIR\python\lib\site-packages\_korlib.pyd"
     DeleteRegKey /ifempty HKLM "Software\Korman"
