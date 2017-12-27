@@ -70,14 +70,9 @@ class _RenderLevel:
 
 class _DrawableCriteria:
     def __init__(self, bo, hsgmat, pass_index):
-        for layer in hsgmat.layers:
-            if layer.object.state.blendFlags & hsGMatState.kBlendMask:
-                self.blend_span = True
-                break
-        else:
-            self.blend_span = False
-
+        self.blend_span = hsgmat.layers[0].object.state.blendFlags & hsGMatState.kBlendMask
         self.criteria = 0
+
         if self.blend_span:
             for mod in bo.plasma_modifiers.modifiers:
                 if mod.requires_face_sort:
