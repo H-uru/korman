@@ -83,7 +83,7 @@ class _DrawableCriteria:
                 if mod.requires_face_sort:
                     self.criteria |= plDrawable.kCritSortFaces
                 if mod.requires_span_sort:
-                    self.sort_spans |= plDrawable.kCritSortSpans
+                    self.criteria |= plDrawable.kCritSortSpans
         self.render_level = _RenderLevel(bo, hsgmat, pass_index, self.blend_span)
 
     def __eq__(self, other):

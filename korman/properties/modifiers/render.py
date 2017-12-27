@@ -81,6 +81,10 @@ class PlasmaFadeMod(PlasmaModifierProperties):
             mod.farOpaq = self.far_opaq
             mod.farTrans = self.far_trans
 
+    @property
+    def requires_span_sort(self):
+        return True
+
 
 class PlasmaFollowMod(idprops.IDPropObjectMixin, PlasmaModifierProperties):
     pl_id = "followmod"
