@@ -31,53 +31,75 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
     bl_description = "Adds a new Plasma Ladder"
     bl_options = {"REGISTER", "UNDO"}
 
+    # Allows user to specify their own name stem
+    ladder_name = bpy.props.StringProperty(name="Name",
+                                           description="Ladder name stem",
+                                           default="Ladder",
+                                           options=set())
     # Basic stats
     ladder_height = bpy.props.FloatProperty(name="Height",
                                           description="Height of ladder in feet",
                                           min=6, max=1000, step=200, precision=0, default=6,
-                                          unit="LENGTH", subtype="DISTANCE")
+                                          unit="LENGTH", subtype="DISTANCE",
+                                          options=set())
     ladder_width = bpy.props.FloatProperty(name="Width",
                                            description="Width of ladder in inches",
-                                           min=30, max=42, step=100, precision=0, default=30)
+                                           min=30, max=42, step=100, precision=0, default=30,
+                                           options=set())
     rung_height = bpy.props.FloatProperty(name="Rung height",
                                           description="Height of rungs in inches",
-                                          min=1, max=6, step=100, precision=0, default=6)
+                                          min=1, max=6, step=100, precision=0, default=6,
+                                          options=set())
     # Template generation
     gen_back_guide = bpy.props.BoolProperty(name="Ladder",
                                             description="Generates helper object where ladder back should be placed",
-                                            default=True)
+                                            default=True,
+                                            options=set())
     gen_ground_guides = bpy.props.BoolProperty(name="Ground",
                                                description="Generates helper objects where ground should be placed",
-                                               default=True)
+                                               default=True,
+                                               options=set())
     gen_rung_guides = bpy.props.BoolProperty(name="Rungs",
                                              description="Generates helper objects where rungs should be placed",
-                                             default=True)
+                                             default=True,
+                                             options=set())
     rung_width_type = bpy.props.EnumProperty(name="Rung Width",
                                              description="Type of rungs to generate",
                                              items=[("FULL", "Full Width Rungs", "The rungs cross the entire width of the ladder"),
                                                     ("HALF", "Half Width Rungs", "The rungs only cross half the ladder's width, on the side where the avatar will contact them"),],
-                                             default="FULL")
+                                             default="FULL",
+                                             options=set())
     # Game options
     has_upper_entry = bpy.props.BoolProperty(name="Has Upper Entry Point",
                                              description="Specifies whether the ladder has an upper entry",
-                                             default=True)
+                                             default=True,
+                                             options=set())
     upper_entry_enabled = bpy.props.BoolProperty(name="Upper Entry Enabled",
                                                  description="Specifies whether the ladder's upper entry is enabled by default at Age start",
-                                                 default=True)
+                                                 default=True,
+                                                 options=set())
     has_lower_entry = bpy.props.BoolProperty(name="Has Lower Entry Point",
                                              description="Specifies whether the ladder has a lower entry",
-                                             default=True)
+                                             default=True,
+                                             options=set())
     lower_entry_enabled = bpy.props.BoolProperty(name="Lower Entry Enabled",
                                                  description="Specifies whether the ladder's lower entry is enabled by default at Age start",
-                                                 default=True)
+                                                 default=True,
+                                                 options=set())
 
     def draw(self, context):
         layout = self.layout
         space = bpy.context.space_data
-        if (not space.local_view):
+
+        if not space.local_view:
+            box = layout.box()
+            box.label("Ladder Name:")
+            row = box.row()
+            row.alert = not self.ladder_name
+            row.prop(self, "ladder_name", text="")
+
             box = layout.box()
             box.label("Geometry:")
-
             row = box.row()
             row.alert = self.ladder_height % 2 != 0
             row.prop(self, "ladder_height")
@@ -116,13 +138,12 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
             row.label("Warning: Operator does not work in local view mode", icon="ERROR")
 
     def execute(self, context):
-        if bpy.context.mode == "OBJECT":
+        if context.mode == "OBJECT":
             self.create_ladder_objects()
-            return {"FINISHED"}
         else:
             self.report({"WARNING"}, "Ladder creation only valid in Object mode")
             return {"CANCELLED"}
-
+        return {"FINISHED"}
 
     def create_guide_rungs(self):
         bpyscene = bpy.context.scene
@@ -146,8 +167,8 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
         for rung_num in range(0, int(self.ladder_height)):
             side = "L" if (rung_num % 2) == 0 else "R"
 
-            mesh = bpy.data.meshes.new("LadderRung_{}_{}".format(side, rung_num))
-            rungs = bpy.data.objects.new("LadderRung_{}_{}".format(side, rung_num), mesh)
+            mesh = bpy.data.meshes.new("{}_Rung_{}_{}".format(self.name_stem, side, rung_num))
+            rungs = bpy.data.objects.new("{}_Rung_{}_{}".format(self.name_stem, side, rung_num), mesh)
             rungs.hide_render = True
             rungs.draw_type = "BOUNDS"
 
@@ -174,8 +195,9 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
         cursor_shift = mathutils.Matrix.Translation(bpy.context.scene.cursor_location)
 
         # Create an empty mesh and the object.
-        mesh = bpy.data.meshes.new("LadderBack")
-        back = bpy.data.objects.new("LadderBack", mesh)
+        name = "{}_Back".format(self.name_stem)
+        mesh = bpy.data.meshes.new(name)
+        back = bpy.data.objects.new(name, mesh)
         back.hide_render = True
         back.draw_type = "BOUNDS"
 
@@ -205,8 +227,9 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
 
         for pos in ("Upper", "Lower"):
             # Create an empty mesh and the object.
-            mesh = bpy.data.meshes.new("LadderGround_{}".format(pos))
-            ground = bpy.data.objects.new("LadderGround_{}".format(pos), mesh)
+            name = "{}_Ground_{}".format(self.name_stem, pos)
+            mesh = bpy.data.meshes.new(name)
+            ground = bpy.data.objects.new(name, mesh)
             ground.hide_render = True
             ground.draw_type = "BOUNDS"
 
@@ -238,8 +261,9 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
         cursor_shift = mathutils.Matrix.Translation(bpy.context.scene.cursor_location)
 
         # Create an empty mesh and the object.
-        mesh = bpy.data.meshes.new("LadderEntry_Upper")
-        upper_rgn = bpy.data.objects.new("LadderEntry_Upper", mesh)
+        name = "{}_Entry_Upper".format(self.name_stem)
+        mesh = bpy.data.meshes.new(name)
+        upper_rgn = bpy.data.objects.new(name, mesh)
         upper_rgn.hide_render = True
         upper_rgn.draw_type = "WIRE"
 
@@ -278,8 +302,9 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
         cursor_shift = mathutils.Matrix.Translation(bpy.context.scene.cursor_location)
 
         # Create an empty mesh and the object.
-        mesh = bpy.data.meshes.new("LadderEntry_Lower")
-        lower_rgn = bpy.data.objects.new("LadderEntry_Lower", mesh)
+        name = "{}_Entry_Lower".format(self.name_stem)
+        mesh = bpy.data.meshes.new(name)
+        lower_rgn = bpy.data.objects.new(name, mesh)
         lower_rgn.hide_render = True
         lower_rgn.draw_type = "WIRE"
 
@@ -334,6 +359,9 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
         bpy.ops.group.create(name="LadderGroup")
         bpy.ops.group.objects_add_active()
 
+    @property
+    def name_stem(self):
+        return self.ladder_name if self.ladder_name else "Ladder"
 
 def origin_to_bottom(obj):
     # Modified from https://blender.stackexchange.com/a/42110/3055
