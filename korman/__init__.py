@@ -41,6 +41,7 @@ def register():
     nodes.register()
     operators.register()
     properties.register()
+    ui.register()
 
 
 def unregister():
@@ -48,6 +49,7 @@ def unregister():
     bpy.utils.unregister_module(__name__)
     nodes.unregister()
     operators.unregister()
+    ui.unregister()
 
 
 if __name__ == "__main__":

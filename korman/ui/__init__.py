@@ -14,8 +14,16 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 from .ui_lamp import *
+from .ui_menus import *
 from .ui_modifiers import *
 from .ui_object import *
 from .ui_texture import *
 from .ui_toolbox import *
 from .ui_world import *
+
+
+def register():
+    ui_menus.register()
+
+def unregister():
+    ui_menus.unregister()

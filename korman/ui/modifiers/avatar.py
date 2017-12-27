@@ -17,6 +17,15 @@ import bpy
 
 from ...helpers import find_modifier
 
+def laddermod(modifier, layout, context):
+    layout.label(text="Avatar climbs facing negative Y.")
+
+    layout.prop(modifier, "is_enabled")
+    layout.prop(modifier, "num_loops")
+    layout.prop(modifier, "direction")
+
+    layout.prop(modifier, "facing_object", icon="MESH_DATA")
+
 def sittingmod(modifier, layout, context):
     layout.row().prop(modifier, "approach")
 
