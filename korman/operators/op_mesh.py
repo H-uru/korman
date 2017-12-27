@@ -26,7 +26,7 @@ class PlasmaMeshOperator:
 
 class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
     bl_idname = "mesh.plasma_ladder_add"
-    bl_label = "Ladder"
+    bl_label = "Add Ladder"
     bl_category = "Plasma"
     bl_description = "Adds a new Plasma Ladder"
     bl_options = {"REGISTER", "UNDO"}
