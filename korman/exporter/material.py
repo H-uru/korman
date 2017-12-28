@@ -304,6 +304,18 @@ class MaterialConverter:
             elif slot.blend_type == "MULTIPLY":
                 state.blendFlags |= hsGMatState.kBlendMult
 
+        # Check if this layer uses diffuse/runtime lighting
+        if not slot.use_map_color_diffuse:
+            layer.preshade = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+            layer.runtime = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+
+        # Check if this layer uses specular lighting
+        if slot.use_map_color_spec:
+            state.shadeFlags |= hsGMatState.kShadeSpecular
+        else:
+            layer.specular = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+            layer.specularPower = 1.0
+
         texture = slot.texture
 
         # Apply custom layer properties
@@ -726,6 +738,9 @@ class MaterialConverter:
         layer.preshade = utils.color(bm.diffuse_color)
         layer.runtime = utils.color(bm.diffuse_color)
         layer.specular = utils.color(bm.specular_color)
+
+        layer.specularPower = min(100.0, float(bm.specular_hardness))
+        layer.LODBias = -1.0 # Seems to be the Plasma default
 
     @property
     def _report(self):
