@@ -38,6 +38,9 @@ class PlasmaEnvMapPanel(TextureButtonsPanel, bpy.types.Panel):
         layer_props = context.texture.plasma_layer
         layout = self.layout
 
+        layout.prop(layer_props, "envmap_color")
+        layout.separator()
+
         layout.label("Visibility Sets:")
         row = layout.row()
         row.template_list("VisRegionListUI", "vis_regions", layer_props, "vis_regions", layer_props, "active_region_index",
@@ -53,9 +56,6 @@ class PlasmaEnvMapPanel(TextureButtonsPanel, bpy.types.Panel):
         rgns = layer_props.vis_regions
         if layer_props.vis_regions:
             layout.prop(rgns[layer_props.active_region_index], "control_region")
-
-        layout.separator()
-        layout.prop(layer_props, "envmap_color")
 
 
 class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
