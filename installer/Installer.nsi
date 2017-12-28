@@ -4,10 +4,7 @@
 !include MUI2.nsh
 !include WinVer.nsh
 !include x64.nsh
-!include StrFunc.nsh
-
-; Enable StrStr
-${StrStr}
+!include RegGuid.nsh
 
 ;;;;;;;;;;;;;;;;;;;;;;
 ; Installer Settings ;
@@ -43,7 +40,12 @@ VIProductVersion    "0.0.0.0"
 ;;;;;;;;;;;;;
 ; Variables ;
 ;;;;;;;;;;;;;
+!define BlenderUpgradeCode "B767E4FD-7DE7-4094-B051-3AE62E13A17A"
+!define UninstallRegKey "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
+!define UpgradeRegKey "SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UpgradeCodes"
+
 Var BlenderDir
+Var BlenderDirScanned
 Var BlenderVer
 
 ;;;;;;;;;;;;;;;;;
@@ -98,41 +100,52 @@ FunctionEnd
 ; Tries to find the Blender directory in the registry.
 Function FindBlenderDir
     ; To prevent overwriting user data, we will only do this once
-    StrCmp     $BlenderDir "" 0 done
+    StrCmp $BlenderDirScanned "" 0 done
+    StrCpy $BlenderDirScanned "true"
 
-    ; Try to grab the Blender directory from the default registry...
-    ReadRegStr  $BlenderDir HKLM "Software\BlenderFoundation" "Install_Dir"
-    ReadRegStr  $BlenderVer HKLM "Software\BlenderFoundation" "ShortVersion"
+    StrCpy $1 ""
+    find_product_code:
+    ; Blender's CPack-generated MSI package has spewed mess into hidden registry keys.
+    ; We know what the upgrade guid is, so we will use that to find the install directory
+    ; and the Blender version.
+    ${MangleGuidForRegistry} ${BlenderUpgradeCode} $0
+    EnumRegValue $0 HKLM "${UpgradeRegKey}\$0" 0
 
-    ; Bad news, old chap, certain x86 Blender versions will write their registry keys to the
-    ; x64 registry. Dang! It looks like we will have to try to hack around that. But only if
-    ; we got nothing...
+    ; If we are on a 64-bit system, we might not have found the product code guid in the 32-bit registry
+    ; ergo, we will need to change over to that registry
     ${If} ${RunningX64}
-        StrCmp  $BlenderDir "" try_again winning
+        IfErrors 0 find_uninstall_info
+        StrCmp $1 "" 0 done
+        StrCpy $1 "DEADBEEF"
 
-        try_again:
-        SetRegView  64
-        ReadRegStr  $BlenderDir HKLM "Software\BlenderFoundation" "Install_Dir"
-        ReadRegStr  $BlenderVer HKLM "Software\BlenderFoundation" "ShortVersion"
-        SetRegView  32
-
-        StrCmp  $BlenderDir "" total_phailure
-
-        ; Before we suggest this, let's make sure it's not Program Files (x64) version unleashed(TM)
-        StrCpy  $0 "$PROGRAMFILES64\" ; Otherwise, it would match ALL Program Files directories...
-        ${StrStr}  $1 $BlenderDir $0
-        StrCmp  $1 "" winning total_phailure
+        ClearErrors
+        SetRegView 64
+        Goto find_product_code
+    ${Else}
+        Goto done
     ${EndIf}
 
-    winning:
-    StrCpy  $INSTDIR "$BlenderDir\$BlenderVer"
-    Goto done
+    find_uninstall_info:
+    ; Read the Blender directory and the versions from the uninstall record
+    ${UnmangleGuidFromRegistry} $0 $1
+    StrCpy $0 "${UninstallRegKey}\{$1}"
+    ReadRegStr $BlenderDir HKLM $0 "InstallLocation"
+    IfErrors done
+    ReadRegDWORD $1 HKLM $0 "VersionMajor"
+    ReadRegDWORD $2 HKLM $0 "VersionMinor"
+    StrCpy $BlenderVer "$1.$2"
 
-    total_phailure:
-    StrCpy  $INSTDIR ""
-    Goto done
+    ; Test our detected schtuff for validity
+    ; NOTE: Windows Installer puts a trailing slash on the end of directories!
+    StrCpy $3 "$BlenderDir$BlenderVer"
+    IfFileExists "$3\*.*" 0 done
+    StrCpy $INSTDIR $3
 
     done:
+    ClearErrors
+    ${If} ${RunningX64}
+        SetRegView 32
+    ${EndIf}
 FunctionEnd
 
 ;;;;;;;;;
