@@ -733,6 +733,9 @@ class MaterialConverter:
             state.shadeFlags |= hsGMatState.kShadeNoFog # Dead in CWE
             state.shadeFlags |= hsGMatState.kShadeReallyNoFog
 
+        if bm.use_shadeless:
+            state.shadeFlags |= hsGMatState.kShadeWhite
+
         # Colors
         layer.ambient = utils.color(bpy.context.scene.world.ambient_color)
         layer.preshade = utils.color(bm.diffuse_color)
@@ -741,6 +744,15 @@ class MaterialConverter:
 
         layer.specularPower = min(100.0, float(bm.specular_hardness))
         layer.LODBias = -1.0 # Seems to be the Plasma default
+
+        if bm.emit > 0.0:
+            # Use the diffuse colour as the emit, scaled by the emit amount
+            # (maximum 2.0, so we'll also scale that by 0.5)
+            emit_scale = bm.emit * 0.5
+            layer.ambient = hsColorRGBA(bm.diffuse_color.r * emit_scale,
+                                        bm.diffuse_color.g * emit_scale,
+                                        bm.diffuse_color.b * emit_scale,
+                                        1.0)
 
     @property
     def _report(self):
