@@ -518,6 +518,10 @@ class MaterialConverter:
             # will probably want to steal it for diabolical purposes...
             pl_env.position = hsVector3(*viewpt.location)
 
+            # We'll also export it as a Root though, where supported (MOUL)
+            root = self._mgr.find_create_key(plSceneObject, bl=viewpt)
+            pl_env.rootNode = root
+
             if layer is not None:
                 layer.UVWSrc = plLayerInterface.kUVWReflect
                 layer.state.miscFlags |= hsGMatState.kMiscUseReflectionXform
