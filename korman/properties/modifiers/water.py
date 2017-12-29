@@ -120,6 +120,8 @@ class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.
             except ExportAssertionError:
                 raise ExportError("Swimming Surface '{}' must be flat".format(bo.name))
         physical.LOSDBs |= plSimDefs.kLOSDBSwimRegion
+        if exporter.mgr.getVer() != pvMoul:
+            physical.memberGroup = plSimDefs.kGroupLOSOnly
 
         # Detector region bounds
         if self.region is not None:
@@ -129,8 +131,11 @@ class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.
             det_name = "{}_SwimDetector".format(self.region.name)
             bounds = self.region.plasma_modifiers.collision.bounds
             simIface, physical = exporter.physics.generate_physical(self.region, region_so, bounds, det_name)
-            physical.memberGroup = plSimDefs.kGroupDetector
-            physical.reportGroup |= 1 << plSimDefs.kGroupAvatar
+            if exporter.mgr.getVer() == pvMoul:
+                physical.memberGroup = plSimDefs.kGroupDetector
+                physical.reportGroup |= 1 << plSimDefs.kGroupAvatar
+            else:
+                physical.memberGroup = plSimDefs.kGroupLOSOnly
 
             # I am a little concerned if we already have a plSwimDetector... I am not certain how
             # well Plasma would tolerate having a plSwimMsg with multiple regions referenced.
