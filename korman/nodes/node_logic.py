@@ -104,6 +104,9 @@ class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.typ
         simIface.setProperty(plSimulationInterface.kPinned, True)
         physical.setProperty(plSimulationInterface.kPinned, True)
         physical.LOSDBs |= plSimDefs.kLOSDBUIBlockers
+        if exporter.mgr.getVer() < pvMoul:
+            physical.memberGroup = plSimDefs.kGroupDetector
+            physical.collideGroup |= 1 << plSimDefs.kGroupDynamic
 
     @classmethod
     def _idprop_mapping(cls):
