@@ -133,9 +133,9 @@ class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.
             simIface, physical = exporter.physics.generate_physical(self.region, region_so, bounds, det_name)
             if exporter.mgr.getVer() == pvMoul:
                 physical.memberGroup = plSimDefs.kGroupDetector
-                physical.reportGroup |= 1 << plSimDefs.kGroupAvatar
             else:
                 physical.memberGroup = plSimDefs.kGroupLOSOnly
+            physical.reportGroup |= 1 << plSimDefs.kGroupAvatar
 
             # I am a little concerned if we already have a plSwimDetector... I am not certain how
             # well Plasma would tolerate having a plSwimMsg with multiple regions referenced.
