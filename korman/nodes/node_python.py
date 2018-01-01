@@ -452,9 +452,9 @@ class PlasmaAttribDropDownListNode(PlasmaAttribNodeBase, bpy.types.Node):
             self.value = attrib.simple_value
 
 
-class PlasmaAttribNumericNode(PlasmaAttribNodeBase, bpy.types.Node):
+class PlasmaAttribIntNode(PlasmaAttribNodeBase, bpy.types.Node):
     bl_category = "PYTHON"
-    bl_idname = "PlasmaAttribNumericNode"
+    bl_idname = "PlasmaAttribIntNode"
     bl_label = "Numeric Attribute"
 
     def _on_update_int(self, context):
@@ -694,7 +694,7 @@ _attrib_colors = {
     "ptAttribResponderList": (0.031, 0.110, 0.290, 1.0),
     "ptAttribString": (0.675, 0.659, 0.494, 1.0),
 
-    PlasmaAttribNumericNode.pl_attrib: (0.443, 0.439, 0.392, 1.0),
+    PlasmaAttribIntNode.pl_attrib: (0.443, 0.439, 0.392, 1.0),
     PlasmaAttribObjectNode.pl_attrib: (0.565, 0.267, 0.0, 1.0),
     PlasmaAttribTextureNode.pl_attrib: (0.035, 0.353, 0.0, 1.0),
 }
