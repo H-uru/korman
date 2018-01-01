@@ -38,3 +38,8 @@ def collision(modifier, layout, context):
     col = split.column()
     col.active = modifier.dynamic
     col.prop(modifier, "mass")
+
+def subworld_def(modifier, layout, context):
+    layout.prop(modifier, "sub_type")
+    if modifier.sub_type != "dynamicav":
+        layout.prop(modifier, "gravity")

@@ -104,6 +104,49 @@ class AnimGroupObject(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
         return {"child_anim": "object_name"}
 
 
+class PlasmaAnimationFilterModifier(PlasmaModifierProperties):
+    pl_id = "animation_filter"
+
+    bl_category = "Animation"
+    bl_label = "Filter Transform"
+    bl_description = "Filter animation components"
+    bl_icon = "UNLINKED"
+
+    no_rotation = BoolProperty(name="Filter Rotation",
+                               description="Filter rotations",
+                               options=set())
+
+    no_transX = BoolProperty(name="Filter X Translation",
+                             description="Filter the X component of translations",
+                             options=set())
+    no_transY = BoolProperty(name="Filter Y Translation",
+                             description="Filter the Y component of translations",
+                             options=set())
+    no_transZ = BoolProperty(name="Filter Z Translation",
+                             description="Filter the Z component of translations",
+                             options=set())
+
+    def export(self, exporter, bo, so):
+        # By this point, the object should already have a plFilterCoordInterface
+        # created by the converter. Let's test that assumption.
+        coord = so.coord.object
+        assert isinstance(coord, plFilterCoordInterface)
+
+        # Apply filtercoordinterface properties
+        if self.no_rotation:
+            coord.filterMask |= plFilterCoordInterface.kNoRotation
+        if self.no_transX:
+            coord.filterMask |= plFilterCoordInterface.kNoTransX
+        if self.no_transY:
+            coord.filterMask |= plFilterCoordInterface.kNoTransY
+        if self.no_transZ:
+            coord.filterMask |= plFilterCoordInterface.kNoTransZ
+
+    @property
+    def requires_actor(self):
+        return True
+
+
 class PlasmaAnimationGroupModifier(ActionModifier, PlasmaModifierProperties):
     pl_id = "animation_group"
     pl_depends = {"animation"}

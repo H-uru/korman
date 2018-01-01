@@ -39,3 +39,9 @@ def softvolume(modifier, layout, context):
         col = split.column()
         col.prop(modifier, "invert")
         col.prop(modifier, "soft_distance")
+
+def subworld_rgn(modifier, layout, context):
+    layout.prop(modifier, "subworld")
+    collision_mod = modifier.id_data.plasma_modifiers.collision
+    layout.prop(collision_mod, "bounds")
+    layout.prop(modifier, "transition")

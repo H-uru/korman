@@ -18,6 +18,7 @@ from bpy.props import *
 from PyHSPlasma import *
 
 from .base import PlasmaModifierProperties
+from ...exporter import ExportError
 
 # These are the kinds of physical bounds Plasma can work with.
 # This sequence is acceptable in any EnumProperty
@@ -84,32 +85,6 @@ class PlasmaCollider(PlasmaModifierProperties):
         if self.terrain:
             physical.LOSDBs |= plSimDefs.kLOSDBAvatarWalkable
 
-    def _make_physical_movable(self, so):
-        sim = so.sim
-        if sim is not None:
-            sim = sim.object
-            phys = sim.physical.object
-            _set_phys_prop(plSimulationInterface.kPhysAnim, sim, phys)
-
-            # If the mass is zero, then we will fail to animate. Fix that.
-            if phys.mass == 0.0:
-                phys.mass = 1.0
-
-                # set kPinned so it doesn't fall through
-                _set_phys_prop(plSimulationInterface.kPinned, sim, phys)
-
-        # Do the same for child objects
-        for child in so.coord.object.children:
-            self._make_physical_movable(child.object)
-
-    def post_export(self, exporter, bo, so):
-        test_bo = bo
-        while test_bo is not None:
-            if test_bo.plasma_object.has_transform_animation:
-                self._make_physical_movable(so)
-                break
-            test_bo = test_bo.parent
-
     @property
     def key_name(self):
         return "{}_Collision".format(self.id_data.name)
@@ -117,3 +92,56 @@ class PlasmaCollider(PlasmaModifierProperties):
     @property
     def requires_actor(self):
         return self.dynamic
+
+
+class PlasmaSubworld(PlasmaModifierProperties):
+    pl_id = "subworld_def"
+
+    bl_category = "Physics"
+    bl_label = "Subworld"
+    bl_description = "Subworld definition"
+    bl_icon = "WORLD"
+
+    sub_type = EnumProperty(name="Subworld Type",
+                            description="Specifies the physics strategy to use for this subworld",
+                            items=[("auto", "Auto", "Korman will decide which physics strategy to use"),
+                                   ("dynamicav", "Dynamic Avatar", "Allows the avatar to affected by dynamic physicals"),
+                                   ("subworld", "Separate World", "Causes all objects to be placed in a separate physics simulation")],
+                            default="auto",
+                            options=set())
+    gravity = FloatVectorProperty(name="Gravity",
+        description="Subworld's gravity defined in feet per second squared",
+        size=3, default=(0.0, 0.0, -32.174), precision=3,
+        subtype="ACCELERATION", unit="ACCELERATION")
+
+    def export(self, exporter, bo, so):
+        if self.is_dedicated_subworld(exporter):
+            # NOTE to posterity... Cyan's PotS/Havok subworlds appear to have a
+            # plHKPhysical object that is set as LOSOnly convex hull. They appear to
+            # be a bounding box. PyPRP generated PRPs do not do this and work just fine,
+            # however, so this is probably just a quirk of the Havok-era PlasmaMAX
+            subworld = exporter.mgr.find_create_object(plHKSubWorld, so=so)
+            subworld.gravity = hsVector3(*self.gravity)
+
+    def is_dedicated_subworld(self, exporter):
+        if exporter.mgr.getVer() != pvMoul:
+            return True
+        if self.sub_type == "subworld":
+            return True
+        elif self.sub_type == "dynamicav":
+            return False
+        else:
+            return not self.property_unset("gravity")
+
+    def post_export(self, exporter, bo, so):
+        # It appears PotS does something really fancy with subworlds under the hood such that
+        # if you make a subworld that has collision, it will get into an infinite loop in
+        # plCoordinateInterface::IGetRoot. Not really sure why this happens (nor do I care),
+        # but we definitely don't want it to happen.
+        if bo.type != "EMPTY":
+            exporter.report.warn("Subworld '{}' is attached to a '{}'--this should be an empty.", bo.name, bo.type, indent=1)
+        if so.sim:
+            if exporter.mgr.getVer() > pvPots:
+                exporter.report.port("Subworld '{}' has physics data--this will cause PotS to crash.", bo.name, indent=1)
+            else:
+                raise ExportError("Subworld '{}' cannot have physics data (should be an empty).".format(bo.name))

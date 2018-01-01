@@ -133,6 +133,9 @@ def poll_mesh_objects(self, value):
 def poll_softvolume_objects(self, value):
     return value.plasma_modifiers.softvolume.enabled
 
+def poll_subworld_objects(self, value):
+    return value.plasma_modifiers.subworld_def.enabled
+
 def poll_visregion_objects(self, value):
     return value.plasma_modifiers.visregion.enabled
 
