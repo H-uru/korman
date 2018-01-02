@@ -210,11 +210,11 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         guitype.link_output(journalnode, "pfm", "isNotebook")
         guitype.value = self.book_type == "bkNotebook"
 
-        width = nodes.new("PlasmaAttribNumericNode")
+        width = nodes.new("PlasmaAttribIntNode")
         width.link_output(journalnode, "pfm", "BookWidth")
         width.value_float = self.book_scale_w / 100.0
 
-        height = nodes.new("PlasmaAttribNumericNode")
+        height = nodes.new("PlasmaAttribIntNode")
         height.link_output(journalnode, "pfm", "BookHeight")
         height.value_float = self.book_scale_h / 100.0
 
@@ -236,11 +236,11 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         start_open.link_output(journalnode, "pfm", "StartOpen")
         start_open.value = self.start_state == "OPEN"
 
-        width = nodes.new("PlasmaAttribNumericNode")
+        width = nodes.new("PlasmaAttribIntNode")
         width.link_output(journalnode, "pfm", "BookWidth")
         width.value_float = self.book_scale_w / 100.0
 
-        height = nodes.new("PlasmaAttribNumericNode")
+        height = nodes.new("PlasmaAttribIntNode")
         height.link_output(journalnode, "pfm", "BookHeight")
         height.value_float = self.book_scale_h / 100.0
 
