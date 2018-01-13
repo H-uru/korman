@@ -634,10 +634,9 @@ class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.typ
         self.outputs[0].link_limit = 1
 
     def draw_buttons(self, context, layout):
-        layout.prop_search(self, "material_name", bpy.data, "materials")
-        material = bpy.data.materials.get(self.material_name, None)
-        if material is not None:
-            layout.prop_search(self, "texture_name", material, "texture_slots")
+        layout.prop(self, "material")
+        if self.material is not None:
+            layout.prop(self, "texture")
 
     def get_key(self, exporter, so):
         if self.material is None:
