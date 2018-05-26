@@ -29,3 +29,4 @@ def register():
     bpy.types.Texture.plasma_layer = bpy.props.PointerProperty(type=PlasmaLayer)
     bpy.types.World.plasma_age = bpy.props.PointerProperty(type=PlasmaAge)
     bpy.types.World.plasma_fni = bpy.props.PointerProperty(type=PlasmaFni)
+    bpy.types.World.plasma_games = bpy.props.PointerProperty(type=PlasmaGames)

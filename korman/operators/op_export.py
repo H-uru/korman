@@ -20,8 +20,7 @@ from pathlib import Path
 import pstats
 
 from .. import exporter
-from ..properties.prop_world import PlasmaAge
-from ..properties.modifiers.logic import game_versions
+from ..properties.prop_world import PlasmaAge, game_versions
 from ..korlib import ConsoleToggler
 
 class ExportOperator(bpy.types.Operator):

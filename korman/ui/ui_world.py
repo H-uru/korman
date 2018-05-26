@@ -26,6 +26,43 @@ class AgeButtonsPanel:
         return context.world and context.scene.render.engine == "PLASMA_GAME"
 
 
+class PlasmaGamePanel(AgeButtonsPanel, bpy.types.Panel):
+    bl_label = "Plasma Games"
+
+    def draw(self, context):
+        layout = self.layout
+        games = context.world.plasma_games
+
+        row = layout.row()
+        row.template_list("PlasmaGameList", "games", games, "games", games,
+                          "active_game_index", rows=2)
+        col = row.column(align=True)
+        col.operator("world.plasma_game_add", icon="ZOOMIN", text="")
+        col.operator("world.plasma_game_remove", icon="ZOOMOUT", text="")
+
+        # Game Properties
+        active_game_index = games.active_game_index
+        if active_game_index < len(games.games):
+            active_game = games.games[active_game_index]
+
+            layout.separator()
+            box = layout.box()
+
+            box.prop(active_game, "path", emboss=False)
+            box.prop(active_game, "version")
+            box.separator()
+
+            row = box.row(align=True)
+            op = row.operator("world.plasma_game_add", icon="FILE_FOLDER", text="Change Path")
+            op.filepath = active_game.path
+            op.game_index = active_game_index
+
+
+class PlasmaGameList(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+        layout.prop(item, "name", text="", emboss=False, icon="BOOKMARKS")
+
+
 class PlasmaPageList(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
         layout.prop(item, "name", text="", emboss=False, icon="BOOKMARKS")
