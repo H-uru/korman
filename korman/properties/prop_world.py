@@ -191,6 +191,10 @@ class PlasmaAge(bpy.types.PropertyGroup):
     use_texture_page = BoolProperty(name="Use Textures Page",
                                     description="Exports all textures to a dedicated Textures page",
                                     default=True)
+    age_name = StringProperty(name="Age Name",
+                              description="Name of the Age to be used for data files",
+                              default="Korman Age",
+                              options=set())
 
     # Implementation details
     active_page_index = IntProperty(name="Active Page Index")

@@ -14,6 +14,9 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+from pathlib import Path
+
+from ..korlib import ConsoleToggler
 
 
 class AgeButtonsPanel:
@@ -32,6 +35,7 @@ class PlasmaGamePanel(AgeButtonsPanel, bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         games = context.world.plasma_games
+        age = context.world.plasma_age
 
         row = layout.row()
         row.template_list("PlasmaGameList", "games", games, "games", games,
@@ -56,6 +60,9 @@ class PlasmaGamePanel(AgeButtonsPanel, bpy.types.Panel):
             op = row.operator("world.plasma_game_add", icon="FILE_FOLDER", text="Change Path")
             op.filepath = active_game.path
             op.game_index = active_game_index
+            row.operator_context = "EXEC_DEFAULT"
+            op = row.operator("export.plasma_age", icon="EXPORT")
+            op.filepath = str((Path(active_game.path) / "dat" / age.age_name).with_suffix(".age"))
 
 
 class PlasmaGameList(bpy.types.UIList):
@@ -114,8 +121,24 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
         col = split.column()
         col.label("Age Settings:")
         col.prop(age, "seq_prefix", text="ID")
+        col.prop(age, "age_name", text="")
+
+        layout.separator()
+        split = layout.split()
+
+        col = split.column()
+        col.label("Export Settings:")
+        col.prop(age, "bake_lighting")
+        cons_ui = col.column()
+        cons_ui.enabled = ConsoleToggler.is_platform_supported()
+        cons_ui.prop(age, "verbose")
+        cons_ui.prop(age, "show_console")
+
+        col = split.column()
+        col.label("Plasma Settings:")
         col.prop(age, "age_sdl")
         col.prop(age, "use_texture_page")
+
 
 
 class PlasmaEnvironmentPanel(AgeButtonsPanel, bpy.types.Panel):

@@ -83,8 +83,7 @@ class ExportOperator(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        if context.object is not None:
-            return context.scene.render.engine == "PLASMA_GAME"
+        return context.scene.render.engine == "PLASMA_GAME"
 
     def execute(self, context):
         # Before we begin, do some basic sanity checking...
@@ -132,7 +131,7 @@ class ExportOperator(bpy.types.Operator):
         if not self.filepath:
             blend_filepath = context.blend_data.filepath
             if not blend_filepath:
-                blend_filepath = "Korman"
+                blend_filepath = context.scene.world.plasma_age.age_name
             self.filepath = str(Path(blend_filepath).with_suffix(".age"))
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
