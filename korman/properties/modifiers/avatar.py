@@ -77,6 +77,10 @@ class PlasmaLadderModifier(PlasmaModifierProperties):
         simIface, physical = exporter.physics.generate_physical(bo, so, bounds, det_name)
         physical.memberGroup = plSimDefs.kGroupDetector
         physical.reportGroup |= 1 << plSimDefs.kGroupAvatar
+        physical.setProperty(plSimulationInterface.kPinned, True)
+        simIface.setProperty(plSimulationInterface.kPinned, True)
+        if physical.mass == 0.0:
+            physical.mass = 1.0
 
     @property
     def requires_actor(self):
