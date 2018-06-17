@@ -34,17 +34,32 @@ class PlasmaMessageNode(PlasmaNodeBase):
         ("sender", {
             "text": "Sender",
             "type": "PlasmaMessageSocket",
+            "valid_link_sockets": "PlasmaMessageSocket",
             "spawn_empty": True,
         }),
     ])
 
     @property
     def has_callbacks(self):
-        """This message has callbacks that can be waited on by a Responder"""
+        """This message does not have callbacks that can be waited on by a Responder"""
         return False
 
 
-class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageNode, bpy.types.Node):
+class PlasmaMessageWithCallbacksNode(PlasmaMessageNode):
+    output_sockets = OrderedDict([
+        ("msgs", {
+            "text": "Send On Completion",
+            "type": "PlasmaMessageSocket",
+            "valid_link_sockets": "PlasmaMessageSocket",
+        }),
+    ])
+
+    @property
+    def has_callbacks(self):
+        """This message has callbacks that can be waited on by a Responder"""
+        return True
+
+class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaAnimCmdMsgNode"
     bl_label = "Animation Command"
@@ -407,7 +422,7 @@ class PlasmaLinkToAgeMsg(PlasmaMessageNode, bpy.types.Node):
         layout.prop(self, "spawn_point")
 
 
-class PlasmaOneShotMsgNode(idprops.IDPropObjectMixin, PlasmaMessageNode, bpy.types.Node):
+class PlasmaOneShotMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNode, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaOneShotMsgNode"
     bl_label = "One Shot"
@@ -426,7 +441,7 @@ class PlasmaOneShotMsgNode(idprops.IDPropObjectMixin, PlasmaMessageNode, bpy.typ
     animation = StringProperty(name="Animation",
                                description="Name of the animation the avatar should execute")
     marker = StringProperty(name="Marker",
-                                     description="Name of the marker specifying when to notify the Responder")
+                            description="Name of the marker specifying when to notify the Responder")
     drivable = BoolProperty(name="Drivable",
                             description="Player retains control of the avatar during the OneShot",
                             default=False)
@@ -523,7 +538,7 @@ class PlasmaSceneObjectMsgRcvrNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bp
         return {"target_object": "object_name"}
 
 
-class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageNode, bpy.types.Node):
+class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNode, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaSoundMsgNode"
     bl_label = "Sound"
@@ -646,16 +661,12 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageNode, bpy.types
         layout.prop(self, "looping")
         layout.prop(self, "volume")
 
-    @property
-    def has_callbacks(self):
-        return True
-
     @classmethod
     def _idprop_mapping(cls):
         return {"emitter_object": "object_name"}
 
 
-class PlasmaTimerCallbackMsgNode(PlasmaMessageNode, bpy.types.Node):
+class PlasmaTimerCallbackMsgNode(PlasmaMessageWithCallbacksNode, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaTimerCallbackMsgNode"
     bl_label = "Timed Callback"
@@ -676,10 +687,6 @@ class PlasmaTimerCallbackMsgNode(PlasmaMessageNode, bpy.types.Node):
         msg = plTimerCallbackMsg()
         msg.time = self.delay
         return msg
-
-    @property
-    def has_callbacks(self):
-        return True
 
 
 class PlasmaFootstepSoundMsgNode(PlasmaMessageNode, bpy.types.Node):

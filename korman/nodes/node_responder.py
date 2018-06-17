@@ -126,9 +126,10 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
     ])
 
     output_sockets = OrderedDict([
-        ("cmds", {
-            "text": "Commands",
-            "type": "PlasmaRespCommandSocket",
+        ("msgs", {
+            "text": "Send Message",
+            "type": "PlasmaMessageSocket",
+            "valid_link_sockets": "PlasmaMessageSocket",
         }),
         ("gotostate", {
             "link_limit": 1,
@@ -182,11 +183,43 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
 
         # Convert the commands
         commands = CommandMgr()
-        for i in self.find_outputs("cmds", "PlasmaResponderCommandNode"):
+        for i in self.find_outputs("msgs"):
             # slight optimization--commands attached to states can't wait on other commands
             # namely because it's impossible to wait on a command that doesn't exist...
-            i.convert_command(exporter, so, stateMgr.responder, commands)
+            self._generate_command(exporter, so, stateMgr.responder, commands, i)
         commands.save(state)
+
+    def _generate_command(self, exporter, so, responder, commandMgr, msgNode, waitOn=-1):
+        def prepare_message(exporter, so, responder, commandMgr, waitOn, msg):
+            idx, command = commandMgr.add_command(self, waitOn)
+            if msg.sender is None:
+                msg.sender = responder.key
+            msg.BCastFlags |= plMessage.kLocalPropagate
+            command.msg = msg
+            return (idx, command)
+
+        # HACK: Some message nodes may need to sneakily send multiple messages. So, convert_message
+        # is therefore now a generator. We will ASSume that the first message generated is the
+        # primary msg that we should use for callbacks, if applicable
+        if inspect.isgeneratorfunction(msgNode.convert_message):
+            messages = tuple(msgNode.convert_message(exporter, so))
+            msg = messages[0]
+            for i in messages[1:]:
+                prepare_message(exporter, so, responder, commandMgr, waitOn, i)
+        else:
+            msg = msgNode.convert_message(exporter, so)
+        idx, command = prepare_message(exporter, so, responder, commandMgr, waitOn, msg)
+
+        # If the callback message node is not properly set up for event callbacks, we don't want to
+        if msgNode.has_callbacks and msgNode.find_output("msgs"):
+            childWaitOn = commandMgr.add_wait(idx)
+            msgNode.convert_callback_message(exporter, so, msg, responder.key, childWaitOn)
+        else:
+            childWaitOn = waitOn
+
+        # Export any linked callback messages
+        for i in msgNode.find_outputs("msgs"):
+            self._generate_command(exporter, so, responder, commandMgr, i, childWaitOn)
 
     def update(self):
         super().update()
@@ -231,6 +264,7 @@ class PlasmaResponderCommandNode(PlasmaNodeBase, bpy.types.Node):
     ])
 
     def convert_command(self, exporter, so, responder, commandMgr, waitOn=-1):
+        raise RuntimeError()
         def prepare_message(exporter, so, responder, commandMgr, waitOn, msg):
             idx, command = commandMgr.add_command(self, waitOn)
             if msg.sender is None:
