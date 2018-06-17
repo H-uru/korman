@@ -170,7 +170,13 @@ class PlasmaNodeBase:
         input_defs, output_defs = self._socket_defs
         for defs, sockets in ((input_defs, self.inputs), (output_defs, self.outputs)):
             done = set()
-            for i, socket in enumerate(sockets):
+
+            # Need to enumerate by hand because blendsucks has major (crashing) issues if we modify
+            # this swhizzle while stuff is going down.
+            i = 0
+            while i < len(sockets):
+                socket = sockets[i]
+
                 options = defs.get(socket.alias, None)
                 if options is None or socket.bl_idname != options["type"]:
                     sockets.remove(socket)
@@ -226,6 +232,8 @@ class PlasmaNodeBase:
                         while len(empty_sockets) > 1:
                             sockets.remove(empty_sockets.pop())
                 done.add(socket.alias)
+
+                i += 1
 
             # Create any new sockets
             for alias in (j for j in defs if j not in done):
