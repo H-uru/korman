@@ -193,7 +193,6 @@ class PlasmaAge(bpy.types.PropertyGroup):
                                     default=True)
     age_name = StringProperty(name="Age Name",
                               description="Name of the Age to be used for data files",
-                              default="Korman Age",
                               options=set())
 
     # Implementation details

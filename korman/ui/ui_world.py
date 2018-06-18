@@ -60,7 +60,9 @@ class PlasmaGamePanel(AgeButtonsPanel, bpy.types.Panel):
             op = row.operator("world.plasma_game_add", icon="FILE_FOLDER", text="Change Path")
             op.filepath = active_game.path
             op.game_index = active_game_index
+            row = row.row(align=True)
             row.operator_context = "EXEC_DEFAULT"
+            row.enabled = bool(age.age_name.strip())
             op = row.operator("export.plasma_age", icon="EXPORT")
             op.filepath = str((Path(active_game.path) / "dat" / age.age_name).with_suffix(".age"))
 
@@ -121,6 +123,7 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
         col = split.column()
         col.label("Age Settings:")
         col.prop(age, "seq_prefix", text="ID")
+        col.alert = not age.age_name.strip()
         col.prop(age, "age_name", text="")
 
         layout.separator()
