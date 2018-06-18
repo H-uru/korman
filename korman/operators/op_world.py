@@ -36,9 +36,10 @@ class GameAddOperator(AgeOperator, bpy.types.Operator):
         if w:
             # First, verify this is a valid Uru directory...
             path = Path(self.filepath)
+
+            # Blendsucks likes to tack filenames onto our doggone directories...
             if not path.is_dir():
-                self.report({"ERROR"}, "The selection is not a valid directory.")
-                return {"CANCELLED"}
+                path = path.parent
             if not ((path / "UruExplorer.exe").is_file() or (path / "plClient.exe").is_file()):
                 self.report({"ERROR"}, "The selected directory is not a copy of URU.")
                 return {"CANCELLED"}
@@ -53,7 +54,7 @@ class GameAddOperator(AgeOperator, bpy.types.Operator):
                 game = games.games[self.game_index]
 
             # Setup game...
-            game.path = self.filepath
+            game.path = str(path)
             if (path / "cypython22.dll").is_file():
                 game.version = "pvPots"
             else:
