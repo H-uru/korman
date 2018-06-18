@@ -457,17 +457,16 @@ class PlasmaAttribIntNode(PlasmaAttribNodeBase, bpy.types.Node):
     bl_idname = "PlasmaAttribIntNode"
     bl_label = "Numeric Attribute"
 
-    def _on_update_int(self, context):
-        self.value_float = float(self.value_int)
-        self.inited = True
-
+    def _get_int(self):
+        return round(self.value_float)
+    def _set_int(self, value):
+        self.value_float = float(value)
     def _on_update_float(self, context):
-        self.value_int = int(self.value_float)
         self.inited = True
 
     pl_attrib = ("ptAttribFloat", "ptAttribInt")
     pl_label_attrib = "value"
-    value_int = IntProperty(update=_on_update_int, options={"HIDDEN"})
+    value_int = IntProperty(get=_get_int, set=_set_int, options={"HIDDEN"})
     value_float = FloatProperty(update=_on_update_float, options={"HIDDEN"})
     inited = BoolProperty(options={"HIDDEN"})
 
@@ -499,13 +498,15 @@ class PlasmaAttribIntNode(PlasmaAttribNodeBase, bpy.types.Node):
             self.value = attrib.simple_value
             self.inited = True
 
-    @property
-    def value(self):
+    def _get_value(self):
         attrib = self.to_socket
         if attrib is None or attrib.attribute_type == "ptAttribInt":
             return self.value_int
         else:
             return self.value_float
+    def _set_value(self, value):
+        self.value_float = value
+    value = property(_get_value, _set_value)
 
     def _range_label(self, layout):
         attrib = self.to_socket
