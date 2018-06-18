@@ -65,11 +65,22 @@ class PlasmaNodeBase:
                     if idname is None or idname == node.bl_idname:
                         yield node
 
-    def find_input_socket(self, key):
+    def find_input_socket(self, key, spawn_empty=False):
+        # In the case that this socket will be used to make new input linkage,
+        # we might want to allow the spawning of a new input socket... :)
+        # This will only be done if the node's socket definitions allow it.
+        options = self._socket_defs[0].get(key, {})
+        spawn_empty = spawn_empty and options.get("spawn_empty", False)
+
         for i in self.inputs:
             if i.alias == key:
+                if spawn_empty and i.is_linked:
+                    continue
                 return i
-        raise KeyError(key)
+        if spawn_empty:
+            return self._spawn_socket(key, options, self.inputs)
+        else:
+            raise KeyError(key)
 
     def find_input_sockets(self, key, idname=None):
         for i in self.inputs:
@@ -118,7 +129,7 @@ class PlasmaNodeBase:
     def link_input(self, node, out_key, in_key):
         """Links a given Node's output socket to a given input socket on this Node"""
         if isinstance(in_key, str):
-            in_socket = self.find_input_socket(in_key)
+            in_socket = self.find_input_socket(in_key, spawn_empty=True)
         else:
             in_socket = in_key
         if isinstance(out_key, str):
@@ -130,7 +141,7 @@ class PlasmaNodeBase:
     def link_output(self, node, out_key, in_key):
         """Links a given Node's input socket to a given output socket on this Node"""
         if isinstance(in_key, str):
-            in_socket = node.find_input_socket(in_key)
+            in_socket = node.find_input_socket(in_key, spawn_empty=True)
         else:
             in_socket = in_key
         if isinstance(out_key, str):
@@ -161,6 +172,15 @@ class PlasmaNodeBase:
         return (getattr(self.__class__, "input_sockets", {}),
                 getattr(self.__class__, "output_sockets", {}))
 
+    def _spawn_socket(self, key, options, sockets):
+        socket = sockets.new(options["type"], options["text"], key)
+        link_limit = options.get("link_limit", None)
+        if link_limit is not None:
+            socket.link_limit = link_limit
+        socket.hide = options.get("hidden", False)
+        socket.hide_value = options.get("hidden", False)
+        return socket
+
     def _tattle(self, socket, link, reason):
         direction = "->" if socket.is_output else "<-"
         print("Removing {} {} {} {}".format(link.from_node.name, direction, link.to_node.name, reason))
@@ -187,6 +207,8 @@ class PlasmaNodeBase:
                 link_limit = options.get("link_limit", None)
                 if link_limit is not None:
                     socket.link_limit = link_limit
+                socket.hide = options.get("hidden", False)
+                socket.hide_value = options.get("hidden", False)
 
                 # Make sure the link is good
                 allowed_sockets = options.get("valid_link_sockets", None)
@@ -237,11 +259,12 @@ class PlasmaNodeBase:
 
             # Create any new sockets
             for alias in (j for j in defs if j not in done):
-                options = defs[alias]
-                socket = sockets.new(options["type"], options["text"], alias)
-                link_limit = options.get("link_limit", None)
-                if link_limit is not None:
-                    socket.link_limit = link_limit
+                self._spawn_socket(alias, defs[alias], sockets)
+
+    def _whine(self, msg, *args):
+        if args:
+            msg = msg.format(*args)
+        print("'{}' Node '{}': Whinging about {}".format(self.bl_idname, self.name, msg))
 
 
 class PlasmaTreeOutputNodeBase(PlasmaNodeBase):

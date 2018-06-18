@@ -126,6 +126,14 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
     ])
 
     output_sockets = OrderedDict([
+        # This socket has been deprecated.
+        ("cmds", {
+            "text": "Commands",
+            "type": "PlasmaRespCommandSocket",
+            "hidden": True,
+        }),
+
+        # These sockets are valid.
         ("msgs", {
             "text": "Send Message",
             "type": "PlasmaMessageSocket",
@@ -233,99 +241,3 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
 
 class PlasmaRespStateSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
     bl_color = (0.388, 0.78, 0.388, 1.0)
-
-
-class PlasmaResponderCommandNode(PlasmaNodeBase, bpy.types.Node):
-    bl_category = "LOGIC"
-    bl_idname = "PlasmaResponderCommandNode"
-    bl_label = "Responder Command"
-
-    input_sockets = OrderedDict([
-        ("whodoneit", {
-            "text": "Condition",
-            "type": "PlasmaRespCommandSocket",
-        }),
-    ])
-
-    output_sockets = OrderedDict([
-        ("msg", {
-            "link_limit": 1,
-            "text": "Message",
-            "type": "PlasmaMessageSocket",
-        }),
-        ("trigger", {
-            "text": "Trigger",
-            "type": "PlasmaRespCommandSocket",
-        }),
-        ("reenable", {
-            "text": "Local Reenable",
-            "type": "PlasmaEnableMessageSocket",
-        }),
-    ])
-
-    def convert_command(self, exporter, so, responder, commandMgr, waitOn=-1):
-        raise RuntimeError()
-        def prepare_message(exporter, so, responder, commandMgr, waitOn, msg):
-            idx, command = commandMgr.add_command(self, waitOn)
-            if msg.sender is None:
-                msg.sender = responder.key
-            msg.BCastFlags |= plMessage.kLocalPropagate
-            command.msg = msg
-            return (idx, command)
-
-        # If this command has no message, there is no need to export it...
-        msgNode = self.find_output("msg")
-        if msgNode is not None:
-            # HACK: Some message nodes may need to sneakily send multiple messages. So, convert_message
-            # is therefore now a generator. We will ASSume that the first message generated is the
-            # primary msg that we should use for callbacks, if applicable
-            if inspect.isgeneratorfunction(msgNode.convert_message):
-                messages = tuple(msgNode.convert_message(exporter, so))
-                msg = messages[0]
-                for i in messages[1:]:
-                    prepare_message(exporter, so, responder, commandMgr, waitOn, i)
-            else:
-                msg = msgNode.convert_message(exporter, so)
-            idx, command = prepare_message(exporter, so, responder, commandMgr, waitOn, msg)
-
-            # If we have child commands, we need to make sure that we support chaining this message as a callback
-            # If not, we'll export our children and tell them to not actually wait on us.
-            haveChildren = self.find_output("trigger", "PlasmaResponderCommandNode") is not None or \
-                           self.find_output("reenable") is not None
-            if msgNode.has_callbacks and haveChildren:
-                childWaitOn = commandMgr.add_wait(idx)
-                msgNode.convert_callback_message(exporter, so, msg, responder.key, childWaitOn)
-            else:
-                childWaitOn = waitOn
-        else:
-            childWaitOn = waitOn
-
-        # If they linked us back to a condition or something that exports a LogicModifier, that
-        # means we need to reenable it here... NOTE: it would be incredibly stupid to do this
-        # if we're not waiting on anything to complete
-        if childWaitOn != -1:
-            for child in self.find_outputs("reenable"):
-                key = child.get_key(exporter, so)
-                if key is None:
-                    continue
-                logicmod = key.object
-                if not isinstance(logicmod, plLogicModifier):
-                    continue
-                logicmod.setLogicFlag(plLogicModifier.kOneShot, True)
-
-                # Yep, this is an entirely new ResponderCommand that sends a plEnableMsg
-                enableMsg = plEnableMsg()
-                enableMsg.addReceiver(key)
-                enableMsg.sender = responder.key
-                enableMsg.BCastFlags |= plMessage.kLocalPropagate
-                enableMsg.setCmd(plEnableMsg.kEnable, True)
-                logicCmdIdx, logicCmd = commandMgr.add_command(self, childWaitOn)
-                logicCmd.msg = enableMsg
-
-        # Export any child commands
-        for i in self.find_outputs("trigger", "PlasmaResponderCommandNode"):
-            i.convert_command(exporter, so, responder, commandMgr, childWaitOn)
-
-
-class PlasmaRespCommandSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
-    bl_color = (0.451, 0.0, 0.263, 1.0)

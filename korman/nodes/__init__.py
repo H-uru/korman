@@ -22,6 +22,7 @@ import nodeitems_utils
 from .node_avatar import *
 from .node_conditions import *
 from .node_core import *
+from .node_deprecated import *
 from .node_logic import *
 from .node_messages import *
 from .node_python import *
@@ -53,7 +54,11 @@ _kategory_names = {
 _kategories = {}
 for cls in dict(globals()).values():
     if inspect.isclass(cls):
-        if not issubclass(cls, PlasmaNodeBase) or not issubclass(cls, bpy.types.Node):
+        if not issubclass(cls, PlasmaNodeBase):
+            continue
+        if not issubclass(cls, bpy.types.Node):
+            continue
+        if issubclass(cls, PlasmaDeprecatedNode):
             continue
     else:
         continue
