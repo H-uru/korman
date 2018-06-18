@@ -18,12 +18,9 @@ from bpy.props import *
 from PyHSPlasma import *
 
 from .base import PlasmaModifierProperties
+from ..prop_world import game_versions
 from ...exporter import ExportError
 from ... import idprops
-
-game_versions = [("pvPrime", "Ages Beyond Myst (63.11)", "Targets the original Uru (Live) game"),
-                 ("pvPots", "Path of the Shell (63.12)", "Targets the most recent offline expansion pack"),
-                 ("pvMoul", "Myst Online: Uru Live (70)", "Targets the most recent online game")]
 
 class PlasmaVersionedNodeTree(idprops.IDPropMixin, bpy.types.PropertyGroup):
     name = StringProperty(name="Name")

@@ -14,6 +14,9 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+from pathlib import Path
+
+from ..korlib import ConsoleToggler
 
 
 class AgeButtonsPanel:
@@ -24,6 +27,49 @@ class AgeButtonsPanel:
     @classmethod
     def poll(cls, context):
         return context.world and context.scene.render.engine == "PLASMA_GAME"
+
+
+class PlasmaGamePanel(AgeButtonsPanel, bpy.types.Panel):
+    bl_label = "Plasma Games"
+
+    def draw(self, context):
+        layout = self.layout
+        games = context.world.plasma_games
+        age = context.world.plasma_age
+
+        row = layout.row()
+        row.template_list("PlasmaGameList", "games", games, "games", games,
+                          "active_game_index", rows=2)
+        col = row.column(align=True)
+        col.operator("world.plasma_game_add", icon="ZOOMIN", text="")
+        col.operator("world.plasma_game_remove", icon="ZOOMOUT", text="")
+
+        # Game Properties
+        active_game_index = games.active_game_index
+        if active_game_index < len(games.games):
+            active_game = games.games[active_game_index]
+
+            layout.separator()
+            box = layout.box()
+
+            box.prop(active_game, "path", emboss=False)
+            box.prop(active_game, "version")
+            box.separator()
+
+            row = box.row(align=True)
+            op = row.operator("world.plasma_game_add", icon="FILE_FOLDER", text="Change Path")
+            op.filepath = active_game.path
+            op.game_index = active_game_index
+            row = row.row(align=True)
+            row.operator_context = "EXEC_DEFAULT"
+            row.enabled = bool(age.age_name.strip())
+            op = row.operator("export.plasma_age", icon="EXPORT")
+            op.filepath = str((Path(active_game.path) / "dat" / age.age_name).with_suffix(".age"))
+
+
+class PlasmaGameList(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+        layout.prop(item, "name", text="", emboss=False, icon="BOOKMARKS")
 
 
 class PlasmaPageList(bpy.types.UIList):
@@ -77,8 +123,25 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
         col = split.column()
         col.label("Age Settings:")
         col.prop(age, "seq_prefix", text="ID")
+        col.alert = not age.age_name.strip()
+        col.prop(age, "age_name", text="")
+
+        layout.separator()
+        split = layout.split()
+
+        col = split.column()
+        col.label("Export Settings:")
+        col.prop(age, "bake_lighting")
+        cons_ui = col.column()
+        cons_ui.enabled = ConsoleToggler.is_platform_supported()
+        cons_ui.prop(age, "verbose")
+        cons_ui.prop(age, "show_console")
+
+        col = split.column()
+        col.label("Plasma Settings:")
         col.prop(age, "age_sdl")
         col.prop(age, "use_texture_page")
+
 
 
 class PlasmaEnvironmentPanel(AgeButtonsPanel, bpy.types.Panel):

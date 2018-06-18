@@ -14,12 +14,77 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
-
+from bpy.props import *
+from pathlib import Path
 
 class AgeOperator:
     @classmethod
     def poll(cls, context):
         return context.scene.render.engine == "PLASMA_GAME"
+
+
+class GameAddOperator(AgeOperator, bpy.types.Operator):
+    bl_idname = "world.plasma_game_add"
+    bl_label = "Add Plasma Game"
+
+    filepath = StringProperty(subtype="DIR_PATH")
+    directory = BoolProperty(default=True, options={"HIDDEN"})
+    game_index = IntProperty(default=-1, options={"HIDDEN"})
+
+    def execute(self, context):
+        w = context.world
+        if w:
+            # First, verify this is a valid Uru directory...
+            path = Path(self.filepath)
+
+            # Blendsucks likes to tack filenames onto our doggone directories...
+            if not path.is_dir():
+                path = path.parent
+            if not ((path / "UruExplorer.exe").is_file() or (path / "plClient.exe").is_file()):
+                self.report({"ERROR"}, "The selected directory is not a copy of URU.")
+                return {"CANCELLED"}
+
+            # New game?
+            games = w.plasma_games
+            new_game = self.game_index == -1
+            if new_game:
+                games.active_game_index = len(games.games)
+                game = games.games.add()
+            else:
+                game = games.games[self.game_index]
+
+            # Setup game...
+            game.path = str(path)
+            if (path / "cypython22.dll").is_file():
+                game.version = "pvPots"
+            else:
+                game.version = "pvMoul"
+            game.name = path.name
+
+            return {"FINISHED"}
+        else:
+            return {"CANCELLED"}
+
+
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {"RUNNING_MODAL"}
+
+
+class GameRemoveOperator(AgeOperator, bpy.types.Operator):
+    bl_idname = "world.plasma_game_remove"
+    bl_label = "Remove Plasma Game"
+
+    def execute(self, context):
+        w = context.world
+        if w:
+            games = w.plasma_games
+            if games.active_game_index >= len(games.games):
+                return {"CANCELLED"}
+            games.games.remove(games.active_game_index)
+            return {"FINISHED"}
+        else:
+            return {"CANCELLED"}
 
 
 class PageAddOperator(AgeOperator, bpy.types.Operator):
