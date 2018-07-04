@@ -48,6 +48,7 @@ class PlasmaMessageNode(PlasmaNodeBase):
 class PlasmaMessageWithCallbacksNode(PlasmaMessageNode):
     output_sockets = OrderedDict([
         ("msgs", {
+            "can_link": "can_link_callback",
             "text": "Send On Completion",
             "type": "PlasmaMessageSocket",
             "valid_link_sockets": "PlasmaMessageSocket",
@@ -55,9 +56,42 @@ class PlasmaMessageWithCallbacksNode(PlasmaMessageNode):
     ])
 
     @property
+    def can_link_callback(self):
+        """Determines if a callback message can be linked to this socket"""
+
+        # Node Graphs enable us to draw lots of fancy logic, unfortunately, not
+        # everything that can potentially be represented in a node tree can be
+        # exported to URU in a way that will actually work. Responder commands can
+        # wait on other responder commands, but the way they are executed in Plasma is
+        # serialized. It's really a list of commands that are executed until a wait
+        # is encountered. At that time, Plasma waits and resumes running the list when
+        # the wait callback is received.
+        # So what does this mean???
+        # It means that only one "branch" of message nodes can  have waits.
+        def check_for_callbacks(parent_node, child_node):
+            for sibling_node in parent_node.find_outputs("msgs"):
+                if sibling_node == child_node:
+                    continue
+                if getattr(sibling_node, "has_linked_callbacks", False):
+                    return True
+            for grandparent_node in parent_node.find_inputs("sender"):
+                return check_for_callbacks(grandparent_node, parent_node)
+            return False
+
+        for sender_node in self.find_inputs("sender"):
+            if check_for_callbacks(sender_node, self):
+                return False
+        return True
+
+    @property
     def has_callbacks(self):
         """This message has callbacks that can be waited on by a Responder"""
         return True
+
+    @property
+    def has_linked_callbacks(self):
+        return self.find_output("msgs") is not None
+
 
 class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, bpy.types.Node):
     bl_category = "MSG"

@@ -196,6 +196,7 @@ class PlasmaNodeBase:
             i = 0
             while i < len(sockets):
                 socket = sockets[i]
+                node = socket.node
 
                 options = defs.get(socket.alias, None)
                 if options is None or socket.bl_idname != options["type"]:
@@ -213,6 +214,20 @@ class PlasmaNodeBase:
                 # Make sure the link is good
                 allowed_sockets = options.get("valid_link_sockets", None)
                 allowed_nodes = options.get("valid_link_nodes", None)
+
+                # The socket may decide it doesn't want anyone linked to it.
+                can_link_attr = options.get("can_link", None)
+                if can_link_attr is not None:
+                    can_link = getattr(node, can_link_attr)
+                    socket.enabled = can_link
+                    if not can_link:
+                        for link in socket.links:
+                            try:
+                                self._tattle(socket, link, "(socket refused link)")
+                                self.id_data.links.remove(link)
+                            except RuntimeError:
+                                # was already removed by someone else
+                                pass
 
                 # Helpful default... If neither are set, require the link to be to the same socket type
                 if allowed_nodes is None and allowed_sockets is None:
