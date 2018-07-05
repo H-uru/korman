@@ -101,12 +101,10 @@ class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         respstate = nodes.new("PlasmaResponderStateNode")
         respstate.link_input(respmod, "states", "condition")
         respstate.default_state = True
-        respcmd = nodes.new("PlasmaResponderCommandNode")
-        respcmd.link_input(respstate, "cmds", "whodoneit")
 
         # ArmatureEffectStateMsg
         msg = nodes.new("PlasmaFootstepSoundMsgNode")
-        msg.link_input(respcmd, "msg", "sender")
+        msg.link_input(respstate, "msgs", "sender")
         msg.surface = self.surface
 
     @property

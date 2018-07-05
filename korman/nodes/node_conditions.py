@@ -82,6 +82,11 @@ class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.N
         interface.addIntfKey(logicmod)
         logicmod = logicmod.object
 
+        # If we receive an enable message, this is a one-shot type deal that needs to be disabled
+        # while the attached responder is running.
+        if self.find_input("message", "PlasmaEnableMsgNode") is not None:
+            logicmod.setLogicFlag(plLogicModifier.kOneShot, True)
+
         # Try to figure out the appropriate bounds type for the clickable....
         phys_mod = clickable_bo.plasma_modifiers.collision
         bounds = phys_mod.bounds if phys_mod.enabled else self.bounds

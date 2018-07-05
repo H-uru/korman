@@ -34,17 +34,66 @@ class PlasmaMessageNode(PlasmaNodeBase):
         ("sender", {
             "text": "Sender",
             "type": "PlasmaMessageSocket",
+            "valid_link_sockets": "PlasmaMessageSocket",
             "spawn_empty": True,
         }),
     ])
 
     @property
     def has_callbacks(self):
-        """This message has callbacks that can be waited on by a Responder"""
+        """This message does not have callbacks that can be waited on by a Responder"""
         return False
 
 
-class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageNode, bpy.types.Node):
+class PlasmaMessageWithCallbacksNode(PlasmaMessageNode):
+    output_sockets = OrderedDict([
+        ("msgs", {
+            "can_link": "can_link_callback",
+            "text": "Send On Completion",
+            "type": "PlasmaMessageSocket",
+            "valid_link_sockets": "PlasmaMessageSocket",
+        }),
+    ])
+
+    @property
+    def can_link_callback(self):
+        """Determines if a callback message can be linked to this socket"""
+
+        # Node Graphs enable us to draw lots of fancy logic, unfortunately, not
+        # everything that can potentially be represented in a node tree can be
+        # exported to URU in a way that will actually work. Responder commands can
+        # wait on other responder commands, but the way they are executed in Plasma is
+        # serialized. It's really a list of commands that are executed until a wait
+        # is encountered. At that time, Plasma waits and resumes running the list when
+        # the wait callback is received.
+        # So what does this mean???
+        # It means that only one "branch" of message nodes can  have waits.
+        def check_for_callbacks(parent_node, child_node):
+            for sibling_node in parent_node.find_outputs("msgs"):
+                if sibling_node == child_node:
+                    continue
+                if getattr(sibling_node, "has_linked_callbacks", False):
+                    return True
+            for grandparent_node in parent_node.find_inputs("sender"):
+                return check_for_callbacks(grandparent_node, parent_node)
+            return False
+
+        for sender_node in self.find_inputs("sender"):
+            if check_for_callbacks(sender_node, self):
+                return False
+        return True
+
+    @property
+    def has_callbacks(self):
+        """This message has callbacks that can be waited on by a Responder"""
+        return True
+
+    @property
+    def has_linked_callbacks(self):
+        return self.find_output("msgs") is not None
+
+
+class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaAnimCmdMsgNode"
     bl_label = "Animation Command"
@@ -407,7 +456,7 @@ class PlasmaLinkToAgeMsg(PlasmaMessageNode, bpy.types.Node):
         layout.prop(self, "spawn_point")
 
 
-class PlasmaOneShotMsgNode(idprops.IDPropObjectMixin, PlasmaMessageNode, bpy.types.Node):
+class PlasmaOneShotMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNode, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaOneShotMsgNode"
     bl_label = "One Shot"
@@ -426,7 +475,7 @@ class PlasmaOneShotMsgNode(idprops.IDPropObjectMixin, PlasmaMessageNode, bpy.typ
     animation = StringProperty(name="Animation",
                                description="Name of the animation the avatar should execute")
     marker = StringProperty(name="Marker",
-                                     description="Name of the marker specifying when to notify the Responder")
+                            description="Name of the marker specifying when to notify the Responder")
     drivable = BoolProperty(name="Drivable",
                             description="Player retains control of the avatar during the OneShot",
                             default=False)
@@ -523,7 +572,7 @@ class PlasmaSceneObjectMsgRcvrNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bp
         return {"target_object": "object_name"}
 
 
-class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageNode, bpy.types.Node):
+class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNode, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaSoundMsgNode"
     bl_label = "Sound"
@@ -646,16 +695,12 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageNode, bpy.types
         layout.prop(self, "looping")
         layout.prop(self, "volume")
 
-    @property
-    def has_callbacks(self):
-        return True
-
     @classmethod
     def _idprop_mapping(cls):
         return {"emitter_object": "object_name"}
 
 
-class PlasmaTimerCallbackMsgNode(PlasmaMessageNode, bpy.types.Node):
+class PlasmaTimerCallbackMsgNode(PlasmaMessageWithCallbacksNode, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaTimerCallbackMsgNode"
     bl_label = "Timed Callback"
@@ -676,10 +721,6 @@ class PlasmaTimerCallbackMsgNode(PlasmaMessageNode, bpy.types.Node):
         msg = plTimerCallbackMsg()
         msg.time = self.delay
         return msg
-
-    @property
-    def has_callbacks(self):
-        return True
 
 
 class PlasmaFootstepSoundMsgNode(PlasmaMessageNode, bpy.types.Node):
