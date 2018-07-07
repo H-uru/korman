@@ -299,8 +299,8 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
             stream.close()
 
     def _find_sound_buffer(self, exporter, so, wavHeader, dataSize, channel):
-        # First, cleanup the file path to not have directories and have the .ogg extension
-        filename = Path(self._sound.filepath).with_suffix(".ogg").name
+        # First, cleanup the file path to not have directories
+        filename = Path(self._sound.filepath).name
         if channel is None:
             key_name = filename
         else:
