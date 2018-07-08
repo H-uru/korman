@@ -231,6 +231,7 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
         cb.event = globals()[self.event]
         cb.user = wait
         msg.addCallback(cb)
+        msg.setCmd(plAnimCmdMsg.kAddCallbacks, True)
 
     def convert_message(self, exporter, so):
         msg = plAnimCmdMsg()
