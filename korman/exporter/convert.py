@@ -20,6 +20,7 @@ from PyHSPlasma import *
 import time
 
 from . import animation
+from . import camera
 from . import explosions
 from . import etlight
 from . import logger
@@ -52,6 +53,7 @@ class Exporter:
             self.light = rtlight.LightConverter(self)
             self.animation = animation.AnimationConverter(self)
             self.sumfile = sumfile.SumFile()
+            self.camera = camera.CameraConverter(self)
 
             # Step 0.8: Init the progress mgr
             self.mesh.add_progress_presteps(self.report)
@@ -235,6 +237,11 @@ class Exporter:
                 log_msg("Exporting '{}' modifier".format(mod.bl_label), indent=1)
                 mod.export(self, bl_obj, sceneobject)
             inc_progress()
+
+    def _export_camera_blobj(self, so, bo):
+        # Hey, guess what? Blender's camera data is utter crap!
+        camera = bo.data.plasma_camera
+        self.camera.export_camera(so, bo, camera.camera_type, camera.settings)
 
     def _export_empty_blobj(self, so, bo):
         # We don't need to do anything here. This function just makes sure we don't error out

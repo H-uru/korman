@@ -22,6 +22,7 @@ from ...helpers import TemporaryObject
 from ... import idprops
 
 from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz
+from ..prop_camera import PlasmaCameraProperties
 from .physics import bounds_types
 
 footstep_surface_ids = {
@@ -57,6 +58,66 @@ footstep_surfaces = [("dirt", "Dirt", "Dirt"),
                      ("woodbridge", "Wood Bridge", "Wood Bridge"),
                      ("woodfloor", "Wood Floor", "Wood Floor"),
                      ("woodladder", "Wood Ladder", "Wood Ladder")]
+
+class PlasmaCameraRegion(PlasmaModifierProperties):
+    pl_id = "camera_rgn"
+
+    bl_category = "Region"
+    bl_label = "Camera Region"
+    bl_description = "Camera Region"
+    bl_icon = "CAMERA_DATA"
+
+    camera_type = EnumProperty(name="Camera Type",
+                               description="What kind of camera should be used?",
+                               items=[("auto", "Auto Follow Camera", "Automatically generated camera"),
+                                      ("manual", "Manual Camera", "User specified camera object")],
+                               options=set())
+    camera_object = PointerProperty(name="Camera",
+                                    description="Switches to this camera",
+                                    type=bpy.types.Object,
+                                    poll=idprops.poll_camera_objects,
+                                    options=set())
+    auto_camera = PointerProperty(type=PlasmaCameraProperties, options=set())
+
+    def export(self, exporter, bo, so):
+        if self.camera_type == "manual":
+            if self.camera_object is None:
+                raise ExportError("Camera Modifier '{}' does not specify a valid camera object".format(self.id_data.name))
+            camera_so_key = exporter.mgr.find_create_key(plSceneObject, bl=self.camera_object)
+            camera_props = self.camera_object.data.plasma_camera.settings
+        else:
+            # Wheedoggy! We get to export the doggone camera now.
+            camera_props = self.auto_camera
+            exporter.camera.export_camera(so, bo, "follow", camera_props)
+
+        # Setup physical stuff
+        phys_mod = bo.plasma_modifiers.collision
+        simIface, physical = exporter.physics.generate_physical(bo, so, phys_mod.bounds, self.key_name)
+        physical.memberGroup = plSimDefs.kGroupDetector
+        physical.reportGroup = 1 << plSimDefs.kGroupAvatar
+        simIface.setProperty(plSimulationInterface.kPinned, True)
+        physical.setProperty(plSimulationInterface.kPinned, True)
+
+        # I don't feel evil enough to make this generate a logic tree...
+        msg = plCameraMsg()
+        msg.BCastFlags |= plMessage.kLocalPropagate | plMessage.kBCastByType
+        msg.setCmd(plCameraMsg.kRegionPushCamera)
+        if camera_props.primary_camera:
+            msg.setCmd(plCameraMsg.kSetAsPrimary)
+        msg.newCam = camera_so_key
+
+        region = exporter.mgr.find_create_object(plCameraRegionDetector, so=so)
+        region.addMessage(msg)
+
+    def harvest_actors(self):
+        if self.camera_type == "manual":
+            if self.camera_object is None:
+                raise ExportError("Camera Modifier '{}' does not specify a valid camera object".format(self.id_data.name))
+            camera = self.camera_object.data.plasma_camera.settings
+        else:
+            camera = self.auto_camera
+        return camera.harvest_actors()
+
 
 class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     pl_id = "footstep"

@@ -14,6 +14,14 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+from ..ui_camera import draw_camera_properties
+
+def camera_rgn(modifier, layout, context):
+    layout.prop(modifier, "camera_type")
+    if modifier.camera_type == "manual":
+        layout.prop(modifier, "camera_object", icon="CAMERA_DATA")
+    else:
+        draw_camera_properties("follow", modifier.auto_camera, layout, context)
 
 def footstep(modifier, layout, context):
     layout.prop(modifier, "bounds")

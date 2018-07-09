@@ -124,6 +124,9 @@ def poll_animated_objects(self, value):
             return True
     return False
 
+def poll_camera_objects(self, value):
+    return value.type == "CAMERA"
+
 def poll_empty_objects(self, value):
     return value.type == "EMPTY"
 
