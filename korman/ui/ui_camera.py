@@ -59,7 +59,7 @@ def draw_camera_properties(cam_type, props, layout, context):
     col = split.column()
     col.label("Camera Mode:")
     col = col.column()
-    col.alert = cam_type == "follow" and props.poa_type == "none"
+    col.alert = cam_type != "fixed" and props.poa_type == "none"
     col.prop(props, "poa_type", text="")
     col.alert = False
     row = col.row()
@@ -98,6 +98,7 @@ def draw_camera_properties(cam_type, props, layout, context):
     col = split.column()
 
     # Position Transitions
+    col.active = cam_type != "circle"
     col.label("Default Position Transition:")
     col.prop(trans, "pos_acceleration", text="Acceleration")
     col.prop(trans, "pos_deceleration", text="Deceleration")
@@ -126,3 +127,16 @@ def draw_camera_properties(cam_type, props, layout, context):
     _draw_gated_prop(col, props, "limit_zoom", "zoom_min")
     _draw_gated_prop(col, props, "limit_zoom", "zoom_max")
     _draw_gated_prop(col, props, "limit_zoom", "zoom_rate")
+
+    # Circle Camera Stuff
+    layout.separator()
+    split = layout.split()
+    col = split.column()
+    col.active = cam_type == "circle"
+    col.label("Circle Camera:")
+    col.prop(props, "circle_center", text="")
+    col.prop(props, "circle_pos", text="")
+    col.prop(props, "circle_velocity")
+    row = col.row(align=True)
+    row.active = props.circle_center is None
+    row.prop(props, "circle_radius_ui")

@@ -28,8 +28,6 @@ class CameraConverter:
         trans_props = camera_props.transition
 
         brain.poaOffset = hsVector3(*camera_props.poa_offset)
-        if isinstance(brain, plCameraBrain1_Avatar):
-            brain.offset = hsVector3(*camera_props.pos_offset)
         if camera_props.poa_type == "object":
             brain.subject = self._mgr.find_create_key(plSceneObject, bl=camera_props.poa_object)
 
@@ -84,6 +82,55 @@ class CameraConverter:
         # TODO: do we need to do something about animations here?
         return mod
 
+    def _export_circle_camera(self, so, bo, props):
+        brain = self._mgr.find_create_object(plCameraBrain1_Circle, so=so)
+        self._convert_brain(so, bo, props, brain)
+
+        # Circle Camera specific stuff ahoy!
+        if props.poa_type == "avatar":
+            brain.circleFlags |= plCameraBrain1_Circle.kCircleLocalAvatar
+        elif props.poa_type == "object":
+            brain.poaObject = self._mgr.find_create_key(plSceneObject, bl=props.poa_object)
+        else:
+            self._report.warn("Circle Camera '{}' has no Point of Attention. Is this intended?", bo.name, indent=3)
+        if props.circle_pos == "farthest":
+            brain.circleFlags |= plCameraBrain1_Circle.kFarthest
+
+        # If no center object is specified, we will use the camera object's location.
+        # We will use a simple vector for this object to make life simpler, however,
+        # specifying an actual center allows you to do interesting things like animate the center...
+        # Fascinating! Therefore, we will expose the Plasma Object...
+        if props.circle_center is None:
+            brain.center = hsVector3(*bo.location)
+        else:
+            brain.centerObject = self._mgr.find_create_key(plSceneObject, bl=props.circle_center)
+            # This flag has no effect in CWE, but I'm using it for correctness' sake
+            brain.circleFlags |= plCameraBrain1_Circle.kHasCenterObject
+
+        # PlasmaMAX forces these values so the circle camera is rather slow, which is somewhat
+        # sensible to me. Fast circular motion seems like a poor idea to me... If we want these
+        # values to be customizable, we probably want add some kind of range limitation or at least
+        # a flashing red light in the UI...
+        brain.acceleration = 10.0
+        brain.deceleration = 10.0
+        brain.velocity = 15.0
+
+        # Related to above, circle cameras use a slightly different velocity method.
+        # This is stored in Plasma as a fraction of the circle's circumference. It makes
+        # more sense to me to present it in terms of degrees per second, however.
+        # NOTE that Blender returns radians!!!
+        brain.cirPerSec = props.circle_velocity / (2 * math.pi)
+
+        # I consider this clever... If we have a center object, we use the magnitude of the displacement
+        # of the camera's object to the center object (at frame 0) to determine the radius. If no center
+        # object is specified, we allow the user to specify the radius.
+        # Well, it's clever until you realize it's the same thing Cyan did in PlasmaMAX... But it's harder
+        # here because Blendsucks.
+        brain.radius = props.get_circle_radius(bo)
+
+        # Done already?
+        return brain
+
     def _export_fixed_camera(self, so, bo, props):
         brain = self._mgr.find_create_object(plCameraBrain1_Fixed, so=so)
         self._convert_brain(so, bo, props, brain)
@@ -93,6 +140,9 @@ class CameraConverter:
     def _export_follow_camera(self, so, bo, props):
         brain = self._mgr.find_create_object(plCameraBrain1_Avatar, so=so)
         self._convert_brain(so, bo, props, brain)
+
+        # Follow camera specific stuff ahoy!
+        brain.offset = hsVector3(*camera_props.pos_offset)
         return brain
 
     @property

@@ -17,8 +17,9 @@ import bpy
 from bpy.props import *
 import math
 
-camera_types = [("follow", "Follow Camera", "Camera follows an object."),
-                ("fixed", "Fixed Camera", "Camera is fixed in one location.")]
+camera_types = [("circle", "Circle Camera", "The camera circles a fixed point"),
+                ("follow", "Follow Camera", "The camera follows an object"),
+                ("fixed", "Fixed Camera", "The camera is fixed in one location")]
 
 class PlasmaTransition(bpy.types.PropertyGroup):
     poa_acceleration = FloatProperty(name="PoA Acceleration",
@@ -141,6 +142,43 @@ class PlasmaCameraProperties(bpy.types.PropertyGroup):
     primary_camera = BoolProperty(name="Primary Camera",
                                   description="The camera should be considered the Age's primary camera.",
                                   options=set())
+
+    # Cricle Camera
+    def _get_circle_radius(self):
+        # This is coming from the UI, so we need to get the active object from
+        # Blender's context and pass that on to the actual getter.
+        return self.get_circle_radius(bpy.context.object)
+    def _set_circle_radius(self, value):
+        # Don't really care about error checking...
+        self.circle_radius_value = value
+
+    circle_center = PointerProperty(name="Center",
+                                    description="Center of the circle camera's orbit",
+                                    type=bpy.types.Object,
+                                    options=set())
+    circle_pos = EnumProperty(name="Position on Circle",
+                              description="The point on the circle the camera moves to",
+                              items=[("closest", "Closest Point", "The camera moves to point on the circle closest to the Point of Attention"),
+                                     ("farthest", "Farthest Point", "The point farthest from the Point of Attention")],
+                              options=set())
+    circle_velocity = FloatProperty(name="Velocity",
+                                    description="Velocity of the circle camera in degrees per second",
+                                    min=0.0, max=math.radians(360.0), precision=0, default=math.radians(36.0),
+                                    subtype="ANGLE", options=set())
+    circle_radius_ui = FloatProperty(name="Radius",
+                                     description="Radius at which the circle camera should orbit the Point of Attention",
+                                     min=0.0, get=_get_circle_radius, set=_set_circle_radius, options=set())
+    circle_radius_value = FloatProperty(name="INTERNAL: Radius",
+                                        description="Radius at which the circle camera should orbit the Point of Attention",
+                                        min=0.0, default=8.5, options={"HIDDEN"})
+
+    def get_circle_radius(self, bo):
+        """Gets the circle camera radius for this camera when it is attached to the given Object"""
+        assert bo is not None
+        if self.circle_center is not None:
+            vec = bo.location - self.circle_center.location
+            return vec.magnitude
+        return self.circle_radius_value
 
     def harvest_actors(self):
         if self.poa_type == "object":

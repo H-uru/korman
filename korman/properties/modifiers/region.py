@@ -69,7 +69,8 @@ class PlasmaCameraRegion(PlasmaModifierProperties):
 
     camera_type = EnumProperty(name="Camera Type",
                                description="What kind of camera should be used?",
-                               items=[("auto", "Auto Follow Camera", "Automatically generated camera"),
+                               items=[("auto_follow", "Auto Follow Camera", "Automatically generated follow camera"),
+                                      ("auto_circle", "Auto Circle Camera", "Automatically generated circle camera"),
                                       ("manual", "Manual Camera", "User specified camera object")],
                                options=set())
     camera_object = PointerProperty(name="Camera",
@@ -86,9 +87,12 @@ class PlasmaCameraRegion(PlasmaModifierProperties):
             camera_so_key = exporter.mgr.find_create_key(plSceneObject, bl=self.camera_object)
             camera_props = self.camera_object.data.plasma_camera.settings
         else:
+            assert self.camera_type[:4] == "auto"
+
             # Wheedoggy! We get to export the doggone camera now.
             camera_props = self.auto_camera
-            exporter.camera.export_camera(so, bo, "follow", camera_props)
+            camera_type = self.camera_type[5:]
+            exporter.camera.export_camera(so, bo, camera_type, camera_props)
 
         # Setup physical stuff
         phys_mod = bo.plasma_modifiers.collision
