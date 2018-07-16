@@ -44,7 +44,7 @@ class PlasmaCameraTransitionPanel(CameraButtonsPanel, bpy.types.Panel):
         pass
 
 
-def draw_camera_properties(cam_type, props, layout, context):
+def draw_camera_properties(cam_type, props, layout, context, force_no_anim=False):
     trans = props.transition
 
     def _draw_gated_prop(layout, props, gate_prop, actual_prop):
@@ -53,6 +53,17 @@ def draw_camera_properties(cam_type, props, layout, context):
         row = row.row(align=True)
         row.active = getattr(props, gate_prop)
         row.prop(props, actual_prop)
+    def _is_camera_animated(cam_type, props, context, force_no_anim):
+        if force_no_anim or cam_type == "rail":
+            return False
+        # Check for valid animation data on either the object or the camera
+        # TODO: Should probably check for valid FCurve channels at some point???
+        for i in (props.id_data, context.object):
+            if i.animation_data is None:
+                continue
+            if i.animation_data.action is not None:
+                return True
+        return False
 
     # Point of Attention
     split = layout.split()
@@ -140,3 +151,11 @@ def draw_camera_properties(cam_type, props, layout, context):
     row = col.row(align=True)
     row.active = props.circle_center is None
     row.prop(props, "circle_radius_ui")
+
+    # Animated Camera Stuff
+    col = split.column()
+    col.active = _is_camera_animated(cam_type, props, context, force_no_anim)
+    col.label("Animation:")
+    col.prop(props, "start_on_push")
+    col.prop(props, "stop_on_pop")
+    col.prop(props, "reset_on_pop")

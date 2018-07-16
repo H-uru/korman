@@ -172,6 +172,17 @@ class PlasmaCameraProperties(bpy.types.PropertyGroup):
                                         description="Radius at which the circle camera should orbit the Point of Attention",
                                         min=0.0, default=8.5, options={"HIDDEN"})
 
+    # Animation
+    start_on_push = BoolProperty(name="Start on Push",
+                                 description="Start playing the camera's animation when the camera is activated",
+                                 options=set())
+    stop_on_pop = BoolProperty(name="Pause on Pop",
+                               description="Pauses the camera's animation when the camera is no longer activated",
+                               options=set())
+    reset_on_pop = BoolProperty(name="Reset on Pop",
+                                description="Reset the camera's animation to the beginning when the camera is no longer activated",
+                                options=set())
+
     def get_circle_radius(self, bo):
         """Gets the circle camera radius for this camera when it is attached to the given Object"""
         assert bo is not None

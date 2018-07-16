@@ -67,19 +67,25 @@ class CameraConverter:
             brain.setFlags(plCameraBrain1.kSpeedUpWhenRunning, True)
 
     def export_camera(self, so, bo, camera_type, camera_props):
+        brain = getattr(self, "_export_{}_camera".format(camera_type))(so, bo, camera_props, allow_anim)
         mod = self._export_camera_modifier(so, bo, camera_props)
-        brain = getattr(self, "_export_{}_camera".format(camera_type))(so, bo, camera_props)
         mod.brain = brain.key
 
     def _export_camera_modifier(self, so, bo, props):
+        mod = self._mgr.find_create_object(plCameraModifier, so=so)
+
         # PlasmaMAX allows the user to specify the horizontal OR vertical FOV, but not both.
         # We only allow setting horizontal FOV (how often do you look up?), however.
-        # Plasma assumes 4:3 aspect ratio...
-        mod = self._mgr.find_create_object(plCameraModifier, so=so)
+        # Plasma assumes 4:3 aspect ratio..
         fov = props.fov
         mod.fovW, mod.fovH = math.degrees(fov), math.degrees(fov * (3.0 / 4.0))
 
-        # TODO: do we need to do something about animations here?
+        # This junk is only valid for animated cameras...
+        # Animation exporter should have already run by this point :)
+        if mod.animated:
+            mod.startAnimOnPush = props.start_on_push
+            mod.stopAnimOnPop = props.stop_on_pop
+            mod.resetAnimOnPop = props.reset_on_pop
         return mod
 
     def _export_circle_camera(self, so, bo, props):
@@ -134,7 +140,6 @@ class CameraConverter:
     def _export_fixed_camera(self, so, bo, props):
         brain = self._mgr.find_create_object(plCameraBrain1_Fixed, so=so)
         self._convert_brain(so, bo, props, brain)
-        # TODO: animations???
         return brain
 
     def _export_follow_camera(self, so, bo, props):

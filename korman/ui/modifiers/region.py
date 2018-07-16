@@ -21,7 +21,7 @@ def camera_rgn(modifier, layout, context):
     if modifier.camera_type == "manual":
         layout.prop(modifier, "camera_object", icon="CAMERA_DATA")
     else:
-        draw_camera_properties("follow", modifier.auto_camera, layout, context)
+        draw_camera_properties("follow", modifier.auto_camera, layout, context, True)
 
 def footstep(modifier, layout, context):
     layout.prop(modifier, "bounds")

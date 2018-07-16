@@ -243,14 +243,7 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
         if self.anim_type == "OBJECT":
             if not obj.plasma_object.has_animation_data:
                 self.raise_error("invalid animation")
-            group = obj.plasma_modifiers.animation_group
-            if group.enabled:
-                # we might be controlling more than one animation. isn't that cute?
-                # https://www.youtube.com/watch?v=hspNaoxzNbs
-                # (but obviously this is not wrong...)
-                target = exporter.mgr.find_create_key(plMsgForwarder, bl=obj, name=group.key_name)
-            else:
-                _agmod_trash, target = exporter.animation.get_anigraph_keys(obj)
+            target = exporter.animation.get_animation_key(obj)
         else:
             material = self.target_material
             if material is None:
