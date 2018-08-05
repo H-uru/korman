@@ -45,10 +45,11 @@ class _Texture:
         else:
             self.layer = kwargs.get("layer")
             self.calc_alpha = False
-            self.mipmap = False
+            self.mipmap = kwargs.get("mipmap", False)
 
         if kwargs.get("is_detail_map", False):
             self.is_detail_map = True
+            self.mipmap = True
             self.detail_blend = kwargs["detail_blend"]
             self.detail_fade_start = kwargs["detail_fade_start"]
             self.detail_fade_stop = kwargs["detail_fade_stop"]
@@ -56,6 +57,7 @@ class _Texture:
             self.detail_opacity_stop = kwargs["detail_opacity_stop"]
             self.calc_alpha = False
             self.use_alpha = True
+            self.allowed_formats = {"DDS"}
         else:
             self.is_detail_map = False
             use_alpha = kwargs.get("use_alpha")
@@ -66,7 +68,20 @@ class _Texture:
                 self.use_alpha = (image.channels == 4 and image.use_alpha)
             else:
                 self.use_alpha = use_alpha
+            self.allowed_formats = kwargs.get("allowed_formats",
+                                              {"DDS"} if self.mipmap else {"PNG", "JPG"})
 
+        # Basic format sanity
+        if self.mipmap:
+            assert "DDS" in self.allowed_formats
+
+        if len(self.allowed_formats) == 1:
+            self.auto_ext = next(iter(self.allowed_formats)).lower()
+        elif self.mipmap:
+            self.auto_ext = "dds"
+        else:
+            self.auto_ext = "hsm"
+        self.extension = kwargs.get("extension", self.auto_ext)
         self.image = image
 
     def __eq__(self, other):
@@ -83,10 +98,10 @@ class _Texture:
         return hash(str(self))
 
     def __str__(self):
-        if self.mipmap:
-            name = str(Path(self.image.name).with_suffix(".dds"))
+        if self.extension is None:
+            name = self.image.name
         else:
-            name = str(Path(self.image.name).with_suffix(".bmp"))
+            name = str(Path(self.image.name).with_suffix(".{}".format(self.extension)))
         if self.calc_alpha:
             name = "ALPHAGEN_{}".format(name)
 
@@ -558,6 +573,7 @@ class MaterialConverter:
         """Exports a Blender ImageTexture to a plLayer"""
         texture = slot.texture
         layer_props = texture.plasma_layer
+        mipmap = texture.use_mipmap
 
         # Does the image have any alpha at all?
         if texture.image is not None:
@@ -598,7 +614,7 @@ class MaterialConverter:
             layer.texture = dtm.key
         else:
             detail_blend = TEX_DETAIL_ALPHA
-            if layer_props.is_detail_map and texture.use_mipmap:
+            if layer_props.is_detail_map and mipmap:
                 if slot.blend_type == "ADD":
                     detail_blend = TEX_DETAIL_ADD
                 elif slot.blend_type == "MULTIPLY":
@@ -608,38 +624,55 @@ class MaterialConverter:
             if layer_props.is_detail_map and not state.blendFlags & hsGMatState.kBlendMask:
                 state.blendFlags |= hsGMatState.kBlendDetail
 
-            key = _Texture(texture=texture, use_alpha=has_alpha, force_calc_alpha=slot.use_stencil,
-                           is_detail_map=layer_props.is_detail_map, detail_blend=detail_blend,
-                           detail_fade_start=layer_props.detail_fade_start, detail_fade_stop=layer_props.detail_fade_stop,
-                           detail_opacity_start=layer_props.detail_opacity_start, detail_opacity_stop=layer_props.detail_opacity_stop)
-            if key not in self._pending:
-                self._report.msg("Stashing '{}' for conversion as '{}'",
-                                 texture.image.name, str(key), indent=3)
-                self._pending[key] = [layer.key,]
-            else:
-                self._report.msg("Found another user of '{}'", texture.image.name, indent=3)
-                self._pending[key].append(layer.key)
+            allowed_formats = {"DDS"} if mipmap else {"PNG", "BMP"}
+            self.export_prepared_image(texture=texture, owner=layer,
+                                       use_alpha=has_alpha, force_calc_alpha=slot.use_stencil,
+                                       is_detail_map=layer_props.is_detail_map,
+                                       detail_blend=detail_blend,
+                                       detail_fade_start=layer_props.detail_fade_start,
+                                       detail_fade_stop=layer_props.detail_fade_stop,
+                                       detail_opacity_start=layer_props.detail_opacity_start,
+                                       detail_opacity_stop=layer_props.detail_opacity_stop,
+                                       mipmap=mipmap, allowed_formats=allowed_formats,
+                                       indent=3)
 
     def _export_texture_type_none(self, bo, layer, texture):
         # We'll allow this, just for sanity's sake...
         pass
 
-    def export_prepared_layer(self, layer, image):
-        """This exports an externally prepared layer and image"""
-        key = _Texture(image=image)
+    def export_prepared_image(self, **kwargs):
+        """This exports an externally prepared image and an optional owning layer.
+           The following arguments are typical:
+           - texture: (co-required) the image texture datablock to export
+           - image: (co-required) the image datablock to export
+           - owner: (required) the Plasma object using this image
+           - mipmap: (optional) should the image be mipmapped?
+           - allowed_formats: (optional) set of string *hints* for desired image export type
+                              valid options: BMP, DDS, JPG, PNG
+           - extension: (optional) file extension to use for the image object
+                        to use the image datablock extension, set this to None
+           - indent: (optional) indentation level for log messages
+                     default: 2
+        """
+        owner = kwargs.pop("owner", None)
+        indent = kwargs.pop("indent", 2)
+        key = _Texture(**kwargs)
+        image = key.image
+
         if key not in self._pending:
-            self._report.msg("Stashing '{}' for conversion as '{}'", image.name, key, indent=2)
-            self._pending[key] = [layer.key,]
+            self._report.msg("Stashing '{}' for conversion as '{}'", image.name, key, indent=indent)
+            self._pending[key] = [owner.key,]
         else:
-            self._report.msg("Found another user of '{}'", key, indent=2)
-            self._pending[key].append(layer.key)
+            self._report.msg("Found another user of '{}'", key, indent=indent)
+            self._pending[key].append(owner.key)
 
     def finalize(self):
         self._report.progress_advance()
         self._report.progress_range = len(self._pending)
         inc_progress = self._report.progress_increment
+        mgr = self._mgr
 
-        for key, layers in self._pending.items():
+        for key, owners in self._pending.items():
             name = str(key)
             self._report.msg("\n[Mipmap '{}']", name)
 
@@ -655,14 +688,27 @@ class MaterialConverter:
                                  oWidth, oHeight, eWidth, eHeight, indent=1)
                 self._resize_image(image, eWidth, eHeight)
 
-            # Some basic mipmap settings.
-            compression = plBitmap.kDirectXCompression if key.mipmap else plBitmap.kUncompressed
-            dxt = plBitmap.kDXT5 if key.use_alpha or key.calc_alpha else plBitmap.kDXT1
+            # Now we try to use the pile of hints we were given to figure out what format to use
+            allowed_formats = key.allowed_formats
+            if key.mipmap:
+                compression = plBitmap.kDirectXCompression
+                dxt = plBitmap.kDXT5 if key.use_alpha or key.calc_alpha else plBitmap.kDXT1
+            elif "PNG" in allowed_formats and self._mgr.getVer() == pvMoul:
+                compression = plBitmap.kPNGCompression
+            elif "DDS" in allowed_formats:
+                compression = plBitmap.kDirectXCompression
+                dxt = plBitmap.kDXT5 if key.use_alpha or key.calc_alpha else plBitmap.kDXT1
+            elif "JPG" in allowed_formats:
+                compression = plBitmap.kJPEGCompression
+            elif "BMP" in allowed_formats:
+                compression = plBitmap.kUncompressed
+            else:
+                raise RuntimeError(allowed_formats)
 
             # Grab the image data from OpenGL and stuff it into the plBitmap
             helper = GLTexture(key)
             with helper as glimage:
-                if key.mipmap:
+                if compression == plBitmap.kDirectXCompression:
                     numLevels = glimage.num_levels
                     self._report.msg("Generating mip levels", indent=1)
                     glimage.generate_mipmap()
@@ -670,8 +716,8 @@ class MaterialConverter:
                     numLevels = 1
                     self._report.msg("Stuffing image data", indent=1)
 
-                # Uncompressed bitmaps are BGRA
-                fmt = compression == plBitmap.kUncompressed
+                # Non-DXT images are BGRA in Plasma
+                fmt = compression != plBitmap.kDirectXCompression
 
                 # Hold the uncompressed level data for now. We may have to make multiple copies of
                 # this mipmap for per-page textures :(
@@ -684,13 +730,13 @@ class MaterialConverter:
 
             # Now we poke our new bitmap into the pending layers. Note that we have to do some funny
             # business to account for per-page textures
-            mgr = self._mgr
             pages = {}
 
-            self._report.msg("Adding to Layer(s)", indent=1)
-            for layer in layers:
-                self._report.msg(layer.name, indent=2)
-                page = mgr.get_textures_page(layer) # Layer's page or Textures.prp
+            self._report.msg("Adding to...", indent=1)
+            for owner_key in owners:
+                owner = owner_key.object
+                self._report.msg("[{} '{}']", owner.ClassName()[2:], owner_key.name, indent=2)
+                page = mgr.get_textures_page(owner_key) # Layer's page or Textures.prp
 
                 # If we haven't created this plMipmap in the page (either layer's page or Textures.prp),
                 # then we need to do that and stuff the level data. This is a little tedious, but we
@@ -703,7 +749,14 @@ class MaterialConverter:
                     pages[page] = mipmap
                 else:
                     mipmap = pages[page]
-                layer.object.texture = mipmap.key
+
+                if isinstance(owner, plLayerInterface):
+                    owner.texture = mipmap.key
+                elif isinstance(owner, plImageLibMod):
+                    owner.addImage(mipmap.key)
+                else:
+                    raise RuntimeError(owner.ClassName())
+
             inc_progress()
 
     def get_materials(self, bo):
