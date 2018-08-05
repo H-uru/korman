@@ -19,6 +19,8 @@ from PyHSPlasma import *
 import weakref
 
 from .explosions import *
+from .. import helpers
+from . import utils
 
 class CameraConverter:
     def __init__(self, exporter):
@@ -67,7 +69,7 @@ class CameraConverter:
             brain.setFlags(plCameraBrain1.kSpeedUpWhenRunning, True)
 
     def export_camera(self, so, bo, camera_type, camera_props):
-        brain = getattr(self, "_export_{}_camera".format(camera_type))(so, bo, camera_props, allow_anim)
+        brain = getattr(self, "_export_{}_camera".format(camera_type))(so, bo, camera_props)
         mod = self._export_camera_modifier(so, bo, camera_props)
         mod.brain = brain.key
 
@@ -138,6 +140,7 @@ class CameraConverter:
         return brain
 
     def _export_fixed_camera(self, so, bo, props):
+        self._exporter().animation.convert_object_animations(bo, so)
         brain = self._mgr.find_create_object(plCameraBrain1_Fixed, so=so)
         self._convert_brain(so, bo, props, brain)
         return brain
@@ -148,6 +151,44 @@ class CameraConverter:
 
         # Follow camera specific stuff ahoy!
         brain.offset = hsVector3(*camera_props.pos_offset)
+        return brain
+
+    def _export_rail_camera(self, so, bo, props):
+        brain = self._mgr.find_create_object(plCameraBrain1_Fixed, so=so)
+        self._convert_brain(so, bo, props, brain)
+
+        rail = self._mgr.find_create_object(plRailCameraMod, so=so)
+        rail.followFlags |= plLineFollowMod.kForceToLine
+        if props.poa_type == "object":
+            rail.followMode = plLineFollowMod.kFollowObject
+            rail.refObj = self._mgr.find_create_key(plSceneObject, bl=props.poa_object)
+        else:
+            rail.followMode = plLineFollowMod.kFollowLocalAvatar
+        if bo.parent:
+            rail.pathParent = self._mgr.find_create_key(plSceneObject, bl=bo.parent)
+
+        # The rail is defined by a position controller in Plasma. Cyan uses a separate
+        # path object, but it makes more sense to me to just animate the camera with
+        # the details of the path...
+        pos_fcurves = tuple(i for i in helpers.fetch_fcurves(bo, False) if i.data_path == "location")
+        pos_ctrl = self._exporter().animation.convert_transform_controller(pos_fcurves, bo.matrix_basis)
+        if pos_ctrl is None:
+            raise ExportError("'{}': Rail Camera lacks appropriate rail keyframes".format(bo.name))
+        path = plAnimPath()
+        path.controller = pos_ctrl
+        path.affineParts = utils.affine_parts(bo.matrix_local)
+        begin, end = bo.animation_data.action.frame_range
+        for fcurve in pos_fcurves:
+            f1, f2 = fcurve.evaluate(begin), fcurve.evaluate(end)
+            if abs(f1 - f2) > 0.001:
+                break
+        else:
+            # The animation is a loop
+            path.flags |= plAnimPath.kWrap
+        path.length = end / bpy.context.scene.render.fps
+        rail.path = path
+        brain.rail = rail.key
+
         return brain
 
     @property

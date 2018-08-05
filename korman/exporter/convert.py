@@ -229,7 +229,6 @@ class Exporter:
             # sort, and barf out a CI.
             sceneobject = self.mgr.find_create_object(plSceneObject, bl=bl_obj)
             self._export_actor(sceneobject, bl_obj)
-            self.animation.convert_object_animations(bl_obj, sceneobject)
             export_fn(sceneobject, bl_obj)
 
             # And now we puke out the modifiers...
@@ -240,19 +239,19 @@ class Exporter:
 
     def _export_camera_blobj(self, so, bo):
         # Hey, guess what? Blender's camera data is utter crap!
+        # NOTE: Animation export is dependent on camera type, so we'll do that later.
         camera = bo.data.plasma_camera
         self.camera.export_camera(so, bo, camera.camera_type, camera.settings)
 
     def _export_empty_blobj(self, so, bo):
-        # We don't need to do anything here. This function just makes sure we don't error out
-        # or add a silly special case :(
-        pass
+        self.animation.convert_object_animations(bo, so)
 
     def _export_lamp_blobj(self, so, bo):
-        # We'll just redirect this to the RT Light converter...
+        self.animation.convert_object_animations(bo, so)
         self.light.export_rtlight(so, bo)
 
     def _export_mesh_blobj(self, so, bo):
+        self.animation.convert_object_animations(bo, so)
         if bo.data.materials:
             self.mesh.export_object(bo)
         else:

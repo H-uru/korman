@@ -15,6 +15,19 @@
 
 from PyHSPlasma import *
 
+def affine_parts(xform):
+    # Decompose the matrix into the 90s-era 3ds max affine parts sillyness
+    # All that's missing now is something like "(c) 1998 HeadSpin" oh wait...
+    affine = hsAffineParts()
+    affine.T = hsVector3(*xform.to_translation())
+    affine.K = hsVector3(*xform.to_scale())
+    affine.F = -1.0 if xform.determinant() < 0.0 else 1.0
+    rot = xform.to_quaternion()
+    affine.Q = quaternion(rot)
+    rot.normalize()
+    affine.U = quaternion(rot)
+    return affine
+
 def color(blcolor, alpha=1.0):
     """Converts a Blender Color into an hsColorRGBA"""
     return hsColorRGBA(blcolor.r, blcolor.g, blcolor.b, alpha)

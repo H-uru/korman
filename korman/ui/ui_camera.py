@@ -47,6 +47,18 @@ class PlasmaCameraTransitionPanel(CameraButtonsPanel, bpy.types.Panel):
 def draw_camera_properties(cam_type, props, layout, context, force_no_anim=False):
     trans = props.transition
 
+    def _draw_alert_prop(layout, props, the_prop, cam="", min=None, max=None, **kwargs):
+        can_alert = not cam or cam == cam_type
+        if can_alert:
+            value = getattr(props, the_prop)
+            if min is not None and value < min:
+                layout.alert = True
+            if max is not None and value > max:
+                layout.alert = True
+            layout.prop(props, the_prop, **kwargs)
+            layout.alert = False
+        else:
+            layout.prop(props, the_prop, **kwargs)
     def _draw_gated_prop(layout, props, gate_prop, actual_prop):
         row = layout.row(align=True)
         row.prop(props, gate_prop, text="")
@@ -111,9 +123,9 @@ def draw_camera_properties(cam_type, props, layout, context, force_no_anim=False
     # Position Transitions
     col.active = cam_type != "circle"
     col.label("Default Position Transition:")
-    col.prop(trans, "pos_acceleration", text="Acceleration")
-    col.prop(trans, "pos_deceleration", text="Deceleration")
-    col.prop(trans, "pos_velocity", text="Maximum Velocity")
+    _draw_alert_prop(col, trans, "pos_acceleration", cam="rail", max=10.0, text="Acceleration")
+    _draw_alert_prop(col, trans, "pos_deceleration", cam="rail", max=10.0, text="Deceleration")
+    _draw_alert_prop(col, trans, "pos_velocity", cam="rail", max=10.0, text="Maximum Velocity")
     col.prop(trans, "pos_cut")
 
     # Position Offsets

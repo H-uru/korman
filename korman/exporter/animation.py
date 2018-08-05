@@ -353,6 +353,21 @@ class AnimationConverter:
             yield applicator
 
     def _convert_transform_animation(self, name, fcurves, xform, allow_empty=False):
+        tm = self.convert_transform_controller(fcurves, xform, allow_empty)
+        if tm is None and not allow_empty:
+            return None
+
+        applicator = plMatrixChannelApplicator()
+        applicator.enabled = True
+        applicator.channelName = name
+        channel = plMatrixControllerChannel()
+        channel.controller = tm
+        applicator.channel = channel
+        channel.affine = utils.affine_parts(xform)
+
+        return applicator
+
+    def convert_transform_controller(self, fcurves, xform, allow_empty=False):
         if not fcurves and not allow_empty:
             return None
 
@@ -367,27 +382,7 @@ class AnimationConverter:
         tm.X = pos
         tm.Y = rot
         tm.Z = scale
-
-        applicator = plMatrixChannelApplicator()
-        applicator.enabled = True
-        applicator.channelName = name
-        channel = plMatrixControllerChannel()
-        channel.controller = tm
-        applicator.channel = channel
-
-        # Decompose the matrix into the 90s-era 3ds max affine parts sillyness
-        # All that's missing now is something like "(c) 1998 HeadSpin" oh wait...
-        affine = hsAffineParts()
-        affine.T = hsVector3(*xform.to_translation())
-        affine.K = hsVector3(*xform.to_scale())
-        affine.F = -1.0 if xform.determinant() < 0.0 else 1.0
-        rot = xform.to_quaternion()
-        affine.Q = utils.quaternion(rot)
-        rot.normalize()
-        affine.U = utils.quaternion(rot)
-        channel.affine = affine
-
-        return applicator
+        return tm
 
     def get_anigraph_keys(self, bo=None, so=None):
         mod = self._mgr.find_create_key(plAGModifier, so=so, bl=bo)
