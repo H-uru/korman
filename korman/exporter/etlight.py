@@ -51,9 +51,12 @@ class LightBaker(_MeshManager):
 
     def _apply_render_settings(self, toggle, vcols):
         render = bpy.context.scene.render
-        toggle.track(render, "use_textures", False)
+
+        # Remember, lightmaps carefully control the enabled textures such that light
+        # can be cast through transparent materials. See diatribe in lightmap prep.
+        toggle.track(render, "use_textures", not vcols)
         toggle.track(render, "use_shadows", True)
-        toggle.track(render, "use_envmaps", False)
+        toggle.track(render, "use_envmaps", True)
         toggle.track(render, "use_raytrace", True)
         toggle.track(render, "bake_type", "FULL")
         toggle.track(render, "use_bake_clear", True)
@@ -243,6 +246,18 @@ class LightBaker(_MeshManager):
         modifier = bo.plasma_modifiers.lightmap
         uv_textures = mesh.uv_textures
 
+        # Previously, we told Blender to just ignore textures althogether when baking
+        # VCols or lightmaps. This is easy, but it prevents us from doing tricks like
+        # using the "Receive Transparent" option, which allows for light to be cast
+        # through sections of materials that are transparent. Therefore, on objects
+        # that are lightmapped, we will disable all the texture slots...
+        # Due to our batching, however, materials that are transparent cannot be lightmapped.
+        for material in (i for i in mesh.materials if i is not None):
+            if material.use_transparency:
+                raise ExportError("'{}': Cannot lightmap material '{}' because it is transparnt".format(bo.name, material.name))
+            for slot in (j for j in material.texture_slots if j is not None):
+                toggle.track(slot, "use", False)
+
         # Create a special light group for baking
         if not self._generate_lightgroup(bo, modifier.lights):
             return False
@@ -357,7 +372,7 @@ class LightBaker(_MeshManager):
             for i in bpy.data.objects:
                 if i == objs:
                     # prevents proper baking to texture
-                    for mat in i.data.materials:
+                    for mat in (j for j in i.data.materials if j is not None):
                         toggle.track(mat, "use_vertex_color_paint", False)
                     i.select = True
                 else:
@@ -370,7 +385,7 @@ class LightBaker(_MeshManager):
                 value = i in objs
                 if value:
                     # prevents proper baking to texture
-                    for mat in i.data.materials:
+                    for mat in (j for j in i.data.materials if j is not None):
                         toggle.track(mat, "use_vertex_color_paint", False)
                     toggle.track(i, "hide_render", False)
                 elif isinstance(i.data, bpy.types.Mesh) and not self._has_valid_material(i):
