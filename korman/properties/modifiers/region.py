@@ -93,6 +93,7 @@ class PlasmaCameraRegion(PlasmaModifierProperties):
             camera_props = self.auto_camera
             camera_type = self.camera_type[5:]
             exporter.camera.export_camera(so, bo, camera_type, camera_props)
+            camera_so_key = so.key
 
         # Setup physical stuff
         phys_mod = bo.plasma_modifiers.collision

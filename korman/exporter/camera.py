@@ -150,7 +150,7 @@ class CameraConverter:
         self._convert_brain(so, bo, props, brain)
 
         # Follow camera specific stuff ahoy!
-        brain.offset = hsVector3(*camera_props.pos_offset)
+        brain.offset = hsVector3(*props.pos_offset)
         return brain
 
     def _export_rail_camera(self, so, bo, props):
