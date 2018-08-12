@@ -19,8 +19,8 @@ from . import op_mesh as mesh
 from . import op_modifier as modifier
 from . import op_nodes as nodes
 from . import op_sound as sound
-from . import op_texture as texture
 from . import op_toolbox as toolbox
+from . import op_ui as ui
 from . import op_world as world
 
 def register():
