@@ -241,7 +241,7 @@ class Exporter:
         # Hey, guess what? Blender's camera data is utter crap!
         # NOTE: Animation export is dependent on camera type, so we'll do that later.
         camera = bo.data.plasma_camera
-        self.camera.export_camera(so, bo, camera.camera_type, camera.settings)
+        self.camera.export_camera(so, bo, camera.camera_type, camera.settings, camera.transitions)
 
     def _export_empty_blobj(self, so, bo):
         self.animation.convert_object_animations(bo, so)

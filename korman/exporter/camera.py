@@ -68,12 +68,12 @@ class CameraConverter:
         if camera_props.fast_run:
             brain.setFlags(plCameraBrain1.kSpeedUpWhenRunning, True)
 
-    def export_camera(self, so, bo, camera_type, camera_props):
+    def export_camera(self, so, bo, camera_type, camera_props, camera_trans=[]):
         brain = getattr(self, "_export_{}_camera".format(camera_type))(so, bo, camera_props)
-        mod = self._export_camera_modifier(so, bo, camera_props)
+        mod = self._export_camera_modifier(so, bo, camera_props, camera_trans)
         mod.brain = brain.key
 
-    def _export_camera_modifier(self, so, bo, props):
+    def _export_camera_modifier(self, so, bo, props, trans):
         mod = self._mgr.find_create_object(plCameraModifier, so=so)
 
         # PlasmaMAX allows the user to specify the horizontal OR vertical FOV, but not both.
@@ -88,6 +88,26 @@ class CameraConverter:
             mod.startAnimOnPush = props.start_on_push
             mod.stopAnimOnPop = props.stop_on_pop
             mod.resetAnimOnPop = props.reset_on_pop
+
+        for manual_trans in trans:
+            if not manual_trans.enabled or manual_trans.mode == "auto":
+                continue
+            cam_trans = plCameraModifier.CamTrans()
+            if manual_trans.camera:
+                cam_trans.transTo = self._mgr.find_create_key(plCameraModifier, bl=manual_trans.camera)
+            cam_trans.ignore = manual_trans.mode == "ignore"
+
+            trans_info = manual_trans.transition
+            cam_trans.cutPos = trans_info.pos_cut
+            cam_trans.cutPOA = trans_info.poa_cut
+            cam_trans.accel = trans_info.pos_acceleration
+            cam_trans.decel = trans_info.pos_deceleration
+            cam_trans.velocity = trans_info.pos_velocity
+            cam_trans.poaAccel = trans_info.poa_acceleration
+            cam_trans.poaDecel = trans_info.poa_deceleration
+            cam_trans.poaVelocity = trans_info.poa_velocity
+            mod.addTrans(cam_trans)
+
         return mod
 
     def _export_circle_camera(self, so, bo, props):

@@ -14,7 +14,9 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+
 from .. import helpers
+from . import ui_list
 
 def _draw_alert_prop(layout, props, the_prop, cam_type, alert_cam="", min=None, max=None, **kwargs):
     can_alert = not alert_cam or alert_cam == cam_type
@@ -220,7 +222,7 @@ class PlasmaCameraViewPanel(CameraButtonsPanel, bpy.types.Panel):
 class TransitionListUI(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
         if item.camera is None:
-            layout.label("[Default Transition]")
+            layout.label("[Default Camera]")
         else:
             layout.label(item.camera.name, icon="CAMERA_DATA")
         layout.prop(item, "enabled", text="")
@@ -230,4 +232,37 @@ class PlasmaCameraTransitionPanel(CameraButtonsPanel, bpy.types.Panel):
     bl_label = "Transitions"
 
     def draw(self, context):
-        pass
+        layout = self.layout
+        camera = context.camera.plasma_camera
+
+        ui_list.draw_list(layout, "TransitionListUI", "camera", camera, "transitions",
+                          "active_transition_index", rows=3, maxrows=4)
+
+        try:
+            item = camera.transitions[camera.active_transition_index]
+            trans = item.transition
+        except:
+            pass
+        else:
+            layout.separator()
+            box = layout.box()
+            box.prop(item, "camera")
+            box.prop(item, "mode")
+
+            box.separator()
+            split = box.split()
+            split.active = item.mode == "manual"
+
+            col = split.column()
+            col.label("Tracking Transition:")
+            col.prop(trans, "poa_acceleration", text="Acceleration")
+            col.prop(trans, "poa_deceleration", text="Deceleration")
+            col.prop(trans, "poa_velocity", text="Maximum Velocity")
+            col.prop(trans, "poa_cut")
+
+            col = split.column()
+            col.label("Position Transition:")
+            col.prop(trans, "pos_acceleration", text="Acceleration")
+            col.prop(trans, "pos_deceleration", text="Deceleration")
+            col.prop(trans, "pos_velocity", text="Maximum Velocity")
+            col.prop(trans, "pos_cut")

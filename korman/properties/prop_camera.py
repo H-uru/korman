@@ -17,6 +17,8 @@ import bpy
 from bpy.props import *
 import math
 
+from .. import idprops
+
 camera_types = [("circle", "Circle Camera", "The camera circles a fixed point"),
                 ("follow", "Follow Camera", "The camera follows an object"),
                 ("fixed", "Fixed Camera", "The camera is fixed in one location"),
@@ -53,6 +55,26 @@ class PlasmaTransition(bpy.types.PropertyGroup):
                                  unit="VELOCITY", options=set())
     pos_cut = BoolProperty(name="Cut Transition",
                            description="The camera immediately moves to its new position",
+                           options=set())
+
+
+class PlasmaManualTransition(bpy.types.PropertyGroup):
+    camera = PointerProperty(name="Camera",
+                             description="Camera to transition to",
+                             type=bpy.types.Object,
+                             poll=idprops.poll_camera_objects,
+                             options=set())
+    transition = PointerProperty(type=PlasmaTransition, options=set())
+    mode = EnumProperty(name="Transition Mode",
+                        description="Type of transition that should occur between the two cameras",
+                        items=[("ignore", "Ignore Camera", "Ignore this camera and do not transition"),
+                               ("auto", "Auto", "Auto transition as defined by the two cameras' properies"),
+                               ("manual", "Manual", "Manually defined transition")],
+                        default="auto",
+                        options=set())
+    enabled = BoolProperty(name="Enabled",
+                           description="Export this transition",
+                           default=True,
                            options=set())
 
 
@@ -217,7 +239,8 @@ class PlasmaCamera(bpy.types.PropertyGroup):
                                items=camera_types,
                                options=set())
     settings = PointerProperty(type=PlasmaCameraProperties, options=set())
-    transitions = CollectionProperty(type=PlasmaTransition,
+    transitions = CollectionProperty(type=PlasmaManualTransition,
                                      name="Transitions",
                                      description="",
                                      options=set())
+    active_transition_index = IntProperty(options={"HIDDEN"})
