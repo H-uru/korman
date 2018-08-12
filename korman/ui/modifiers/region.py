@@ -14,14 +14,33 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
-from ..ui_camera import draw_camera_properties
+from .. import ui_camera
 
 def camera_rgn(modifier, layout, context):
     layout.prop(modifier, "camera_type")
     if modifier.camera_type == "manual":
         layout.prop(modifier, "camera_object", icon="CAMERA_DATA")
     else:
-        draw_camera_properties("follow", modifier.auto_camera, layout, context, True)
+        cam_type = modifier.camera_type[5:]
+        cam_props = modifier.auto_camera
+
+        def _draw_props(layout, cb):
+            for i in cb:
+                layout.separator()
+                i(layout, cam_type, cam_props)
+        def _draw_circle_cam_props(layout, cam_type, props):
+            # needs a sublayout that we can deactivate because the ui_camera
+            # version assumes we are most definitely a circle camera...
+            col = layout.column()
+            col.active = cam_type == "circle"
+            col.label("Circle Camera:")
+            ui_camera.draw_circle_camera_props(col, props)
+
+        _draw_props(layout, (ui_camera.draw_camera_mode_props,
+                             ui_camera.draw_camera_poa_props,
+                             ui_camera.draw_camera_pos_props,
+                             ui_camera.draw_camera_manipulation_props,
+                             _draw_circle_cam_props))
 
 def footstep(modifier, layout, context):
     layout.prop(modifier, "bounds")

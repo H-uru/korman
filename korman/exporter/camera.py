@@ -140,7 +140,8 @@ class CameraConverter:
         return brain
 
     def _export_fixed_camera(self, so, bo, props):
-        self._exporter().animation.convert_object_animations(bo, so)
+        if props.anim_enabled:
+            self._exporter().animation.convert_object_animations(bo, so)
         brain = self._mgr.find_create_object(plCameraBrain1_Fixed, so=so)
         self._convert_brain(so, bo, props, brain)
         return brain
@@ -185,6 +186,8 @@ class CameraConverter:
         else:
             # The animation is a loop
             path.flags |= plAnimPath.kWrap
+        if props.rail_pos == "farthest":
+            path.flags |= plAnimPath.kFarthest
         path.length = end / bpy.context.scene.render.fps
         rail.path = path
         brain.rail = rail.key

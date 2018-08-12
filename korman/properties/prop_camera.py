@@ -159,8 +159,8 @@ class PlasmaCameraProperties(bpy.types.PropertyGroup):
                                     options=set())
     circle_pos = EnumProperty(name="Position on Circle",
                               description="The point on the circle the camera moves to",
-                              items=[("closest", "Closest Point", "The camera moves to point on the circle closest to the Point of Attention"),
-                                     ("farthest", "Farthest Point", "The point farthest from the Point of Attention")],
+                              items=[("closest", "Closest Point", "The camera moves to the point on the circle closest to the Point of Attention"),
+                                     ("farthest", "Farthest Point", "The camera moves to the point on the circle farthest from the Point of Attention")],
                               options=set())
     circle_velocity = FloatProperty(name="Velocity",
                                     description="Velocity of the circle camera in degrees per second",
@@ -174,15 +174,28 @@ class PlasmaCameraProperties(bpy.types.PropertyGroup):
                                         min=0.0, default=8.5, options={"HIDDEN"})
 
     # Animation
+    anim_enabled = BoolProperty(name="Animation Enabled",
+                                description="Export the camera's animation",
+                                default=True,
+                                options=set())
     start_on_push = BoolProperty(name="Start on Push",
                                  description="Start playing the camera's animation when the camera is activated",
+                                 default=True,
                                  options=set())
     stop_on_pop = BoolProperty(name="Pause on Pop",
                                description="Pauses the camera's animation when the camera is no longer activated",
+                               default=True,
                                options=set())
     reset_on_pop = BoolProperty(name="Reset on Pop",
                                 description="Reset the camera's animation to the beginning when the camera is no longer activated",
                                 options=set())
+
+    # Rail
+    rail_pos = EnumProperty(name="Position on Rail",
+                            description="The point on the rail the camera moves to",
+                            items=[("closest", "Closest Point", "The camera moves to the point on the rail closest to the Point of Attention"),
+                                   ("farthest", "Farthest Point", "The camera moves to the point on the rail farthest from the Point of Attention")],
+                            options=set())
 
     def get_circle_radius(self, bo):
         """Gets the circle camera radius for this camera when it is attached to the given Object"""
