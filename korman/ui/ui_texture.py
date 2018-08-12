@@ -15,6 +15,8 @@
 
 import bpy
 
+from . import ui_list
+
 class TextureButtonsPanel:
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
@@ -42,20 +44,8 @@ class PlasmaEnvMapPanel(TextureButtonsPanel, bpy.types.Panel):
         layout.separator()
 
         layout.label("Visibility Sets:")
-        row = layout.row()
-        row.template_list("VisRegionListUI", "vis_regions", layer_props, "vis_regions", layer_props, "active_region_index",
-                          rows=2, maxrows=3)
-        col = row.column(align=True)
-        op = col.operator("ui.plasma_collection_add", icon="ZOOMIN", text="")
-        op.context = "texture"
-        op.group_path = "plasma_layer"
-        op.collection_prop = "vis_regions"
-        op.index_prop = "active_region_index"
-        op = col.operator("ui.plasma_collection_remove", icon="ZOOMOUT", text="")
-        op.context = "texture"
-        op.group_path = "plasma_layer"
-        op.collection_prop = "vis_regions"
-        op.index_prop = "active_region_index"
+        ui_list.draw_list(layout, "VisRegionListUI", "texture", layer_props,
+                          "vis_regions", "active_region_index", rows=2, maxrows=3)
         rgns = layer_props.vis_regions
         if layer_props.vis_regions:
             layout.prop(rgns[layer_props.active_region_index], "control_region")
