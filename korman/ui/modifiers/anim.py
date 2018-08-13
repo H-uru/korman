@@ -15,6 +15,8 @@
 
 import bpy
 
+from .. import ui_list
+
 def _check_for_anim(layout, modifier):
     try:
         action = modifier.blender_action
@@ -67,18 +69,8 @@ def animation_group(modifier, layout, context):
     if action is None:
         return
 
-    row = layout.row()
-    row.template_list("GroupListUI", "children", modifier, "children", modifier, "active_child_index",
-                      rows=3, maxrows=4)
-    col = row.column(align=True)
-    op = col.operator("object.plasma_modifier_collection_add", icon="ZOOMIN", text="")
-    op.modifier = modifier.pl_id
-    op.collection = "children"
-    op = col.operator("object.plasma_modifier_collection_remove", icon="ZOOMOUT", text="")
-    op.modifier = modifier.pl_id
-    op.collection = "children"
-    op.index = modifier.active_child_index
-
+    ui_list.draw_modifier_list(layout, "GroupListUI", modifier, "children",
+                               "active_child_index", rows=3, maxrows=4)
     if modifier.children:
         layout.prop(modifier.children[modifier.active_child_index], "child_anim", icon="ACTION")
 
@@ -96,20 +88,9 @@ def animation_loop(modifier, layout, context):
     elif action is None:
         return
 
-    row = layout.row()
-    row.template_list("LoopListUI", "loops", modifier, "loops", modifier, "active_loop_index",
-                      rows=2, maxrows=3)
-    col = row.column(align=True)
-    op = col.operator("object.plasma_modifier_collection_add", icon="ZOOMIN", text="")
-    op.modifier = modifier.pl_id
-    op.collection = "loops"
-    op.name_prefix = "Loop"
-    op.name_prop = "loop_name"
-    op = col.operator("object.plasma_modifier_collection_remove", icon="ZOOMOUT", text="")
-    op.modifier = modifier.pl_id
-    op.collection = "loops"
-    op.index = modifier.active_loop_index
-
+    ui_list.draw_modifier_list(layout, "LoopListUI", modifier, "loops",
+                               "active_loop_index", name_prefix="Loop",
+                               name_prop="loop_name", rows=2, maxrows=3)
     # Modify the loop points
     if modifier.loops:
         loop = modifier.loops[modifier.active_loop_index]

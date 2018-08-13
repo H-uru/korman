@@ -15,27 +15,19 @@
 
 import bpy
 
+from .. import ui_list
+
 class LogicListUI(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
         layout.prop(item, "name", emboss=False, text="", icon="NODETREE")
 
 
 def advanced_logic(modifier, layout, context):
-    row = layout.row()
-    row.template_list("LogicListUI", "logic_groups", modifier, "logic_groups", modifier, "active_group_index",
-                      rows=2, maxrows=3)
-    col = row.column(align=True)
-    op = col.operator("object.plasma_modifier_collection_add", icon="ZOOMIN", text="")
-    op.modifier = modifier.pl_id
-    op.collection = "logic_groups"
-    op.name_prefix = "Logic"
-    op.name_prop = "name"
-    op = col.operator("object.plasma_modifier_collection_remove", icon="ZOOMOUT", text="")
-    op.modifier = modifier.pl_id
-    op.collection = "logic_groups"
-    op.index = modifier.active_group_index
+    ui_list.draw_modifier_list(layout, "LogicListUI", modifier, "logic_groups",
+                               "active_group_index", name_prefix="Logic",
+                               name_prop="name", rows=2, maxrows=3)
 
-    # Modify the loop points
+    # Modify the logic groups
     if modifier.logic_groups:
         logic = modifier.logic_groups[modifier.active_group_index]
         layout.row().prop_menu_enum(logic, "version")
