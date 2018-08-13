@@ -15,6 +15,8 @@
 
 import bpy
 
+from .. import ui_list
+
 def _draw_fade_ui(modifier, layout, label):
     layout.label(label)
     layout.prop(modifier, "fade_type", text="")
@@ -30,17 +32,8 @@ class SoundListUI(bpy.types.UIList):
 
 
 def soundemit(modifier, layout, context):
-    row = layout.row()
-    row.template_list("SoundListUI", "sounds", modifier, "sounds", modifier, "active_sound_index",
-                      rows=2, maxrows=3)
-    col = row.column(align=True)
-    op = col.operator("object.plasma_modifier_collection_add", icon="ZOOMIN", text="")
-    op.modifier = modifier.pl_id
-    op.collection = "sounds"
-    op = col.operator("object.plasma_modifier_collection_remove", icon="ZOOMOUT", text="")
-    op.modifier = modifier.pl_id
-    op.collection = "sounds"
-    op.index = modifier.active_sound_index
+    ui_list.draw_modifier_list(layout, "SoundListUI", modifier, "sounds",
+                               "active_sound_index", rows=2, maxrows=3)
 
     try:
         sound = modifier.sounds[modifier.active_sound_index]

@@ -15,6 +15,8 @@
 
 import bpy
 
+from .. import ui_list
+
 def swimregion(modifier, layout, context):
     split = layout.split()
     col = split.column()
@@ -111,19 +113,9 @@ class ShoreListUI(bpy.types.UIList):
 
 
 def water_shore(modifier, layout, context):
-    row = layout.row()
-    row.template_list("ShoreListUI", "shores", modifier, "shores", modifier, "active_shore_index",
-                      rows=2, maxrows=3)
-    col = row.column(align=True)
-    op = col.operator("object.plasma_modifier_collection_add", icon="ZOOMIN", text="")
-    op.modifier = modifier.pl_id
-    op.collection = "shores"
-    op.name_prefix = "Shore"
-    op.name_prop = "display_name"
-    op = col.operator("object.plasma_modifier_collection_remove", icon="ZOOMOUT", text="")
-    op.modifier = modifier.pl_id
-    op.collection = "shores"
-    op.index = modifier.active_shore_index
+    ui_list.draw_modifier_list(layout, "ShoreListUI", modifier, "shores",
+                               "active_shore_index", name_prefix="Shore",
+                               name_prop="display_name", rows=2, maxrows=3)
 
     # Display the active shore
     if modifier.shores:

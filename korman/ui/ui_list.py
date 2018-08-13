@@ -26,9 +26,14 @@ def draw_list(layout, listtype, context_attr, prop_base, collection_name, index_
        - prop_base: property group owning the collection
        - collection_name: name of the collection property
        - index_name: name of the active element index property
+       - name_prefix: (optional) prefix to apply to display name of new elements
+       - name_prop: (optional) property for each element's display name
        *** any other arguments are passed as keyword arguments to the template_list call 
     """
     prop_path = prop_base.path_from_id()
+    name_prefix = kwargs.pop("name_prefix", "")
+    name_prop = kwargs.pop("name_prop", "")
+
     row = layout.row()
     row.template_list(listtype, collection_name, prop_base, collection_name,
                       prop_base, index_name, **kwargs)
@@ -38,9 +43,13 @@ def draw_list(layout, listtype, context_attr, prop_base, collection_name, index_
     op.group_path = prop_path
     op.collection_prop = collection_name
     op.index_prop = index_name
+    op.name_prefix = name_prefix
+    op.name_prop = name_prop
     op = col.operator("ui.plasma_collection_remove", icon="ZOOMOUT", text="")
     op.context = context_attr
     op.group_path = prop_path
     op.collection_prop = collection_name
     op.index_prop = index_name
 
+def draw_modifier_list(layout, listtype, prop_base, collection_name, index_name, **kwargs):
+    draw_list(layout, listtype, "object", prop_base, collection_name, index_name, **kwargs)

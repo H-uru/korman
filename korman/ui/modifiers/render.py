@@ -15,6 +15,8 @@
 
 import bpy
 
+from .. import ui_list
+
 def fademod(modifier, layout, context):
     layout.prop(modifier, "fader_type")
 
@@ -147,17 +149,8 @@ class VisRegionListUI(bpy.types.UIList):
 
 
 def visibility(modifier, layout, context):
-    row = layout.row()
-    row.template_list("VisRegionListUI", "regions", modifier, "regions", modifier, "active_region_index",
-                      rows=2, maxrows=3)
-    col = row.column(align=True)
-    op = col.operator("object.plasma_modifier_collection_add", icon="ZOOMIN", text="")
-    op.modifier = modifier.pl_id
-    op.collection = "regions"
-    op = col.operator("object.plasma_modifier_collection_remove", icon="ZOOMOUT", text="")
-    op.modifier = modifier.pl_id
-    op.collection = "regions"
-    op.index = modifier.active_region_index
+    ui_list.draw_modifier_list(layout, "VisRegionListUI", modifier, "regions",
+                               "active_region_index", rows=2, maxrows=3)
 
     if modifier.regions:
         layout.prop(modifier.regions[modifier.active_region_index], "control_region")
