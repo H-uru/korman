@@ -299,6 +299,50 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
                 "texture_name": bpy.data.textures}
 
 
+class PlasmaCameraMsgNode(PlasmaMessageNode, bpy.types.Node):
+    bl_category = "MSG"
+    bl_idname = "PlasmaCameraMsgNode"
+    bl_label = "Camera"
+    bl_width_default = 200
+
+    cmd = EnumProperty(name="Command",
+                       description="Command to send to the camera system",
+                       items=[("push", "Push Camera", "Pushes a new camera onto the camera stack and transitions to it"),
+                              ("pop", "Pop Camera", "Pops the camera off the camera stack"),
+                              ("disablefp", "Disable First Person", "Forces the camera into third person if it is currently in first person and disables first person mode"),
+                              ("enablefp", "Enable First Person", "Reenables the first person camera and switches back to it if the player was in first person previously")],
+                       options=set())
+    camera = PointerProperty(name="Camera",
+                             type=bpy.types.Object,
+                             poll=idprops.poll_camera_objects,
+                             options=set())
+
+    def convert_message(self, exporter, so):
+        msg = plCameraMsg()
+        msg.BCastFlags |= plMessage.kLocalPropagate | plMessage.kBCastByType
+        if self.cmd in {"push", "pop"}:
+            if self.camera is not None:
+                msg.newCam = exporter.mgr.find_create_key(plSceneObject, bl=self.camera)
+            # It appears that kRegionPopCamera is unused. pushing is controlled by observing
+            # the presence of the kResponderTrigger command.
+            msg.setCmd(plCameraMsg.kResponderTrigger, self.cmd == "push")
+            msg.setCmd(plCameraMsg.kRegionPushCamera, True)
+            msg.setCmd(plCameraMsg.kSetAsPrimary, self.camera is None
+                       or self.camera.data.plasma_camera.settings.primary_camera)
+        elif self.cmd == "disablefp":
+            msg.setCmd(plCameraMsg.kResponderSetThirdPerson)
+        elif self.cmd == "enablefp":
+            msg.setCmd(plCameraMsg.kResponderUndoThirdPerson)
+        else:
+            raise RuntimeError()
+        return msg
+
+    def draw_buttons(self, context, layout):
+        layout.prop(self, "cmd")
+        if self.cmd in {"push", "pop"}:
+            layout.prop(self, "camera")
+
+
 class PlasmaEnableMsgNode(PlasmaMessageNode, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaEnableMsgNode"
