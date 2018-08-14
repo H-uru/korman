@@ -105,7 +105,7 @@ class ExportOperator(bpy.types.Operator):
 
         # Separate blender operator and actual export logic for my sanity
         ageName = path.stem
-        with _UiHelper() as _ui:
+        with _UiHelper(context) as _ui:
             e = exporter.Exporter(self)
             try:
                 if self.profile_export:
@@ -151,10 +151,11 @@ class ExportOperator(bpy.types.Operator):
 
 class _UiHelper:
     """This fun little helper makes sure that we don't wreck the UI"""
-    def __enter__(self):
-        self.active_object = bpy.context.object
-        self.selected_objects = bpy.context.selected_objects
+    def __init__(self, context):
+        self.active_object = context.active_object
+        self.selected_objects = context.selected_objects
 
+    def __enter__(self):
         scene = bpy.context.scene
         self.layers = tuple(scene.layers)
         self.frame_num = scene.frame_current
