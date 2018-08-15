@@ -28,19 +28,11 @@ def camera_rgn(modifier, layout, context):
             for i in cb:
                 layout.separator()
                 i(layout, cam_type, cam_props)
-        def _draw_circle_cam_props(layout, cam_type, props):
-            # needs a sublayout that we can deactivate because the ui_camera
-            # version assumes we are most definitely a circle camera...
-            col = layout.column()
-            col.active = cam_type == "circle"
-            col.label("Circle Camera:")
-            ui_camera.draw_circle_camera_props(col, props)
 
         _draw_props(layout, (ui_camera.draw_camera_mode_props,
                              ui_camera.draw_camera_poa_props,
                              ui_camera.draw_camera_pos_props,
-                             ui_camera.draw_camera_manipulation_props,
-                             _draw_circle_cam_props))
+                             ui_camera.draw_camera_manipulation_props))
 
 def footstep(modifier, layout, context):
     layout.prop(modifier, "bounds")

@@ -70,8 +70,8 @@ class PlasmaCameraRegion(PlasmaModifierProperties):
     camera_type = EnumProperty(name="Camera Type",
                                description="What kind of camera should be used?",
                                items=[("auto_follow", "Auto Follow Camera", "Automatically generated follow camera"),
-                                      ("auto_circle", "Auto Circle Camera", "Automatically generated circle camera"),
                                       ("manual", "Manual Camera", "User specified camera object")],
+                               default="manual",
                                options=set())
     camera_object = PointerProperty(name="Camera",
                                     description="Switches to this camera",
