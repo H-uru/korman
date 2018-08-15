@@ -49,9 +49,11 @@ class CameraConverter:
         brain.poaDeceleration = trans_props.poa_deceleration
         brain.poaVelocity = trans_props.poa_velocity
 
-        if trans_props.pos_cut:
+        if isinstance(brain, plCameraBrain1_Avatar):
+            brain.setFlags(plCameraBrain1.kCutPos, trans_props.pos_cut)
+            brain.setFlags(plCameraBrain1.kCutPOA, trans_props.poa_cut)
+        else:
             brain.setFlags(plCameraBrain1.kCutPos, True)
-        if trans_props.poa_cut:
             brain.setFlags(plCameraBrain1.kCutPOA, True)
         if camera_props.poa_type == "avatar":
             brain.setFlags(plCameraBrain1.kFollowLocalAvatar, True)

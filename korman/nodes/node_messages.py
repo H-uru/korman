@@ -316,6 +316,9 @@ class PlasmaCameraMsgNode(PlasmaMessageNode, bpy.types.Node):
                              type=bpy.types.Object,
                              poll=idprops.poll_camera_objects,
                              options=set())
+    cut = BoolProperty(name="Cut Transition",
+                       description="Immediately swap over to the new camera without a transition animation",
+                       options=set())
 
     def convert_message(self, exporter, so):
         msg = plCameraMsg()
@@ -329,6 +332,7 @@ class PlasmaCameraMsgNode(PlasmaMessageNode, bpy.types.Node):
             msg.setCmd(plCameraMsg.kRegionPushCamera, True)
             msg.setCmd(plCameraMsg.kSetAsPrimary, self.camera is None
                        or self.camera.data.plasma_camera.settings.primary_camera)
+            msg.setCmd(plCameraMsg.kCut, self.cut)
         elif self.cmd == "disablefp":
             msg.setCmd(plCameraMsg.kResponderSetThirdPerson)
         elif self.cmd == "enablefp":
@@ -341,6 +345,7 @@ class PlasmaCameraMsgNode(PlasmaMessageNode, bpy.types.Node):
         layout.prop(self, "cmd")
         if self.cmd in {"push", "pop"}:
             layout.prop(self, "camera")
+            layout.prop(self, "cut")
 
 
 class PlasmaEnableMsgNode(PlasmaMessageNode, bpy.types.Node):

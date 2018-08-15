@@ -37,7 +37,7 @@ class PlasmaTransition(bpy.types.PropertyGroup):
                                  description="Maximum velocity of the camera's Point of Attention tracking",
                                  min=-100.0, max=100.0, precision=0, default=60.0,
                                  unit="VELOCITY", options=set())
-    poa_cut = BoolProperty(name="Cut Transition",
+    poa_cut = BoolProperty(name="Cut",
                            description="The camera immediately begins tracking the Point of Attention",
                            options=set())
 
@@ -53,14 +53,14 @@ class PlasmaTransition(bpy.types.PropertyGroup):
                                  description="Maximum positional velocity of the camera",
                                  min=-100.0, max=100.0, precision=0, default=60.0,
                                  unit="VELOCITY", options=set())
-    pos_cut = BoolProperty(name="Cut Transition",
+    pos_cut = BoolProperty(name="Cut",
                            description="The camera immediately moves to its new position",
                            options=set())
 
 
 class PlasmaManualTransition(bpy.types.PropertyGroup):
     camera = PointerProperty(name="Camera",
-                             description="Camera to transition to",
+                             description="The camera from which this transition is intended",
                              type=bpy.types.Object,
                              poll=idprops.poll_camera_objects,
                              options=set())

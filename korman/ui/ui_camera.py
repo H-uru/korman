@@ -87,7 +87,9 @@ def draw_camera_poa_props(layout, cam_type, props):
     col.prop(trans, "poa_acceleration", text="Acceleration")
     col.prop(trans, "poa_deceleration", text="Deceleration")
     col.prop(trans, "poa_velocity", text="Maximum Velocity")
-    col.prop(trans, "poa_cut")
+    col = col.column()
+    col.active = cam_type == "follow"
+    col.prop(trans, "poa_cut", text="Cut Animation")
 
     # PoA Offset
     col = split.column()
@@ -111,7 +113,9 @@ def draw_camera_pos_props(layout, cam_type, props):
                      alert_cam="rail", max=10.0, text="Deceleration")
     _draw_alert_prop(col, trans, "pos_velocity", cam_type,
                      alert_cam="rail", max=10.0, text="Maximum Velocity")
-    col.prop(trans, "pos_cut")
+    col = col.column()
+    col.active = cam_type == "follow"
+    col.prop(trans, "pos_cut", text="Cut Animation")
 
     # Position Offsets
     col = split.column()
@@ -222,7 +226,7 @@ class PlasmaCameraViewPanel(CameraButtonsPanel, bpy.types.Panel):
 class TransitionListUI(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
         if item.camera is None:
-            layout.label("[Default Camera]")
+            layout.label("[Default Transition]")
         else:
             layout.label(item.camera.name, icon="CAMERA_DATA")
         layout.prop(item, "enabled", text="")
@@ -246,7 +250,7 @@ class PlasmaCameraTransitionPanel(CameraButtonsPanel, bpy.types.Panel):
         else:
             layout.separator()
             box = layout.box()
-            box.prop(item, "camera")
+            box.prop(item, "camera", text="Transition From")
             box.prop(item, "mode")
 
             box.separator()
@@ -258,11 +262,11 @@ class PlasmaCameraTransitionPanel(CameraButtonsPanel, bpy.types.Panel):
             col.prop(trans, "poa_acceleration", text="Acceleration")
             col.prop(trans, "poa_deceleration", text="Deceleration")
             col.prop(trans, "poa_velocity", text="Maximum Velocity")
-            col.prop(trans, "poa_cut")
+            col.prop(trans, "poa_cut", text="Cut Transition")
 
             col = split.column()
             col.label("Position Transition:")
             col.prop(trans, "pos_acceleration", text="Acceleration")
             col.prop(trans, "pos_deceleration", text="Deceleration")
             col.prop(trans, "pos_velocity", text="Maximum Velocity")
-            col.prop(trans, "pos_cut")
+            col.prop(trans, "pos_cut", text="Cut Transition")

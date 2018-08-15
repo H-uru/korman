@@ -107,8 +107,7 @@ class PlasmaCameraRegion(PlasmaModifierProperties):
         msg = plCameraMsg()
         msg.BCastFlags |= plMessage.kLocalPropagate | plMessage.kBCastByType
         msg.setCmd(plCameraMsg.kRegionPushCamera)
-        if camera_props.primary_camera:
-            msg.setCmd(plCameraMsg.kSetAsPrimary)
+        msg.setCmd(plCameraMsg.kSetAsPrimary, camera_props.primary_camera)
         msg.newCam = camera_so_key
 
         region = exporter.mgr.find_create_object(plCameraRegionDetector, so=so)
