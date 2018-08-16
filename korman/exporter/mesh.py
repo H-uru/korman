@@ -70,7 +70,7 @@ class _RenderLevel:
 
 class _DrawableCriteria:
     def __init__(self, bo, hsgmat, pass_index):
-        self.blend_span = hsgmat.layers[0].object.state.blendFlags & hsGMatState.kBlendMask
+        self.blend_span = bool(hsgmat.layers[0].object.state.blendFlags & hsGMatState.kBlendMask)
         self.criteria = 0
 
         if self.blend_span:
