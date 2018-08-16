@@ -654,7 +654,7 @@ class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.typ
 
         # Your attribute stuff here...
         if attrib == "ptAttribDynamicMap":
-            if not self._is_dyntext(material, texture):
+            if not self._is_dyntext(texture):
                 self.raise_error("Texture '{}' is not a Dynamic Text Map".format(self.texture_name))
             name = "{}_{}_DynText".format(material.name, texture.name)
             return exporter.mgr.find_create_key(plDynamicTextMap, name=name, so=so)
