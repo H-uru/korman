@@ -51,6 +51,7 @@ class ExportManager:
 
         self._nodes = {}
         self._pages = {}
+        self._keys = {}
 
         # cheap inheritance
         for i in dir(self.mgr):
@@ -62,6 +63,12 @@ class ExportManager:
         # We'll save from our reference later. Forget grabbing this from C++
         self._age_info = info
         self.mgr.AddAge(info)
+
+    def AddObject(self, location, obj):
+        """Overloads the plResManager AddObject so we can insert the object into our hashtable"""
+        key = obj.key
+        self._keys[(location, obj.__class__, key.name)] = key
+        self.mgr.AddObject(location, obj)
 
     def add_object(self, pl, name=None, bl=None, loc=None, so=None):
         """Automates adding a converted Blender object to our Plasma Resource Manager"""
@@ -85,7 +92,7 @@ class ExportManager:
                     name = so.key.name
             pl = pl(name)
 
-        self.mgr.AddObject(location, pl)
+        self.AddObject(location, pl)
         node = self._nodes[location]
         if node: # All objects must be in the scene node
             if isinstance(pl, plSceneObject):
@@ -191,11 +198,7 @@ class ExportManager:
             else:
                 name = so.key.name
 
-        index = plFactory.ClassIndex(pClass.__name__)
-        for key in self.mgr.getKeys(location, index):
-            if name == key.name:
-                return key
-        return None
+        return self._keys.get((location, pClass, name), None)
 
     def find_create_object(self, pClass, bl=None, name=None, so=None):
         key = self.find_key(pClass, bl, name, so)
