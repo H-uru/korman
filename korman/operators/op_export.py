@@ -109,8 +109,8 @@ class ExportOperator(bpy.types.Operator):
             e = exporter.Exporter(self)
             try:
                 if self.profile_export:
-                    profile = "{}_cProfile".format(ageName)
-                    cProfile.runctx("e.run()", globals(), locals(), profile)
+                    profile = path.with_name("{}_cProfile".format(ageName))
+                    profile = cProfile.runctx("e.run()", globals(), locals(), str(profile))
                 else:
                     e.run()
             except exporter.ExportError as error:
@@ -118,8 +118,8 @@ class ExportOperator(bpy.types.Operator):
                 return {"CANCELLED"}
             else:
                 if self.profile_export:
-                    stats_out = "{}_profile.log".format(ageName)
-                    with open(stats_out, "w") as out:
+                    stats_out = path.with_name("{}_profile.log".format(ageName))
+                    with open(str(stats_out), "w") as out:
                         stats = pstats.Stats(profile, stream=out)
                         stats = stats.sort_stats("time", "calls")
                         stats.print_stats()
