@@ -24,6 +24,15 @@ class PlasmaDeprecatedNode(PlasmaNodeBase):
         raise NotImplementedError()
 
 
+class PlasmaVersionedNode(PlasmaNodeBase):
+    @classmethod
+    def register(cls):
+        cls.version = IntProperty(name="Node Version", default=1, options=set())
+
+    def upgrade(self, from_version):
+        raise NotImplementedError()
+
+
 class PlasmaRespCommandSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
     bl_color = (0.451, 0.0, 0.263, 1.0)
 
@@ -125,6 +134,8 @@ def _upgrade_node_trees(dummy):
             if isinstance(node, PlasmaDeprecatedNode):
                 node.upgrade()
                 nuke.append(node)
+            elif isinstance(node, PlasmaVersionedNode):
+                node.upgrade()
         # toss deprecated nodes
         for node in nuke:
             tree.nodes.remove(node)

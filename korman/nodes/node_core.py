@@ -113,11 +113,31 @@ class PlasmaNodeBase:
                         continue
                     yield node
 
-    def find_output_socket(self, key):
+    def find_output_socket(self, key, spawn_empty=False):
+        # In the case that this socket will be used to make new output linkage,
+        # we might want to allow the spawning of a new output socket... :)
+        # This will only be done if the node's socket definitions allow it.
+        options = self._socket_defs[1].get(key, {})
+        spawn_empty = spawn_empty and options.get("spawn_empty", False)
+
         for i in self.outputs:
             if i.alias == key:
+                if spawn_empty and i.is_linked:
+                    continue
                 return i
+        if spawn_empty:
+            return self._spawn_socket(key, options, self.outputs)
         raise KeyError(key)
+
+    def find_output_sockets(self, key, idname=None):
+        for i in self.outputs:
+            if i.alias == key:
+                if idname is None:
+                    yield i
+                elif i.links:
+                    node = i.links[0].from_node
+                    if idname == node.bl_idname:
+                        yield i
 
     def harvest_actors(self):
         return set()
@@ -133,7 +153,7 @@ class PlasmaNodeBase:
         else:
             in_socket = in_key
         if isinstance(out_key, str):
-            out_socket = node.find_output_socket(out_key)
+            out_socket = node.find_output_socket(out_key, spawn_empty=True)
         else:
             out_socket = out_key
         link = self.id_data.links.new(in_socket, out_socket)
@@ -145,7 +165,7 @@ class PlasmaNodeBase:
         else:
             in_socket = in_key
         if isinstance(out_key, str):
-            out_socket = self.find_output_socket(out_key)
+            out_socket = self.find_output_socket(out_key, spawn_empty=True)
         else:
             out_socket = out_key
         link = self.id_data.links.new(in_socket, out_socket)
@@ -184,6 +204,15 @@ class PlasmaNodeBase:
     def _tattle(self, socket, link, reason):
         direction = "->" if socket.is_output else "<-"
         print("Removing {} {} {} {}".format(link.from_node.name, direction, link.to_node.name, reason))
+
+    def unlink_outputs(self, alias, reason=None):
+        links = self.id_data.links
+        from_socket = next((i for i in self.outputs if i.alias == alias))
+        i = 0
+        while i < len(from_socket.links):
+            link = from_socket.links[i]
+            self._tattle(from_socket, link, reason if reason else "socket unlinked")
+            links.remove(link)
 
     def update(self):
         """Ensures that sockets are linked appropriately and there are enough inputs"""
@@ -255,8 +284,8 @@ class PlasmaNodeBase:
                                     pass
                                 continue
 
-                # If this is a multiple input node, make sure we have exactly one empty socket
-                if (not socket.is_output and options.get("spawn_empty", False) and not socket.alias in done):
+                # If this is a spawn empty socket, make sure we have exactly one empty socket
+                if options.get("spawn_empty", False) and not socket.alias in done:
                     empty_sockets = [j for j in sockets if j.bl_idname == socket.bl_idname and not j.is_used]
                     if not empty_sockets:
                         idx = len(sockets)
