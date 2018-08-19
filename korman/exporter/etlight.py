@@ -103,6 +103,10 @@ class LightBaker(_MeshManager):
     def _bake_static_lighting(self, bake, toggle):
         inc_progress = self._report.progress_increment
 
+        # Lightmap passes are expensive, so we will warn about any passes that seem
+        # particularly wasteful.
+        largest_pass = max((len(value) for key, value in bake.items() if key[0] != "vcol"))
+
         # Step 0.9: Make all layers visible.
         #           This prevents context operators from phailing.
         bpy.context.scene.layers = (True,) * _NUM_RENDER_LAYERS
@@ -138,7 +142,11 @@ class LightBaker(_MeshManager):
         for key, value in bake.items():
             if value:
                 if key[0] == "lightmap":
-                    self._report.msg("{} Lightmap(s) [H:{:X}]", len(value), hash(key), indent=1)
+                    num_objs = len(value)
+                    self._report.msg("{} Lightmap(s) [H:{:X}]", num_objs, hash(key), indent=1)
+                    if largest_pass > 1 and num_objs < round(largest_pass * 0.02):
+                        obj_names = ", ".join((i.name for i in value))
+                        self._report.warn("Small lightmap pass! Objects: {}".format(obj_names), indent=2)
                     self._bake_lightmaps(value, key[1:])
                 elif key[0] == "vcol":
                     self._report.msg("{} Crap Light(s)", len(value), indent=1)
