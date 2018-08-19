@@ -112,12 +112,13 @@ class Exporter:
         oven.bake_static_lighting(self._objects)
 
     def _collect_objects(self):
+        scene = bpy.context.scene
         self.report.progress_advance()
-        self.report.progress_range = len(bpy.data.objects)
+        self.report.progress_range = len(scene.objects)
         inc_progress = self.report.progress_increment
 
         # Grab a naive listing of enabled pages
-        age = bpy.context.scene.world.plasma_age
+        age = scene.world.plasma_age
         pages_enabled = frozenset([page.name for page in age.pages if page.enabled])
         all_pages = frozenset([page.name for page in age.pages])
 
@@ -139,7 +140,7 @@ class Exporter:
         #     - Any arbitrary page can be disabled, so check our frozenset.
         #     - Also, someone might have specified an invalid page, so keep track of that.
         error = explosions.UndefinedPageError()
-        for obj in bpy.data.objects:
+        for obj in scene.objects:
             if obj.plasma_object.enabled:
                 page = obj.plasma_object.page
                 if not page and not default_inited:
