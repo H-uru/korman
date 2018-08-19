@@ -16,6 +16,7 @@
 import bpy
 from bpy.app.handlers import persistent
 
+from .explosions import *
 from .logger import ExportProgressLogger
 from .mesh import _MeshManager, _VERTEX_COLOR_LAYERS
 from ..helpers import *
@@ -223,8 +224,17 @@ class LightBaker(_MeshManager):
                 continue
 
             mods = i.plasma_modifiers
-            if mods.lightmap.enabled:
-                key = ("lightmap",) + tuple(mods.lightmap.render_layers)
+            lightmap_mod = mods.lightmap
+            if lightmap_mod.enabled:
+                # In order for Blender to be able to bake this properly, at least one of the
+                # layers this object is on must be selected. We will sanity check this now.
+                lm_layers, obj_layers = tuple(lightmap_mod.render_layers), tuple(i.layers)
+                lm_active_layers = set((i for i, value in enumerate(lm_layers) if value))
+                obj_active_layers = set((i for i, value in enumerate(obj_layers) if value))
+                if not lm_active_layers & obj_active_layers:
+                    raise ExportError("Lightmap '{}': At least one layer the object is on must be selected".format(i.name))
+
+                key = ("lightmap",) + lm_layers
                 if key in bake:
                     bake[key].append(i)
                 else:
