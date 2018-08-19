@@ -56,7 +56,13 @@ except ImportError:
 
     def inspect_voribsfile(stream, header):
         raise NotImplementedError("Ogg Vorbis not supported unless _korlib is compiled")
+
+    def is_c_library():
+        return False
 else:
+    def is_c_library():
+        return True
+finally:
     from .console import ConsoleToggler
     from .texture import TEX_DETAIL_ALPHA, TEX_DETAIL_ADD, TEX_DETAIL_MULTIPLY
 
