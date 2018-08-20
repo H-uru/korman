@@ -128,15 +128,15 @@ class _MeshManager:
         return props
 
     def __enter__(self):
+        scene = bpy.context.scene
         self._report.progress_advance()
-        self._report.progress_range = len(bpy.data.objects)
+        self._report.progress_range = len(scene.objects)
 
         # Some modifiers like "Array" will procedurally generate new geometry that will impact
         # lightmap generation. The Blender Internal renderer does not seem to be smart enough to
         # take this into account. Thus, we temporarily apply modifiers to ALL meshes (even ones that
         # are not exported) such that we can generate proper lighting.
-        scene = bpy.context.scene
-        for i in bpy.data.objects:
+        for i in scene.objects:
             if i.type == "MESH" and i.is_modified(scene, "RENDER"):
                 # Remember, storing actual pointers to the Blender objects can cause bad things to
                 # happen because Blender's memory management SUCKS!

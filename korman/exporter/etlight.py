@@ -167,7 +167,7 @@ class LightBaker(_MeshManager):
 
             if user_lg is None:
                 if not lg or bool(lg.objects) is False:
-                    source = [i for i in bpy.data.objects if i.type == "LAMP"]
+                    source = [i for i in bpy.context.scene.objects if i.type == "LAMP"]
                 else:
                     source = lg.objects
                 dest = bpy.data.groups.new("_LIGHTMAPGEN_{}_{}".format(bo.name, mat_name))
