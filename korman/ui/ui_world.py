@@ -110,6 +110,7 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
             col.label("Page Info:")
             col.prop(active_page, "name", text="")
             col.prop(active_page, "seq_suffix")
+            col.prop_menu_enum(active_page, "version")
 
         # Core settings
         layout.separator()

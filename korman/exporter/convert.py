@@ -119,8 +119,8 @@ class Exporter:
 
         # Grab a naive listing of enabled pages
         age = scene.world.plasma_age
-        pages_enabled = frozenset([page.name for page in age.pages if page.enabled])
-        all_pages = frozenset([page.name for page in age.pages])
+        pages_enabled = frozenset((page.name for page in age.pages if page.enabled and self._op.version in page.version))
+        all_pages = frozenset((page.name for page in age.pages))
 
         # Because we can have an unnamed or a named default page, we need to see if that is enabled...
         for page in age.pages:
@@ -164,8 +164,9 @@ class Exporter:
         mgr.AddAge(age_info.export(self))
 
         # Create all the pages we need
+        ver = self._op.version
         for page in age_info.pages:
-            if page.enabled:
+            if page.enabled and ver in page.version:
                 mgr.create_page(age_name, page.name, page.seq_suffix)
         mgr.create_builtins(age_name, age_info.use_texture_page)
 
