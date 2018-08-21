@@ -146,6 +146,11 @@ class PlasmaPage(bpy.types.PropertyGroup):
     enabled = BoolProperty(name="Export Page",
                            description="Export this page",
                            default=True)
+    version = EnumProperty(name="Export Versions",
+                           description="Plasma versions this page exports under",
+                           items=game_versions,
+                           options={"ENUM_FLAG"},
+                           default=set(list(zip(*game_versions))[0]))
 
     # Implementation details...
     last_name = StringProperty(description="INTERNAL: Cached page name",
