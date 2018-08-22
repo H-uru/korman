@@ -16,6 +16,7 @@
 import bpy
 from bpy.app.handlers import persistent
 
+from .explosions import *
 from .logger import ExportProgressLogger
 from .mesh import _MeshManager, _VERTEX_COLOR_LAYERS
 from ..helpers import *
@@ -103,6 +104,10 @@ class LightBaker(_MeshManager):
     def _bake_static_lighting(self, bake, toggle):
         inc_progress = self._report.progress_increment
 
+        # Lightmap passes are expensive, so we will warn about any passes that seem
+        # particularly wasteful.
+        largest_pass = max((len(value) for key, value in bake.items() if key[0] != "vcol"))
+
         # Step 0.9: Make all layers visible.
         #           This prevents context operators from phailing.
         bpy.context.scene.layers = (True,) * _NUM_RENDER_LAYERS
@@ -138,7 +143,11 @@ class LightBaker(_MeshManager):
         for key, value in bake.items():
             if value:
                 if key[0] == "lightmap":
-                    self._report.msg("{} Lightmap(s) [H:{:X}]", len(value), hash(key), indent=1)
+                    num_objs = len(value)
+                    self._report.msg("{} Lightmap(s) [H:{:X}]", num_objs, hash(key), indent=1)
+                    if largest_pass > 1 and num_objs < round(largest_pass * 0.02):
+                        obj_names = ", ".join((i.name for i in value))
+                        self._report.warn("Small lightmap pass! Objects: {}".format(obj_names), indent=2)
                     self._bake_lightmaps(value, key[1:])
                 elif key[0] == "vcol":
                     self._report.msg("{} Crap Light(s)", len(value), indent=1)
@@ -215,8 +224,17 @@ class LightBaker(_MeshManager):
                 continue
 
             mods = i.plasma_modifiers
-            if mods.lightmap.enabled:
-                key = ("lightmap",) + tuple(mods.lightmap.render_layers)
+            lightmap_mod = mods.lightmap
+            if lightmap_mod.enabled:
+                # In order for Blender to be able to bake this properly, at least one of the
+                # layers this object is on must be selected. We will sanity check this now.
+                lm_layers, obj_layers = tuple(lightmap_mod.render_layers), tuple(i.layers)
+                lm_active_layers = set((i for i, value in enumerate(lm_layers) if value))
+                obj_active_layers = set((i for i, value in enumerate(obj_layers) if value))
+                if not lm_active_layers & obj_active_layers:
+                    raise ExportError("Lightmap '{}': At least one layer the object is on must be selected".format(i.name))
+
+                key = ("lightmap",) + lm_layers
                 if key in bake:
                     bake[key].append(i)
                 else:
