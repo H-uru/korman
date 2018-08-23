@@ -59,6 +59,38 @@ journal_pfms = {
     },
 }
 
+
+class ImageLibraryItem(bpy.types.PropertyGroup):
+    image = bpy.props.PointerProperty(name="Image Item",
+                                      description="Image stored for export.",
+                                      type=bpy.types.Image,
+                                      options=set())
+    enabled = bpy.props.BoolProperty(name="Enabled",
+                                     description="Specifies whether this image will be stored during export.",
+                                     default=True,
+                                     options=set())
+
+
+class PlasmaImageLibraryModifier(PlasmaModifierProperties):
+    pl_id = "imagelibmod"
+
+    bl_category = "GUI"
+    bl_label = "Image Library"
+    bl_description = "A collection of images to be stored for later use"
+    bl_icon = "RENDERLAYERS"
+
+    images = CollectionProperty(name="Images", type=ImageLibraryItem, options=set())
+    active_image_index = IntProperty(options={"HIDDEN"})
+
+    def export(self, exporter, bo, so):
+        if self.images:
+            ilmod = exporter.mgr.find_create_object(plImageLibMod, so=so, name=self.key_name)
+
+            for item in self.images:
+                if item.image and item.enabled:
+                    exporter.mesh.material.export_prepared_image(owner=ilmod, image=item.image, allowed_formats={"JPG", "PNG"}, extension="hsm")
+
+
 class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     pl_id = "journalbookmod"
 
