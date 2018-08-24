@@ -298,7 +298,7 @@ class PlasmaFacingTargetSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
 
 class PlasmaVolumeReportNode(PlasmaNodeBase, bpy.types.Node):
     bl_category = "CONDITIONS"
-    bl_idname = "PlasmaVoumeReportNode"
+    bl_idname = "PlasmaVolumeReportNode"
     bl_label = "Region Trigger Settings"
 
     report_when = EnumProperty(name="When",
@@ -308,7 +308,7 @@ class PlasmaVolumeReportNode(PlasmaNodeBase, bpy.types.Node):
                                       ("count", "Population", "When the region has a certain number of objects inside it")])
     threshold = IntProperty(name="Threshold",
                     description="How many objects should be in the region for it to trigger",
-                    min=1)
+                    min=0)
 
     output_sockets = OrderedDict([
         ("settings", {
@@ -468,7 +468,7 @@ class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.type
         if settings is not None:
             if settings.report_when == "first":
                 volsens.first = True
-            elif settings.report_when == "threshold":
+            elif settings.report_when == "count":
                 volsens.trigNum = settings.threshold
 
         # There appears to be a mandatory order for these keys...
