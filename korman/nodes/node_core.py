@@ -246,7 +246,7 @@ class PlasmaNodeBase:
                                 continue
                         if allowed_sockets:
                             to_from_socket = link.to_socket if socket.is_output else link.from_socket
-                            if to_from_socket.bl_idname not in allowed_sockets:
+                            if to_from_socket is None or to_from_socket.bl_idname not in allowed_sockets:
                                 try:
                                     self._tattle(socket, link, "(bad socket)")
                                     self.id_data.links.remove(link)
