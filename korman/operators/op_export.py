@@ -132,6 +132,8 @@ class ExportOperator(bpy.types.Operator):
             blend_filepath = context.blend_data.filepath
             if not blend_filepath:
                 blend_filepath = context.scene.world.plasma_age.age_name
+            if not blend_filepath:
+                blend_filepath = "Korman"
             self.filepath = str(Path(blend_filepath).with_suffix(".age"))
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
