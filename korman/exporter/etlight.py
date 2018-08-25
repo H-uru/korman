@@ -106,7 +106,10 @@ class LightBaker(_MeshManager):
 
         # Lightmap passes are expensive, so we will warn about any passes that seem
         # particularly wasteful.
-        largest_pass = max((len(value) for key, value in bake.items() if key[0] != "vcol"))
+        try:
+            largest_pass = max((len(value) for key, value in bake.items() if key[0] != "vcol"))
+        except ValueError:
+            largest_pass = 0
 
         # Step 0.9: Make all layers visible.
         #           This prevents context operators from phailing.
