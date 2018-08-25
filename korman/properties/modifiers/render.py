@@ -213,7 +213,9 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties):
             mat.addPiggyBack(layer.key)
 
             # Mmm... cheating
-            mat_mgr.export_prepared_layer(layer, lightmap_im)
+            mat_mgr.export_prepared_image(owner=layer, image=lightmap_im,
+                                          allowed_formats={"PNG", "DDS"},
+                                          indent=2)
 
     @classmethod
     def _idprop_mapping(cls):
