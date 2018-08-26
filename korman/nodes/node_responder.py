@@ -103,6 +103,7 @@ class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
                 self.states = []
                 self.parent = respNode
                 self.responder = respMod
+                self.has_pfm = respNode.find_output("keyref") is not None
 
             def convert_states(self, exporter, so):
                 # This could implicitly export more states...
@@ -269,6 +270,21 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
             self._generate_command(exporter, so, stateMgr.responder, commands, i)
         commands.save(state)
 
+        # If the responder is linked to a PythonFile node, we need to automatically generate
+        # the callback message command node...
+        # YES! This SHOULD indeed be below the command manager save :)
+        if stateMgr.has_pfm:
+            pfmNotify = plNotifyMsg()
+            pfmNotify.BCastFlags |= plMessage.kLocalPropagate
+            pfmNotify.sender = stateMgr.responder.key
+            pfmNotify.state = 1.0
+            pfmNotify.addEvent(proCallbackEventData())
+
+            # This command needs to send at the end of the state, so after all waits
+            # have elapsed. Since waits are serial, we can just take the highest.
+            lastWait = len(commands.waits) - 1 if commands.waits else -1
+            state.addCommand(pfmNotify, lastWait)
+
     def _generate_command(self, exporter, so, responder, commandMgr, msgNode, waitOn=-1):
         def prepare_message(exporter, so, responder, commandMgr, waitOn, msg):
             idx, command = commandMgr.add_command(self, waitOn)
@@ -290,8 +306,7 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
             msg = msgNode.convert_message(exporter, so)
         idx, command = prepare_message(exporter, so, responder, commandMgr, waitOn, msg)
 
-        # If the callback message node is not properly set up for event callbacks, we don't want to
-        if msgNode.has_callbacks and msgNode.find_output("msgs"):
+        if msgNode.has_callbacks:
             childWaitOn = commandMgr.add_wait(idx)
             msgNode.convert_callback_message(exporter, so, msg, responder.key, childWaitOn)
         else:
