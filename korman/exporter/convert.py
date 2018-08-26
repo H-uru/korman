@@ -20,6 +20,7 @@ from PyHSPlasma import *
 import time
 
 from . import animation
+from . import camera
 from . import explosions
 from . import etlight
 from . import logger
@@ -52,6 +53,7 @@ class Exporter:
             self.light = rtlight.LightConverter(self)
             self.animation = animation.AnimationConverter(self)
             self.sumfile = sumfile.SumFile()
+            self.camera = camera.CameraConverter(self)
 
             # Step 0.8: Init the progress mgr
             self.mesh.add_progress_presteps(self.report)
@@ -230,7 +232,6 @@ class Exporter:
             sceneobject = self.mgr.find_create_object(plSceneObject, bl=bl_obj)
             self._export_actor(sceneobject, bl_obj)
             export_fn(sceneobject, bl_obj)
-            self.animation.convert_object_animations(bl_obj, sceneobject)
 
             # And now we puke out the modifiers...
             for mod in bl_obj.plasma_modifiers.modifiers:
@@ -238,16 +239,21 @@ class Exporter:
                 mod.export(self, bl_obj, sceneobject)
             inc_progress()
 
+    def _export_camera_blobj(self, so, bo):
+        # Hey, guess what? Blender's camera data is utter crap!
+        # NOTE: Animation export is dependent on camera type, so we'll do that later.
+        camera = bo.data.plasma_camera
+        self.camera.export_camera(so, bo, camera.camera_type, camera.settings, camera.transitions)
+
     def _export_empty_blobj(self, so, bo):
-        # We don't need to do anything here. This function just makes sure we don't error out
-        # or add a silly special case :(
-        pass
+        self.animation.convert_object_animations(bo, so)
 
     def _export_lamp_blobj(self, so, bo):
-        # We'll just redirect this to the RT Light converter...
+        self.animation.convert_object_animations(bo, so)
         self.light.export_rtlight(so, bo)
 
     def _export_mesh_blobj(self, so, bo):
+        self.animation.convert_object_animations(bo, so)
         if bo.data.materials:
             self.mesh.export_object(bo)
         else:

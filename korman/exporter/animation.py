@@ -51,7 +51,10 @@ class AnimationConverter:
         # form of separation, but Blender's NLA editor is way confusing and appears to not work with
         # things that aren't the typical position, rotation, scale animations.
         applicators = []
-        applicators.append(self._convert_transform_animation(bo.name, obj_fcurves, bo.matrix_basis))
+        if isinstance(bo.data, bpy.types.Camera):
+            applicators.append(self._convert_camera_animation(bo, so, obj_fcurves, data_fcurves))
+        else:
+            applicators.append(self._convert_transform_animation(bo.name, obj_fcurves, bo.matrix_basis))
         if bo.plasma_modifiers.soundemit.enabled:
             applicators.extend(self._convert_sound_volume_animation(bo.name, obj_fcurves, bo.plasma_modifiers.soundemit))
         if isinstance(bo.data, bpy.types.Lamp):
@@ -101,6 +104,84 @@ class AnimationConverter:
         atcanim.easeOutMin = 1.0
         atcanim.easeOutMax = 1.0
         atcanim.easeOutLength = 1.0
+
+    def _convert_camera_animation(self, bo, so, obj_fcurves, data_fcurves):
+        if data_fcurves:
+            # The hard part about this crap is that FOV animations are not stored in ATC Animations
+            # instead, FOV animation keyframes are held inside of the camera modifier. Cyan's solution
+            # in PlasmaMAX appears to be for any xform keyframe, add two messages to the camera modifier
+            # representing the FOV at that point. Makes more sense to me to use each FOV keyframe instead
+            fov_fcurve = next((i for i in data_fcurves if i.data_path == "plasma_camera.settings.fov"), None)
+            if fov_fcurve:
+                # NOTE: this is another critically important key ordering in the SceneObject modifier
+                #       list. CameraModifier calls into AGMasterMod code that assumes the AGModifier
+                #       is already available. Should probably consider adding some code to libHSPlasma
+                #       to order the SceneObject modifier key vector at some point.
+                anim_key = self.get_animation_key(bo)
+                camera = self._mgr.find_create_object(plCameraModifier, so=so)
+                cam_key = camera.key
+                aspect, fps = (3.0 / 4.0), self._bl_fps
+                degrees = math.degrees
+                fov_fcurve.update()
+
+                # Seeing as how we're transforming the data entirely, we'll just use the fcurve itself
+                # instead of our other animation helpers. But ugh does this mess look like sloppy C.
+                keyframes = fov_fcurve.keyframe_points
+                num_keyframes = len(keyframes)
+                has_fov_anim = bool(num_keyframes)
+                i = 0
+                while i < num_keyframes:
+                    this_keyframe = keyframes[i]
+                    next_keyframe = keyframes[0] if i+1 == num_keyframes else keyframes[i+1]
+
+                    # So remember, these are messages. When we hit a keyframe, we're dispatching a message
+                    # representing the NEXT desired FOV.
+                    this_frame_time = this_keyframe.co[0] / fps
+                    next_frame_num, next_frame_value = next_keyframe.co
+                    next_frame_time = next_frame_num / fps
+
+                    # This message is held on the camera modifier and sent to the animation... It calls
+                    # back when the animation reaches the keyframe time, causing the FOV message to be sent.
+                    cb_msg = plEventCallbackMsg()
+                    cb_msg.event = kTime
+                    cb_msg.eventTime = this_frame_time
+                    cb_msg.index = i
+                    cb_msg.repeats = -1
+                    cb_msg.addReceiver(cam_key)
+                    anim_msg = plAnimCmdMsg()
+                    anim_msg.animName = "(Entire Animation)"
+                    anim_msg.time = this_frame_time
+                    anim_msg.sender = anim_key
+                    anim_msg.addReceiver(anim_key)
+                    anim_msg.addCallback(cb_msg)
+                    anim_msg.setCmd(plAnimCmdMsg.kAddCallbacks, True)
+                    camera.addMessage(anim_msg, anim_key)
+
+                    # This is the message actually changes the FOV. Interestingly, it is sent at
+                    # export-time and while playing the game, the camera modifier just steals its
+                    # parameters and passes them to the brain. Can't make this stuff up.
+                    cam_msg = plCameraMsg()
+                    cam_msg.addReceiver(cam_key)
+                    cam_msg.setCmd(plCameraMsg.kAddFOVKeyFrame, True)
+                    cam_config = cam_msg.config
+                    cam_config.accel = next_frame_time # Yassss...
+                    cam_config.fovW = degrees(next_frame_value)
+                    cam_config.fovH = degrees(next_frame_value * aspect)
+                    camera.addFOVInstruction(cam_msg)
+
+                    i += 1
+            else:
+                has_fov_anim = False
+        else:
+            has_fov_anim = False
+
+        # If we exported any FOV animation at all, then we need to ensure there is an applicator
+        # returned from here... At bare minimum, we'll need the applicator with an empty
+        # CompoundController. This should be sufficient to keep CWE from crashing...
+        applicator = self._convert_transform_animation(bo.name, obj_fcurves, bo.matrix_basis, allow_empty=has_fov_anim)
+        camera = locals().get("camera", self._mgr.find_create_object(plCameraModifier, so=so))
+        camera.animated = applicator is not None
+        return applicator
 
     def _convert_lamp_color_animation(self, name, fcurves, lamp):
         if not fcurves:
@@ -271,20 +352,10 @@ class AnimationConverter:
             applicator.channel = channel
             yield applicator
 
-    def _convert_transform_animation(self, name, fcurves, xform):
-        if not fcurves:
+    def _convert_transform_animation(self, name, fcurves, xform, allow_empty=False):
+        tm = self.convert_transform_controller(fcurves, xform, allow_empty)
+        if tm is None and not allow_empty:
             return None
-
-        pos = self.make_pos_controller(fcurves, xform)
-        rot = self.make_rot_controller(fcurves, xform)
-        scale = self.make_scale_controller(fcurves, xform)
-        if pos is None and rot is None and scale is None:
-            return None
-
-        tm = plCompoundController()
-        tm.X = pos
-        tm.Y = rot
-        tm.Z = scale
 
         applicator = plMatrixChannelApplicator()
         applicator.enabled = True
@@ -292,20 +363,26 @@ class AnimationConverter:
         channel = plMatrixControllerChannel()
         channel.controller = tm
         applicator.channel = channel
-
-        # Decompose the matrix into the 90s-era 3ds max affine parts sillyness
-        # All that's missing now is something like "(c) 1998 HeadSpin" oh wait...
-        affine = hsAffineParts()
-        affine.T = hsVector3(*xform.to_translation())
-        affine.K = hsVector3(*xform.to_scale())
-        affine.F = -1.0 if xform.determinant() < 0.0 else 1.0
-        rot = xform.to_quaternion()
-        affine.Q = utils.quaternion(rot)
-        rot.normalize()
-        affine.U = utils.quaternion(rot)
-        channel.affine = affine
+        channel.affine = utils.affine_parts(xform)
 
         return applicator
+
+    def convert_transform_controller(self, fcurves, xform, allow_empty=False):
+        if not fcurves and not allow_empty:
+            return None
+
+        pos = self.make_pos_controller(fcurves, xform)
+        rot = self.make_rot_controller(fcurves, xform)
+        scale = self.make_scale_controller(fcurves, xform)
+        if pos is None and rot is None and scale is None:
+            if not allow_empty:
+                return None
+
+        tm = plCompoundController()
+        tm.X = pos
+        tm.Y = rot
+        tm.Z = scale
+        return tm
 
     def get_anigraph_keys(self, bo=None, so=None):
         mod = self._mgr.find_create_key(plAGModifier, so=so, bl=bo)
@@ -316,6 +393,16 @@ class AnimationConverter:
         mod = self._mgr.find_create_object(plAGModifier, so=so, bl=bo)
         master = self._mgr.find_create_object(plAGMasterMod, so=so, bl=bo)
         return mod, master
+
+    def get_animation_key(self, bo, so=None):
+        # we might be controlling more than one animation. isn't that cute?
+        # https://www.youtube.com/watch?v=hspNaoxzNbs
+        # (but obviously this is not wrong...)
+        group_mod = bo.plasma_modifiers.animation_group
+        if group_mod.enabled:
+            return self._mgr.find_create_key(plMsgForwarder, bl=bo, so=so, name=group_mod.key_name)
+        else:
+            return self.get_anigraph_keys(bo, so)[1]
 
     def make_matrix44_controller(self, fcurves, pos_path, scale_path, pos_default, scale_default):
         def convert_matrix_keyframe(**kwargs):

@@ -243,14 +243,7 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
         if self.anim_type == "OBJECT":
             if not obj.plasma_object.has_animation_data:
                 self.raise_error("invalid animation")
-            group = obj.plasma_modifiers.animation_group
-            if group.enabled:
-                # we might be controlling more than one animation. isn't that cute?
-                # https://www.youtube.com/watch?v=hspNaoxzNbs
-                # (but obviously this is not wrong...)
-                target = exporter.mgr.find_create_key(plMsgForwarder, bl=obj, name=group.key_name)
-            else:
-                _agmod_trash, target = exporter.animation.get_anigraph_keys(obj)
+            target = exporter.animation.get_animation_key(obj)
         else:
             material = self.target_material
             if material is None:
@@ -304,6 +297,55 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
         return {"object_name": bpy.data.objects,
                 "material_name": bpy.data.materials,
                 "texture_name": bpy.data.textures}
+
+
+class PlasmaCameraMsgNode(PlasmaMessageNode, bpy.types.Node):
+    bl_category = "MSG"
+    bl_idname = "PlasmaCameraMsgNode"
+    bl_label = "Camera"
+    bl_width_default = 200
+
+    cmd = EnumProperty(name="Command",
+                       description="Command to send to the camera system",
+                       items=[("push", "Push Camera", "Pushes a new camera onto the camera stack and transitions to it"),
+                              ("pop", "Pop Camera", "Pops the camera off the camera stack"),
+                              ("disablefp", "Disable First Person", "Forces the camera into third person if it is currently in first person and disables first person mode"),
+                              ("enablefp", "Enable First Person", "Reenables the first person camera and switches back to it if the player was in first person previously")],
+                       options=set())
+    camera = PointerProperty(name="Camera",
+                             type=bpy.types.Object,
+                             poll=idprops.poll_camera_objects,
+                             options=set())
+    cut = BoolProperty(name="Cut Transition",
+                       description="Immediately swap over to the new camera without a transition animation",
+                       options=set())
+
+    def convert_message(self, exporter, so):
+        msg = plCameraMsg()
+        msg.BCastFlags |= plMessage.kLocalPropagate | plMessage.kBCastByType
+        if self.cmd in {"push", "pop"}:
+            if self.camera is not None:
+                msg.newCam = exporter.mgr.find_create_key(plSceneObject, bl=self.camera)
+            # It appears that kRegionPopCamera is unused. pushing is controlled by observing
+            # the presence of the kResponderTrigger command.
+            msg.setCmd(plCameraMsg.kResponderTrigger, self.cmd == "push")
+            msg.setCmd(plCameraMsg.kRegionPushCamera, True)
+            msg.setCmd(plCameraMsg.kSetAsPrimary, self.camera is None
+                       or self.camera.data.plasma_camera.settings.primary_camera)
+            msg.setCmd(plCameraMsg.kCut, self.cut)
+        elif self.cmd == "disablefp":
+            msg.setCmd(plCameraMsg.kResponderSetThirdPerson)
+        elif self.cmd == "enablefp":
+            msg.setCmd(plCameraMsg.kResponderUndoThirdPerson)
+        else:
+            raise RuntimeError()
+        return msg
+
+    def draw_buttons(self, context, layout):
+        layout.prop(self, "cmd")
+        if self.cmd in {"push", "pop"}:
+            layout.prop(self, "camera")
+            layout.prop(self, "cut")
 
 
 class PlasmaEnableMsgNode(PlasmaMessageNode, bpy.types.Node):

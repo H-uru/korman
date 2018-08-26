@@ -14,6 +14,25 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+from .. import ui_camera
+
+def camera_rgn(modifier, layout, context):
+    layout.prop(modifier, "camera_type")
+    if modifier.camera_type == "manual":
+        layout.prop(modifier, "camera_object", icon="CAMERA_DATA")
+    else:
+        cam_type = modifier.camera_type[5:]
+        cam_props = modifier.auto_camera
+
+        def _draw_props(layout, cb):
+            for i in cb:
+                layout.separator()
+                i(layout, cam_type, cam_props)
+
+        _draw_props(layout, (ui_camera.draw_camera_mode_props,
+                             ui_camera.draw_camera_poa_props,
+                             ui_camera.draw_camera_pos_props,
+                             ui_camera.draw_camera_manipulation_props))
 
 def footstep(modifier, layout, context):
     layout.prop(modifier, "bounds")
