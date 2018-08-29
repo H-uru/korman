@@ -692,18 +692,17 @@ class MaterialConverter:
             allowed_formats = key.allowed_formats
             if key.mipmap:
                 compression = plBitmap.kDirectXCompression
-                dxt = plBitmap.kDXT5 if key.use_alpha or key.calc_alpha else plBitmap.kDXT1
             elif "PNG" in allowed_formats and self._mgr.getVer() == pvMoul:
                 compression = plBitmap.kPNGCompression
             elif "DDS" in allowed_formats:
                 compression = plBitmap.kDirectXCompression
-                dxt = plBitmap.kDXT5 if key.use_alpha or key.calc_alpha else plBitmap.kDXT1
             elif "JPG" in allowed_formats:
                 compression = plBitmap.kJPEGCompression
             elif "BMP" in allowed_formats:
                 compression = plBitmap.kUncompressed
             else:
                 raise RuntimeError(allowed_formats)
+            dxt = plBitmap.kDXT5 if key.use_alpha or key.calc_alpha else plBitmap.kDXT1
 
             # Grab the image data from OpenGL and stuff it into the plBitmap
             helper = GLTexture(key)
