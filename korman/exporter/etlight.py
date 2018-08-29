@@ -119,22 +119,22 @@ class LightBaker(_MeshManager):
         self._report.progress_advance()
         self._report.progress_range = len(bake)
         self._report.msg("Preparing to bake...", indent=1)
-        for key in bake.keys():
+        for key, value in bake.items():
             if key[0] == "lightmap":
-                for i in range(len(bake[key])-1, -1, -1):
-                    obj = bake[key][i]
+                for i in range(len(value)-1, -1, -1):
+                    obj = value[i]
                     if not self._prep_for_lightmap(obj, toggle):
                         self._report.msg("Lightmap '{}' will not be baked -- no applicable lights",
                                          obj.name, indent=2)
-                        bake[key].pop(i)
+                        value.pop(i)
             elif key[0] == "vcol":
-                for i in range(len(bake[key])-1, -1, -1):
-                    obj = bake[key][i]
+                for i in range(len(value)-1, -1, -1):
+                    obj = value[i]
                     if not self._prep_for_vcols(obj, toggle):
                         if self._has_valid_material(obj):
                             self._report.msg("VCols '{}' will not be baked -- no applicable lights",
                                              obj.name, indent=2)
-                        bake[key].pop(i)
+                        value.pop(i)
             else:
                 raise RuntimeError(key[0])
             inc_progress()
@@ -220,6 +220,8 @@ class LightBaker(_MeshManager):
         # The goal here is to minimize the calls to bake_image, so we are going to collect everything
         # that needs to be baked and sort it out by configuration.
         bake = { ("vcol",): [] }
+        bake_vcol = bake[("vcol",)]
+
         for i in objs:
             if i.type != "MESH":
                 continue
@@ -238,17 +240,15 @@ class LightBaker(_MeshManager):
                     raise ExportError("Lightmap '{}': At least one layer the object is on must be selected".format(i.name))
 
                 key = ("lightmap",) + lm_layers
-                if key in bake:
-                    bake[key].append(i)
-                else:
-                    bake[key] = [i,]
+                bake_pass = bake.setdefault(key, [])
+                bake_pass.append(i)
             elif mods.lighting.preshade:
                 vcols = i.data.vertex_colors
                 for j in _VERTEX_COLOR_LAYERS:
                     if j in vcols:
                         break
                 else:
-                    bake[("vcol",)].append(i)
+                    bake_vcol.append(i)
         return bake
 
     def _pop_lightgroups(self):
