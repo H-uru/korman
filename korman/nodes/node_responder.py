@@ -240,9 +240,11 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
             state.switchToState = toIdx
 
         class CommandMgr:
-            def __init__(self):
+            def __init__(self, respMod):
                 self.commands = []
+                self.responder = respMod
                 self.waits = {}
+                self.waitable_nodes = []
 
             def add_command(self, node, waitOn):
                 cmd = type("ResponderCommand", (), {"msg": None, "waitOn": waitOn})
@@ -254,6 +256,25 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
                 self.waits[wait] = parentIdx
                 return wait
 
+            def add_waitable_node(self, node):
+                self.waitable_nodes.append(node)
+
+            def ensure_last_wait(self, exporter, so, force=False):
+                if self.waitable_nodes:
+                    lastWaitNode = self.waitable_nodes[-1]
+                    lastMsgNode = self.commands[-1][0]
+                    if lastMsgNode == lastWaitNode or force:
+                        return self.find_create_wait(exporter, so, lastWaitNode)
+                return -1
+
+            def find_create_wait(self, exporter, so, node):
+                i, cmd = next(((i, cmd) for i, cmd in enumerate(self.commands) if cmd[0] == node))
+                wait = next((key for key, value in self.waits.items() if value == i), None)
+                if wait is None:
+                    wait = self.add_wait(i)
+                    node.convert_callback_message(exporter, so, cmd[1].msg, self.responder.key, wait)
+                return wait
+
             def save(self, state):
                 for node, cmd in self.commands:
                     # Amusing, PyHSPlasma doesn't actually want a plResponderModifier_Cmd
@@ -263,31 +284,35 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
                 state.waitToCmd = self.waits
 
         # Convert the commands
-        commands = CommandMgr()
+        commands = CommandMgr(stateMgr.responder)
         for i in self.find_outputs("msgs"):
             # slight optimization--commands attached to states can't wait on other commands
             # namely because it's impossible to wait on a command that doesn't exist...
             self._generate_command(exporter, so, stateMgr.responder, commands, i)
+
+        # The last waitable message node may or may not have child nodes attached to it.
+        # Imaging a responder that sends only one animation command message, for example.
+        # That means a wait will not be set up for that command due to no child linkage.
+        # However, the PFM notification below expects a wait for stuff like that.
+        lastWait = commands.ensure_last_wait(exporter, so, force=stateMgr.has_pfm)
+
+        # This commits the responder commands to the responder. Needs to happen before we
+        # add the PFM notification directly to the responder.
         commands.save(state)
 
         # If the responder is linked to a PythonFile node, we need to automatically generate
         # the callback message command node...
-        # YES! This SHOULD indeed be below the command manager save :)
         if stateMgr.has_pfm:
             pfmNotify = plNotifyMsg()
             pfmNotify.BCastFlags |= plMessage.kLocalPropagate
             pfmNotify.sender = stateMgr.responder.key
             pfmNotify.state = 1.0
             pfmNotify.addEvent(proCallbackEventData())
-
-            # This command needs to send at the end of the state, so after all waits
-            # have elapsed. Since waits are serial, we can just take the highest.
-            lastWait = len(commands.waits) - 1 if commands.waits else -1
             state.addCommand(pfmNotify, lastWait)
 
     def _generate_command(self, exporter, so, responder, commandMgr, msgNode, waitOn=-1):
         def prepare_message(exporter, so, responder, commandMgr, waitOn, msg):
-            idx, command = commandMgr.add_command(self, waitOn)
+            idx, command = commandMgr.add_command(msgNode, waitOn)
             if msg.sender is None:
                 msg.sender = responder.key
             msg.BCastFlags |= plMessage.kLocalPropagate
@@ -307,8 +332,10 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
         idx, command = prepare_message(exporter, so, responder, commandMgr, waitOn, msg)
 
         if msgNode.has_callbacks:
-            childWaitOn = commandMgr.add_wait(idx)
-            msgNode.convert_callback_message(exporter, so, msg, responder.key, childWaitOn)
+            commandMgr.add_waitable_node(msgNode)
+            if msgNode.find_output("msgs"):
+                childWaitOn = commandMgr.add_wait(idx)
+                msgNode.convert_callback_message(exporter, so, msg, responder.key, childWaitOn)
         else:
             childWaitOn = waitOn
 
