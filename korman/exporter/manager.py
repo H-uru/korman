@@ -90,6 +90,7 @@ class ExportManager:
                     name = bl.name
                 else:
                     name = so.key.name
+            assert issubclass(pl, hsKeyedObject)
             pl = pl(name)
 
         self.AddObject(location, pl)
