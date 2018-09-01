@@ -164,6 +164,11 @@ class _UiHelper:
         self.frame_num = scene.frame_current
         scene.frame_set(scene.frame_start)
         scene.update()
+
+        # Some operators require there be an active_object even though they
+        # don't actually use it...
+        if scene.objects.active is None:
+            scene.objects.active = scene.objects[0]
         return self
 
     def __exit__(self, type, value, traceback):
