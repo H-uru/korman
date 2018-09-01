@@ -41,11 +41,6 @@ class ExportOperator(bpy.types.Operator):
                                          "description": "Bake all lightmaps and vertex shading on export",
                                          "default": True}),
 
-        "version": (EnumProperty, {"name": "Version",
-                                   "description": "Version of the Plasma Engine to target",
-                                   "default": "pvPots",  # This should be changed when moul is easier to target!
-                                   "items": game_versions}),
-
         "verbose": (BoolProperty, {"name": "Display Verbose Log",
                                    "description": "Shows the verbose export log in the console",
                                    "default": False}),
@@ -59,12 +54,18 @@ class ExportOperator(bpy.types.Operator):
     filepath = StringProperty(subtype="FILE_PATH")
     filter_glob = StringProperty(default="*.age", options={'HIDDEN'})
 
+    version = EnumProperty(name="Version",
+                           description="Plasma version to export this age for",
+                           items=game_versions,
+                           default="pvPots",
+                           options=set())
+
     def draw(self, context):
         layout = self.layout
         age = context.scene.world.plasma_age
 
         # The crazy mess we're doing with props on the fly means we have to explicitly draw them :(
-        layout.prop(age, "version")
+        layout.prop(self, "version")
         layout.prop(age, "bake_lighting")
         row = layout.row()
         row.enabled = ConsoleToggler.is_platform_supported()

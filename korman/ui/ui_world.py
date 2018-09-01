@@ -65,6 +65,7 @@ class PlasmaGamePanel(AgeButtonsPanel, bpy.types.Panel):
             row.enabled = bool(age.age_name.strip())
             op = row.operator("export.plasma_age", icon="EXPORT")
             op.filepath = str((Path(active_game.path) / "dat" / age.age_name).with_suffix(".age"))
+            op.version = active_game.version
 
 
 class PlasmaGameList(bpy.types.UIList):
