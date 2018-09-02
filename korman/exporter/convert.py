@@ -23,6 +23,7 @@ from . import animation
 from . import camera
 from . import explosions
 from . import etlight
+from . import image
 from . import logger
 from . import manager
 from . import mesh
@@ -54,6 +55,7 @@ class Exporter:
             self.animation = animation.AnimationConverter(self)
             self.sumfile = sumfile.SumFile()
             self.camera = camera.CameraConverter(self)
+            self.image = image.ImageCache(self)
 
             # Step 0.8: Init the progress mgr
             self.mesh.add_progress_presteps(self.report)
@@ -66,6 +68,7 @@ class Exporter:
             self.report.progress_add_step("Finalizing Plasma Logic")
             self.report.progress_add_step("Exporting Textures")
             self.report.progress_add_step("Composing Geometry")
+            self.report.progress_add_step("Saving Age Files")
             self.report.progress_start("EXPORTING AGE")
 
             # Step 0.9: Apply modifiers to all meshes temporarily.
@@ -101,7 +104,7 @@ class Exporter:
                 self.mesh.finalize()
 
                 # Step 5: FINALLY. Let's write the PRPs and crap.
-                self.mgr.save_age(Path(self._op.filepath))
+                self._save_age()
 
                 # Step 5.1: Save out the export report.
                 #           If the export fails and this doesn't save, we have bigger problems than
@@ -340,3 +343,20 @@ class Exporter:
                 if proc is not None:
                     proc(self, bl_obj, sceneobject)
             inc_progress()
+
+    def _save_age(self):
+        self.report.progress_advance()
+        self.mgr.save_age(Path(self._op.filepath))
+        self.image.save()
+
+    @property
+    def texcache_path(self):
+        age = bpy.context.scene.world.plasma_age
+        filepath = age.texcache_path
+        if not filepath or not Path(filepath).is_file():
+            filepath = bpy.context.blend_data.filepath
+            if not filepath:
+                filepath = self.filepath
+            filepath = str(Path(filepath).with_suffix(".ktc"))
+            age.texcache_path = filepath
+        return filepath

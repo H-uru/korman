@@ -48,6 +48,8 @@ class ExportOperator(bpy.types.Operator):
         "show_console": (BoolProperty, {"name": "Display Log Console",
                                         "description": "Forces the Blender System Console open during the export",
                                         "default": True}),
+
+        "texcache_path": (StringProperty, {"name": "Texture Cache"}),
     }
 
     # This wigs out and very bad things happen if it's not directly on the operator...
