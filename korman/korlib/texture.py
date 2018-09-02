@@ -181,8 +181,3 @@ class GLTexture:
         #                  texture in a single pixel?"
         # :)
         return max(numLevels - 2, 2)
-
-    def store_in_mipmap(self, mipmap, data, compression):
-        func = mipmap.CompressImage if compression == plBitmap.kDirectXCompression else mipmap.setLevel
-        for i, level in enumerate(data):
-            func(i, level)

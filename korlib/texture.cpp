@@ -15,7 +15,6 @@
  */
 
 #include "texture.h"
-#include "buffer.h"
 
 #ifdef _WIN32
 #   define WIN32_LEAN_AND_MEAN
@@ -302,7 +301,7 @@ static PyObject* pyGLTexture_get_level_data(pyGLTexture* self, PyObject* args, P
 
     _LevelData data = _get_level_data(self, level, bgra, report);
     if (fast)
-        return pyBuffer_Steal(data.m_data, data.m_dataSize);
+        return PyBytes_FromStringAndSize((char*)data.m_data, data.m_dataSize);
 
     // OpenGL returns a flipped image, so we must reflip it.
     size_t row_stride = data.m_width * 4;
@@ -331,39 +330,7 @@ static PyObject* pyGLTexture_get_level_data(pyGLTexture* self, PyObject* args, P
             data.m_data[i + 3] = (data.m_data[i + 0] + data.m_data[i + 1] + data.m_data[i + 2]) / 3;
     }
 
-    return pyBuffer_Steal(data.m_data, data.m_dataSize);
-}
-
-static PyObject* pyGLTexture_store_in_mipmap(pyGLTexture* self, PyObject* args) {
-    pyMipmap* pymipmap;
-    PyObject* levels;
-    size_t compression;
-    if (!PyArg_ParseTuple(args, "OOn", &pymipmap, &levels, &compression) || !PySequence_Check(levels)) {
-        PyErr_SetString(PyExc_TypeError, "store_in_mipmap expects a plMipmap, sequence of Buffer and int");
-        return NULL;
-    }
-
-    // Since we actually have no way of knowing if that really is a pyMipmap...
-    plMipmap* mipmap = plMipmap::Convert(pymipmap->fThis, false);
-    if (!mipmap) {
-        PyErr_SetString(PyExc_TypeError, "store_in_mipmap expects a plMipmap, sequence of Buffer and int");
-        return NULL;
-    }
-
-    for (Py_ssize_t i = 0; i < PySequence_Size(levels); ++i) {
-        pyBuffer* item = (pyBuffer*)PySequence_GetItem(levels, i);
-        if (!pyBuffer_Check((PyObject*)item)) {
-            PyErr_SetString(PyExc_TypeError, "store_in_mipmap expects a plMipmap, sequence of Buffer and int");
-            return NULL;
-        }
-
-        if (compression == plBitmap::kDirectXCompression)
-            mipmap->CompressImage(i, item->m_buffer, item->m_size);
-        else
-            mipmap->setLevelData(i, item->m_buffer, item->m_size);
-    }
-
-    Py_RETURN_NONE;
+    return PyBytes_FromStringAndSize((char*)data.m_data, data.m_dataSize);
 }
 
 static PyMethodDef pyGLTexture_Methods[] = {
@@ -372,7 +339,6 @@ static PyMethodDef pyGLTexture_Methods[] = {
 
     { _pycs("generate_mipmap"), (PyCFunction)pyGLTexture_generate_mipmap, METH_NOARGS, NULL },
     { _pycs("get_level_data"), (PyCFunction)pyGLTexture_get_level_data, METH_KEYWORDS | METH_VARARGS, NULL },
-    { _pycs("store_in_mipmap"), (PyCFunction)pyGLTexture_store_in_mipmap, METH_VARARGS, NULL },
     { NULL, NULL, 0, NULL }
 };
 
