@@ -492,10 +492,8 @@ class MeshConverter(_MeshManager):
             self._report.msg("Exported hsGMaterial '{}' geometry into '{}'",
                              geospan.material.name, dspan.key.name, indent=1)
             idx = dspan.addSourceSpan(geospan)
-            if dspan not in _diindices:
-                _diindices[dspan] = [idx,]
-            else:
-                _diindices[dspan].append(idx)
+            diidx = _diindices.setdefault(dspan, [])
+            diidx.append(idx)
 
         # Step 3.1: Harvest Span indices and create the DIIndices
         drawables = []
