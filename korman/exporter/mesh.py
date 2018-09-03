@@ -254,7 +254,7 @@ class MeshConverter(_MeshManager):
                 # 3. Builds the plSpaceTree
                 # 4. Clears the SourceSpans
                 dspan.composeGeometry(True, True)
-                inc_progress()
+            inc_progress()
 
     def _export_geometry(self, bo, mesh, materials, geospans):
         geodata = [_GeoData(len(mesh.vertices)) for i in materials]
