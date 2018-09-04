@@ -67,17 +67,26 @@ class ImageCache:
         self._read_stream = hsFileStream()
         self._stream_handles = 0
 
-    def add_texture(self, key, num_levels, export_size, compression, data):
-        if key.ephemeral or self._exporter().texcache_method == "skip":
+    def add_texture(self, texture, num_levels, export_size, compression, data):
+        image = texture.image
+        image_name = str(texture)
+        key = (image_name, compression)
+        ex_method, im_method = self._exporter().texcache_method, image.plasma_image.texcache_method
+        method = set((ex_method, im_method))
+        if texture.ephemeral or "skip" in method:
+            self._images.pop(key, None)
             return
+        elif im_method == "rebuild":
+            image.plasma_image.texcache_method = "use"
+
         image = _CachedImage()
-        image.name = str(key)
+        image.name = image_name
         image.mip_levels = num_levels
         image.compression = compression
-        image.source_size = key.image.size
+        image.source_size = texture.image.size
         image.export_size = export_size
         image.image_data = data
-        self._images[(image.name, compression)] = image
+        self._images[key] = image
 
     def _compact(self):
         for key, image in self._images.copy().items():
@@ -98,7 +107,14 @@ class ImageCache:
             self._read_stream.close()
 
     def get_from_texture(self, texture, compression):
-        if self._exporter().texcache_method != "use" or texture.ephemeral:
+        bl_image = texture.image
+
+        # If the texture is ephemeral (eg a lightmap) or has been marked "rebuild" or "skip"
+        # in the UI, we don't want anything from the cache. In the first two cases, we never
+        # want to cache that crap. In the latter case, we just want to signal a recache is needed.
+        ex_method, im_method = self._exporter().texcache_method, texture.image.plasma_image.texcache_method
+        method = set((ex_method, im_method))
+        if method != {"use"} or texture.ephemeral:
             return None
 
         key = (str(texture), compression)
@@ -108,7 +124,6 @@ class ImageCache:
 
         # ensure the texture key generally matches up with our copy of this image.
         # if not, a recache will likely be triggered implicitly.
-        bl_image = texture.image
         if tuple(bl_image.size) != cached_image.source_size:
             return None
 
