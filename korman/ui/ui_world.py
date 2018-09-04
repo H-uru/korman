@@ -133,6 +133,7 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
 
         col = split.column()
         col.label("Export Settings:")
+        col.prop(age, "texcache_method", text="")
         col.prop(age, "bake_lighting")
         cons_ui = col.column()
         cons_ui.enabled = ConsoleToggler.is_platform_supported()

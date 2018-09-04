@@ -49,7 +49,15 @@ class ExportOperator(bpy.types.Operator):
                                         "description": "Forces the Blender System Console open during the export",
                                         "default": True}),
 
-        "texcache_path": (StringProperty, {"name": "Texture Cache"}),
+        "texcache_path": (StringProperty, {"name": "Texture Cache Path",
+                                           "description": "Texture Cache Filepath"}),
+
+        "texcache_method": (EnumProperty, {"name": "Texture Cache",
+                                           "description": "Texture Cache Settings",
+                                           "items": [("skip", "Don't Use Texture Cache", "The texture cache is neither used nor updated."),
+                                                     ("use", "Use Texture Cache", "Use (and update, if needed) cached textures."),
+                                                     ("rebuild", "Rebuild Texture Cache", "Rebuilds the texture cache from scratch.")],
+                                           "default": "use"}),
     }
 
     # This wigs out and very bad things happen if it's not directly on the operator...
@@ -68,6 +76,7 @@ class ExportOperator(bpy.types.Operator):
 
         # The crazy mess we're doing with props on the fly means we have to explicitly draw them :(
         layout.prop(self, "version")
+        layout.prop(age, "texcache_method", text="")
         layout.prop(age, "bake_lighting")
         row = layout.row()
         row.enabled = ConsoleToggler.is_platform_supported()

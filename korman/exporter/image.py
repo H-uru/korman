@@ -68,7 +68,7 @@ class ImageCache:
         self._stream_handles = 0
 
     def add_texture(self, key, num_levels, export_size, compression, data):
-        if key.ephemeral:
+        if key.ephemeral or self._exporter().texcache_method == "skip":
             return
         image = _CachedImage()
         image.name = str(key)
@@ -98,7 +98,7 @@ class ImageCache:
             self._read_stream.close()
 
     def get_from_texture(self, texture, compression):
-        if texture.ephemeral:
+        if self._exporter().texcache_method != "use" or texture.ephemeral:
             return None
 
         key = (str(texture), compression)
@@ -123,6 +123,8 @@ class ImageCache:
         return cached_image
 
     def load(self):
+        if self._exporter().texcache_method == "skip":
+            return
         try:
             with self:
                 self._read(self._read_stream)
@@ -223,6 +225,9 @@ class ImageCache:
         return self._exporter().report
 
     def save(self):
+        if self._exporter().texcache_method == "skip":
+            return
+
         # TODO: add a way to preserve unused images for a brief period so we don't toss
         # already cached images that are only removed from the age temporarily...
         self._compact()

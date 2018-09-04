@@ -360,3 +360,7 @@ class Exporter:
             filepath = str(Path(filepath).with_suffix(".ktc"))
             age.texcache_path = filepath
         return filepath
+
+    @property
+    def texcache_method(self):
+        return bpy.context.scene.world.plasma_age.texcache_method
