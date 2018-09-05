@@ -16,6 +16,7 @@
 import enum
 from pathlib import Path
 from PyHSPlasma import *
+import time
 import weakref
 
 _HEADER_MAGICK = b"KTH\x00"
@@ -44,6 +45,7 @@ class _EntryBits(enum.IntEnum):
     compression = 3
     source_size = 4
     export_size = 5
+    last_export = 6
 
 
 class _CachedImage:
@@ -55,6 +57,8 @@ class _CachedImage:
         self.source_size = None
         self.export_size = None
         self.compression = None
+        self.export_time = None
+        self.modify_time = None
 
     def __str__(self):
         return self.name
@@ -126,6 +130,19 @@ class ImageCache:
         # if not, a recache will likely be triggered implicitly.
         if tuple(bl_image.size) != cached_image.source_size:
             return None
+
+        # if the image is on the disk, we can check the its modify time for changes
+        if cached_image.modify_time is None:
+            # if the image is packed, the filepath will be some garbage beginning with
+            # the string "//". There isn't much we can do with that, unless the user
+            # happens to have an unpacked copy lying around somewheres...
+            path = Path(bl_image.filepath_from_user())
+            if path.is_file():
+                cached_image.modify_time = path.stat().st_mtime
+                if cached_image.export_time and cached_image.export_time < cached_image.modify_time:
+                    return None
+            else:
+                cached_image.modify_time = 0
 
         # ensure the data has been loaded from the cache
         if cached_image.image_data is None:
@@ -231,6 +248,8 @@ class ImageCache:
             image.source_size = (stream.readInt(), stream.readInt())
         if flags[_EntryBits.export_size]:
             image.export_size = (stream.readInt(), stream.readInt())
+        if flags[_EntryBits.last_export]:
+            image.export_time = stream.readDouble()
 
         # do we need to check for duplicate images?
         self._images[(image.name, image.compression)] = image
@@ -307,6 +326,7 @@ class ImageCache:
         flags[_EntryBits.compression] = True
         flags[_EntryBits.source_size] = True
         flags[_EntryBits.export_size] = True
+        flags[_EntryBits.last_export] = True
 
         stream.write(_ENTRY_MAGICK)
         flags.write(stream)
@@ -318,3 +338,4 @@ class ImageCache:
         stream.writeInt(image.source_size[1])
         stream.writeInt(image.export_size[0])
         stream.writeInt(image.export_size[1])
+        stream.writeDouble(time.time())
