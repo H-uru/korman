@@ -14,7 +14,6 @@
  * along with Korman.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "buffer.h"
 #include "bumpmap.h"
 #include "sound.h"
 #include "texture.h"
@@ -44,7 +43,6 @@ PyMODINIT_FUNC PyInit__korlib() {
     PyObject* module = PyModule_Create(&korlib_Module);
 
     // Module classes...
-    PyModule_AddObject(module, "Buffer", Init_pyBuffer_Type());
     PyModule_AddObject(module, "GLTexture", Init_pyGLTexture_Type());
 
     return module;

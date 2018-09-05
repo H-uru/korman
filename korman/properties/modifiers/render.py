@@ -215,6 +215,7 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties):
             # Mmm... cheating
             mat_mgr.export_prepared_image(owner=layer, image=lightmap_im,
                                           allowed_formats={"PNG", "DDS"},
+                                          ephemeral=True,
                                           indent=2)
 
     @classmethod

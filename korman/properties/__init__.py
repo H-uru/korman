@@ -16,6 +16,7 @@
 import bpy
 
 from .prop_camera import *
+from .prop_image import *
 from .prop_lamp import *
 from . import modifiers
 from .prop_object import *
@@ -25,6 +26,7 @@ from .prop_world import *
 
 def register():
     bpy.types.Camera.plasma_camera = bpy.props.PointerProperty(type=PlasmaCamera)
+    bpy.types.Image.plasma_image = bpy.props.PointerProperty(type=PlasmaImage)
     bpy.types.Lamp.plasma_lamp = bpy.props.PointerProperty(type=PlasmaLamp)
     bpy.types.Object.plasma_net = bpy.props.PointerProperty(type=PlasmaNet)
     bpy.types.Object.plasma_object = bpy.props.PointerProperty(type=PlasmaObject)

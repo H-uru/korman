@@ -18,7 +18,6 @@ endif()
 
 # Da files
 set(korlib_HEADERS
-    buffer.h
     bumpmap.h
     korlib.h
     sound.h
@@ -26,7 +25,6 @@ set(korlib_HEADERS
 )
 
 set(korlib_SOURCES
-    buffer.cpp
     bumpmap.cpp
     module.cpp
     sound.cpp
