@@ -62,7 +62,10 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
                                         "options": {"HIDDEN"}}),
         "show_expanded": (BoolProperty, {"name": "INTERNAL: Actually draw the modifier",
                                          "default": True,
-                                         "options": {"HIDDEN"}})
+                                         "options": {"HIDDEN"}}),
+        "current_version": (IntProperty, {"name": "INTERNAL: Modifier version",
+                                          "default": 1,
+                                          "options": {"HIDDEN"}}),
     }
 
 
@@ -78,3 +81,53 @@ class PlasmaModifierLogicWiz:
     @abc.abstractmethod
     def logicwiz(self, bo):
         pass
+
+
+class PlasmaModifierUpgradable:
+    @property
+    @abc.abstractmethod
+    def latest_version(self):
+        raise NotImplementedError()
+
+    @property
+    def requires_upgrade(self):
+        current_version, latest_version = self.current_version, self.latest_version
+        assert current_version < latest_version
+        return current_version < latest_version
+
+    @abc.abstractmethod
+    def upgrade(self):
+        raise NotImplementedError()
+
+
+@bpy.app.handlers.persistent
+def _restore_properties(dummy):
+    # When Blender opens, it loads the default blend. The post load handler
+    # below is executed and deprecated properties are unregistered. When the
+    # user goes to load a new blend file, the handler below tries to execute
+    # again and BOOM--there are no deprecated properties available. Therefore,
+    # we reregister them here.
+    for mod_cls in PlasmaModifierUpgradable.__subclasses__():
+        for prop_name in mod_cls.deprecated_properties:
+            # Unregistered propertes are a sequence of (property function,
+            # property keyword arguments). Interesting design decision :)
+            prop_cb, prop_kwargs = getattr(mod_cls, prop_name)
+            del prop_kwargs["attr"] # Prevents proper registration
+            setattr(mod_cls, prop_name, prop_cb(**prop_kwargs))
+bpy.app.handlers.load_pre.append(_restore_properties)
+
+@bpy.app.handlers.persistent
+def _upgrade_modifiers(dummy):
+    # First, run all the upgrades
+    for i in bpy.data.objects:
+        for mod_cls in PlasmaModifierUpgradable.__subclasses__():
+            mod = getattr(i.plasma_modifiers, mod_cls.pl_id)
+            if mod.requires_upgrade:
+                mod.upgrade()
+
+    # Now that everything is upgraded, forcibly remove all properties
+    # from the modifiers to prevent sneaky zombie-data type export bugs
+    for mod_cls in PlasmaModifierUpgradable.__subclasses__():
+        for prop in mod_cls.deprecated_properties:
+            RemoveProperty(mod_cls, attr=prop)
+bpy.app.handlers.load_post.append(_upgrade_modifiers)

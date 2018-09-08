@@ -18,7 +18,7 @@ import bpy
 from bpy.props import *
 from PyHSPlasma import *
 
-from .base import PlasmaModifierProperties
+from .base import PlasmaModifierProperties, PlasmaModifierUpgradable
 from ...exporter.etlight import _NUM_RENDER_LAYERS
 from ...exporter import utils
 from ...exporter.explosions import ExportError
