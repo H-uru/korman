@@ -13,6 +13,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+import abc
 import bpy
 from bpy.props import *
 from collections import OrderedDict
@@ -20,16 +21,26 @@ from collections import OrderedDict
 from .node_core import *
 
 class PlasmaDeprecatedNode(PlasmaNodeBase):
+    @abc.abstractmethod
     def upgrade(self):
         raise NotImplementedError()
 
 
 class PlasmaVersionedNode(PlasmaNodeBase):
+    def init(self, context):
+        self.version = self.latest_version
+
+    @property
+    @abc.abstractmethod
+    def latest_version(self):
+        raise NotImplementedError()
+
     @classmethod
     def register(cls):
         cls.version = IntProperty(name="Node Version", default=1, options=set())
 
-    def upgrade(self, from_version):
+    @abc.abstractmethod
+    def upgrade(self):
         raise NotImplementedError()
 
 

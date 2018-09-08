@@ -135,6 +135,10 @@ class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
             stateMgr.register_state(stateNode)
         stateMgr.convert_states(exporter, so)
 
+    @property
+    def latest_version(self):
+        return 2
+
     def upgrade(self):
         # In version 1 responder nodes, responder states could be linked to the responder
         # or to subsequent responder state nodes and be exported. The problem with this
