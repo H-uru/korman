@@ -221,6 +221,7 @@ class LightBaker(_MeshManager):
         # that needs to be baked and sort it out by configuration.
         bake = { ("vcol",): [] }
         bake_vcol = bake[("vcol",)]
+        bake_passes = bpy.context.scene.plasma_scene.bake_passes
 
         for i in objs:
             if i.type != "MESH":
@@ -231,9 +232,17 @@ class LightBaker(_MeshManager):
             mods = i.plasma_modifiers
             lightmap_mod = mods.lightmap
             if lightmap_mod.enabled:
+                if lightmap_mod.bake_pass_name:
+                    bake_pass = bake_passes.get(lightmap_mod.bake_pass_name, None)
+                    if bake_pass is None:
+                        raise ExportError("Lightmap '{}': Could not find pass '{}'".format(i.name, lightmap_mod.bake_pass_name))
+                    lm_layers = tuple(bake_pass.render_layers)
+                else:
+                    lm_layers = tuple((True,) * _NUM_RENDER_LAYERS)
+
                 # In order for Blender to be able to bake this properly, at least one of the
                 # layers this object is on must be selected. We will sanity check this now.
-                lm_layers, obj_layers = tuple(lightmap_mod.render_layers), tuple(i.layers)
+                obj_layers = tuple(i.layers)
                 lm_active_layers = set((i for i, value in enumerate(lm_layers) if value))
                 obj_active_layers = set((i for i, value in enumerate(obj_layers) if value))
                 if not lm_active_layers & obj_active_layers:

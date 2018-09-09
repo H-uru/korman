@@ -84,8 +84,9 @@ def lighting(modifier, layout, context):
         col.label("No static lights will be baked.", icon="LAYER_USED")
 
 def lightmap(modifier, layout, context):
+    pl_scene = context.scene.plasma_scene
     layout.row(align=True).prop(modifier, "quality", expand=True)
-    layout.prop(modifier, "render_layers", text="Active Render Layers")
+    layout.prop_search(modifier, "bake_pass_name", pl_scene, "bake_passes", icon="RENDERLAYERS")
     layout.prop(modifier, "lights")
     layout.prop_search(modifier, "uv_map", context.active_object.data, "uv_textures")
 

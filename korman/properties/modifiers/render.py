@@ -142,12 +142,14 @@ class PlasmaFollowMod(idprops.IDPropObjectMixin, PlasmaModifierProperties):
         return True
 
 
-class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties):
+class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaModifierUpgradable):
     pl_id = "lightmap"
 
     bl_category = "Render"
     bl_label = "Lightmap"
     bl_description = "Auto-Bake Lightmap"
+
+    deprecated_properties = {"render_layers"}
 
     quality = EnumProperty(name="Quality",
                            description="Resolution of lightmap",
@@ -159,11 +161,15 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties):
                             ])
 
     render_layers = BoolVectorProperty(name="Layers",
-                                       description="Render layers to use for baking",
-                                       options=set(),
+                                       description="DEPRECATED: Render layers to use for baking",
+                                       options={"HIDDEN"},
                                        subtype="LAYER",
                                        size=_NUM_RENDER_LAYERS,
                                        default=((True,) * _NUM_RENDER_LAYERS))
+
+    bake_pass_name = StringProperty(name="Bake Pass",
+                                    description="Pass in which to bake lighting",
+                                    options=set())
 
     lights = PointerProperty(name="Light Group",
                              description="Group that defines the collection of lights to bake",
@@ -230,8 +236,30 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties):
         return "{}_LIGHTMAPGEN".format(self.id_data.name)
 
     @property
+    def latest_version(self):
+        return 2
+
+    @property
     def resolution(self):
         return int(self.quality)
+
+    def upgrade(self):
+        # In version 1, bake passes were assigned on a per modifier basis by setting
+        # the view layers on the modifier. Version 2 moves them into a global list
+        # that can be selected by name in the modifier
+        if self.current_version < 2:
+            bake_passes = bpy.context.scene.plasma_scene.bake_passes
+            render_layers = tuple(self.render_layers)
+
+            # Try to find a render pass matching, if possible...
+            bake_pass = next((i for i in bake_passes if tuple(i.render_layers) == render_layers), None)
+            if bake_pass is None:
+                bake_pass = bake_passes.add()
+                bake_pass.display_name = "Pass {}".format(len(bake_passes))
+                bake_pass.render_layers = render_layers
+            self.bake_pass_name = bake_pass.display_name
+            self.property_unset("render_layers")
+            self.current_version = 2
 
 
 class PlasmaLightingMod(PlasmaModifierProperties):
