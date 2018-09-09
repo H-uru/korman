@@ -78,9 +78,9 @@ class LightBaker(_MeshManager):
             self._select_only(objs, toggle)
             bpy.ops.object.bake_image()
 
-    def _bake_vcols(self, objs):
+    def _bake_vcols(self, objs, layers):
         with GoodNeighbor() as toggle:
-            bpy.context.scene.layers = (True,) * _NUM_RENDER_LAYERS
+            bpy.context.scene.layers = layers
             self._apply_render_settings(toggle, True)
             self._select_only(objs, toggle)
             bpy.ops.object.bake_image()
@@ -147,14 +147,15 @@ class LightBaker(_MeshManager):
             if value:
                 if key[0] == "lightmap":
                     num_objs = len(value)
-                    self._report.msg("{} Lightmap(s) [H:{:X}]", num_objs, hash(key), indent=1)
+                    self._report.msg("{} Lightmap(s) [H:{:X}]", num_objs, hash(key[1:]), indent=1)
                     if largest_pass > 1 and num_objs < round(largest_pass * 0.02):
-                        obj_names = ", ".join((i.name for i in value))
-                        self._report.warn("Small lightmap pass! Objects: {}".format(obj_names), indent=2)
+                        pass_names = set((i.plasma_modifiers.lightmap.bake_pass_name for i in value))
+                        pass_msg = ", ".join(pass_names)
+                        self._report.warn("Small lightmap bake pass! Bake Pass(es): {}".format(pass_msg), indent=2)
                     self._bake_lightmaps(value, key[1:])
                 elif key[0] == "vcol":
-                    self._report.msg("{} Crap Light(s)", len(value), indent=1)
-                    self._bake_vcols(value)
+                    self._report.msg("{} Vertex Color(s) [H:{:X}]", len(value), hash(key[1:]), indent=1)
+                    self._bake_vcols(value, key[1:])
                 else:
                     raise RuntimeError(key[0])
             inc_progress()
@@ -219,9 +220,9 @@ class LightBaker(_MeshManager):
     def _harvest_bakable_objects(self, objs):
         # The goal here is to minimize the calls to bake_image, so we are going to collect everything
         # that needs to be baked and sort it out by configuration.
-        bake = { ("vcol",): [] }
-        bake_vcol = bake[("vcol",)]
-        bake_passes = bpy.context.scene.plasma_scene.bake_passes
+        default_layers = tuple((True,) * _NUM_RENDER_LAYERS)
+        bake, bake_passes = {}, bpy.context.scene.plasma_scene.bake_passes
+        bake_vcol = bake.setdefault(("vcol",) + default_layers, [])
 
         for i in objs:
             if i.type != "MESH":
@@ -235,10 +236,10 @@ class LightBaker(_MeshManager):
                 if lightmap_mod.bake_pass_name:
                     bake_pass = bake_passes.get(lightmap_mod.bake_pass_name, None)
                     if bake_pass is None:
-                        raise ExportError("Lightmap '{}': Could not find pass '{}'".format(i.name, lightmap_mod.bake_pass_name))
+                        raise ExportError("Bake Lighting '{}': Could not find pass '{}'".format(i.name, lightmap_mod.bake_pass_name))
                     lm_layers = tuple(bake_pass.render_layers)
                 else:
-                    lm_layers = tuple((True,) * _NUM_RENDER_LAYERS)
+                    lm_layers = default_layers
 
                 # In order for Blender to be able to bake this properly, at least one of the
                 # layers this object is on must be selected. We will sanity check this now.
@@ -246,9 +247,10 @@ class LightBaker(_MeshManager):
                 lm_active_layers = set((i for i, value in enumerate(lm_layers) if value))
                 obj_active_layers = set((i for i, value in enumerate(obj_layers) if value))
                 if not lm_active_layers & obj_active_layers:
-                    raise ExportError("Lightmap '{}': At least one layer the object is on must be selected".format(i.name))
+                    raise ExportError("Bake Lighting '{}': At least one layer the object is on must be selected".format(i.name))
 
-                key = ("lightmap",) + lm_layers
+                method = "lightmap" if lightmap_mod.bake_lightmap else "vcol"
+                key = (method,) + lm_layers
                 bake_pass = bake.setdefault(key, [])
                 bake_pass.append(i)
             elif mods.lighting.preshade:
@@ -365,9 +367,11 @@ class LightBaker(_MeshManager):
 
     def _prep_for_vcols(self, bo, toggle):
         mesh = bo.data
+        modifier = bo.plasma_modifiers.lightmap
         vcols = mesh.vertex_colors
 
         # Create a special light group for baking
+        user_lg = modifier.lights if modifier.enabled else None
         if not self._generate_lightgroup(bo):
             return False
 

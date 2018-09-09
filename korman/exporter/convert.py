@@ -61,7 +61,7 @@ class Exporter:
             self.mesh.add_progress_presteps(self.report)
             self.report.progress_add_step("Collecting Objects")
             self.report.progress_add_step("Harvesting Actors")
-            if self._op.bake_lighting:
+            if self._op.lighting_method != "skip":
                 etlight.LightBaker.add_progress_steps(self.report)
             self.report.progress_add_step("Exporting Scene Objects")
             self.report.progress_add_step("Exporting Logic Nodes")
@@ -86,8 +86,7 @@ class Exporter:
 
                 # Step 2.9: It is assumed that static lighting is available for the mesh exporter.
                 #           Indeed, in PyPRP it was a manual step. So... BAKE NAO!
-                if self._op.bake_lighting:
-                    self._bake_static_lighting()
+                self._bake_static_lighting()
 
                 # Step 3: Export all the things!
                 self._export_scene_objects()
@@ -113,8 +112,10 @@ class Exporter:
                 self.report.save()
 
     def _bake_static_lighting(self):
-        oven = etlight.LightBaker(self.report)
-        oven.bake_static_lighting(self._objects)
+        lighting_method = self._op.lighting_method
+        if lighting_method != "skip":
+            oven = etlight.LightBaker(self.report)
+            oven.bake_static_lighting(self._objects)
 
     def _collect_objects(self):
         scene = bpy.context.scene

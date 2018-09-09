@@ -146,8 +146,8 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
     pl_id = "lightmap"
 
     bl_category = "Render"
-    bl_label = "Lightmap"
-    bl_description = "Auto-Bake Lightmap"
+    bl_label = "Bake Lighting"
+    bl_description = "Auto-Bake Static Lighting"
 
     deprecated_properties = {"render_layers"}
 
@@ -158,7 +158,16 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
                                   ("256", "256px", "256x256 pixels"),
                                   ("512", "512px", "512x512 pixels"),
                                   ("1024", "1024px", "1024x1024 pixels"),
+                                  ("2048", "2048px", "2048x2048 pixels"),
                             ])
+
+    bake_type = EnumProperty(name="Bake To",
+                             description="Destination for baked lighting data",
+                             items=[
+                                ("lightmap", "Lightmap Texture", "Bakes lighting to a lightmap texture"),
+                                ("vcol", "Vertex Colors", "Bakes lighting to vertex colors"),
+                             ],
+                             options=set())
 
     render_layers = BoolVectorProperty(name="Layers",
                                        description="DEPRECATED: Render layers to use for baking",
@@ -178,7 +187,26 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
     uv_map = StringProperty(name="UV Texture",
                             description="UV Texture used as the basis for the lightmap")
 
+    @property
+    def bake_lightmap(self):
+        if not self.enabled:
+            return False
+        age = bpy.context.scene.world.plasma_age
+        if age.export_active:
+            if age.lighting_method == "force_lightmap":
+                return True
+            elif self.bake_type == "lightmap" and age.lighting_method == "bake":
+                return True
+            else:
+                return False
+        else:
+            return self.bake_type == "lightmap"
+
     def export(self, exporter, bo, so):
+        # If we're exporting vertex colors, who gives a rat's behind?
+        if not self.bake_lightmap:
+            return
+
         lightmap_im = bpy.data.images.get("{}_LIGHTMAPGEN.png".format(bo.name))
 
         # If no lightmap image is found, then either lightmap generation failed (error raised by oven)
@@ -266,7 +294,7 @@ class PlasmaLightingMod(PlasmaModifierProperties):
     pl_id = "lighting"
 
     bl_category = "Render"
-    bl_label = "Lighting"
+    bl_label = "Lighting Info"
     bl_description = "Fine tune Plasma lighting settings"
 
     force_rt_lights = BoolProperty(name="Force RT Lighting",
@@ -280,10 +308,10 @@ class PlasmaLightingMod(PlasmaModifierProperties):
 
     @property
     def allow_preshade(self):
-        bo = self.id_data
-        if bo.plasma_modifiers.water_basic.enabled:
+        mods = self.id_data.plasma_modifiers
+        if mods.water_basic.enabled:
             return False
-        if bo.plasma_modifiers.lightmap.enabled:
+        if mods.lightmap.bake_lightmap:
             return False
         return True
 
@@ -312,12 +340,12 @@ class PlasmaLightingMod(PlasmaModifierProperties):
     @property
     def want_rt_lights(self):
         """Gets whether or not this object ought to be lit dynamically"""
-        bo = self.id_data
-        if bo.plasma_modifiers.lightmap.enabled:
+        mods = self.id_data.plasma_modifiers
+        if mods.lightmap.enabled and mods.lightmap.bake_type == "lightmap":
             return False
-        if bo.plasma_modifiers.water_basic.enabled:
+        if mods.water_basic.enabled:
             return True
-        if bo.plasma_object.has_transform_animation:
+        if self.id_data.plasma_object.has_transform_animation:
             return True
         return False
 

@@ -37,10 +37,6 @@ class ExportOperator(bpy.types.Operator):
                                           "description": "Profiles the exporter using cProfile",
                                           "default": False}),
 
-        "bake_lighting": (BoolProperty, {"name": "Bake Static Lights",
-                                         "description": "Bake all lightmaps and vertex shading on export",
-                                         "default": True}),
-
         "verbose": (BoolProperty, {"name": "Display Verbose Log",
                                    "description": "Shows the verbose export log in the console",
                                    "default": False}),
@@ -58,6 +54,18 @@ class ExportOperator(bpy.types.Operator):
                                                      ("use", "Use Texture Cache", "Use (and update, if needed) cached textures."),
                                                      ("rebuild", "Rebuild Texture Cache", "Rebuilds the texture cache from scratch.")],
                                            "default": "use"}),
+
+        "lighting_method": (EnumProperty, {"name": "Static Lighting",
+                                           "description": "Static Lighting Settings",
+                                           "items": [("skip", "Don't Bake Lighting", "Static lighting is not baked during this export (fastest export)"),
+                                                     ("bake", "Bake Lighting", "Static lighting is baked according to your specifications"),
+                                                     ("force_vcol", "Force Vertex Color Bake", "All static lighting is baked as vertex colors (faster export)"),
+                                                     ("force_lightmap", "Force Lightmap Bake", "All static lighting is baked as lightmaps (slower export)")],
+                                           "default": "bake"}),
+
+        "export_active": (BoolProperty, {"name": "INTERNAL: Export currently running",
+                                         "default": False,
+                                         "options": {"SKIP_SAVE"}}),
     }
 
     # This wigs out and very bad things happen if it's not directly on the operator...
@@ -77,7 +85,7 @@ class ExportOperator(bpy.types.Operator):
         # The crazy mess we're doing with props on the fly means we have to explicitly draw them :(
         layout.prop(self, "version")
         layout.prop(age, "texcache_method", text="")
-        layout.prop(age, "bake_lighting")
+        layout.prop(age, "lighting_method")
         row = layout.row()
         row.enabled = ConsoleToggler.is_platform_supported()
         row.prop(age, "show_console")
@@ -88,6 +96,12 @@ class ExportOperator(bpy.types.Operator):
         if attr in self._properties:
             return getattr(bpy.context.scene.world.plasma_age, attr)
         raise AttributeError(attr)
+
+    def __setattr__(self, attr, value):
+        if attr in self._properties:
+            setattr(bpy.context.scene.world.plasma_age, attr, value)
+        else:
+            super().__setattr__(attr, value)
 
     @property
     def has_reports(self):
@@ -120,6 +134,7 @@ class ExportOperator(bpy.types.Operator):
         with _UiHelper(context) as _ui:
             e = exporter.Exporter(self)
             try:
+                self.export_active = True
                 if self.profile_export:
                     profile = path.with_name("{}_cProfile".format(ageName))
                     profile = cProfile.runctx("e.run()", globals(), locals(), str(profile))
@@ -136,6 +151,8 @@ class ExportOperator(bpy.types.Operator):
                         stats = stats.sort_stats("time", "calls")
                         stats.print_stats()
                 return {"FINISHED"}
+            finally:
+                self.export_active = False
 
     def invoke(self, context, event):
         # Called when a user hits "export" from the menu
@@ -157,7 +174,8 @@ class ExportOperator(bpy.types.Operator):
         for name, (prop, options) in cls._properties.items():
             # Hide these settings from being seen on the age properties
             age_options = dict(options)
-            age_options["options"] = {"HIDDEN"}
+            bl_options = age_options.setdefault("options", set())
+            bl_options.add("HIDDEN")
 
             # Now do the majick
             setattr(PlasmaAge, name, prop(**age_options))
