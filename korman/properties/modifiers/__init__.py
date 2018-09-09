@@ -88,8 +88,6 @@ def modifier_mapping():
                 label = label[:-len(category)-1]
 
         tup = (pl_id, label, description, icon, i)
-        if category not in d:
-            d[category] = [tup]
-        else:
-            d[category].append(tup)
+        d_cat = d.setdefault(category, [])
+        d_cat.append(tup)
     return d
