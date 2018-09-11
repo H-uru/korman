@@ -115,10 +115,7 @@ class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.
         if bo.plasma_modifiers.water_basic.enabled:
             simIface, physical = exporter.physics.generate_flat_proxy(bo, so, bo.location[2], swim_phys_name)
         else:
-            try:
-                simIface, physical = exporter.physics.generate_flat_proxy(bo, so, None, swim_phys_name)
-            except ExportAssertionError:
-                raise ExportError("Swimming Surface '{}' must be flat".format(bo.name))
+            simIface, physical = exporter.physics.generate_physical(bo, so, "trimesh", swim_phys_name)
         physical.LOSDBs |= plSimDefs.kLOSDBSwimRegion
         if exporter.mgr.getVer() != pvMoul:
             physical.memberGroup = plSimDefs.kGroupLOSOnly
