@@ -354,7 +354,12 @@ class Exporter:
     def texcache_path(self):
         age = bpy.context.scene.world.plasma_age
         filepath = age.texcache_path
-        if not filepath or not Path(filepath).is_file():
+        try:
+            valid_path = not filepath or not Path(filepath).is_file()
+        except OSError:
+            valid_path = False
+
+        if not valid_path:
             filepath = bpy.context.blend_data.filepath
             if not filepath:
                 filepath = self.filepath
