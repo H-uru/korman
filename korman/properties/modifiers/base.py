@@ -92,7 +92,7 @@ class PlasmaModifierUpgradable:
     @property
     def requires_upgrade(self):
         current_version, latest_version = self.current_version, self.latest_version
-        assert current_version < latest_version
+        assert current_version <= latest_version
         return current_version < latest_version
 
     @abc.abstractmethod
