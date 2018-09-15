@@ -195,7 +195,8 @@ class MeshConverter(_MeshManager):
 
         # Lightmapping requires its own LIGHTMAPGEN channel
         # NOTE: the LIGHTMAPGEN texture has already been created, so it is in num_user_texs
-        if bo.plasma_modifiers.lightmap.enabled:
+        lm = bo.plasma_modifiers.lightmap
+        if lm.enabled and lm.bake_type == "lightmap":
             num_user_texs -= 1
             max_user_texs -= 1
 
@@ -261,12 +262,13 @@ class MeshConverter(_MeshManager):
         bumpmap = self.material.get_bump_layer(bo)
 
         # Locate relevant vertex color layers now...
+        lm = bo.plasma_modifiers.lightmap
         color, alpha = None, None
         for vcol_layer in mesh.tessface_vertex_colors:
             name = vcol_layer.name.lower()
             if name in _VERTEX_COLOR_LAYERS:
                 color = vcol_layer.data
-            elif name == "autocolor" and color is None and not bo.plasma_modifiers.lightmap.enabled:
+            elif name == "autocolor" and color is None and not lm.bake_lightmap:
                 color = vcol_layer.data
             elif name == "alpha":
                 alpha = vcol_layer.data

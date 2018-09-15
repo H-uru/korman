@@ -16,6 +16,7 @@
 import bpy
 
 from .. import ui_list
+from ...exporter.mesh import _VERTEX_COLOR_LAYERS
 
 def fademod(modifier, layout, context):
     layout.prop(modifier, "fader_type")
@@ -73,27 +74,42 @@ def lighting(modifier, layout, context):
     col.label("Other Plasma lights {} be cast at runtime.".format("will" if modifier.rt_lights else "will NOT"),
               icon="LAYER_USED")
 
+    map_type = "a lightmap" if lightmap.enabled and lightmap.bake_type == "lightmap" else "vertex colors"
     if lightmap.enabled and lightmap.lights:
-            col.label(" All '{}' lights will be baked to a lightmap".format(lightmap.lights),
+            col.label("All '{}' lights will be baked to {}".format(lightmap.lights.name, map_type),
                       icon="LAYER_USED")
     elif have_static_lights:
         light_type = "Blender-only" if modifier.rt_lights else "unanimated"
-        map_type = "a lightmap" if lightmap.enabled else "vertex colors"
         col.label("Other {} lights will be baked to {}.".format(light_type, map_type), icon="LAYER_USED")
     else:
         col.label("No static lights will be baked.", icon="LAYER_USED")
 
 def lightmap(modifier, layout, context):
-    layout.row(align=True).prop(modifier, "quality", expand=True)
-    layout.prop(modifier, "render_layers", text="Active Render Layers")
+    pl_scene = context.scene.plasma_scene
+    is_texture = modifier.bake_type == "lightmap"
+
+    layout.prop(modifier, "bake_type")
+    if modifier.bake_type == "vcol":
+        col_layer = next((i for i in modifier.id_data.data.vertex_colors if i.name.lower() in _VERTEX_COLOR_LAYERS), None)
+        if col_layer is not None:
+            layout.label("Mesh color layer '{}' will override this lighting.".format(col_layer.name), icon="ERROR")
+
+    col = layout.column()
+    col.active = is_texture
+    col.prop(modifier, "quality")
+    layout.prop_search(modifier, "bake_pass_name", pl_scene, "bake_passes", icon="RENDERLAYERS")
     layout.prop(modifier, "lights")
-    layout.prop_search(modifier, "uv_map", context.active_object.data, "uv_textures")
+    col = layout.column()
+    col.active = is_texture
+    col.prop_search(modifier, "uv_map", context.active_object.data, "uv_textures")
 
     # Lightmaps can only be applied to objects with opaque materials.
-    if any((i.use_transparency for i in modifier.id_data.data.materials if i is not None)):
+    if is_texture and any((i.use_transparency for i in modifier.id_data.data.materials if i is not None)):
         layout.label("Transparent objects cannot be lightmapped.", icon="ERROR")
     else:
-        operator = layout.operator("object.plasma_lightmap_preview", "Preview Lightmap", icon="RENDER_STILL")
+        col = layout.column()
+        col.active = is_texture
+        operator = col.operator("object.plasma_lightmap_preview", "Preview Lightmap", icon="RENDER_STILL")
 
         # Kind of clever stuff to show the user a preview...
         # We can't show images, so we make a hidden ImageTexture called LIGHTMAPGEN_PREVIEW. We check

@@ -133,18 +133,18 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
 
         col = split.column()
         col.label("Export Settings:")
-        col.prop(age, "texcache_method", text="")
-        col.prop(age, "bake_lighting")
-        cons_ui = col.column()
-        cons_ui.enabled = ConsoleToggler.is_platform_supported()
-        cons_ui.prop(age, "verbose")
-        cons_ui.prop(age, "show_console")
+        col.enabled = ConsoleToggler.is_platform_supported()
+        col.prop(age, "verbose")
+        col.prop(age, "show_console")
 
         col = split.column()
         col.label("Plasma Settings:")
         col.prop(age, "age_sdl")
         col.prop(age, "use_texture_page")
 
+        layout.separator()
+        layout.prop(age, "lighting_method")
+        layout.prop(age, "texcache_method")
 
 
 class PlasmaEnvironmentPanel(AgeButtonsPanel, bpy.types.Panel):

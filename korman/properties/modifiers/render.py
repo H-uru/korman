@@ -142,12 +142,14 @@ class PlasmaFollowMod(idprops.IDPropObjectMixin, PlasmaModifierProperties):
         return True
 
 
-class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties):
+class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaModifierUpgradable):
     pl_id = "lightmap"
 
     bl_category = "Render"
-    bl_label = "Lightmap"
-    bl_description = "Auto-Bake Lightmap"
+    bl_label = "Bake Lighting"
+    bl_description = "Auto-Bake Static Lighting"
+
+    deprecated_properties = {"render_layers"}
 
     quality = EnumProperty(name="Quality",
                            description="Resolution of lightmap",
@@ -156,14 +158,27 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties):
                                   ("256", "256px", "256x256 pixels"),
                                   ("512", "512px", "512x512 pixels"),
                                   ("1024", "1024px", "1024x1024 pixels"),
+                                  ("2048", "2048px", "2048x2048 pixels"),
                             ])
 
+    bake_type = EnumProperty(name="Bake To",
+                             description="Destination for baked lighting data",
+                             items=[
+                                ("lightmap", "Lightmap Texture", "Bakes lighting to a lightmap texture"),
+                                ("vcol", "Vertex Colors", "Bakes lighting to vertex colors"),
+                             ],
+                             options=set())
+
     render_layers = BoolVectorProperty(name="Layers",
-                                       description="Render layers to use for baking",
-                                       options=set(),
+                                       description="DEPRECATED: Render layers to use for baking",
+                                       options={"HIDDEN"},
                                        subtype="LAYER",
                                        size=_NUM_RENDER_LAYERS,
                                        default=((True,) * _NUM_RENDER_LAYERS))
+
+    bake_pass_name = StringProperty(name="Bake Pass",
+                                    description="Pass in which to bake lighting",
+                                    options=set())
 
     lights = PointerProperty(name="Light Group",
                              description="Group that defines the collection of lights to bake",
@@ -172,7 +187,26 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties):
     uv_map = StringProperty(name="UV Texture",
                             description="UV Texture used as the basis for the lightmap")
 
+    @property
+    def bake_lightmap(self):
+        if not self.enabled:
+            return False
+        age = bpy.context.scene.world.plasma_age
+        if age.export_active:
+            if age.lighting_method == "force_lightmap":
+                return True
+            elif self.bake_type == "lightmap" and age.lighting_method == "bake":
+                return True
+            else:
+                return False
+        else:
+            return self.bake_type == "lightmap"
+
     def export(self, exporter, bo, so):
+        # If we're exporting vertex colors, who gives a rat's behind?
+        if not self.bake_lightmap:
+            return
+
         lightmap_im = bpy.data.images.get("{}_LIGHTMAPGEN.png".format(bo.name))
 
         # If no lightmap image is found, then either lightmap generation failed (error raised by oven)
@@ -230,15 +264,37 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties):
         return "{}_LIGHTMAPGEN".format(self.id_data.name)
 
     @property
+    def latest_version(self):
+        return 2
+
+    @property
     def resolution(self):
         return int(self.quality)
+
+    def upgrade(self):
+        # In version 1, bake passes were assigned on a per modifier basis by setting
+        # the view layers on the modifier. Version 2 moves them into a global list
+        # that can be selected by name in the modifier
+        if self.current_version < 2:
+            bake_passes = bpy.context.scene.plasma_scene.bake_passes
+            render_layers = tuple(self.render_layers)
+
+            # Try to find a render pass matching, if possible...
+            bake_pass = next((i for i in bake_passes if tuple(i.render_layers) == render_layers), None)
+            if bake_pass is None:
+                bake_pass = bake_passes.add()
+                bake_pass.display_name = "Pass {}".format(len(bake_passes))
+                bake_pass.render_layers = render_layers
+            self.bake_pass_name = bake_pass.display_name
+            self.property_unset("render_layers")
+            self.current_version = 2
 
 
 class PlasmaLightingMod(PlasmaModifierProperties):
     pl_id = "lighting"
 
     bl_category = "Render"
-    bl_label = "Lighting"
+    bl_label = "Lighting Info"
     bl_description = "Fine tune Plasma lighting settings"
 
     force_rt_lights = BoolProperty(name="Force RT Lighting",
@@ -252,10 +308,10 @@ class PlasmaLightingMod(PlasmaModifierProperties):
 
     @property
     def allow_preshade(self):
-        bo = self.id_data
-        if bo.plasma_modifiers.water_basic.enabled:
+        mods = self.id_data.plasma_modifiers
+        if mods.water_basic.enabled:
             return False
-        if bo.plasma_modifiers.lightmap.enabled:
+        if mods.lightmap.bake_lightmap:
             return False
         return True
 
@@ -284,12 +340,12 @@ class PlasmaLightingMod(PlasmaModifierProperties):
     @property
     def want_rt_lights(self):
         """Gets whether or not this object ought to be lit dynamically"""
-        bo = self.id_data
-        if bo.plasma_modifiers.lightmap.enabled:
+        mods = self.id_data.plasma_modifiers
+        if mods.lightmap.enabled and mods.lightmap.bake_type == "lightmap":
             return False
-        if bo.plasma_modifiers.water_basic.enabled:
+        if mods.water_basic.enabled:
             return True
-        if bo.plasma_object.has_transform_animation:
+        if self.id_data.plasma_object.has_transform_animation:
             return True
         return False
 
