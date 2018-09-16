@@ -65,24 +65,3 @@ del properties_render
 from bl_ui import properties_texture
 _whitelist_all(properties_texture)
 del properties_texture
-
-@classmethod
-def _new_poll(cls, context):
-    """Nifty replacement for naughty built-in Blender poll()s"""
-    if context.scene.render.engine == "PLASMA_GAME":
-        return False
-    else:
-        # Dear god you better save the old poll...
-        return cls._old_poll(cls, context)
-
-
-def _swap_poll(cls):
-    cls._old_poll = cls.poll
-    cls.poll = _new_poll
-
-# This is where we claim the physics context for our own nefarious purposes...
-# Hmm... Physics panels don't respect the supported engine thing.
-#        Metaprogramming to the rescue!
-from bl_ui import properties_physics_common
-_swap_poll(properties_physics_common.PhysicButtonsPanel)
-del properties_physics_common
