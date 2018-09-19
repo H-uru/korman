@@ -20,6 +20,7 @@ from pathlib import Path
 import pstats
 
 from .. import exporter
+from ..helpers import UiHelper
 from ..properties.prop_world import PlasmaAge, game_versions
 from ..korlib import ConsoleToggler
 
@@ -131,7 +132,7 @@ class ExportOperator(bpy.types.Operator):
 
         # Separate blender operator and actual export logic for my sanity
         ageName = path.stem
-        with _UiHelper(context) as _ui:
+        with UiHelper(context) as _ui:
             e = exporter.Exporter(self)
             try:
                 self.export_active = True
@@ -179,36 +180,6 @@ class ExportOperator(bpy.types.Operator):
 
             # Now do the majick
             setattr(PlasmaAge, name, prop(**age_options))
-
-
-class _UiHelper:
-    """This fun little helper makes sure that we don't wreck the UI"""
-    def __init__(self, context):
-        self.active_object = context.active_object
-        self.selected_objects = context.selected_objects
-
-    def __enter__(self):
-        scene = bpy.context.scene
-        self.layers = tuple(scene.layers)
-        self.frame_num = scene.frame_current
-        scene.frame_set(scene.frame_start)
-        scene.update()
-
-        # Some operators require there be an active_object even though they
-        # don't actually use it...
-        if scene.objects.active is None:
-            scene.objects.active = scene.objects[0]
-        return self
-
-    def __exit__(self, type, value, traceback):
-        for i in bpy.data.objects:
-            i.select = (i in self.selected_objects)
-
-        scene = bpy.context.scene
-        scene.objects.active = self.active_object
-        scene.layers = self.layers
-        scene.frame_set(self.frame_num)
-        scene.update()
 
 
 # Add the export operator to the Export menu :)

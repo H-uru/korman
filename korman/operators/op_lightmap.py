@@ -17,7 +17,7 @@ import bpy
 from bpy.props import *
 
 from ..exporter.etlight import LightBaker
-from ..helpers import GoodNeighbor
+from ..helpers import UiHelper
 
 class _LightingOperator:
 
@@ -38,9 +38,7 @@ class LightmapAutobakePreviewOperator(_LightingOperator, bpy.types.Operator):
         super().__init__()
 
     def execute(self, context):
-        with GoodNeighbor() as toggle:
-            toggle.track(context.scene, "layers", tuple(context.scene.layers))
-
+        with UiHelper(context):
             with LightBaker() as bake:
                 if not bake.bake_static_lighting([context.active_object,]):
                     self.report({"INFO"}, "No valid lights found to bake.")

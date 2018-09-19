@@ -48,6 +48,36 @@ class TemporaryObject:
         return getattr(self._obj, attr)
 
 
+class UiHelper:
+    """This fun little helper makes sure that we don't wreck the UI"""
+    def __init__(self, context):
+        self.active_object = context.active_object
+        self.selected_objects = context.selected_objects
+
+    def __enter__(self):
+        scene = bpy.context.scene
+        self.layers = tuple(scene.layers)
+        self.frame_num = scene.frame_current
+        scene.frame_set(scene.frame_start)
+        scene.update()
+
+        # Some operators require there be an active_object even though they
+        # don't actually use it...
+        if scene.objects.active is None:
+            scene.objects.active = scene.objects[0]
+        return self
+
+    def __exit__(self, type, value, traceback):
+        for i in bpy.data.objects:
+            i.select = (i in self.selected_objects)
+
+        scene = bpy.context.scene
+        scene.objects.active = self.active_object
+        scene.layers = self.layers
+        scene.frame_set(self.frame_num)
+        scene.update()
+
+
 def ensure_power_of_two(value):
     return pow(2, math.floor(math.log(value, 2)))
 
