@@ -60,7 +60,7 @@ class PhysicsConverter:
                 scale = mat.to_scale()
                 if scale[0] == 1.0 and scale[1] == 1.0 and scale[2] == 1.0:
                     # Whew, don't need to do any math!
-                    vertices = [hsVector3(i.co.x, i.co.y, i.co.z) for i in mesh.vertices]
+                    vertices = [hsVector3(*i.co) for i in mesh.vertices]
                 else:
                     # Dagnabbit...
                     vertices = [hsVector3(i.co.x * scale.x, i.co.y * scale.y, i.co.z * scale.z) for i in mesh.vertices]
@@ -68,7 +68,7 @@ class PhysicsConverter:
                 # apply the transform to the physical itself
                 mesh.transform(mat)
                 mesh.update(calc_tessface=indices)
-                vertices = [hsVector3(i.co.x, i.co.y, i.co.z) for i in mesh.vertices]
+                vertices = [hsVector3(*i.co) for i in mesh.vertices]
 
             if indices:
                 return (vertices, self._convert_indices(mesh))
@@ -100,7 +100,7 @@ class PhysicsConverter:
                     delta = max(z_coords) - min(z_coords)
                     if delta > 0.0002:
                         raise ExportAssertionError()
-                    vertices = [hsVector3(i.co.x, i.co.y, i.co.z) for i in mesh.vertices]
+                    vertices = [hsVector3(*i.co) for i in mesh.vertices]
                 else:
                     # Flatten out all points to the given Z-coordinate
                     vertices = [hsVector3(i.co.x, i.co.y, z_coord) for i in mesh.vertices]
