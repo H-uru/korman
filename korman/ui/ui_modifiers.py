@@ -48,7 +48,9 @@ class PlasmaModifiersPanel(ModifierButtonsPanel, bpy.types.Panel):
         # Any items following that are members of that category, of course...
         # ... I hope that my rambling has helped somebody understand more about the undocumented mess
         #     that is Blender Python.
-        layout.operator_menu_enum("object.plasma_modifier_add", "types")
+        row = layout.row(align=True)
+        row.operator_menu_enum("object.plasma_modifier_add", "types")
+        row.menu("PlasmaModifiersSpecialMenu", icon="DOWNARROW_HLT", text="")
 
         # First, let's sort the list of modifiers based on their display order
         # We don't do this sort in the property itself because this is really just a UI hint.
@@ -77,6 +79,7 @@ class PlasmaModifiersPanel(ModifierButtonsPanel, bpy.types.Panel):
 
         row.operator("object.plasma_modifier_move_up", text="", icon="TRIA_UP").active_modifier = modifier.display_order
         row.operator("object.plasma_modifier_move_down", text="", icon="TRIA_DOWN").active_modifier = modifier.display_order
+        row.operator("object.plasma_modifier_copy", text="", icon="COPYDOWN").active_modifier = modifier.display_order
         row.operator("object.plasma_modifier_reset", text="", icon="FILE_REFRESH").active_modifier = modifier.display_order
         row.operator("object.plasma_modifier_remove", text="", icon="X").active_modifier = modifier.display_order
 
@@ -84,3 +87,13 @@ class PlasmaModifiersPanel(ModifierButtonsPanel, bpy.types.Panel):
         # by whatever insanity is in the modifier module. modifier modifier modifier...
         # MODDDDDDDDIFIIIIEEEERRRRRRRR!!!
         return layout
+
+
+class PlasmaModifiersSpecialMenu(ModifierButtonsPanel, bpy.types.Menu):
+    bl_label = "Plasma Modifier Specials"
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.operator("object.plasma_modifier_copy", icon="COPYDOWN", text="Copy Modifiers").active_modifier = -1
+        layout.operator("object.plasma_modifier_paste", icon="PASTEDOWN", text="Paste Modifier(s)")

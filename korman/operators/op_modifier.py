@@ -32,6 +32,15 @@ def _fetch_modifiers():
     return items
 
 class ModifierOperator:
+    def _get_modifier(self, context):
+        if self.active_modifier == -1:
+            return None
+        pl_mods = context.object.plasma_modifiers.modifiers
+        pl_mod = next((i for i in pl_mods if self.active_modifier == i.display_order), None)
+        if pl_mod is None:
+            raise IndexError(self.active_modifier)
+        return pl_mod
+
     @classmethod
     def poll(cls, context):
         return context.scene.render.engine == "PLASMA_GAME"
@@ -61,6 +70,95 @@ class ModifierAddOperator(ModifierOperator, bpy.types.Operator):
             if not depMod.enabled:
                 bpy.ops.object.plasma_modifier_add(types=dep)
         return {"FINISHED"}
+
+
+class ModifierCopyOperator(ModifierOperator, bpy.types.Operator):
+    bl_idname = "object.plasma_modifier_copy"
+    bl_label = "Copy Modifiers"
+    bl_description = "Copy Modifiers from an Object"
+
+    active_modifier = IntProperty(name="Modifier Display Order",
+                                  default=-1,
+                                  options={"HIDDEN"})
+
+    def execute(self, context):
+        pl_scene = context.scene.plasma_scene
+        pl_scene.modifier_copy_object = context.object
+        pl_mod = self._get_modifier(context)
+        if pl_mod is None:
+            pl_scene.property_unset("modifier_copy_id")
+        else:
+            pl_scene.modifier_copy_id = pl_mod.pl_id
+        return {"FINISHED"}
+
+
+class ModifierPasteOperator(ModifierOperator, bpy.types.Operator):
+    bl_idname = "object.plasma_modifier_paste"
+    bl_label = "Paste Modifier"
+    bl_description = "Paste Modifier(s) to another Object"
+
+    def execute(self, context):
+        pl_scene = context.scene.plasma_scene
+        if not pl_scene.is_property_set("modifier_copy_object"):
+            raise RuntimeError()
+
+        dst_object, src_object = context.object, pl_scene.modifier_copy_object
+        pl_mod_id = pl_scene.modifier_copy_id
+
+        if pl_mod_id:
+            self._paste_modifier(src_object, dst_object, pl_mod_id)
+        else:
+            for mod_cls in modifiers.PlasmaModifierProperties.__subclasses__():
+                self._paste_modifier(src_object, dst_object, mod_cls.pl_id)
+        return {"FINISHED"}
+
+    def _paste_modifier(self, src_object, dst_object, pl_mod_id):
+        src_mod = getattr(src_object.plasma_modifiers, pl_mod_id)
+        dst_mod = getattr(dst_object.plasma_modifiers, pl_mod_id)
+
+        if not src_mod.enabled:
+            return
+
+        # The modifier index needs to be refigured, otherwise, bad things will happen
+        # when the user tries to use the modifier operators again.
+        mod_id = dst_object.plasma_modifiers.determine_next_id()
+
+        # NOTE: Usage of keys vs items is intentional because the value returned by items may
+        #       not be accepted as a valid type for assignment. Sounds like a blender bug IMO.
+        for i in src_mod.rna_type.properties:
+            self._paste_property(src_mod, dst_mod, i)
+
+        # See above, ensure no id collisions
+        dst_mod.display_order = mod_id
+
+    def _paste_property(self, src, dst, prop):
+        prop_name = prop.identifier
+
+        # Old properties? Discard their asses.
+        if not hasattr(dst, prop_name):
+            return
+
+        # Collection properties must be manually copied...
+        if prop.type == "COLLECTION":
+            dst_prop, src_prop = getattr(dst, prop_name), getattr(src, prop_name)
+            dst_prop.clear()
+            for src_item in src_prop:
+                dst_item = dst_prop.add()
+                for item_prop in src_item.rna_type.properties:
+                    self._paste_property(src_item, dst_item, item_prop)
+        else:
+            try:
+                if src.is_property_set(prop_name):
+                    setattr(dst, prop_name, getattr(src, prop_name))
+                else:
+                    dst.property_unset(prop_name)
+            except AttributeError:
+                pass
+
+    @classmethod
+    def poll(cls, context):
+        pl_scene = context.scene.plasma_scene
+        return super().poll(context) and pl_scene.is_property_set("modifier_copy_object")
 
 
 class ModifierRemoveOperator(ModifierOperator, bpy.types.Operator):
