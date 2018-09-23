@@ -202,12 +202,7 @@ class ModifierRemoveOperator(ModifierOperator, bpy.types.Operator):
         self.mods2delete.clear()
 
         want2delete = OrderedSet()
-        for i in mods.modifiers:
-            if i.display_order == self.active_modifier:
-                want2delete.add(i.pl_id)
-                break
-        else:
-            raise IndexError()
+        want2delete.add(self._get_modifier(context).pl_id)
 
         # Here's the rub
         # When we start, we should have just one modifier in want2delete
@@ -243,13 +238,7 @@ class ModifierResetOperator(ModifierOperator, bpy.types.Operator):
 
     def execute(self, context):
         assert self.active_modifier >= 0
-        for i in context.object.plasma_modifiers.modifiers:
-            if i.display_order == self.active_modifier:
-                mod = i
-                break
-        else:
-            raise IndexError(self.active_modifier)
-
+        mod = self._get_modifier(context)
         props = set(mod.keys()) - {"display_order", "display_name"}
         for i in props:
             mod.property_unset(i)
