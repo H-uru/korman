@@ -44,3 +44,9 @@ class PlasmaBakePass(bpy.types.PropertyGroup):
 class PlasmaScene(bpy.types.PropertyGroup):
     bake_passes = CollectionProperty(type=PlasmaBakePass)
     active_pass_index = IntProperty(options={"HIDDEN"})
+
+    modifier_copy_object = PointerProperty(name="INTERNAL: Object to copy modifiers from",
+                                           options={"HIDDEN", "SKIP_SAVE"},
+                                           type=bpy.types.Object)
+    modifier_copy_id = StringProperty(name="INTERNAL: Modifier to copy from",
+                                      options={"HIDDEN", "SKIP_SAVE"})
