@@ -547,7 +547,7 @@ class MaterialConverter:
             if viewpt.type == "CAMERA":
                 warn = self._report.port if bl_env.mapping == "PLANE" else self._report.warn
                 warn("Environment Map '{}' is exporting as a cube map. The viewpoint '{}' is a camera, but only its position will be used.",
-                     bl_env.name, viewpt.name)
+                     bl_env.id_data.name, viewpt.name, indent=5)
 
             # DEMs can do just a position vector. We actually prefer this because the WaveSet exporter
             # will probably want to steal it for diabolical purposes...
