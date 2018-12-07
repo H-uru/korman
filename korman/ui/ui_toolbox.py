@@ -41,7 +41,11 @@ class PlasmaToolboxPanel(ToolboxPanel, bpy.types.Panel):
         disable_all = col.operator("object.plasma_toggle_all_objects", icon="OBJECT_DATA", text="Disable All")
         disable_all.enable = False
 
+        col.label("Textures:")
+        col.operator("texture.plasma_enable_all_textures", icon="TEXTURE", text="Enable All")
+        col.operator("texture.plasma_toggle_environment_maps", icon="IMAGE_RGB", text="Enable All EnvMaps").enable = True
+        col.operator("texture.plasma_toggle_environment_maps", icon="IMAGE_RGB_ALPHA", text="Disable All EnvMaps").enable = False
+
         col.label("Convert:")
         col.operator("object.plasma_convert_plasma_objects", icon="OBJECT_DATA", text="Plasma Objects")
-        col.operator("texture.plasma_enable_all_textures", icon="TEXTURE")
         col.operator("texture.plasma_convert_layer_opacities", icon="IMAGE_RGB_ALPHA", text="Layer Opacities")
