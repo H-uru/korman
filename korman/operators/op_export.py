@@ -64,6 +64,13 @@ class ExportOperator(bpy.types.Operator):
                                                      ("force_lightmap", "Force Lightmap Bake", "All static lighting is baked as lightmaps (slower export)")],
                                            "default": "bake"}),
 
+        "envmap_method": (EnumProperty, {"name": "Environment Maps",
+                                         "description": "Environment Map Settings",
+                                         "items": [("skip", "Don't Export EnvMaps", "Environment Maps are not exported (the age runs faster)"),
+                                                   ("dcm2dem", "Downgrade Planar EnvMaps", "When the engine doesn't support them, Planar Environment Maps are downgraded to Cube Maps"),
+                                                   ("perengine", "Export Supported EnvMaps", "Only environment maps supported by the selected game engine are exported")],
+                                         "default": "dcm2dem"}),
+
         "export_active": (BoolProperty, {"name": "INTERNAL: Export currently running",
                                          "default": False,
                                          "options": {"SKIP_SAVE"}}),

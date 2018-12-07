@@ -139,13 +139,41 @@ class MaterialConverter:
             "transformCtl": self._export_layer_transform_animation,
         }
 
+    def _can_export_texslot(self, slot):
+        if slot is None or not slot.use:
+            return False
+        texture = slot.texture
+        if texture is None or texture.type not in self._tex_exporters:
+            return False
+
+        # Per-texture type rules
+        if texture.type == "ENVIRONMENT_MAP":
+            envmap = texture.environment_map
+            # If this is a static, image based cube map, then we will allow it
+            # to be exported anyway. Note that as of the writing of this code,
+            # that is kind of pointless because CEMs are not yet implemented...
+            if envmap.source == "IMAGE_FILE":
+                return True
+
+            # Now for the ruelz
+            method, ver = self._exporter().envmap_method, self._mgr.getVer()
+            if method == "skip":
+                return False
+            elif method == "dcm2dem":
+                return True
+            elif method == "perengine":
+                return (ver >= pvMoul and envmap.mapping == "PLANE") or envmap.mapping == "CUBE"
+            else:
+                raise NotImplementedError(method)
+        else:
+            return True
+
     def export_material(self, bo, bm):
         """Exports a Blender Material as an hsGMaterial"""
         self._report.msg("Exporting Material '{}'", bm.name, indent=1)
 
         hsgmat = self._mgr.add_object(hsGMaterial, name=bm.name, bl=bo)
-        slots = [(idx, slot) for idx, slot in enumerate(bm.texture_slots) if slot is not None and slot.use \
-                 and slot.texture is not None and slot.texture.type in self._tex_exporters]
+        slots = [(idx, slot) for idx, slot in enumerate(bm.texture_slots) if self._can_export_texslot(slot)]
 
         # There is a major difference in how Blender and Plasma handle stencils.
         # In Blender, the stencil is on top and applies to every layer below is. In Plasma, the stencil
@@ -453,6 +481,8 @@ class MaterialConverter:
         texture = slot.texture
         bl_env = texture.environment_map
         if bl_env.source in {"STATIC", "ANIMATED"}:
+            # NOTE: It is assumed that if we arrive here, we are at lease dcm2dem on the
+            #       environment map export method. You're welcome!
             if bl_env.mapping == "PLANE" and self._mgr.getVer() >= pvMoul:
                 pl_env = plDynamicCamMap
             else:
