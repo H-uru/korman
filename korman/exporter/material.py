@@ -726,9 +726,6 @@ class MaterialConverter:
                 self._report.msg("\n[Mipmap '{}']", name)
 
                 image = key.image
-                oWidth, oHeight = image.size
-                if oWidth == 0 and oHeight == 0:
-                    raise ExportError("Image '{}' could not be loaded.".format(image.name))
 
                 # Now we try to use the pile of hints we were given to figure out what format to use
                 allowed_formats = key.allowed_formats
@@ -750,48 +747,11 @@ class MaterialConverter:
                 cached_image = texcache.get_from_texture(key, compression)
 
                 if cached_image is None:
-                    eWidth = helpers.ensure_power_of_two(oWidth)
-                    eHeight = helpers.ensure_power_of_two(oHeight)
-                    if (eWidth != oWidth) or (eHeight != oHeight):
-                        self._report.msg("Image is not a POT ({}x{}) resizing to {}x{}",
-                                         oWidth, oHeight, eWidth, eHeight, indent=1)
-                        self._resize_image(image, eWidth, eHeight)
-
-                    # Grab the image data from OpenGL and stuff it into the plBitmap
-                    helper = GLTexture(key)
-                    with helper as glimage:
-                        if compression == plBitmap.kDirectXCompression:
-                            numLevels = glimage.num_levels
-                            self._report.msg("Generating mip levels", indent=1)
-                            glimage.generate_mipmap()
-                        else:
-                            numLevels = 1
-                            self._report.msg("Compressing single level", indent=1)
-
-                        # Non-DXT images are BGRA in Plasma
-                        fmt = compression != plBitmap.kDirectXCompression
-
-                        # Hold the uncompressed level data for now. We may have to make multiple copies of
-                        # this mipmap for per-page textures :(
-                        data = []
-                        for i in range(numLevels):
-                            data.append(glimage.get_level_data(i, key.calc_alpha, fmt, report=self._report))
-
-                    # Be a good citizen and reset the Blender Image to pre-futzing state
-                    image.reload()
-
-                    # If this is a DXT-compressed mipmap, we need to use a temporary mipmap
-                    # to do the compression. We'll then steal the data from it.
-                    if compression == plBitmap.kDirectXCompression:
-                        mipmap = plMipmap(name=name, width=eWidth, height=eHeight, numLevels=numLevels,
-                                          compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
-                        for i in range(numLevels):
-                            mipmap.CompressImage(i, data[i])
-                            data[i] = mipmap.getLevel(i)
-                    texcache.add_texture(key, numLevels, (eWidth, eHeight), compression, [data,])
+                    numLevels, width, height, data = self._finalize_single_image(key, image, name, compression, dxt)
+                    texcache.add_texture(key, numLevels, (width, height), compression, data)
                 else:
-                    eWidth, eHeight = cached_image.export_size
-                    data = cached_image.image_data[0]
+                    width, height = cached_image.export_size
+                    data = cached_image.image_data
                     numLevels = cached_image.mip_levels            
 
                 # Now we poke our new bitmap into the pending layers. Note that we have to do some funny
@@ -804,19 +764,23 @@ class MaterialConverter:
                     self._report.msg("[{} '{}']", owner.ClassName()[2:], owner_key.name, indent=2)
                     page = mgr.get_textures_page(owner_key) # Layer's page or Textures.prp
 
-                    # If we haven't created this plMipmap in the page (either layer's page or Textures.prp),
+                    # If we haven't created this texture in the page (either layer's page or Textures.prp),
                     # then we need to do that and stuff the level data. This is a little tedious, but we
                     # need to be careful to manage our resources correctly
                     if page not in pages:
-                        mipmap = plMipmap(name=name, width=eWidth, height=eHeight, numLevels=numLevels,
-                                          compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
-                        for i, buf in enumerate(data):
-                            mipmap.setLevel(i, buf)
+                        mipmap = plMipmap(name=name, width=width, height=height,
+                                          numLevels=numLevels, compType=compression,
+                                          format=plBitmap.kRGB8888, dxtLevel=dxt)
+                        for i in range(numLevels):
+                            mipmap.setLevel(i, data[0][i])
                         mgr.AddObject(page, mipmap)
                         pages[page] = mipmap
                     else:
                         mipmap = pages[page]
 
+                    # The object that references this image can be either a layer (will appear
+                    # in the 3d world) or an image library (will appear in a journal or in another
+                    # dynamic manner in game)
                     if isinstance(owner, plLayerInterface):
                         owner.texture = mipmap.key
                     elif isinstance(owner, plImageLibMod):
@@ -825,6 +789,40 @@ class MaterialConverter:
                         raise RuntimeError(owner.ClassName())
 
                 inc_progress()
+
+    def _finalize_single_image(self, key, image, name, compression, dxt):
+        oWidth, oHeight = image.size
+        if oWidth == 0 and oHeight == 0:
+            raise ExportError("Image '{}' could not be loaded.".format(image.name))
+
+        # Non-DXT images are BGRA in Plasma
+        bgra = compression != plBitmap.kDirectXCompression
+
+        # Grab the image data from OpenGL and stuff it into the plBitmap
+        with GLTexture(key, bgra=bgra) as glimage:
+            eWidth, eHeight = glimage.size_pot
+            if compression == plBitmap.kDirectXCompression:
+                numLevels = glimage.num_levels
+                self._report.msg("Generating mip levels", indent=1)
+            else:
+                numLevels = 1
+                self._report.msg("Compressing single level", indent=1)
+
+            # Hold the uncompressed level data for now. We may have to make multiple copies of
+            # this mipmap for per-page textures :(
+            data = []
+            for i in range(numLevels):
+                data.append(glimage.get_level_data(i, key.calc_alpha, report=self._report))
+
+        # If this is a DXT-compressed mipmap, we need to use a temporary mipmap
+        # to do the compression. We'll then steal the data from it.
+        if compression == plBitmap.kDirectXCompression:
+            mipmap = plMipmap(name=name, width=eWidth, height=eHeight, numLevels=numLevels,
+                              compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
+            for i in range(numLevels):
+                mipmap.CompressImage(i, data[i])
+                data[i] = mipmap.getLevel(i)
+        return numLevels, eWidth, eHeight, [data,]
 
     def get_materials(self, bo):
         return self._obj2mat.get(bo, [])
@@ -882,15 +880,6 @@ class MaterialConverter:
     def _report(self):
         return self._exporter().report
 
-    def _resize_image(self, image, width, height):
-        image.scale(width, height)
-        image.update()
-
-        # If the image is already loaded into OpenGL, we need to refresh it to get the scaling.
-        if image.bindcode[0] != 0:
-            image.gl_free()
-            image.gl_load()
-
     def _test_image_alpha(self, image):
         """Tests to see if this image has any alpha data"""
 
@@ -906,7 +895,7 @@ class MaterialConverter:
         else:
             # Using bpy.types.Image.pixels is VERY VERY VERY slow...
             key = _Texture(image=image)
-            with GLTexture(key) as glimage:
+            with GLTexture(key, fast=True) as glimage:
                 result = glimage.has_alpha
 
         self._alphatest[image] = result

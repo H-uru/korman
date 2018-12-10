@@ -26,11 +26,39 @@
 #include <GL/gl.h>
 #include <PRP/Surface/plMipmap.h>
 
-#ifndef GL_GENERATE_MIPMAP
-#   define GL_GENERATE_MIPMAP 0x8191
-#endif // GL_GENERATE_MIPMAP
-
 #define TEXTARGET_TEXTURE_2D 0
+
+static inline void _ensure_copy_bytes(PyObject* parent, PyObject*& data) {
+    // PyBytes objects are immutable and ought not to be changed once they are returned to Python
+    // code. Therefore, this tests to see if the given bytes object is the same as one we're holding.
+    // If so, a new copy is constructed seamlessly.
+    if (parent == data) {
+        Py_ssize_t size;
+        char* buf;
+        PyBytes_AsStringAndSize(parent, &buf, &size);
+        data = PyBytes_FromStringAndSize(buf, size);
+        Py_DECREF(parent);
+    }
+}
+
+template<typename T>
+static T _ensure_power_of_two(T value) {
+    return static_cast<T>(std::pow(2, std::floor(std::log2(value))));
+}
+
+static void _flip_image(size_t width, size_t dataSize, uint8_t* data) {
+    // OpenGL returns a flipped image, so we must reflip it.
+    size_t row_stride = width * 4;
+    uint8_t* sptr = data;
+    uint8_t* eptr = data + (dataSize - row_stride);
+    uint8_t* temp = new uint8_t[row_stride];
+    do {
+        memcpy(temp, sptr, row_stride);
+        memcpy(sptr, eptr, row_stride);
+        memcpy(eptr, temp, row_stride);
+    } while ((sptr += row_stride) < (eptr -= row_stride));
+    delete[] temp;
+}
 
 static inline bool _get_float(PyObject* source, const char* attr, float& result) {
     PyObjectRef pyfloat = PyObject_GetAttrString(source, attr);
@@ -41,7 +69,93 @@ static inline bool _get_float(PyObject* source, const char* attr, float& result)
     return false;
 }
 
-extern "C" {
+static inline int _get_num_levels(size_t width, size_t height) {
+    int num_levels = (int)std::floor(std::log2(std::max((float)width, (float)height))) + 1;
+
+    // Major Workaround Ahoy
+    // There is a bug in Cyan's level size algorithm that causes it to not allocate enough memory
+    // for the color block in certain mipmaps. I personally have encountered an access violation on
+    // 1x1 DXT5 mip levels -- the code only allocates an alpha block and not a color block. Paradox
+    // reports that if any dimension is smaller than 4px in a mip level, OpenGL doesn't like Cyan generated
+    // data. So, we're going to lop off the last two mip levels, which should be 1px and 2px as the smallest.
+    // This bug is basically unfixable without crazy hacks because of the way Plasma reads in texture data.
+    //     "<Deledrius> I feel like any texture at a 1x1 level is essentially academic.  I mean, JPEG/DXT
+    //                  doesn't even compress that, and what is it?  Just the average color of the whole
+    //                  texture in a single pixel?"
+    // :)
+    return std::max(num_levels - 2, 2);
+}
+
+static void _scale_image(const uint8_t* srcBuf, const size_t srcW, const size_t srcH, 
+                         uint8_t* dstBuf, const size_t dstW, const size_t dstH) {
+    float scaleX = static_cast<float>(srcW) / static_cast<float>(dstW);
+    float scaleY = static_cast<float>(srcH) / static_cast<float>(dstH);
+    float filterW = std::max(scaleX, 1.f);
+    float filterH = std::max(scaleY, 1.f);
+    size_t srcRowspan = srcW * sizeof(uint32_t);
+    size_t dstIdx = 0;
+
+    for (size_t dstY = 0; dstY < dstH; ++dstY) {
+        float srcY = dstY * scaleY;
+        ssize_t srcY_start = std::max(static_cast<ssize_t>(srcY - filterH),
+                                     static_cast<ssize_t>(0));
+        ssize_t srcY_end = std::min(static_cast<ssize_t>(srcY + filterH),
+                                   static_cast<ssize_t>(srcH - 1));
+
+        float weightsY[16];
+        for (ssize_t i = srcY_start; i <= srcY_end && i - srcY_start < arrsize(weightsY); ++i)
+            weightsY[i - srcY_start] = 1.f - std::abs((i - srcY) / filterH);
+
+        for (size_t dstX = 0; dstX < dstW; ++dstX) {
+            float srcX = dstX * scaleX;
+            ssize_t srcX_start = std::max(static_cast<ssize_t>(srcX - filterW),
+                                          static_cast<ssize_t>(0));
+            ssize_t srcX_end = std::min(static_cast<ssize_t>(srcX + filterW),
+                                        static_cast<ssize_t>(srcW - 1));
+
+            float weightsX[16];
+            for (ssize_t i = srcX_start; i <= srcX_end && i - srcX_start < arrsize(weightsX); ++i)
+                weightsX[i - srcX_start] = 1.f - std::abs((i - srcX) / filterW);
+
+            float accum_color[] = { 0.f, 0.f, 0.f, 0.f };
+            float weight_total = 0.f;
+            for (size_t i = srcY_start; i <= srcY_end; ++i) {
+                float weightY;
+                if (i - srcY_start < arrsize(weightsY))
+                    weightY = weightsY[i - srcY_start];
+                else
+                    weightY = 1.f - std::abs((i - srcY) / filterH);
+
+                if (weightY <= 0.f)
+                    continue;
+
+                size_t srcIdx = ((i * srcRowspan) + (srcX_start * sizeof(uint32_t)));
+                for (size_t j = srcX_start; j <= srcX_end; ++j, srcIdx += sizeof(uint32_t)) {
+                    float weightX;
+                    if (j - srcX_start < arrsize(weightsX))
+                        weightX = weightsX[j - srcX_start];
+                    else
+                        weightX = 1.f - std::abs((j - srcX) / filterW);
+                    float weight = weightX * weightY;
+
+                    if (weight > 0.f) {
+                        for (size_t k = 0; k < sizeof(uint32_t); ++k)
+                            accum_color[k] += (static_cast<float>(srcBuf[srcIdx+k]) / 255.f) * weight;
+                        weight_total += weight;
+                    }
+                }
+            }
+
+            for (size_t k = 0; k < sizeof(uint32_t); ++k)
+                accum_color[k] *= 1.f / weight_total;
+
+            // Whew.
+            for (size_t k = 0; k < sizeof(uint32_t); ++k)
+                dstBuf[dstIdx+k] = static_cast<uint8_t>(accum_color[k] * 255.f);
+            dstIdx += sizeof(uint32_t);
+        }
+    }
+}
 
 enum {
     TEX_DETAIL_ALPHA = 0,
@@ -53,10 +167,11 @@ typedef struct {
     PyObject_HEAD
     PyObject* m_blenderImage;
     PyObject* m_textureKey;
-    bool m_ownIt;
-    GLint m_prevImage;
-    bool m_changedState;
-    GLint m_mipmapState;
+    PyObject* m_imageData;
+    GLint m_width;
+    GLint m_height;
+    bool m_bgra;
+    bool m_imageInverted;
 } pyGLTexture;
 
 typedef struct {
@@ -66,8 +181,9 @@ typedef struct {
 } pyMipmap;
 
 static void pyGLTexture_dealloc(pyGLTexture* self) {
-    Py_XDECREF(self->m_textureKey);
-    Py_XDECREF(self->m_blenderImage);
+    Py_CLEAR(self->m_textureKey);
+    Py_CLEAR(self->m_blenderImage);
+    Py_CLEAR(self->m_imageData);
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
@@ -75,15 +191,18 @@ static PyObject* pyGLTexture_new(PyTypeObject* type, PyObject* args, PyObject* k
     pyGLTexture* self = (pyGLTexture*)type->tp_alloc(type, 0);
     self->m_blenderImage = NULL;
     self->m_textureKey = NULL;
-    self->m_ownIt = false;
-    self->m_prevImage = 0;
-    self->m_changedState = false;
-    self->m_mipmapState = 0;
+    self->m_imageData = NULL;
+    self->m_width = 0;
+    self->m_height = 0;
+    self->m_bgra = false;
+    self->m_imageInverted = false;
     return (PyObject*)self;
 }
 
 static int pyGLTexture___init__(pyGLTexture* self, PyObject* args, PyObject* kwds) {
-    if (!PyArg_ParseTuple(args, "O", &self->m_textureKey)) {
+    static char* kwlist[] = { _pycs("texkey"), _pycs("bgra"), _pycs("fast"), NULL };
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|bb", kwlist, &self->m_textureKey,
+                                     &self->m_bgra, &self->m_imageInverted)) {
         PyErr_SetString(PyExc_TypeError, "expected a korman.exporter.material._Texture");
         return -1;
     }
@@ -115,12 +234,13 @@ static PyObject* pyGLTexture__enter__(pyGLTexture* self) {
         return NULL;
     }
 
-    glGetIntegerv(GL_TEXTURE_BINDING_2D, &self->m_prevImage);
+    GLint prevImage;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &prevImage);
     GLuint image_bindcode = PyLong_AsUnsignedLong(bindcode);
-    self->m_ownIt = image_bindcode == 0;
+    bool ownit = image_bindcode == 0;
 
     // Load image into GL
-    if (self->m_ownIt) {
+    if (ownit) {
         PyObjectRef new_bind = PyObject_CallMethod(self->m_blenderImage, "gl_load", NULL);
         if (!PyLong_Check(new_bind)) {
             PyErr_SetString(PyExc_TypeError, "gl_load() did not return a long");
@@ -144,62 +264,37 @@ static PyObject* pyGLTexture__enter__(pyGLTexture* self) {
     }
 
     // Set image as current in GL
-    if (self->m_prevImage != image_bindcode) {
-        self->m_changedState = true;
+    bool changedState = prevImage != image_bindcode;
+    if (changedState)
         glBindTexture(GL_TEXTURE_2D, image_bindcode);
-    }
 
-    // Misc GL state
-    glGetTexParameteriv(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, &self->m_mipmapState);
+    // Now we can load the image data...
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &self->m_width);
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &self->m_height);
+
+    size_t bufsz = self->m_width * self->m_height * sizeof(uint32_t);
+    self->m_imageData = PyBytes_FromStringAndSize(NULL, bufsz);
+    char* imbuf = PyBytes_AS_STRING(self->m_imageData);
+    GLint fmt = self->m_bgra ? GL_BGRA_EXT : GL_RGBA;
+    glGetTexImage(GL_TEXTURE_2D, 0, fmt, GL_UNSIGNED_BYTE, reinterpret_cast<GLvoid*>(imbuf));
+
+    // OpenGL returns image data flipped upside down. We'll flip it to be correct, if requested.
+    if (!self->m_imageInverted)
+        _flip_image(self->m_width, bufsz, reinterpret_cast<uint8_t*>(imbuf));
+
+    // If we had to play with ourse^H^H^H^H^Hblender's image state, let's reset it
+    if (changedState)
+        glBindTexture(GL_TEXTURE_2D, prevImage);
+    if (ownit)
+        PyObjectRef result = PyObject_CallMethod(self->m_blenderImage, "gl_free", NULL);
 
     Py_INCREF(self);
     return (PyObject*)self;
 }
 
 static PyObject* pyGLTexture__exit__(pyGLTexture* self, PyObject*) {
-    // We don't care about the args here
-    glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, self->m_mipmapState);
-    if (self->m_changedState)
-        glBindTexture(GL_TEXTURE_2D, self->m_prevImage);
+    Py_CLEAR(self->m_imageData);
     Py_RETURN_NONE;
-}
-
-static PyObject* pyGLTexture_generate_mipmap(pyGLTexture* self) {
-    glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, 1);
-    Py_RETURN_NONE;
-}
-
-struct _LevelData
-{
-    GLint   m_width;
-    GLint   m_height;
-    uint8_t* m_data;
-    size_t   m_dataSize;
-
-    _LevelData(GLint w, GLint h, uint8_t* ptr, size_t sz)
-        : m_width(w), m_height(h), m_data(ptr), m_dataSize(sz)
-    { }
-};
-
-static inline int _get_num_levels(pyGLTexture* self) {
-    PyObjectRef size = PyObject_GetAttrString(self->m_blenderImage, "size");
-    float width = (float)PyFloat_AsDouble(PySequence_GetItem(size, 0));
-    float height = (float)PyFloat_AsDouble(PySequence_GetItem(size, 1));
-
-    int num_levels = (int)std::floor(std::log2(std::max(width, height))) + 1;
-
-    // Major Workaround Ahoy
-    // There is a bug in Cyan's level size algorithm that causes it to not allocate enough memory
-    // for the color block in certain mipmaps. I personally have encountered an access violation on
-    // 1x1 DXT5 mip levels -- the code only allocates an alpha block and not a color block. Paradox
-    // reports that if any dimension is smaller than 4px in a mip level, OpenGL doesn't like Cyan generated
-    // data. So, we're going to lop off the last two mip levels, which should be 1px and 2px as the smallest.
-    // This bug is basically unfixable without crazy hacks because of the way Plasma reads in texture data.
-    //     "<Deledrius> I feel like any texture at a 1x1 level is essentially academic.  I mean, JPEG/DXT
-    //                  doesn't even compress that, and what is it?  Just the average color of the whole
-    //                  texture in a single pixel?"
-    // :)
-    return std::max(num_levels - 2, 2);
 }
 
 static int _generate_detail_alpha(pyGLTexture* self, GLint level, float* result) {
@@ -214,9 +309,9 @@ static int _generate_detail_alpha(pyGLTexture* self, GLint level, float* result)
         return -1;
 
     dropoff_start /= 100.f;
-    dropoff_start *= _get_num_levels(self);
+    dropoff_start *= _get_num_levels(self->m_width, self->m_height);
     dropoff_stop /= 100.f;
-    dropoff_stop *= _get_num_levels(self);
+    dropoff_stop *= _get_num_levels(self->m_width, self->m_height);
     detail_max /= 100.f;
     detail_min /= 100.f;
 
@@ -265,102 +360,110 @@ static int _generate_detail_map(pyGLTexture* self, uint8_t* buf, size_t bufsz, G
     return 0;
 }
 
-static _LevelData _get_level_data(pyGLTexture* self, GLint level, bool bgra, PyObject* report) {
-    GLint width, height;
-    glGetTexLevelParameteriv(GL_TEXTURE_2D, level, GL_TEXTURE_WIDTH, &width);
-    glGetTexLevelParameteriv(GL_TEXTURE_2D, level, GL_TEXTURE_HEIGHT, &height);
-    GLenum fmt = bgra ? GL_BGRA_EXT : GL_RGBA;
+static PyObject* pyGLTexture_get_level_data(pyGLTexture* self, PyObject* args, PyObject* kwargs) {
+    static char* kwlist[] = { _pycs("level"), _pycs("calc_alpha"), _pycs("report"),
+                              _pycs("indent"), _pycs("fast"), NULL };
+    GLint level = 0;
+    bool calc_alpha = false;
+    PyObject* report = nullptr;
+    int indent = 2;
+    bool fast = false;
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|ibOib", kwlist, &level, &calc_alpha, &report, &indent, &fast)) {
+        PyErr_SetString(PyExc_TypeError, "get_level_data expects an optional int, bool, obejct, int, bool");
+        return NULL;
+    }
+
+    // We only ever want to return POT images for use in Plasma
+    auto eWidth = _ensure_power_of_two(self->m_width) >> level;
+    auto eHeight = _ensure_power_of_two(self->m_height) >> level;
+    bool is_og = eWidth == self->m_width && eHeight == self->m_height;
+    size_t bufsz = eWidth * eHeight * sizeof(uint32_t);
 
     // Print out the debug message
     if (report && report != Py_None) {
         PyObjectRef msg_func = PyObject_GetAttrString(report, "msg");
-        PyObjectRef args = Py_BuildValue("siii", "Level #{}: {}x{}", level, width, height);
-        PyObjectRef kwargs = Py_BuildValue("{s:i}", "indent", 2);
+        PyObjectRef args = Py_BuildValue("siii", "Level #{}: {}x{}", level, eWidth, eHeight);
+        PyObjectRef kwargs = Py_BuildValue("{s:i}", "indent", indent);
         PyObjectRef result = PyObject_Call(msg_func, args, kwargs);
     }
 
-    size_t bufsz;
-    bufsz = (width * height * 4);
-    uint8_t* buf = new uint8_t[bufsz];
-    glGetTexImage(GL_TEXTURE_2D, level, fmt, GL_UNSIGNED_BYTE, reinterpret_cast<GLvoid*>(buf));
-    return _LevelData(width, height, buf, bufsz);
-}
-
-static PyObject* pyGLTexture_get_level_data(pyGLTexture* self, PyObject* args, PyObject* kwargs) {
-    static char* kwlist[] = { _pycs("level"), _pycs("calc_alpha"), _pycs("bgra"),
-                              _pycs("report"), _pycs("fast"), NULL };
-    GLint level = 0;
-    bool calc_alpha = false;
-    bool bgra = false;
-    PyObject* report = nullptr;
-    bool fast = false;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|ibbOb", kwlist, &level, &calc_alpha, &bgra, &report, &fast)) {
-        PyErr_SetString(PyExc_TypeError, "get_level_data expects an optional int, bool, bool, obejct, bool");
-        return NULL;
+    PyObject* data;
+    if (is_og) {
+        Py_INCREF(self->m_imageData);
+        data = self->m_imageData;
+    } else {
+        data = PyBytes_FromStringAndSize(NULL, bufsz);
+        uint8_t* dstBuf = reinterpret_cast<uint8_t*>(PyBytes_AsString(data)); // AS_STRING :(
+        uint8_t* srcBuf = reinterpret_cast<uint8_t*>(PyBytes_AsString(self->m_imageData));
+        _scale_image(srcBuf, self->m_width, self->m_height, dstBuf, eWidth, eHeight);
     }
 
-    _LevelData data = _get_level_data(self, level, bgra, report);
-    if (fast)
-        return PyBytes_FromStringAndSize((char*)data.m_data, data.m_dataSize);
-
-    // OpenGL returns a flipped image, so we must reflip it.
-    size_t row_stride = data.m_width * 4;
-    uint8_t* sptr = data.m_data;
-    uint8_t* eptr = data.m_data + (data.m_dataSize - row_stride);
-    uint8_t* temp = new uint8_t[row_stride];
-    do {
-        memcpy(temp, sptr, row_stride);
-        memcpy(sptr, eptr, row_stride);
-        memcpy(eptr, temp, row_stride);
-    } while ((sptr += row_stride) < (eptr -= row_stride));
-    delete[] temp;
+    // Make sure the level data is not flipped upside down...
+    if (self->m_imageInverted && !fast) {
+        _ensure_copy_bytes(self->m_blenderImage, data);
+        _flip_image(eWidth, bufsz, reinterpret_cast<uint8_t*>(PyBytes_AS_STRING(data)));
+    }
 
     // Detail blend
     PyObjectRef is_detail_map = PyObject_GetAttrString(self->m_textureKey, "is_detail_map");
     if (PyLong_AsLong(is_detail_map) != 0) {
-        if (_generate_detail_map(self, data.m_data, data.m_dataSize, level) != 0) {
-            delete[] data.m_data;
+        _ensure_copy_bytes(self->m_imageData, data);
+        uint8_t* buf = reinterpret_cast<uint8_t*>(PyBytes_AS_STRING(data));
+        if (_generate_detail_map(self, buf, bufsz, level) != 0) {
             PyErr_SetString(PyExc_RuntimeError, "error while baking detail map");
+            Py_DECREF(data);
             return NULL;
         }
     }
 
     if (calc_alpha) {
-        for (size_t i = 0; i < data.m_dataSize; i += 4)
-            data.m_data[i + 3] = (data.m_data[i + 0] + data.m_data[i + 1] + data.m_data[i + 2]) / 3;
+        _ensure_copy_bytes(self->m_imageData, data);
+        char* buf = PyBytes_AS_STRING(data);
+        for (size_t i = 0; i < bufsz; i += 4)
+            buf[i + 3] = (buf[i + 0] + buf[i + 1] + buf[i + 2]) / 3;
     }
 
-    return PyBytes_FromStringAndSize((char*)data.m_data, data.m_dataSize);
+    return data;
 }
 
 static PyMethodDef pyGLTexture_Methods[] = {
     { _pycs("__enter__"), (PyCFunction)pyGLTexture__enter__, METH_NOARGS, NULL },
     { _pycs("__exit__"), (PyCFunction)pyGLTexture__exit__, METH_VARARGS, NULL },
 
-    { _pycs("generate_mipmap"), (PyCFunction)pyGLTexture_generate_mipmap, METH_NOARGS, NULL },
     { _pycs("get_level_data"), (PyCFunction)pyGLTexture_get_level_data, METH_KEYWORDS | METH_VARARGS, NULL },
     { NULL, NULL, 0, NULL }
 };
 
 static PyObject* pyGLTexture_get_has_alpha(pyGLTexture* self, void*) {
-    _LevelData data = _get_level_data(self, 0, false, nullptr);
-    for (size_t i = 3; i < data.m_dataSize; i += 4) {
-        if (data.m_data[i] != 255) {
-            delete[] data.m_data;
+    char* data = PyBytes_AsString(self->m_imageData);
+    size_t bufsz = self->m_width * self->m_height * sizeof(uint32_t);
+    for (size_t i = 3; i < bufsz; i += 4) {
+        if (data[i] != 255) {
             return PyBool_FromLong(1);
         }
     }
-    delete[] data.m_data;
     return PyBool_FromLong(0);
 }
 
 static PyObject* pyGLTexture_get_num_levels(pyGLTexture* self, void*) {
-    return PyLong_FromLong(_get_num_levels(self));
+    return PyLong_FromLong(_get_num_levels(self->m_width, self->m_height));
+}
+
+static PyObject* pyGLTexture_get_size_npot(pyGLTexture* self, void*) {
+    return Py_BuildValue("ii", self->m_width, self->m_height);
+}
+
+static PyObject* pyGLTexture_get_size_pot(pyGLTexture* self, void*) {
+    size_t width = _ensure_power_of_two(self->m_width);
+    size_t height = _ensure_power_of_two(self->m_height);
+    return Py_BuildValue("ii", width, height);
 }
 
 static PyGetSetDef pyGLTexture_GetSet[] = {
     { _pycs("has_alpha"), (getter)pyGLTexture_get_has_alpha, NULL, NULL, NULL },
     { _pycs("num_levels"), (getter)pyGLTexture_get_num_levels, NULL, NULL, NULL },
+    { _pycs("size_npot"), (getter)pyGLTexture_get_size_npot, NULL, NULL, NULL },
+    { _pycs("size_pot"), (getter)pyGLTexture_get_size_pot, NULL, NULL, NULL },
     { NULL, NULL, NULL, NULL, NULL }
 };
 
@@ -429,6 +532,3 @@ PyObject* Init_pyGLTexture_Type() {
     Py_INCREF(&pyGLTexture_Type);
     return (PyObject*)&pyGLTexture_Type;
 }
-
-};
-

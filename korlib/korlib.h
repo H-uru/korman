@@ -23,6 +23,7 @@
 #include <Python.h>
 
 #define _pycs(x) const_cast<char*>(x)
+#define arrsize(a) (sizeof(a) / sizeof((a)[0]))
 
 class PyObjectRef {
     PyObject* m_object;
