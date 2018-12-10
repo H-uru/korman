@@ -27,7 +27,7 @@ TEX_DETAIL_ALPHA = 0
 TEX_DETAIL_ADD = 1
 TEX_DETAIL_MULTIPLY = 2
 
-def _scale_image(buf, srcW, srcH, dstW, dstH):
+def scale_image(buf, srcW, srcH, dstW, dstH):
     """Scales an RGBA image using the algorithm from CWE's plMipmap::ScaleNicely"""
     dst, dst_idx = bytearray(dstW * dstH * 4), 0
     scaleX, scaleY = (srcW / dstW), (srcH / dstH)
@@ -228,6 +228,12 @@ class GLTexture:
             if data[i] != 255:
                 return True
         return False
+
+    def _get_image_data(self):
+        return (self._width, self._height, self._image_data)
+    def _set_image_data(self, value):
+        self._width, self._height, self._image_data = value
+    image_data = property(_get_image_data, _set_image_data)
 
     def _invert_image(self, width, height, buf):
         size = width * height * 4

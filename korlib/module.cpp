@@ -23,6 +23,7 @@ extern "C" {
 static PyMethodDef korlib_Methods[] = {
     { _pycs("create_bump_LUT"), (PyCFunction)create_bump_LUT, METH_VARARGS, NULL },
     { _pycs("inspect_vorbisfile"), (PyCFunction)inspect_vorbisfile, METH_VARARGS, NULL },
+    { _pycs("scale_image"), (PyCFunction)scale_image, METH_KEYWORDS | METH_VARARGS, NULL },
 
     { NULL, NULL, 0, NULL },
 };

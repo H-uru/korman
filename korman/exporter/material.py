@@ -26,6 +26,11 @@ from . import utils
 
 _MAX_STENCILS = 6
 
+# Blender cube map mega image to libHSPlasma plCubicEnvironmap faces mapping...
+# See https://blender.stackexchange.com/questions/46891/how-to-render-an-environment-to-a-cube-map-in-cycles
+_BLENDER_CUBE_MAP = ("leftFace", "backFace", "rightFace",
+                     "bottomFace", "topFace", "frontFace")
+
 class _Texture:
     _DETAIL_BLEND = {
         TEX_DETAIL_ALPHA: "AL",
@@ -40,7 +45,7 @@ class _Texture:
         if texture is not None:
             if image is None:
                 image = texture.image
-            self.calc_alpha = texture.use_calculate_alpha
+            self.calc_alpha = getattr(texture, "use_calculate_alpha", False)
             self.mipmap = texture.use_mipmap
         else:
             self.layer = kwargs.get("layer")
@@ -58,6 +63,7 @@ class _Texture:
             self.calc_alpha = False
             self.use_alpha = True
             self.allowed_formats = {"DDS"}
+            self.is_cube_map = False
         else:
             self.is_detail_map = False
             use_alpha = kwargs.get("use_alpha")
@@ -70,6 +76,7 @@ class _Texture:
                 self.use_alpha = use_alpha
             self.allowed_formats = kwargs.get("allowed_formats",
                                               {"DDS"} if self.mipmap else {"PNG", "JPG"})
+            self.is_cube_map = kwargs.get("is_cube_map", False)
 
         # Basic format sanity
         if self.mipmap:
@@ -489,13 +496,37 @@ class MaterialConverter:
             else:
                 pl_env = plDynamicEnvMap
             pl_env = self.export_dynamic_env(bo, layer, texture, pl_env)
+        elif bl_env.source == "IMAGE_FILE":
+            pl_env = self.export_cubic_env(bo, layer, texture)
         else:
-            # We should really export a CubicEnvMap here, but we have a good setup for DynamicEnvMaps
-            # that create themselves when the explorer links in, so really... who cares about CEMs?
-            self._exporter().report.warn("IMAGE EnvironmentMaps are not supported. '{}' will not be exported!".format(layer.key.name))
-            pl_env = None
+            raise NotImplementedError(bl_env.source)
         layer.state.shadeFlags |= hsGMatState.kShadeEnvironMap
-        layer.texture = pl_env.key
+        if pl_env is not None:
+            layer.texture = pl_env.key
+
+    def export_cubic_env(self, bo, layer, texture):
+        width, height = texture.image.size
+
+        # Sanity check: the image here should be 3x2 faces, so we should not have any
+        #               dam remainder...
+        if width % 3 != 0:
+            raise ExportError("CubeMap '{}' width must be a multiple of 3".format(image.name))
+        if height % 2 != 0:
+            raise ExportError("CubeMap '{}' height must be a multiple of 2".format(image.name))
+
+        # According to PlasmaMAX, we don't give a rip about UVs...
+        layer.UVWSrc = plLayerInterface.kUVWReflect
+        layer.state.miscFlags |= hsGMatState.kMiscUseReflectionXform
+
+        # Well, this is kind of sad...
+        # Back before the texture cache existed, all the image work was offloaded
+        # to a big "finalize" save step to prevent races. The texture cache would
+        # prevent that as well, so we could theoretically slice-and-dice the single
+        # image here... but... meh. Offloading taim.
+        self.export_prepared_image(texture=texture, owner=layer, indent=3,
+                                   use_alpha=False, mipmap=True, allowed_formats={"DDS"},
+                                   is_cube_map=True, tag="cubemap")
+
 
     def export_dynamic_env(self, bo, layer, texture, pl_class):
         # To protect the user from themselves, let's check to make sure that a DEM/DCM matching this
@@ -695,6 +726,8 @@ class MaterialConverter:
            - ephemeral: (optional) never cache this image
            - tag: (optional) an optional identifier hint that allows multiple images with the
                              same name to coexist in the cache
+           - is_cube_map: (optional) indicates the provided image contains six cube faces
+                                     that must be split into six separate images for Plasma
         """
         owner = kwargs.pop("owner", None)
         indent = kwargs.pop("indent", 2)
@@ -723,7 +756,8 @@ class MaterialConverter:
 
             for key, owners in self._pending.items():
                 name = str(key)
-                self._report.msg("\n[Mipmap '{}']", name)
+                pClassName = "CubicEnvironmap" if key.is_cube_map else "Mipmap"
+                self._report.msg("\n[{} '{}']", pClassName, name)
 
                 image = key.image
 
@@ -747,7 +781,10 @@ class MaterialConverter:
                 cached_image = texcache.get_from_texture(key, compression)
 
                 if cached_image is None:
-                    numLevels, width, height, data = self._finalize_single_image(key, image, name, compression, dxt)
+                    if key.is_cube_map:
+                        numLevels, width, height, data = self._finalize_cube_map(key, image, name, compression, dxt)
+                    else:
+                        numLevels, width, height, data = self._finalize_single_image(key, image, name, compression, dxt)
                     texcache.add_texture(key, numLevels, (width, height), compression, data)
                 else:
                     width, height = cached_image.export_size
@@ -768,27 +805,109 @@ class MaterialConverter:
                     # then we need to do that and stuff the level data. This is a little tedious, but we
                     # need to be careful to manage our resources correctly
                     if page not in pages:
-                        mipmap = plMipmap(name=name, width=width, height=height,
-                                          numLevels=numLevels, compType=compression,
-                                          format=plBitmap.kRGB8888, dxtLevel=dxt)
-                        for i in range(numLevels):
-                            mipmap.setLevel(i, data[0][i])
-                        mgr.AddObject(page, mipmap)
-                        pages[page] = mipmap
+                        mipmap = plMipmap(name=name, width=width, height=height, numLevels=numLevels,
+                                          compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
+                        if key.is_cube_map:
+                            assert len(data) == 6
+                            texture = plCubicEnvironmap(name)
+                            for face_name, face_data in zip(_BLENDER_CUBE_MAP, data):
+                                for i in range(numLevels):
+                                    mipmap.setLevel(i, face_data[i])
+                                setattr(texture, face_name, mipmap)
+                        else:
+                            assert len(data) == 1
+                            for i in range(numLevels):
+                                mipmap.setLevel(i, data[0][i])
+                            texture = mipmap
+
+                        mgr.AddObject(page, texture)
+                        pages[page] = texture
                     else:
-                        mipmap = pages[page]
+                        texture = pages[page]
 
                     # The object that references this image can be either a layer (will appear
                     # in the 3d world) or an image library (will appear in a journal or in another
                     # dynamic manner in game)
                     if isinstance(owner, plLayerInterface):
-                        owner.texture = mipmap.key
+                        owner.texture = texture.key
                     elif isinstance(owner, plImageLibMod):
-                        owner.addImage(mipmap.key)
+                        owner.addImage(texture.key)
                     else:
                         raise RuntimeError(owner.ClassName())
 
                 inc_progress()
+
+    def _finalize_cube_map(self, key, image, name, compression, dxt):
+        oWidth, oHeight = image.size
+        if oWidth == 0 and oHeight == 0:
+            raise ExportError("Image '{}' could not be loaded.".format(image.name))
+
+        # Non-DXT images are BGRA in Plasma
+        bgra = compression != plBitmap.kDirectXCompression
+
+        # Grab the cube map data from OpenGL and prepare to begin...
+        with GLTexture(key, bgra=bgra) as glimage:
+            cWidth, cHeight, data = glimage.image_data
+
+        # On some platforms, Blender will be "helpful" and scale the image to a POT.
+        # That's great, but we have 3 faces as a width, which will certainly be NPOT
+        # in the case of POT faces. So, we will scale the image AGAIN, if Blender did
+        # something funky.
+        if oWidth != cWidth or oHeight != cHeight:
+            self._report.warn("Image was resized by Blender to ({}x{})--resizing the resize to ({}x{})",
+                              cWidth, cHeight, oWidth, oHeight, indent=1)
+            data = scale_image(data, cWidth, cHeight, oWidth, oHeight)
+
+        # Face dimensions
+        fWidth, fHeight = oWidth // 3, oHeight // 2
+
+        # Copy each of the six faces into a separate image buffer.
+        # NOTE: At present, I am well pleased with the speed of this functionality.
+        #       According to my profiling, it takes roughly 0.7 seconds to process a
+        #       cube map whose faces are 1024x1024 (3072x2048 total). Maybe a later
+        #       commit will move this into korlib. We'll see.
+        face_num = len(_BLENDER_CUBE_MAP)
+        face_images = [None] * face_num
+        for i in range(face_num):
+            col_id = i if i < 3 else i - 3
+            row_start = 0 if i < 3 else fHeight
+            row_end = fHeight if i < 3 else oHeight
+
+            face_data = bytearray(fWidth * fHeight * 4)
+            for row_current in range(row_start, row_end, 1):
+                src_start_idx = (row_current * oWidth * 4) + (col_id * fWidth * 4)
+                src_end_idx = src_start_idx + (fWidth * 4)
+                dst_start_idx = (row_current - row_start) * fWidth * 4
+                dst_end_idx = dst_start_idx + (fWidth * 4)
+                face_data[dst_start_idx:dst_end_idx] = data[src_start_idx:src_end_idx]
+            face_images[i] = bytes(face_data)
+
+        # Now that we have our six faces, we'll toss them into the GLTexture helper
+        # to generate mipmaps, if needed...
+        for i, face_name in enumerate(_BLENDER_CUBE_MAP):
+            glimage = GLTexture(key)
+            glimage.image_data = fWidth, fHeight, face_images[i]
+            eWidth, eHeight = glimage.size_pot
+            name = face_name[:-4].upper()
+            if compression == plBitmap.kDirectXCompression:
+                numLevels = glimage.num_levels
+                self._report.msg("Generating mip levels for cube face '{}'", name, indent=1)
+
+                # If we're compressing this mofo, we'll need a temporary mipmap to do that here...
+                mipmap = plMipmap(name=name, width=eWidth, height=eHeight, numLevels=numLevels,
+                                  compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
+            else:
+                numLevels = 1
+                self._report.msg("Compressing single level for cube face '{}'", name, indent=1)
+
+            face_images[i] = [None] * numLevels
+            for j in range(numLevels):
+                level_data = glimage.get_level_data(j, key.calc_alpha, report=self._report)
+                if compression == plBitmap.kDirectXCompression:
+                    mipmap.CompressImage(j, level_data)
+                    level_data = mipmap.getLevel(j)
+                face_images[i][j] = level_data
+        return numLevels, eWidth, eHeight, face_images
 
     def _finalize_single_image(self, key, image, name, compression, dxt):
         oWidth, oHeight = image.size
@@ -804,24 +923,24 @@ class MaterialConverter:
             if compression == plBitmap.kDirectXCompression:
                 numLevels = glimage.num_levels
                 self._report.msg("Generating mip levels", indent=1)
+
+                # If this is a DXT-compressed mipmap, we need to use a temporary mipmap
+                # to do the compression. We'll then steal the data from it.
+                mipmap = plMipmap(name=name, width=eWidth, height=eHeight, numLevels=numLevels,
+                                  compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
             else:
                 numLevels = 1
                 self._report.msg("Compressing single level", indent=1)
 
             # Hold the uncompressed level data for now. We may have to make multiple copies of
             # this mipmap for per-page textures :(
-            data = []
+            data = [None] * numLevels
             for i in range(numLevels):
-                data.append(glimage.get_level_data(i, key.calc_alpha, report=self._report))
-
-        # If this is a DXT-compressed mipmap, we need to use a temporary mipmap
-        # to do the compression. We'll then steal the data from it.
-        if compression == plBitmap.kDirectXCompression:
-            mipmap = plMipmap(name=name, width=eWidth, height=eHeight, numLevels=numLevels,
-                              compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
-            for i in range(numLevels):
-                mipmap.CompressImage(i, data[i])
-                data[i] = mipmap.getLevel(i)
+                level_data = glimage.get_level_data(i, key.calc_alpha, report=self._report)
+                if compression == plBitmap.kDirectXCompression:
+                    mipmap.CompressImage(i, level_data)
+                    level_data = mipmap.getLevel(i)
+                data[i] = level_data
         return numLevels, eWidth, eHeight, [data,]
 
     def get_materials(self, bo):

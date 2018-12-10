@@ -28,6 +28,8 @@
 
 #define TEXTARGET_TEXTURE_2D 0
 
+// ===============================================================================================
+
 static inline void _ensure_copy_bytes(PyObject* parent, PyObject*& data) {
     // PyBytes objects are immutable and ought not to be changed once they are returned to Python
     // code. Therefore, this tests to see if the given bytes object is the same as one we're holding.
@@ -157,6 +159,33 @@ static void _scale_image(const uint8_t* srcBuf, const size_t srcW, const size_t 
     }
 }
 
+// ===============================================================================================
+
+PyObject* scale_image(PyObject*, PyObject* args, PyObject* kwargs) {
+    static char* kwlist[] = { _pycs("buf"), _pycs("srcW"), _pycs("srcH"),
+                              _pycs("dstW"), _pycs("dstH"), NULL };
+    const uint8_t* srcBuf;
+    int srcBufSz;
+    uint32_t srcW, srcH, dstW, dstH;
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "y#IIII", kwlist, &srcBuf, &srcBufSz, &srcW, &srcH, &dstW, &dstH)) {
+        PyErr_SetString(PyExc_TypeError, "scale_image expects a bytes object, int, int, int int");
+        return NULL;
+    }
+
+    int expectedBufSz = srcW * srcH * sizeof(uint32_t);
+    if (srcBufSz != expectedBufSz) {
+        PyErr_Format(PyExc_ValueError, "buf size (%i bytes) incorrect (expected: %i bytes)", srcBufSz, expectedBufSz);
+        return NULL;
+    }
+
+    PyObject* dst = PyBytes_FromStringAndSize(NULL, dstW * dstH * sizeof(uint32_t));
+    uint8_t* dstBuf = reinterpret_cast<uint8_t*>(PyBytes_AS_STRING(dst));
+    _scale_image(srcBuf, srcW, srcH, dstBuf, dstW, dstH);
+    return dst;
+}
+
+// ===============================================================================================
+
 enum {
     TEX_DETAIL_ALPHA = 0,
     TEX_DETAIL_ADD = 1,
@@ -179,6 +208,8 @@ typedef struct {
     plMipmap* fThis;
     bool fPyOwned;
 } pyMipmap;
+
+// ===============================================================================================
 
 static void pyGLTexture_dealloc(pyGLTexture* self) {
     Py_CLEAR(self->m_textureKey);
@@ -445,6 +476,26 @@ static PyObject* pyGLTexture_get_has_alpha(pyGLTexture* self, void*) {
     return PyBool_FromLong(0);
 }
 
+static PyObject* pyGLTexture_get_image_data(pyGLTexture* self, void*) {
+    Py_XINCREF(self->m_imageData);
+    return Py_BuildValue("iiO", self->m_width, self->m_height, self->m_imageData);
+}
+
+static int pyGLTexture_set_image_data(pyGLTexture* self, PyObject* value, void*) {
+    PyObject* data;
+    // Requesting a Bytes object "S" instead of a buffer "y#" so we can just increment the reference
+    // count on a buffer that already exists, instead of doing a memcpy.
+    if (!PyArg_ParseTuple(value, "iiS", &self->m_width, &self->m_height, &data)) {
+        PyErr_SetString(PyExc_TypeError, "image_data should be a sequence of int, int, bytes");
+        return -1;
+    }
+
+    Py_XDECREF(self->m_imageData);
+    Py_XINCREF(data);
+    self->m_imageData = data;
+    return 0;
+}
+
 static PyObject* pyGLTexture_get_num_levels(pyGLTexture* self, void*) {
     return PyLong_FromLong(_get_num_levels(self->m_width, self->m_height));
 }
@@ -461,6 +512,7 @@ static PyObject* pyGLTexture_get_size_pot(pyGLTexture* self, void*) {
 
 static PyGetSetDef pyGLTexture_GetSet[] = {
     { _pycs("has_alpha"), (getter)pyGLTexture_get_has_alpha, NULL, NULL, NULL },
+    { _pycs("image_data"), (getter)pyGLTexture_get_image_data, (setter)pyGLTexture_set_image_data, NULL, NULL },
     { _pycs("num_levels"), (getter)pyGLTexture_get_num_levels, NULL, NULL, NULL },
     { _pycs("size_npot"), (getter)pyGLTexture_get_size_npot, NULL, NULL, NULL },
     { _pycs("size_pot"), (getter)pyGLTexture_get_size_pot, NULL, NULL, NULL },
