@@ -137,8 +137,8 @@ class ExportOperator(bpy.types.Operator):
             try:
                 self.export_active = True
                 if self.profile_export:
-                    profile = path.with_name("{}_cProfile".format(ageName))
-                    profile = cProfile.runctx("e.run()", globals(), locals(), str(profile))
+                    profile_path = str(path.with_name("{}_cProfile".format(ageName)))
+                    profile = cProfile.runctx("e.run()", globals(), locals(), profile_path)
                 else:
                     e.run()
             except exporter.ExportError as error:
@@ -148,7 +148,7 @@ class ExportOperator(bpy.types.Operator):
                 if self.profile_export:
                     stats_out = path.with_name("{}_profile.log".format(ageName))
                     with open(str(stats_out), "w") as out:
-                        stats = pstats.Stats(profile, stream=out)
+                        stats = pstats.Stats(profile_path, stream=out)
                         stats = stats.sort_stats("time", "calls")
                         stats.print_stats()
                 return {"FINISHED"}
