@@ -84,13 +84,14 @@ class _Texture:
         self.extension = kwargs.get("extension", self.auto_ext)
         self.ephemeral = kwargs.get("ephemeral", False)
         self.image = image
+        self.tag = kwargs.get("tag", None)
 
     def __eq__(self, other):
         if not isinstance(other, _Texture):
             return False
 
         # Yeah, the string name is a unique identifier. So shoot me.
-        if str(self) == str(other):
+        if str(self) == str(other) and self.tag == other.tag:
             self._update(other)
             return True
         return False
@@ -692,6 +693,8 @@ class MaterialConverter:
            - indent: (optional) indentation level for log messages
                      default: 2
            - ephemeral: (optional) never cache this image
+           - tag: (optional) an optional identifier hint that allows multiple images with the
+                             same name to coexist in the cache
         """
         owner = kwargs.pop("owner", None)
         indent = kwargs.pop("indent", 2)
@@ -785,10 +788,10 @@ class MaterialConverter:
                         for i in range(numLevels):
                             mipmap.CompressImage(i, data[i])
                             data[i] = mipmap.getLevel(i)
-                    texcache.add_texture(key, numLevels, (eWidth, eHeight), compression, data)
+                    texcache.add_texture(key, numLevels, (eWidth, eHeight), compression, [data,])
                 else:
                     eWidth, eHeight = cached_image.export_size
-                    data = cached_image.image_data
+                    data = cached_image.image_data[0]
                     numLevels = cached_image.mip_levels            
 
                 # Now we poke our new bitmap into the pending layers. Note that we have to do some funny
