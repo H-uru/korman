@@ -20,6 +20,6 @@ class PlasmaImageEditorHeader(bpy.types.Header):
 
     def draw(self, context):
         layout, image = self.layout, context.space_data.image
-        settings = image.plasma_image
-
-        layout.prop(settings, "texcache_method", text="")
+        if image is not None:
+            settings = image.plasma_image
+            layout.prop(settings, "texcache_method", text="")

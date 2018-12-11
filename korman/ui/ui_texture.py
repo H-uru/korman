@@ -55,14 +55,15 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
     bl_label = "Plasma Layer Options"
 
     def draw(self, context):
-        texture, slot = context.texture, context.texture_slot
+        texture, slot = context.texture, getattr(context, "texture_slot", None)
+        use_stencil = slot.use_stencil if slot is not None else False
         layer_props = texture.plasma_layer
         layout = self.layout
 
         split = layout.split()
         col = split.column()
         col.label("Animation:")
-        col.active = self._has_animation_data(context) and not slot.use_stencil
+        col.active = self._has_animation_data(context) and not use_stencil
         col.prop(layer_props, "anim_auto_start")
         col.prop(layer_props, "anim_loop")
         col.separator()
@@ -71,7 +72,7 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
 
         col = split.column()
         col.label("Miscellaneous:")
-        col.active = not slot.use_stencil
+        col.active = not use_stencil
         col.prop(layer_props, "opacity", text="Opacity")
         col.separator()
 
