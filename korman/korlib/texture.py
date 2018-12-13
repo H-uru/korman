@@ -96,14 +96,15 @@ def scale_image(buf, srcW, srcH, dstW, dstH):
 
 
 class GLTexture:
-    def __init__(self, texkey=None, bgra=False, fast=False):
+    def __init__(self, texkey=None, image=None, bgra=False, fast=False):
+        assert texkey or image
         self._texkey = texkey
+        if texkey is not None:
+            self._blimg = texkey.image
+        if image is not None:
+            self._blimg = image
         self._image_inverted = fast
         self._bgra = bgra
-
-    @property
-    def _blimg(self):
-        return self._texkey.image
 
     def __enter__(self):
         """Loads the image data using OpenGL"""
@@ -186,7 +187,7 @@ class GLTexture:
             buf = self._invert_image(eWidth, eHeight, buf)
 
         # If this is a detail map, then we need to bake that per-level here.
-        if self._texkey.is_detail_map:
+        if self._texkey is not None and self._texkey.is_detail_map:
             detail_blend = self._texkey.detail_blend
             if detail_blend == TEX_DETAIL_ALPHA:
                 self._make_detail_map_alpha(buf, level)

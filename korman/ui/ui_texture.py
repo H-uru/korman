@@ -37,18 +37,25 @@ class PlasmaEnvMapPanel(TextureButtonsPanel, bpy.types.Panel):
         return False
 
     def draw(self, context):
-        layer_props = context.texture.plasma_layer
+        texture = context.texture
+        layer_props, envmap = texture.plasma_layer, texture.environment_map
         layout = self.layout
 
-        layout.prop(layer_props, "envmap_color")
-        layout.separator()
+        if envmap.source in {"ANIMATED", "STATIC"}:
+            layout.prop(layer_props, "envmap_color")
+            layout.separator()
 
-        layout.label("Visibility Sets:")
-        ui_list.draw_list(layout, "VisRegionListUI", "texture", layer_props,
-                          "vis_regions", "active_region_index", rows=2, maxrows=3)
-        rgns = layer_props.vis_regions
-        if layer_props.vis_regions:
-            layout.prop(rgns[layer_props.active_region_index], "control_region")
+            layout.label("Visibility Sets:")
+            ui_list.draw_list(layout, "VisRegionListUI", "texture", layer_props,
+                              "vis_regions", "active_region_index", rows=2, maxrows=3)
+            rgns = layer_props.vis_regions
+            if layer_props.vis_regions:
+                layout.prop(rgns[layer_props.active_region_index], "control_region")
+        elif envmap.source == "IMAGE_FILE":
+            op = layout.operator("image.plasma_build_cube_map",
+                                 text="Build Cubemap from Cube Faces",
+                                 icon="MATCUBE")
+            op.texture_name = context.texture.name
 
 
 class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):

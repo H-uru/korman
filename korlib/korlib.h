@@ -29,6 +29,7 @@ class PyObjectRef {
     PyObject* m_object;
 
 public:
+    PyObjectRef() : m_object() { }
     PyObjectRef(PyObject* o) : m_object(o) { }
     ~PyObjectRef() { Py_XDECREF(m_object); }
 

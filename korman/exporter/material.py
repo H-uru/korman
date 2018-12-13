@@ -28,8 +28,8 @@ _MAX_STENCILS = 6
 
 # Blender cube map mega image to libHSPlasma plCubicEnvironmap faces mapping...
 # See https://blender.stackexchange.com/questions/46891/how-to-render-an-environment-to-a-cube-map-in-cycles
-_BLENDER_CUBE_MAP = ("leftFace", "backFace", "rightFace",
-                     "bottomFace", "topFace", "frontFace")
+BLENDER_CUBE_MAP = ("leftFace", "backFace", "rightFace",
+                    "bottomFace", "topFace", "frontFace")
 
 class _Texture:
     _DETAIL_BLEND = {
@@ -810,7 +810,7 @@ class MaterialConverter:
                         if key.is_cube_map:
                             assert len(data) == 6
                             texture = plCubicEnvironmap(name)
-                            for face_name, face_data in zip(_BLENDER_CUBE_MAP, data):
+                            for face_name, face_data in zip(BLENDER_CUBE_MAP, data):
                                 for i in range(numLevels):
                                     mipmap.setLevel(i, face_data[i])
                                 setattr(texture, face_name, mipmap)
@@ -866,7 +866,7 @@ class MaterialConverter:
         #       According to my profiling, it takes roughly 0.7 seconds to process a
         #       cube map whose faces are 1024x1024 (3072x2048 total). Maybe a later
         #       commit will move this into korlib. We'll see.
-        face_num = len(_BLENDER_CUBE_MAP)
+        face_num = len(BLENDER_CUBE_MAP)
         face_images = [None] * face_num
         for i in range(face_num):
             col_id = i if i < 3 else i - 3
@@ -884,7 +884,7 @@ class MaterialConverter:
 
         # Now that we have our six faces, we'll toss them into the GLTexture helper
         # to generate mipmaps, if needed...
-        for i, face_name in enumerate(_BLENDER_CUBE_MAP):
+        for i, face_name in enumerate(BLENDER_CUBE_MAP):
             glimage = GLTexture(key)
             glimage.image_data = fWidth, fHeight, face_images[i]
             eWidth, eHeight = glimage.size_pot

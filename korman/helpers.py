@@ -39,7 +39,7 @@ class TemporaryObject:
         self._remove_func = remove_func
 
     def __enter__(self):
-        return self
+        return self._obj
 
     def __exit__(self, type, value, traceback):
         self._remove_func(self._obj)

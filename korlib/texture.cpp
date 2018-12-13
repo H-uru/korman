@@ -63,10 +63,12 @@ static void _flip_image(size_t width, size_t dataSize, uint8_t* data) {
 }
 
 static inline bool _get_float(PyObject* source, const char* attr, float& result) {
-    PyObjectRef pyfloat = PyObject_GetAttrString(source, attr);
-    if (pyfloat) {
-        result = (float)PyFloat_AsDouble(pyfloat);
-        return PyErr_Occurred() == NULL;
+    if (source) {
+        PyObjectRef pyfloat = PyObject_GetAttrString(source, attr);
+        if (pyfloat) {
+            result = (float)PyFloat_AsDouble(pyfloat);
+            return PyErr_Occurred() == NULL;
+        }
     }
     return false;
 }
@@ -231,19 +233,26 @@ static PyObject* pyGLTexture_new(PyTypeObject* type, PyObject* args, PyObject* k
 }
 
 static int pyGLTexture___init__(pyGLTexture* self, PyObject* args, PyObject* kwds) {
-    static char* kwlist[] = { _pycs("texkey"), _pycs("bgra"), _pycs("fast"), NULL };
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|bb", kwlist, &self->m_textureKey,
+    static char* kwlist[] = { _pycs("texkey"), _pycs("image"), _pycs("bgra"), _pycs("fast"), NULL };
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OObb", kwlist, &self->m_textureKey, &self->m_blenderImage,
                                      &self->m_bgra, &self->m_imageInverted)) {
-        PyErr_SetString(PyExc_TypeError, "expected a korman.exporter.material._Texture");
+        PyErr_SetString(PyExc_TypeError, "expected a korman.exporter.material._Texture or a bpy.types.Image");
         return -1;
     }
-    self->m_blenderImage = PyObject_GetAttrString(self->m_textureKey, "image");
+    if (!self->m_blenderImage && !self->m_textureKey) {
+        PyErr_SetString(PyExc_TypeError, "expected a korman.exporter.material._Texture or a bpy.types.Image");
+        return -1;
+    }
+
+    Py_XINCREF(self->m_blenderImage);
+    Py_XINCREF(self->m_textureKey);
+    if (!self->m_blenderImage) {
+        self->m_blenderImage = PyObject_GetAttrString(self->m_textureKey, "image");
+    }
     if (!self->m_blenderImage) {
         PyErr_SetString(PyExc_RuntimeError, "Could not fetch Blender Image");
         return -1;
     }
-
-    Py_INCREF(self->m_textureKey);
 
     // Done!
     return 0;
@@ -358,7 +367,9 @@ static int _generate_detail_map(pyGLTexture* self, uint8_t* buf, size_t bufsz, G
     float alpha;
     if (_generate_detail_alpha(self, level, &alpha) != 0)
         return -1;
-    PyObjectRef pydetail_blend = PyObject_GetAttrString(self->m_textureKey, "detail_blend");
+    PyObjectRef pydetail_blend;
+    if (self->m_textureKey)
+        pydetail_blend = PyObject_GetAttrString(self->m_textureKey, "detail_blend");
     if (!pydetail_blend)
         return -1;
 
@@ -436,14 +447,16 @@ static PyObject* pyGLTexture_get_level_data(pyGLTexture* self, PyObject* args, P
     }
 
     // Detail blend
-    PyObjectRef is_detail_map = PyObject_GetAttrString(self->m_textureKey, "is_detail_map");
-    if (PyLong_AsLong(is_detail_map) != 0) {
-        _ensure_copy_bytes(self->m_imageData, data);
-        uint8_t* buf = reinterpret_cast<uint8_t*>(PyBytes_AS_STRING(data));
-        if (_generate_detail_map(self, buf, bufsz, level) != 0) {
-            PyErr_SetString(PyExc_RuntimeError, "error while baking detail map");
-            Py_DECREF(data);
-            return NULL;
+    if (self->m_textureKey) {
+        PyObjectRef is_detail_map = PyObject_GetAttrString(self->m_textureKey, "is_detail_map");
+        if (PyLong_AsLong(is_detail_map) != 0) {
+            _ensure_copy_bytes(self->m_imageData, data);
+            uint8_t* buf = reinterpret_cast<uint8_t*>(PyBytes_AS_STRING(data));
+            if (_generate_detail_map(self, buf, bufsz, level) != 0) {
+                PyErr_SetString(PyExc_RuntimeError, "error while baking detail map");
+                Py_DECREF(data);
+                return NULL;
+            }
         }
     }
 
