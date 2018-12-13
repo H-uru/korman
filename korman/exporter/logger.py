@@ -48,14 +48,14 @@ class _ExportLogger:
 
     def msg(self, *args, **kwargs):
         assert args
+        indent = kwargs.get("indent", 0)
+        msg = "{}{}".format("    " * indent, args[0])
+        if len(args) > 1:
+            msg = msg.format(*args[1:], **kwargs)
         if self._file is not None:
-            indent = kwargs.get("indent", 0)
-            msg = "{}{}".format("    " * indent, args[0])
-            if len(args) > 1:
-                msg = msg.format(*args[1:], **kwargs)
             self._file.writelines((msg, "\n"))
-            if self._print_logs:
-                print(msg)
+        if self._print_logs:
+            print(msg)
 
     def port(self, *args, **kwargs):
         assert args
@@ -277,7 +277,7 @@ class ExportProgressLogger(_ExportLogger):
 
 
 class ExportVerboseLogger(_ExportLogger):
-    def __init__(self, age_path):
+    def __init__(self, age_path=None):
         super().__init__(True, age_path)
         self.progress_range = 0
         self.progress_value = 0
