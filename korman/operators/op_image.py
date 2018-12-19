@@ -136,7 +136,7 @@ class PlasmaBuildCubeMapOperator(ImageOperator, bpy.types.Operator):
         self._report.progress_advance()
         self._report.msg("Generating cubemap image...")
 
-        # If a texture was provided, we should check to see if as have an image we can replace...
+        # If a texture was provided, we should check to see if we have an image we can replace...
         image = bpy.data.textures[self.texture_name].image if self.texture_name else None
 
         # Init our image

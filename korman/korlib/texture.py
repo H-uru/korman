@@ -160,7 +160,7 @@ class GLTexture:
         # Previously, we would leave the texture bound in OpenGL and use it to do the mipmapping, using
         # old, deprecated OpenGL features. With the introduction of plCubicEnvironmap support to Korman,
         # we wind up needing to get an NPOT image from OpenGL. Unfortunately, Blender will sometimes scale
-        # images to be POT _before_ loading them into OpenGL. Thereofre, we now use OpenGL to grab the first
+        # images to be POT _before_ loading them into OpenGL. Therefore, we now use OpenGL to grab the first
         # level, then scale down to the new level from there.
         oWidth, oHeight = self.size_npot
         eWidth = ensure_power_of_two(oWidth) >> level
