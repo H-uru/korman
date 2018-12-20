@@ -35,7 +35,7 @@ extern "C" {
 PyObject* create_bump_LUT(PyObject*, PyObject* args) {
     static const int kLUTHeight = 16;
     static const int kLUTWidth = 16;
-    static const int kBufSz = kLUTWidth * kLUTWidth * sizeof(uint32_t);
+    static const int kBufSz = kLUTWidth * kLUTHeight * sizeof(uint32_t);
 
     pyMipmap* pymipmap;
     if (!PyArg_ParseTuple(args, "O", &pymipmap)) {
