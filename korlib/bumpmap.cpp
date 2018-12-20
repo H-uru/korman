@@ -33,8 +33,9 @@ typedef struct {
 extern "C" {
 
 PyObject* create_bump_LUT(PyObject*, PyObject* args) {
-    const int kLUTHeight = 16;
-    const int kLUTWidth = 16;
+    static const int kLUTHeight = 16;
+    static const int kLUTWidth = 16;
+    static const int kBufSz = kLUTWidth * kLUTWidth * sizeof(uint32_t);
 
     pyMipmap* pymipmap;
     if (!PyArg_ParseTuple(args, "O", &pymipmap)) {
@@ -54,7 +55,7 @@ PyObject* create_bump_LUT(PyObject*, PyObject* args) {
     int startH = delH / 2 + 1;
     int doneH = 0;
 
-    uint8_t* data = new uint8_t[texture->getTotalSize()];
+    uint8_t data[kBufSz];
     uint32_t* pix = (uint32_t*)data;
     int i;
 
@@ -105,7 +106,7 @@ PyObject* create_bump_LUT(PyObject*, PyObject* args) {
         }
     }
 
-    texture->setImageData(data, texture->getTotalSize());
+    texture->setImageData(data, kBufSz);
 
     Py_RETURN_NONE;
 }
