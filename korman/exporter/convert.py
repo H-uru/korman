@@ -351,6 +351,10 @@ class Exporter:
         self.image.save()
 
     @property
+    def envmap_method(self):
+        return bpy.context.scene.world.plasma_age.envmap_method
+
+    @property
     def texcache_path(self):
         age = bpy.context.scene.world.plasma_age
         filepath = age.texcache_path

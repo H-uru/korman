@@ -143,6 +143,7 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
         col.prop(age, "use_texture_page")
 
         layout.separator()
+        layout.prop(age, "envmap_method")
         layout.prop(age, "lighting_method")
         layout.prop(age, "texcache_method")
 

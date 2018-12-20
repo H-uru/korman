@@ -46,6 +46,8 @@ class _EntryBits(enum.IntEnum):
     source_size = 4
     export_size = 5
     last_export = 6
+    image_count = 7
+    tag_string = 8
 
 
 class _CachedImage:
@@ -59,6 +61,8 @@ class _CachedImage:
         self.compression = None
         self.export_time = None
         self.modify_time = None
+        self.image_count = 1
+        self.tag = None
 
     def __str__(self):
         return self.name
@@ -71,10 +75,10 @@ class ImageCache:
         self._read_stream = hsFileStream()
         self._stream_handles = 0
 
-    def add_texture(self, texture, num_levels, export_size, compression, data):
-        image = texture.image
+    def add_texture(self, texture, num_levels, export_size, compression, images):
+        image, tag = texture.image, texture.tag
         image_name = str(texture)
-        key = (image_name, compression)
+        key = (image_name, tag, compression)
         ex_method, im_method = self._exporter().texcache_method, image.plasma_image.texcache_method
         method = set((ex_method, im_method))
         if texture.ephemeral or "skip" in method:
@@ -89,7 +93,9 @@ class ImageCache:
         image.compression = compression
         image.source_size = texture.image.size
         image.export_size = export_size
-        image.image_data = data
+        image.image_data = images
+        image.image_count = len(images)
+        image.tag = tag
         self._images[key] = image
 
     def _compact(self):
@@ -111,7 +117,7 @@ class ImageCache:
             self._read_stream.close()
 
     def get_from_texture(self, texture, compression):
-        bl_image = texture.image
+        bl_image, tag = texture.image, texture.tag
 
         # If the texture is ephemeral (eg a lightmap) or has been marked "rebuild" or "skip"
         # in the UI, we don't want anything from the cache. In the first two cases, we never
@@ -121,7 +127,7 @@ class ImageCache:
         if method != {"use"} or texture.ephemeral:
             return None
 
-        key = (str(texture), compression)
+        key = (str(texture), tag, compression)
         cached_image = self._images.get(key)
         if cached_image is None:
             return None
@@ -199,17 +205,25 @@ class ImageCache:
         # between iterations, so we'd best bookkeep the position
         pos = stream.pos
 
-        for i in range(image.mip_levels):
+        def _read_image_mips():
+            for _ in range(image.mip_levels):
+                nonlocal pos
+                if stream.pos != pos:
+                    stream.seek(pos)
+                assert stream.read(4) == _MIP_MAGICK
+
+                # this should only ever be image data...
+                # store your flags somewhere else!
+                size = stream.readInt()
+                data = stream.read(size)
+                pos = stream.pos
+                yield data
+
+        for _ in range(image.image_count):
             if stream.pos != pos:
                 stream.seek(pos)
-            assert stream.read(4) == _MIP_MAGICK
-            
-            # this should only ever be image data...
-            # store your flags somewhere else!
-            size = stream.readInt()
-            data = stream.read(size)
-            pos = stream.pos
-            yield data
+            yield tuple(_read_image_mips())
+
 
     def _read_index(self, index_pos, stream):
         stream.seek(index_pos)
@@ -250,9 +264,14 @@ class ImageCache:
             image.export_size = (stream.readInt(), stream.readInt())
         if flags[_EntryBits.last_export]:
             image.export_time = stream.readDouble()
+        if flags[_EntryBits.image_count]:
+            image.image_count = stream.readInt()
+        if flags[_EntryBits.tag_string]:
+            # tags should not contain user data, so we will use a latin_1 backed string
+            image.tag = stream.readSafeStr()
 
         # do we need to check for duplicate images?
-        self._images[(image.name, image.compression)] = image
+        self._images[(image.name, image.tag, image.compression)] = image
 
     @property
     def _report(self):
@@ -300,9 +319,10 @@ class ImageCache:
         flags.write(stream)
 
         for i in image.image_data:
-            stream.write(_MIP_MAGICK)
-            stream.writeInt(len(i))
-            stream.write(i)
+            for j in i:
+                stream.write(_MIP_MAGICK)
+                stream.writeInt(len(j))
+                stream.write(j)
 
     def _write_index(self, stream):
         flags = hsBitVector()
@@ -327,6 +347,8 @@ class ImageCache:
         flags[_EntryBits.source_size] = True
         flags[_EntryBits.export_size] = True
         flags[_EntryBits.last_export] = True
+        flags[_EntryBits.image_count] = True
+        flags[_EntryBits.tag_string] = image.tag is not None
 
         stream.write(_ENTRY_MAGICK)
         flags.write(stream)
@@ -339,3 +361,6 @@ class ImageCache:
         stream.writeInt(image.export_size[0])
         stream.writeInt(image.export_size[1])
         stream.writeDouble(time.time())
+        stream.writeInt(image.image_count)
+        if image.tag is not None:
+            stream.writeSafeStr(image.tag)

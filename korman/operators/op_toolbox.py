@@ -102,6 +102,25 @@ class PlasmaToggleAllPlasmaObjectsOperator(ToolboxOperator, bpy.types.Operator):
         return {"FINISHED"}
 
 
+class PlasmaToggleEnvironmentMapsOperator(ToolboxOperator, bpy.types.Operator):
+    bl_idname = "texture.plasma_toggle_environment_maps"
+    bl_label = "Toggle Environment Maps"
+    bl_description = "Changes the state of all Environment Maps"
+
+    enable = BoolProperty(name="Enable", description="Enable Environment Maps")
+
+    def execute(self, context):
+        enable = self.enable
+        for material in bpy.data.materials:
+            for slot in material.texture_slots:
+                if slot is None:
+                    continue
+                if slot.texture.type == "ENVIRONMENT_MAP":
+                    slot.use = enable
+        return {"FINISHED"}
+
+
+
 class PlasmaTogglePlasmaObjectsOperator(ToolboxOperator, bpy.types.Operator):
     bl_idname = "object.plasma_toggle_selected_objects"
     bl_label = "Toggle Plasma Objects"
