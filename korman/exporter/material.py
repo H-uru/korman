@@ -781,61 +781,78 @@ class MaterialConverter:
                 cached_image = texcache.get_from_texture(key, compression)
 
                 if cached_image is None:
-                    if key.is_cube_map:
-                        numLevels, width, height, data = self._finalize_cube_map(key, image, name, compression, dxt)
-                    else:
-                        numLevels, width, height, data = self._finalize_single_image(key, image, name, compression, dxt)
-                    texcache.add_texture(key, numLevels, (width, height), compression, data)
+                    numLevels, width, height, data = self._finalize_cache(texcache, key, image, name, compression, dxt)
+                    self._finalize_bitmap(key, owners, name, numLevels, width, height, compression, dxt, data)
                 else:
                     width, height = cached_image.export_size
                     data = cached_image.image_data
-                    numLevels = cached_image.mip_levels            
+                    numLevels = cached_image.mip_levels
 
-                # Now we poke our new bitmap into the pending layers. Note that we have to do some funny
-                # business to account for per-page textures
-                pages = {}
-
-                self._report.msg("Adding to...", indent=1)
-                for owner_key in owners:
-                    owner = owner_key.object
-                    self._report.msg("[{} '{}']", owner.ClassName()[2:], owner_key.name, indent=2)
-                    page = mgr.get_textures_page(owner_key) # Layer's page or Textures.prp
-
-                    # If we haven't created this texture in the page (either layer's page or Textures.prp),
-                    # then we need to do that and stuff the level data. This is a little tedious, but we
-                    # need to be careful to manage our resources correctly
-                    if page not in pages:
-                        mipmap = plMipmap(name=name, width=width, height=height, numLevels=numLevels,
-                                          compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
-                        if key.is_cube_map:
-                            assert len(data) == 6
-                            texture = plCubicEnvironmap(name)
-                            for face_name, face_data in zip(BLENDER_CUBE_MAP, data):
-                                for i in range(numLevels):
-                                    mipmap.setLevel(i, face_data[i])
-                                setattr(texture, face_name, mipmap)
-                        else:
-                            assert len(data) == 1
-                            for i in range(numLevels):
-                                mipmap.setLevel(i, data[0][i])
-                            texture = mipmap
-
-                        mgr.AddObject(page, texture)
-                        pages[page] = texture
-                    else:
-                        texture = pages[page]
-
-                    # The object that references this image can be either a layer (will appear
-                    # in the 3d world) or an image library (will appear in a journal or in another
-                    # dynamic manner in game)
-                    if isinstance(owner, plLayerInterface):
-                        owner.texture = texture.key
-                    elif isinstance(owner, plImageLibMod):
-                        owner.addImage(texture.key)
-                    else:
-                        raise RuntimeError(owner.ClassName())
+                    # If the cached image data is junk, PyHSPlasma will raise a RuntimeError,
+                    # so we'll attempt a recache...
+                    try:
+                        self._finalize_bitmap(key, owners, name, numLevels, width, height, compression, dxt, data)
+                    except RuntimeError:
+                        self._report.warn("Cached image is corrupted! Recaching image...", indent=1)
+                        numLevels, width, height, data = self._finalize_cache(texcache, key, image, name, compression, dxt)
+                        self._finalize_bitmap(key, owners, name, numLevels, width, height, compression, dxt, data)
 
                 inc_progress()
+
+    def _finalize_bitmap(self, key, owners, name, numLevels, width, height, compression, dxt, data):
+        mgr = self._mgr
+
+        # Now we poke our new bitmap into the pending layers. Note that we have to do some funny
+        # business to account for per-page textures
+        pages = {}
+
+        self._report.msg("Adding to...", indent=1)
+        for owner_key in owners:
+            owner = owner_key.object
+            self._report.msg("[{} '{}']", owner.ClassName()[2:], owner_key.name, indent=2)
+            page = mgr.get_textures_page(owner_key) # Layer's page or Textures.prp
+
+            # If we haven't created this texture in the page (either layer's page or Textures.prp),
+            # then we need to do that and stuff the level data. This is a little tedious, but we
+            # need to be careful to manage our resources correctly
+            if page not in pages:
+                mipmap = plMipmap(name=name, width=width, height=height, numLevels=numLevels,
+                                  compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
+                if key.is_cube_map:
+                    assert len(data) == 6
+                    texture = plCubicEnvironmap(name)
+                    for face_name, face_data in zip(BLENDER_CUBE_MAP, data):
+                        for i in range(numLevels):
+                            mipmap.setLevel(i, face_data[i])
+                        setattr(texture, face_name, mipmap)
+                else:
+                    assert len(data) == 1
+                    for i in range(numLevels):
+                        mipmap.setLevel(i, data[0][i])
+                    texture = mipmap
+
+                mgr.AddObject(page, texture)
+                pages[page] = texture
+            else:
+                texture = pages[page]
+
+            # The object that references this image can be either a layer (will appear
+            # in the 3d world) or an image library (will appear in a journal or in another
+            # dynamic manner in game)
+            if isinstance(owner, plLayerInterface):
+                owner.texture = texture.key
+            elif isinstance(owner, plImageLibMod):
+                owner.addImage(texture.key)
+            else:
+                raise NotImplementedError(owner.ClassName())
+
+    def _finalize_cache(self, texcache, key, image, name, compression, dxt):
+        if key.is_cube_map:
+            numLevels, width, height, data = self._finalize_cube_map(key, image, name, compression, dxt)
+        else:
+            numLevels, width, height, data = self._finalize_single_image(key, image, name, compression, dxt)
+        texcache.add_texture(key, numLevels, (width, height), compression, data)
+        return numLevels, width, height, data
 
     def _finalize_cube_map(self, key, image, name, compression, dxt):
         oWidth, oHeight = image.size
