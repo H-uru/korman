@@ -13,10 +13,21 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+_KORLIB_API_VERSION = 1
+
 try:
-    from _korlib import *
-except ImportError:
+    from _korlib import _KORLIB_API_VERSION as _C_API_VERSION
+    if _KORLIB_API_VERSION != _C_API_VERSION:
+        raise ImportError()
+
+except ImportError as ex:
     from .texture import *
+
+    if "_C_API_VERSION" in locals():
+        msg = "Korlib C Module Version mismatch (expected {}, got {}).".format(_KORLIB_API_VERSION, _C_API_VERSION)
+    else:
+        msg = "Korlib C Module did not load correctly."
+    print(msg, "Using PyKorlib :(", sep=' ')
 
     def create_bump_LUT(mipmap):
         kLUTHeight = 16
@@ -57,11 +68,9 @@ except ImportError:
     def inspect_voribsfile(stream, header):
         raise NotImplementedError("Ogg Vorbis not supported unless _korlib is compiled")
 
-    def is_c_library():
-        return False
 else:
-    def is_c_library():
-        return True
+    from _korlib import *
+
 finally:
     from .console import ConsoleToggler
     from .texture import TEX_DETAIL_ALPHA, TEX_DETAIL_ADD, TEX_DETAIL_MULTIPLY

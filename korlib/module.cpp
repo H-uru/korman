@@ -18,6 +18,9 @@
 #include "sound.h"
 #include "texture.h"
 
+// This konstant is compared against that in the Python module to prevent sneaky errors...
+#define KORLIB_API_VERSION 1
+
 extern "C" {
 
 static PyMethodDef korlib_Methods[] = {
@@ -45,6 +48,9 @@ PyMODINIT_FUNC PyInit__korlib() {
 
     // Module classes...
     PyModule_AddObject(module, "GLTexture", Init_pyGLTexture_Type());
+
+    // Konstants
+    PyModule_AddIntConstant(module, "_KORLIB_API_VERSION", KORLIB_API_VERSION);
 
     return module;
 }
