@@ -19,9 +19,10 @@ import cProfile
 from pathlib import Path
 import pstats
 
+from ..addon_prefs import game_versions
 from .. import exporter
 from ..helpers import UiHelper
-from ..properties.prop_world import PlasmaAge, game_versions
+from ..properties.prop_world import PlasmaAge
 from ..korlib import ConsoleToggler
 
 class ExportOperator(bpy.types.Operator):

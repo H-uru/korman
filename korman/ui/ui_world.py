@@ -34,41 +34,39 @@ class PlasmaGamePanel(AgeButtonsPanel, bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
+        prefs = context.user_preferences.addons["korman"].preferences
         games = context.world.plasma_games
         age = context.world.plasma_age
 
         row = layout.row()
-        row.template_list("PlasmaGameList", "games", games, "games", games,
+        # Remember: game storage moved to addon preferences!
+        row.template_list("PlasmaGameListRO", "games", prefs, "games", games,
                           "active_game_index", rows=2)
-        col = row.column(align=True)
-        col.operator("world.plasma_game_add", icon="ZOOMIN", text="")
-        col.operator("world.plasma_game_remove", icon="ZOOMOUT", text="")
+        row.operator("ui.korman_open_prefs", icon="PREFERENCES", text="")
 
-        # Game Properties
+        # Game Tools
         active_game_index = games.active_game_index
-        if active_game_index < len(games.games):
-            active_game = games.games[active_game_index]
+        if active_game_index < len(prefs.games):
+            active_game = prefs.games[active_game_index]
+        else:
+            active_game = None
 
-            layout.separator()
-            box = layout.box()
+        layout.separator()
+        row = layout.row(align=True)
 
-            box.prop(active_game, "path", emboss=False)
-            box.prop(active_game, "version")
-            box.separator()
-
-            row = box.row(align=True)
-            op = row.operator("world.plasma_game_add", icon="FILE_FOLDER", text="Change Path")
-            op.filepath = active_game.path
-            op.game_index = active_game_index
-            row = row.row(align=True)
-            row.operator_context = "EXEC_DEFAULT"
-            row.enabled = bool(age.age_name.strip())
-            op = row.operator("export.plasma_age", icon="EXPORT")
+        row.operator_context = "EXEC_DEFAULT"
+        row.enabled = bool(age.age_name.strip()) and active_game is not None
+        op = row.operator("export.plasma_age", icon="EXPORT")
+        if active_game is not None:
             op.filepath = str((Path(active_game.path) / "dat" / age.age_name).with_suffix(".age"))
             op.version = active_game.version
 
 
-class PlasmaGameList(bpy.types.UIList):
+class PlasmaGameListRO(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+        layout.label(item.name, icon="BOOKMARKS")
+
+class PlasmaGameListRW(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
         layout.prop(item, "name", text="", emboss=False, icon="BOOKMARKS")
 

@@ -14,6 +14,7 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+from . import addon_prefs
 from . import exporter, render
 from . import properties, ui
 from . import nodes
@@ -26,8 +27,7 @@ bl_info = {
     "location":    "File > Import-Export",
     "description": "Exporter for Cyan Worlds' Plasma Engine",
     "warning":     "beta",
-    "category":    "System",  # Eventually, we will hide some of the default
-                              # Blender panels (think materials)
+    "category":    "System",
 }
 
 

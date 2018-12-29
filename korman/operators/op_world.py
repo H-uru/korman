@@ -32,38 +32,35 @@ class GameAddOperator(AgeOperator, bpy.types.Operator):
     game_index = IntProperty(default=-1, options={"HIDDEN"})
 
     def execute(self, context):
-        w = context.world
-        if w:
-            # First, verify this is a valid Uru directory...
-            path = Path(self.filepath)
+        prefs = context.user_preferences.addons["korman"].preferences
 
-            # Blendsucks likes to tack filenames onto our doggone directories...
-            if not path.is_dir():
-                path = path.parent
-            if not ((path / "UruExplorer.exe").is_file() or (path / "plClient.exe").is_file()):
-                self.report({"ERROR"}, "The selected directory is not a copy of URU.")
-                return {"CANCELLED"}
+        # First, verify this is a valid Uru directory...
+        path = Path(self.filepath)
 
-            # New game?
-            games = w.plasma_games
-            new_game = self.game_index == -1
-            if new_game:
-                games.active_game_index = len(games.games)
-                game = games.games.add()
-            else:
-                game = games.games[self.game_index]
-
-            # Setup game...
-            game.path = str(path)
-            if (path / "cypython22.dll").is_file():
-                game.version = "pvPots"
-            else:
-                game.version = "pvMoul"
-            game.name = path.name
-
-            return {"FINISHED"}
-        else:
+        # Blendsucks likes to tack filenames onto our doggone directories...
+        if not path.is_dir():
+            path = path.parent
+        if not ((path / "UruExplorer.exe").is_file() or (path / "plClient.exe").is_file()):
+            self.report({"ERROR"}, "The selected directory is not a copy of URU.")
             return {"CANCELLED"}
+
+        # New game?
+        new_game = self.game_index == -1
+        if new_game:
+            prefs.active_game_index = len(prefs.games)
+            game = prefs.games.add()
+        else:
+            game = prefs.games[self.game_index]
+
+        # Setup game...
+        game.path = str(path)
+        if (path / "cypython22.dll").is_file():
+            game.version = "pvPots"
+        else:
+            game.version = "pvMoul"
+        game.name = path.name
+
+        return {"FINISHED"}
 
 
     def invoke(self, context, event):
@@ -71,20 +68,53 @@ class GameAddOperator(AgeOperator, bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
 
+class GameConvertOperator(AgeOperator, bpy.types.Operator):
+    bl_idname = "world.plasma_game_convert"
+    bl_label = "This will save your User Preferences file!"
+    bl_description = "Load old per-file Plasma Games into your user preferences"
+
+    def draw(self, context):
+        self.layout.label("test")
+
+    def execute(self, context):
+        prefs = context.user_preferences.addons["korman"].preferences
+        w = context.scene.world
+
+        for old_game in w.plasma_games.games:
+            # don't add dupe games
+            match = next((i for i in prefs.games if i.path == old_game.path), None)
+            if match is not None:
+                continue
+
+            new_game = prefs.games.add()
+            new_game.name = old_game.name
+            new_game.path = old_game.path
+            new_game.version = old_game.version
+
+        w.plasma_games.games.clear()
+        bpy.ops.wm.save_userpref()
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_confirm(self, event)
+
+    @classmethod
+    def poll(cls, context):
+        return super().poll(context) and bool(context.scene.world.plasma_games.games)
+
+
 class GameRemoveOperator(AgeOperator, bpy.types.Operator):
     bl_idname = "world.plasma_game_remove"
     bl_label = "Remove Plasma Game"
 
     def execute(self, context):
-        w = context.world
-        if w:
-            games = w.plasma_games
-            if games.active_game_index >= len(games.games):
-                return {"CANCELLED"}
-            games.games.remove(games.active_game_index)
-            return {"FINISHED"}
-        else:
+        prefs = context.user_preferences.addons["korman"].preferences
+
+        if prefs.active_game_index >= len(prefs.games):
             return {"CANCELLED"}
+        prefs.games.remove(prefs.active_game_index)
+        prefs.active_game_index = max(prefs.active_game_index - 1, -1)
+        return {"FINISHED"}
 
 
 class PageAddOperator(AgeOperator, bpy.types.Operator):

@@ -17,9 +17,7 @@ import bpy
 from bpy.props import *
 from PyHSPlasma import *
 
-game_versions = [("pvPrime", "Ages Beyond Myst (63.11)", "Targets the original Uru (Live) game"),
-                 ("pvPots", "Path of the Shell (63.12)", "Targets the most recent offline expansion pack"),
-                 ("pvMoul", "Myst Online: Uru Live (70)", "Targets the most recent online game")]
+from ..addon_prefs import game_versions
 
 class PlasmaFni(bpy.types.PropertyGroup):
     bl_idname = "world.plasma_fni"
@@ -58,23 +56,9 @@ class PlasmaFni(bpy.types.PropertyGroup):
                       min=1)
 
 
-class PlasmaGame(bpy.types.PropertyGroup):
-    name = StringProperty(name="Name",
-                          description="Name of the Plasma Game",
-                          options=set())
-    path = StringProperty(name="Path",
-                          description="Path to this Plasma Game",
-                          options=set())
-    version = EnumProperty(name="Version",
-                           description="Plasma version of this game",
-                           items=game_versions,
-                           options=set())
-
-
 class PlasmaGames(bpy.types.PropertyGroup):
     bl_idname = "world.plasma_games"
 
-    games = CollectionProperty(type=PlasmaGame)
     active_game_index = IntProperty(options={"HIDDEN"})
 
     @property

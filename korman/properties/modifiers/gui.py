@@ -20,8 +20,8 @@ import mathutils
 from bpy.props import *
 from PyHSPlasma import *
 
+from ...addon_prefs import game_versions
 from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz
-from .logic import game_versions
 from ... import idprops
 
 

@@ -17,8 +17,8 @@ import bpy
 from bpy.props import *
 from PyHSPlasma import *
 
+from ...addon_prefs import game_versions
 from .base import PlasmaModifierProperties
-from ..prop_world import game_versions
 from ...exporter import ExportError
 from ... import idprops
 
