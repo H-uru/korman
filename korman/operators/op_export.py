@@ -79,13 +79,18 @@ class ExportOperator(bpy.types.Operator):
 
     # This wigs out and very bad things happen if it's not directly on the operator...
     filepath = StringProperty(subtype="FILE_PATH")
-    filter_glob = StringProperty(default="*.age", options={'HIDDEN'})
+    filter_glob = StringProperty(default="*.age;*.zip", options={'HIDDEN'})
 
     version = EnumProperty(name="Version",
                            description="Plasma version to export this age for",
                            items=game_versions,
                            default="pvPots",
                            options=set())
+
+    dat_only = BoolProperty(name="Export Only PRPs",
+                            description="Only the Age PRPs should be exported",
+                            default=True,
+                            options={"HIDDEN"})
 
     def draw(self, context):
         layout = self.layout
@@ -133,6 +138,7 @@ class ExportOperator(bpy.types.Operator):
                 except:
                     self.report({"ERROR"}, "Failed to create export directory")
                     return {"CANCELLED"}
+            path.touch()
 
         # We need to back out of edit mode--this ensures that all changes are committed
         if context.mode != "OBJECT":

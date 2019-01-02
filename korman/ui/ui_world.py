@@ -58,7 +58,15 @@ class PlasmaGamePanel(AgeButtonsPanel, bpy.types.Panel):
         row.enabled = bool(age.age_name.strip()) and active_game is not None
         op = row.operator("export.plasma_age", icon="EXPORT")
         if active_game is not None:
+            op.dat_only = False
             op.filepath = str((Path(active_game.path) / "dat" / age.age_name).with_suffix(".age"))
+            op.version = active_game.version
+        row = row.row(align=True)
+        row.operator_context = "INVOKE_DEFAULT"
+        op = row.operator("export.plasma_age", icon="PACKAGE", text="Package Age")
+        if active_game is not None:
+            op.dat_only = False
+            op.filepath = "{}.zip".format(age.age_name)
             op.version = active_game.version
 
 

@@ -166,6 +166,9 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
         header, dataSize = self._get_sound_info()
         length = dataSize / header.avgBytesPerSec
 
+        # HAX: Ensure that the sound file is copied to game, if applicable.
+        exporter.output.add_sfx(self._sound)
+
         # There is some bug in the MOUL code that causes a crash if this does not match the expected
         # result. There's no sense in debugging that though--the user should never specify
         # streaming vs static. That's an implementation detail.

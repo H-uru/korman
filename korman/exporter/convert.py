@@ -27,9 +27,9 @@ from . import image
 from . import logger
 from . import manager
 from . import mesh
+from . import outfile
 from . import physics
 from . import rtlight
-from . import sumfile
 from . import utils
 
 class Exporter:
@@ -40,10 +40,6 @@ class Exporter:
         self.node_trees_exported = set()
         self.want_node_trees = {}
 
-    @property
-    def age_name(self):
-        return Path(self._op.filepath).stem
-
     def run(self):
         log = logger.ExportVerboseLogger if self._op.verbose else logger.ExportProgressLogger
         with ConsoleToggler(self._op.show_console), log(self._op.filepath) as self.report:
@@ -53,7 +49,7 @@ class Exporter:
             self.physics = physics.PhysicsConverter(self)
             self.light = rtlight.LightConverter(self)
             self.animation = animation.AnimationConverter(self)
-            self.sumfile = sumfile.SumFile()
+            self.output = outfile.OutputFiles(self, self._op.filepath)
             self.camera = camera.CameraConverter(self)
             self.image = image.ImageCache(self)
 
@@ -347,8 +343,22 @@ class Exporter:
 
     def _save_age(self):
         self.report.progress_advance()
-        self.mgr.save_age(Path(self._op.filepath))
-        self.image.save()
+
+        # If something bad happens in the final flush, it would be a shame to
+        # simply toss away the potentially freshly regenerated texture cache.
+        try:
+            self.mgr.save_age()
+            self.output.save()
+        finally:
+            self.image.save()
+
+    @property
+    def age_name(self):
+        return Path(self._op.filepath).stem
+
+    @property
+    def dat_only(self):
+        return self._op.dat_only
 
     @property
     def envmap_method(self):
