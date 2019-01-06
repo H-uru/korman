@@ -53,20 +53,29 @@ class PlasmaGamePanel(AgeButtonsPanel, bpy.types.Panel):
 
         layout.separator()
         row = layout.row(align=True)
+        legal_game = bool(age.age_name.strip()) and active_game is not None
 
         row.operator_context = "EXEC_DEFAULT"
-        row.enabled = bool(age.age_name.strip()) and active_game is not None
+        row.enabled = legal_game
         op = row.operator("export.plasma_age", icon="EXPORT")
         if active_game is not None:
             op.dat_only = False
             op.filepath = str((Path(active_game.path) / "dat" / age.age_name).with_suffix(".age"))
             op.version = active_game.version
         row = row.row(align=True)
+        row.enabled = legal_game
         row.operator_context = "INVOKE_DEFAULT"
         op = row.operator("export.plasma_age", icon="PACKAGE", text="Package Age")
         if active_game is not None:
             op.dat_only = False
             op.filepath = "{}.zip".format(age.age_name)
+            op.version = active_game.version
+        row = row.row(align=True)
+        row.operator_context = "EXEC_DEFAULT"
+        row.enabled = legal_game and active_game.version != "pvMoul"
+        op = row.operator("export.plasma_pak", icon="FILE_SCRIPT")
+        if active_game is not None:
+            op.filepath = str((Path(active_game.path) / "Python" / age.age_name).with_suffix(".pak"))
             op.version = active_game.version
 
 
@@ -151,6 +160,7 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
         layout.separator()
         layout.prop(age, "envmap_method")
         layout.prop(age, "lighting_method")
+        layout.prop(age, "python_method")
         layout.prop(age, "texcache_method")
 
 

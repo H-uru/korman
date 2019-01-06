@@ -73,6 +73,7 @@ else:
 
 finally:
     from .console import ConsoleToggler
+    from .python import *
     from .texture import TEX_DETAIL_ALPHA, TEX_DETAIL_ADD, TEX_DETAIL_MULTIPLY
 
     def _wave_chunks(stream):

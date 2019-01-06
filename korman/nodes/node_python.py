@@ -186,10 +186,13 @@ class PlasmaPythonFileNode(PlasmaNodeBase, bpy.types.Node):
             self.inputs.clear()
         bpy.ops.node.plasma_attributes_to_node(node_path=self.node_path, python_path=self.filepath)
 
-    filename = StringProperty(name="File",
+    filename = StringProperty(name="File Name",
                               description="Python Filename")
     filepath = StringProperty(update=_update_pyfile,
                               options={"HIDDEN"})
+    text_id = PointerProperty(name="Script File",
+                              description="Script file datablock",
+                              type=bpy.types.Text)
 
     attributes = CollectionProperty(type=PlasmaAttribute, options={"HIDDEN"})
     no_update = BoolProperty(default=False, options={"HIDDEN", "SKIP_SAVE"})

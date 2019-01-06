@@ -39,11 +39,26 @@ class KormanAddonPreferences(bpy.types.AddonPreferences):
     games = CollectionProperty(type=PlasmaGame)
     active_game_index = IntProperty(options={"SKIP_SAVE"})
 
+    python22_executable = StringProperty(name="Python 2.2",
+                                         description="Path to the Python 2.2 executable",
+                                         options=set(),
+                                         subtype="FILE_PATH")
+    python23_executable = StringProperty(name="Python 2.3",
+                                         description="Path to the Python 2.3 executable",
+                                         options=set(),
+                                         subtype="FILE_PATH")
+    python27_executable = StringProperty(name="Python 2.7",
+                                         description="Path to the Python 2.7 executable",
+                                         options=set(),
+                                         subtype="FILE_PATH")
+
     def draw(self, context):
         layout = self.layout
+        split = layout.split()
+        main_col = split.column()
 
-        layout.label("Plasma Games:")
-        row = layout.row()
+        main_col.label("Plasma Games:")
+        row = main_col.row()
         row.template_list("PlasmaGameListRW", "games", self, "games", self,
                           "active_game_index", rows=2)
         col = row.column(align=True)
@@ -51,13 +66,20 @@ class KormanAddonPreferences(bpy.types.AddonPreferences):
         col.operator("world.plasma_game_remove", icon="ZOOMOUT", text="")
         col.operator("world.plasma_game_convert", icon="IMPORT", text="")
 
+        # Python Installs
+        main_col = split.column()
+        main_col.label("Python Executables:")
+        main_col.prop(self, "python22_executable")
+        main_col.prop(self, "python23_executable")
+        main_col.prop(self, "python27_executable")
+
         # Game Properties
         active_game_index = self.active_game_index
         if bool(self.games) and active_game_index < len(self.games):
             active_game = self.games[active_game_index]
 
-            layout.separator()
-            box = layout.box()
+            layout.label("Game Configuration:")
+            box = layout.box().column()
 
             box.prop(active_game, "path", emboss=False)
             box.prop(active_game, "version")

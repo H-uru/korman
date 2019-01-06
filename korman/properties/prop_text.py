@@ -13,22 +13,10 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
-from .ui_camera import *
-from .ui_image import *
-from .ui_lamp import *
-from .ui_list import *
-from .ui_menus import *
-from .ui_modifiers import *
-from .ui_object import *
-from .ui_render_layer import *
-from .ui_text import *
-from .ui_texture import *
-from .ui_toolbox import *
-from .ui_world import *
+import bpy
+from bpy.props import *
 
-
-def register():
-    ui_menus.register()
-
-def unregister():
-    ui_menus.unregister()
+class PlasmaText(bpy.types.PropertyGroup):
+    package = BoolProperty(name="Export",
+                           description="Package this file in the age export",
+                           options=set())
