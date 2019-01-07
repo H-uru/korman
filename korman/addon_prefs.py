@@ -15,6 +15,7 @@
 
 import bpy
 from bpy.props import *
+from . import korlib
 
 game_versions = [("pvPrime", "Ages Beyond Myst (63.11)", "Targets the original Uru (Live) game"),
                  ("pvPots", "Path of the Shell (63.12)", "Targets the most recent offline expansion pack"),
@@ -39,18 +40,62 @@ class KormanAddonPreferences(bpy.types.AddonPreferences):
     games = CollectionProperty(type=PlasmaGame)
     active_game_index = IntProperty(options={"SKIP_SAVE"})
 
+    def _check_py22_exe(self, context):
+        if self._ensure_abspath((2, 2)):
+            self._check_python((2, 2))
+    def _check_py23_exe(self, context):
+        if self._ensure_abspath((2, 3)):
+            self._check_python((2, 3))
+    def _check_py27_exe(self, context):
+        if self._ensure_abspath((2, 7)):
+            self._check_python((2, 7))
+
     python22_executable = StringProperty(name="Python 2.2",
                                          description="Path to the Python 2.2 executable",
                                          options=set(),
-                                         subtype="FILE_PATH")
+                                         subtype="FILE_PATH",
+                                         update=_check_py22_exe)
     python23_executable = StringProperty(name="Python 2.3",
                                          description="Path to the Python 2.3 executable",
                                          options=set(),
-                                         subtype="FILE_PATH")
+                                         subtype="FILE_PATH",
+                                         update=_check_py23_exe)
     python27_executable = StringProperty(name="Python 2.7",
                                          description="Path to the Python 2.7 executable",
                                          options=set(),
-                                         subtype="FILE_PATH")
+                                         subtype="FILE_PATH",
+                                         update=_check_py27_exe)
+
+    def _validate_py_exes(self):
+        if not self.is_property_set("python22_valid"):
+            self._check_python((2, 2))
+        if not self.is_property_set("python23_valid"):
+            self._check_python((2, 3))
+        if not self.is_property_set("python27_valid"):
+            self._check_python((2, 7))
+        return True
+
+    # Internal error states
+    python22_valid = BoolProperty(options={"HIDDEN", "SKIP_SAVE"})
+    python23_valid = BoolProperty(options={"HIDDEN", "SKIP_SAVE"})
+    python27_valid = BoolProperty(options={"HIDDEN", "SKIP_SAVE"})
+    python_validated = BoolProperty(get=_validate_py_exes, options={"HIDDEN", "SKIP_SAVE"})
+
+    def _check_python(self, py_version):
+        py_exe = getattr(self, "python{}{}_executable".format(*py_version))
+        if py_exe:
+            valid = korlib.verify_python(py_version, py_exe)
+        else:
+            valid = True
+        setattr(self, "python{}{}_valid".format(*py_version), valid)
+
+    def _ensure_abspath(self, py_version):
+        attr = "python{}{}_executable".format(*py_version)
+        path = getattr(self, attr)
+        if path.startswith("//"):
+            setattr(self, attr, bpy.path.abspath(path))
+            return False
+        return True
 
     def draw(self, context):
         layout = self.layout
@@ -67,11 +112,18 @@ class KormanAddonPreferences(bpy.types.AddonPreferences):
         col.operator("world.plasma_game_convert", icon="IMPORT", text="")
 
         # Python Installs
+        assert self.python_validated
         main_col = split.column()
         main_col.label("Python Executables:")
-        main_col.prop(self, "python22_executable")
-        main_col.prop(self, "python23_executable")
-        main_col.prop(self, "python27_executable")
+        col = main_col.column()
+        col.alert = not self.python22_valid
+        col.prop(self, "python22_executable")
+        col = main_col.column()
+        col.alert = not self.python23_valid
+        col.prop(self, "python23_executable")
+        col = main_col.column()
+        col.alert = not self.python27_valid
+        col.prop(self, "python27_executable")
 
         # Game Properties
         active_game_index = self.active_game_index

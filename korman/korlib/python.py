@@ -89,7 +89,7 @@ def _find_python(py_version):
         else:
             userprefs = bpy.context.user_preferences.addons["korman"].preferences
             py_executable = getattr(userprefs, "python{}{}_executable".format(*py_version), None)
-            if _verify_python(py_version, py_executable):
+            if verify_python(py_version, py_executable):
                 return py_executable
 
         # Second, try looking Python up in the registry.
@@ -99,10 +99,10 @@ def _find_python(py_version):
             pass
         else:
             py_executable = _find_python_reg(winreg.HKEY_CURRENT_USER, py_version)
-            if _verify_python(py_version, py_executable):
+            if verify_python(py_version, py_executable):
                 return py_executable
             py_executable = _find_python_reg(winreg.HKEY_LOCAL_MACHINE, py_version)
-            if _verify_python(py_version, py_executable):
+            if verify_python(py_version, py_executable):
                 return py_executable
 
         # I give up, you win.
@@ -163,7 +163,7 @@ def package_python(stream, pyc_objects):
         stream.writeInt(len(compyled_code))
         stream.write(compyled_code)
 
-def _verify_python(py_version, py_exe):
+def verify_python(py_version, py_exe):
     if not py_exe:
         return False
 
