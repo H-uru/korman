@@ -16,6 +16,7 @@
 from contextlib import contextmanager
 import enum
 from hashlib import md5
+import locale
 import os
 from pathlib import Path
 from PyHSPlasma import *
@@ -23,6 +24,8 @@ import shutil
 import time
 import weakref
 import zipfile
+
+_encoding = locale.getpreferredencoding(False)
 
 def _hashfile(filename, hasher, block=0xFFFF):
     with open(str(filename), "rb") as handle:
@@ -82,7 +85,10 @@ class _OutputFile:
                     data = handle.read(0xFFFF)
                 return h.digest()
         elif self.file_data is not None:
-            return md5(self.file_data).digest()
+            if isinstance(self.file_data, str):
+                return md5(self.file_data.encode(_encoding)).digest()
+            else:
+                return md5(self.file_data).digest()
         else:
             raise RuntimeError()
 
@@ -210,7 +216,8 @@ class OutputFiles:
             if i.file_path:
                 shutil.copy2(i.file_path, dst_path)
             elif i.file_data:
-                with open(dst_path, "wb") as handle:
+                mode = "w" if isinstance(i.file_data, str) else "wb"
+                with open(dst_path, mode) as handle:
                     handle.write(i.file_data)
                 os.utime(dst_path, times)
             else:
@@ -259,8 +266,12 @@ class OutputFiles:
                 if i.file_path:
                     zf.write(i.file_path, arcpath)
                 elif i.file_data:
+                    if isinstance(i.file_data, str):
+                        data = i.file_data.encode(_encoding)
+                    else:
+                        data = i.file_data
                     zi = zipfile.ZipInfo(arcpath, export_time)
-                    zf.writestr(zi, i.file_data)
+                    zf.writestr(zi, data)
 
     @property
     def _version(self):
