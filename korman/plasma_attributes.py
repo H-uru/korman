@@ -102,20 +102,22 @@ class PlasmaAttributeVisitor(ast.NodeVisitor):
         ast.NodeVisitor.generic_visit(self, node)
 
 
-def get_attributes(scriptFile):
+def get_attributes_from_file(filepath):
     """Scan the file for assignments matching our regex, let our visitor parse them, and return the
        file's ptAttribs, if any."""
-    attribs = None
-    with open(str(scriptFile)) as script:
-        results = funcregex.findall(script.read())
-        if results:
-            # We'll fake the ptAttribs being all alone in a module...
-            assigns = ast.parse("\n".join(results))
-            v = PlasmaAttributeVisitor()
-            v.visit(assigns)
-            if v._attributes:
-                attribs = v._attributes
-    return attribs
+    with open(str(filepath)) as script:
+        return get_attributes_from_str(script.read())
+
+def get_attributes_from_str(code):
+    results = funcregex.findall(code)
+    if results:
+        # We'll fake the ptAttribs being all alone in a module...
+        assigns = ast.parse("\n".join(results))
+        v = PlasmaAttributeVisitor()
+        v.visit(assigns)
+        if v._attributes:
+            return v._attributes
+    return {}
 
 if __name__ == "__main__":
     import json
@@ -129,7 +131,7 @@ if __name__ == "__main__":
         files = Path(readpath).glob("*.py")
         ptAttribs = {}
         for scriptFile in files:
-            attribs = get_attributes(scriptFile)
+            attribs = get_attributes_from_file(scriptFile)
             if attribs:
                 ptAttribs[scriptFile.stem] = attribs
 

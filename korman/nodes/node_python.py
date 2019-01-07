@@ -15,10 +15,12 @@
 
 import bpy
 from bpy.props import *
+from contextlib import contextmanager
 from pathlib import Path
 from PyHSPlasma import *
 
 from .node_core import *
+from .node_deprecated import PlasmaVersionedNode
 from .. import idprops
 
 _single_user_attribs = {
@@ -166,33 +168,40 @@ class PlasmaAttribute(bpy.types.PropertyGroup):
     simple_value = property(_get_simple_value, _set_simple_value)
 
 
-class PlasmaPythonFileNode(PlasmaNodeBase, bpy.types.Node):
+class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
     bl_category = "PYTHON"
     bl_idname = "PlasmaPythonFileNode"
     bl_label = "Python File"
-    bl_width_default = 210
-
-    class _NoUpdate:
-        def __init__(self, node):
-            self._node = node
-        def __enter__(self):
-            self._node.no_update = True
-        def __exit__(self, type, value, traceback):
-            self._node.no_update = False
+    bl_width_default = 290
 
     def _update_pyfile(self, context):
-        with self._NoUpdate(self) as _hack:
+        if self.no_update:
+            return
+        text_id = bpy.data.texts.get(self.filename, None)
+        if text_id:
+            self.text_id = text_id
+
+    def _update_pytext(self, context):
+        if self.no_update:
+            return
+        with self.NoUpdate():
+            self.filename = self.text_id.name
             self.attributes.clear()
             self.inputs.clear()
-        bpy.ops.node.plasma_attributes_to_node(node_path=self.node_path, python_path=self.filepath)
+        if self.text_id is not None:
+            bpy.ops.node.plasma_attributes_to_node(node_path=self.node_path, text_path=self.text_id.name)
 
     filename = StringProperty(name="File Name",
-                              description="Python Filename")
-    filepath = StringProperty(update=_update_pyfile,
-                              options={"HIDDEN"})
+                              description="Python Filename",
+                              update=_update_pyfile)
+    filepath = StringProperty(options={"HIDDEN"})
     text_id = PointerProperty(name="Script File",
                               description="Script file datablock",
-                              type=bpy.types.Text)
+                              type=bpy.types.Text,
+                              update=_update_pytext)
+
+    # This property exists for UI purposes ONLY
+    package = BoolProperty(options={"HIDDEN", "SKIP_SAVE"})
 
     attributes = CollectionProperty(type=PlasmaAttribute, options={"HIDDEN"})
     no_update = BoolProperty(default=False, options={"HIDDEN", "SKIP_SAVE"})
@@ -202,23 +211,35 @@ class PlasmaPythonFileNode(PlasmaNodeBase, bpy.types.Node):
         return { i.attribute_id: i for i in self.attributes }
 
     def draw_buttons(self, context, layout):
-        row = layout.row(align=True)
-        if self.filename:
-            row.prop(self, "filename")
-            try:
-                if Path(self.filepath).exists():
-                    operator = row.operator("node.plasma_attributes_to_node", icon="FILE_REFRESH", text="")
-                    operator.python_path = self.filepath
-                    operator.node_path = self.node_path
-            except OSError:
-                pass
-
-        op_text = "" if self.filename else "Select"
-        operator = row.operator("file.plasma_file_picker", icon="SCRIPT", text=op_text)
+        main_row = layout.row(align=True)
+        row = main_row.row(align=True)
+        row.alert = self.text_id is None and bool(self.filename)
+        row.prop(self, "text_id", text="Script")
+        # open operator
+        operator = main_row.operator("file.plasma_file_picker", icon="FILESEL", text="")
         operator.filter_glob = "*.py"
         operator.data_path = self.node_path
-        operator.filepath_property = "filepath"
         operator.filename_property = "filename"
+        # package button
+        row = main_row.row(align=True)
+        if self.text_id is not None:
+            row.enabled = True
+            icon = "PACKAGE" if self.text_id.plasma_text.package else "UGLYPACKAGE"
+            row.prop(self.text_id.plasma_text, "package", icon=icon, text="")
+        else:
+            row.enabled = False
+            row.prop(self, "package", text="", icon="UGLYPACKAGE")
+        # rescan operator
+        row = main_row.row(align=True)
+        row.enabled = self.text_id is not None
+        operator = row.operator("node.plasma_attributes_to_node", icon="FILE_REFRESH", text="")
+        if self.text_id is not None:
+            operator.text_path = self.text_id.name
+            operator.node_path = self.node_path
+
+        # This could happen on an upgrade
+        if self.text_id is None and self.filename:
+            layout.label(text="Script '{}' is not loaded in Blender".format(self.filename), icon="ERROR")
 
     def get_key(self, exporter, so):
         return exporter.mgr.find_create_key(plPythonFileMod, name=self.key_name, so=so)
@@ -276,10 +297,18 @@ class PlasmaPythonFileNode(PlasmaNodeBase, bpy.types.Node):
         if not is_init and new_pos != old_pos:
             self.inputs.move(old_pos, new_pos)
 
+    @contextmanager
+    def NoUpdate(self):
+        self.no_update = True
+        try:
+            yield self
+        finally:
+            self.no_update = False
+
     def update(self):
         if self.no_update:
             return
-        with self._NoUpdate(self) as _no_recurse:
+        with self.NoUpdate():
             # First, we really want to make sure our junk matches up. Yes, this does dupe what
             # happens in PlasmaAttribNodeBase, but we can link much more than those node types...
             toasty_sockets = []
@@ -314,6 +343,26 @@ class PlasmaPythonFileNode(PlasmaNodeBase, bpy.types.Node):
                         self._make_attrib_socket(attrib, empty)
                     while len(unconnected) > 1:
                         self.inputs.remove(unconnected.pop())
+
+    @property
+    def latest_version(self):
+        return 2
+
+    def upgrade(self):
+        # In version 1 of this node, Python scripts were referenced by their filename in the
+        # python package and by their path on the local machine. This created an undue dependency
+        # on the artist's environment. In version 2, we will use Blender's text data blocks to back
+        # Python scripts. It is still legal to export Python File nodes that are not backed by a script.
+        if self.version == 1:
+            text_id = bpy.data.texts.get(self.filename, None)
+            if text_id is None:
+                path = Path(self.filepath)
+                if path.exists():
+                    text_id = bpy.data.texts.load(self.filepath)
+            with self.NoUpdate():
+                self.text_id = text_id
+            self.property_unset("filepath")
+            self.version = 2
 
 
 class PlasmaPythonFileNodeSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
