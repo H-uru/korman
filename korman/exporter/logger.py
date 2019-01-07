@@ -14,6 +14,7 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 from ..korlib import ConsoleToggler
+from .explosions import NonfatalExportError
 from pathlib import Path
 import threading
 import time
@@ -24,6 +25,7 @@ _MAX_TIME_UNTIL_ELIPSES = 2.0
 
 class _ExportLogger:
     def __init__(self, print_logs, age_path=None):
+        self._errors = []
         self._porting = []
         self._warnings = []
         self._age_path = Path(age_path) if age_path is not None else None
@@ -42,9 +44,22 @@ class _ExportLogger:
 
     def __exit__(self, type, value, traceback):
         if value is not None:
-            ConsoleToggler().keep_console = True
+            ConsoleToggler().keep_console = not isinstance(value, NonfatalExportError)
         self._file.close()
         return False
+
+    def error(self, *args, **kwargs):
+        assert args
+        indent = kwargs.get("indent", 0)
+        msg = "{}ERROR: {}".format("    " * indent, args[0])
+        if len(args) > 1:
+            msg = msg.format(*args[1:], **kwargs)
+        if self._file is not None:
+            self._file.writelines((msg, "\n"))
+        if self._print_logs:
+            print(msg)
+        cache = args[0] if len(args) == 1 else args[0].format(*args[1:])
+        self._errors.append(cache)
 
     def msg(self, *args, **kwargs):
         assert args
@@ -67,7 +82,8 @@ class _ExportLogger:
             self._file.writelines((msg, "\n"))
         if self._print_logs:
             print(msg)
-        self._porting.append(args[0])
+        cache = args[0] if len(args) == 1 else args[0].format(*args[1:])
+        self._porting.append(cache)
 
 
     def progress_add_step(self, name):
@@ -92,6 +108,14 @@ class _ExportLogger:
             self.msg("Exporting '{}'", self._age_path.name)
         self._time_start_overall = time.perf_counter()
 
+    def raise_errors(self):
+        num_errors = len(self._errors)
+        if num_errors == 1:
+            raise NonfatalExportError(self._errors[0])
+        elif num_errors:
+            raise NonfatalExportError("""{} errors were encountered during export. Check the export log for more details:
+                                         {}""", num_errors, self._file.name)
+
     def save(self):
         # TODO
         pass
@@ -106,7 +130,8 @@ class _ExportLogger:
             self._file.writelines((msg, "\n"))
         if self._print_logs:
             print(msg)
-        self._warnings.append(args[0])
+        cache = args[0] if len(args) == 1 else args[0].format(*args[1:])
+        self._warnings.append(cache)
 
 
 class ExportProgressLogger(_ExportLogger):

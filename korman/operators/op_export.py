@@ -177,6 +177,9 @@ class PlasmaAgeExportOperator(ExportOperator, bpy.types.Operator):
             except exporter.ExportError as error:
                 self.report({"ERROR"}, str(error))
                 return {"CANCELLED"}
+            except exporter.NonfatalExportError as error:
+                self.report({"ERROR"}, str(error))
+                return {"FINISHED"}
             else:
                 if self.profile_export:
                     stats_out = path.with_name("{}_profile.log".format(ageName))

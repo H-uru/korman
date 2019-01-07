@@ -107,6 +107,11 @@ class Exporter:
                 self.report.progress_end()
                 self.report.save()
 
+                # Step 5.2: If any nonfatal errors were encountered during the export, we will
+                #           raise them here, now that everything is finished, to draw attention
+                #           to whatever the problem might be.
+                self.report.raise_errors()
+
     def _bake_static_lighting(self):
         lighting_method = self._op.lighting_method
         if lighting_method != "skip":

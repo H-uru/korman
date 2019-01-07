@@ -13,6 +13,15 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+class NonfatalExportError(Exception):
+    def __init__(self, *args, **kwargs):
+        assert args
+        if len(args) > 1:
+            super(Exception, self).__init__(args[0].format(*args[1:], **kwargs))
+        else:
+            super(Exception, self).__init__(args[0])
+
+
 class ExportError(Exception):
     def __init__(self, value="Undefined Export Error"):
         super(Exception, self).__init__(value)
