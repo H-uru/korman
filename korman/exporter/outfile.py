@@ -16,9 +16,11 @@
 from contextlib import contextmanager
 import enum
 from hashlib import md5
+from .. import korlib
 import locale
 import os
 from pathlib import Path
+from ..plasma_magic import plasma_python_glue
 from PyHSPlasma import *
 import shutil
 import time
@@ -40,6 +42,9 @@ def _hashfile(filename, hasher, block=0xFFFF):
 class _FileType(enum.Enum):
     generated_dat = 0
     sfx = 1
+    sdl = 2
+    python_code = 3
+    generated_ancillary = 4
 
 
 class _OutputFile:
@@ -48,8 +53,9 @@ class _OutputFile:
         self.dirname = kwargs.get("dirname")
         self.filename = kwargs.get("filename")
         self.skip_hash = kwargs.get("skip_hash", False)
+        self.internal = kwargs.get("internal", False)
 
-        if self.file_type == _FileType.generated_dat:
+        if self.file_type in (_FileType.generated_dat, _FileType.generated_ancillary):
             self.file_data = kwargs.get("file_data", None)
             self.file_path = kwargs.get("file_path", None)
             self.mod_time = Path(self.file_path).stat().st_mtime if self.file_path else None
@@ -69,6 +75,23 @@ class _OutputFile:
             if self.id_data.packed_file is not None:
                 self.file_data = self.id_data.packed_file.data
 
+        if self.file_type in (_FileType.sdl, _FileType.python_code):
+            self.id_data = kwargs.get("id_data")
+            self.file_data = kwargs.get("file_data")
+            self.needs_glue = kwargs.get("needs_glue", True)
+            assert bool(self.id_data) or bool(self.file_data)
+
+            self.mod_time = None
+            self.file_path = None
+            if self.id_data is not None:
+                path = Path(self.id_data.filepath)
+                if path.exists():
+                    self.mod_time = path.stat().st_mtime
+                    self.file_path = self.id_data.filepath
+
+            if self.file_data is None:
+                self.file_data = self.id_data.as_string()
+
     def __eq__(self, rhs):
         return str(self) == str(rhs)
 
@@ -76,7 +99,7 @@ class _OutputFile:
         return hash(str(self))
 
     def hash_md5(self):
-        if self.file_path is not None:
+        if self.file_path:
             with open(self.file_path, "rb") as handle:
                 h = md5()
                 data = handle.read(0xFFFF)
@@ -106,28 +129,36 @@ class OutputFiles:
             self._export_path = self._export_file.parent.parent
         self._files = set()
         self._is_zip = self._export_file.suffix.lower() == ".zip"
+        self._py_files = set()
         self._time = time.time()
 
-    def add_python(self, filename, text_id=None, str_data=None):
+    def add_python_code(self, filename, text_id=None, str_data=None):
+        assert filename not in self._py_files
         of = _OutputFile(file_type=_FileType.python_code,
                          dirname="Python", filename=filename,
                          id_data=text_id, file_data=str_data,
-                         skip_hash=True)
+                         skip_hash=True,
+                         internal=(self._version != pvMoul),
+                         needs_glue=False)
         self._files.add(of)
+        self._py_files.add(filename)
+
+    def add_python_mod(self, filename, text_id=None, str_data=None):
+        assert filename not in self._py_files
+        of = _OutputFile(file_type=_FileType.python_code,
+                         dirname="Python", filename=filename,
+                         id_data=text_id, file_data=str_data,
+                         skip_hash=True,
+                         internal=(self._version != pvMoul),
+                         needs_glue=True)
+        self._files.add(of)
+        self._py_files.add(filename)
 
     def add_sdl(self, filename, text_id=None, str_data=None):
-        version = self._version
-        if version == pvEoa:
-            enc = plEncryptedStream.kEncAes
-        elif version == pvMoul:
-            enc = None
-        else:
-            enc = plEncryptedStream.kEncXtea
-
         of = _OutputFile(file_type=_FileType.sdl,
                          dirname="SDL", filename=filename,
                          id_data=text_id, file_data=str_data,
-                         enc=enc)
+                         enc=self.super_secure_encryption)
         self._files.add(of)
 
 
@@ -165,11 +196,14 @@ class OutputFiles:
             if not stream is backing_stream:
                 backing_stream.close()
 
+            dirname = kwargs.get("dirname", "dat")
             kwargs = {
-                "file_type": _FileType.generated_dat,
-                "dirname": "dat",
+                "file_type": _FileType.generated_dat if dirname == "dat" else
+                             _FileType.generated_ancillary,
+                "dirname": dirname,
                 "filename": filename,
-                "skip_hash": skip_hash,
+                "skip_hash": kwargs.get("skip_hash", False),
+                "internal": kwargs.get("internal", False),
             }
             if isinstance(backing_stream, hsRAMStream):
                 kwargs["file_data"] = backing_stream.buffer
@@ -188,13 +222,46 @@ class OutputFiles:
             else:
                 yield i
 
+    def _package_compyled_python(self):
+        func = lambda x: x.file_type == _FileType.python_code
+        report = self._exporter().report
+        version = self._version
+
+        # There can be some debate about what the correct Python version for pvMoul is.
+        # I, quite frankly, don't give a rat's ass at the moment because CWE will only
+        # load Python.pak and no ancillary packages. Maybe someone should fix that, mm?
+        if version <= pvPots:
+            py_version = (2, 2)
+        else:
+            py_version = (2, 3)
+
+        try:
+            pyc_objects = []
+            for i in self._generate_files(func):
+                if i.needs_glue:
+                    py_code = "{}\n\n{}\n".format(i.file_data, plasma_python_glue)
+                else:
+                    py_code = i.file_data
+                result, pyc = korlib.compyle(i.filename, py_code, py_version, report, indent=1)
+                if result:
+                    pyc_objects.append((i.filename, pyc))
+        except korlib.PythonNotAvailableError as error:
+            report.warn("Python {} is not available. Your Age scripts were not packaged.", error, indent=1)
+        else:
+            if pyc_objects:
+                with self.generate_dat_file("{}.pak".format(self._exporter().age_name),
+                                            dirname="Python", enc=self.super_secure_encryption) as stream:
+                    korlib.package_python(stream, pyc_objects)
+
     def save(self):
         # At this stage, all Plasma data has been generated from whatever crap is in
         # Blender. The only remaining part is to make sure any external dependencies are
         # copied or packed into the appropriate format OR the asset hashes are generated.
+        version = self._version
 
         # Step 1: Handle Python
-        # ... todo ...
+        if self._exporter().python_method != "none" and version != pvMoul:
+            self._package_compyled_python()
 
         # Step 2: Generate sumfile
         if self._version != pvMoul:
@@ -206,9 +273,31 @@ class OutputFiles:
         else:
             self._write_deps()
 
+    @property
+    def super_secure_encryption(self):
+        version = self._version
+        if version == pvEoa:
+            return plEncryptedStream.kEncAes
+        elif version == pvMoul:
+            # trollface.jpg
+            return None
+        else:
+            return plEncryptedStream.kEncXtea
+
+    def want_py_text(self, text_id):
+        if text_id is None:
+            return False
+        method = self._exporter().python_method
+        if method == "none":
+            return False
+        elif method == "all":
+            return text_id.name not in self._py_files
+        else:
+            return text_id.plasma_text.package and text_id.name not in self._py_files
+
     def _write_deps(self):
-        func = lambda x: x.file_type == _FileType.sfx
         times = (self._time, self._time)
+        func = lambda x: not x.internal and x.file_type not in (_FileType.generated_ancillary, _FileType.generated_dat)
 
         for i in self._generate_files(func):
             # Will only ever run for non-"dat" directories.
@@ -229,9 +318,9 @@ class OutputFiles:
         enc = plEncryptedStream.kEncAes if version >= pvEoa else plEncryptedStream.kEncXtea
         filename = "{}.sum".format(self._exporter().age_name)
         if dat_only:
-            func = lambda x: not x.skip_hash and x.dirname == "dat"
+            func = lambda x: (not x.skip_hash and not x.internal) and x.dirname == "dat"
         else:
-            func = lambda x: not x.skip_hash
+            func = lambda x: not x.skip_hash and not x.internal
 
         with self.generate_dat_file(filename, enc=enc, skip_hash=True) as stream:
             files = list(self._generate_files(func))
@@ -256,9 +345,9 @@ class OutputFiles:
         dat_only = self._exporter().dat_only
         export_time = time.localtime(self._time)[:6]
         if dat_only:
-            func = lambda x: x.dirname == "dat"
+            func = lambda x: x.dirname == "dat" and not x.internal
         else:
-            func = None
+            func = lambda x: not x.internal
 
         with zipfile.ZipFile(str(self._export_file), 'w', zipfile.ZIP_DEFLATED) as zf:
             for i in self._generate_files(func):

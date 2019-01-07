@@ -19,6 +19,7 @@ from PyHSPlasma import *
 import weakref
 
 from . import explosions
+from ..plasma_magic import *
 
 # These objects have to be in the plSceneNode pool in order to be loaded...
 # NOTE: We are using Factory indices because I doubt all of these classes are implemented.
@@ -136,14 +137,18 @@ class ExportManager:
     def create_builtins(self, age, textures):
         # BuiltIn.prp
         if bpy.context.scene.world.plasma_age.age_sdl:
-            builtin = self.create_page(age, "BuiltIn", -2, True)
-            sdl = self.add_object(plSceneObject, name="AgeSDLHook", loc=builtin)
-            pfm = self.add_object(plPythonFileMod, name="VeryVerySpecialPythonFileMod", so=sdl)
-            pfm.filename = age
+            self._create_builtin_pages(age)
+            self._pack_agesdl_hook(age)
 
         # Textures.prp
         if textures:
             self.create_page(age, "Textures", -1, True)
+
+    def _create_builtin_pages(self, age):
+        builtin = self.create_page(age, "BuiltIn", -2, True)
+        sdl = self.add_object(plSceneObject, name="AgeSDLHook", loc=builtin)
+        pfm = self.add_object(plPythonFileMod, name="VeryVerySpecialPythonFileMod", so=sdl)
+        pfm.filename = age
 
     def create_page(self, age, name, id, builtin=False):
         location = plLocation(self.mgr.getVer())
@@ -232,6 +237,28 @@ class ExportManager:
             return self._pages["Textures"]
         else:
             return key.location
+
+    def _pack_agesdl_hook(self, age):
+        get_text = bpy.data.texts.get
+        output = self._exporter().output
+
+        # AgeSDL Hook Python
+        py_filename = "{}.py".format(age)
+        age_py = get_text(py_filename, None)
+        if output.want_py_text(age_py):
+            py_code = age_py.as_string()
+        else:
+            py_code = very_very_special_python.format(age_name=age).lstrip()
+        output.add_python_mod(py_filename, text_id=age_py, str_data=py_code)
+
+        # AgeSDL
+        sdl_filename = "{}.sdl".format(age)
+        age_sdl = get_text(sdl_filename)
+        if age_sdl is not None:
+            sdl_code = None
+        else:
+            sdl_code = very_very_special_sdl.format(age_name=age).lstrip()
+        output.add_sdl(sdl_filename, text_id=age_sdl, str_data=sdl_code)
 
     def save_age(self):
         self._write_age()

@@ -246,7 +246,20 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
 
     def export(self, exporter, bo, so):
         pfm = self.get_key(exporter, so).object
-        pfm.filename = Path(self.filename).stem
+        py_name = Path(self.filename).stem
+        pfm.filename = py_name
+
+        # Check to see if we should pack this file
+        if exporter.output.want_py_text(self.text_id):
+            exporter.report.msg("Including Python '{}' for package", self.filename, indent=3)
+            exporter.output.add_python_mod(self.filename, text_id=self.text_id)
+            # PFMs can have their own SDL...
+            sdl_text = bpy.data.texts.get("{}.sdl".format(py_name), None)
+            if sdl_text is not None:
+                exporter.report.msg("Including corresponding SDL '{}'", sdl_text.name, indent=3)
+                exporter.output.add_sdl(sdl_text.name, text_id=sdl_text)
+
+        # Handle exporting the Python Parameters
         attrib_sockets = (i for i in self.inputs if i.is_linked)
         for socket in attrib_sockets:
             attrib = socket.attribute_type

@@ -98,10 +98,10 @@ def _find_python(py_version):
         except ImportError:
             pass
         else:
-            py_executable = _find_python_reg(winreg.HKEY_LOCAL_MACHINE, py_version)
+            py_executable = _find_python_reg(winreg.HKEY_CURRENT_USER, py_version)
             if _verify_python(py_version, py_executable):
                 return py_executable
-            py_executable = _find_python_reg(winreg.HKEY_CURRENT_USER, py_version)
+            py_executable = _find_python_reg(winreg.HKEY_LOCAL_MACHINE, py_version)
             if _verify_python(py_version, py_executable):
                 return py_executable
 

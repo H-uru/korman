@@ -62,6 +62,7 @@ class Exporter:
             self.report.progress_add_step("Exporting Scene Objects")
             self.report.progress_add_step("Exporting Logic Nodes")
             self.report.progress_add_step("Finalizing Plasma Logic")
+            self.report.progress_add_step("Handling Snakes")
             self.report.progress_add_step("Exporting Textures")
             self.report.progress_add_step("Composing Geometry")
             self.report.progress_add_step("Saving Age Files")
@@ -93,6 +94,9 @@ class Exporter:
                 # Step 3.2: Now that all Plasma Objects (save Mipmaps) are exported, we do any post
                 #          processing that needs to inspect those objects
                 self._post_process_scene_objects()
+
+                # Step 3.3: Ensure any helper Python files are packed
+                self._pack_ancillary_python()
 
                 # Step 4: Finalize...
                 self.mesh.material.finalize()
@@ -346,6 +350,17 @@ class Exporter:
                     proc(self, bl_obj, sceneobject)
             inc_progress()
 
+    def _pack_ancillary_python(self):
+        texts = bpy.data.texts
+        self.report.progress_advance()
+        self.report.progress_range = len(texts)
+        inc_progress = self.report.progress_increment
+
+        for i in texts:
+            if i.name.endswith(".py") and self.output.want_py_text(i):
+                self.output.add_python_code(i.name, text_id=i)
+            inc_progress()
+
     def _save_age(self):
         self.report.progress_advance()
 
@@ -368,6 +383,10 @@ class Exporter:
     @property
     def envmap_method(self):
         return bpy.context.scene.world.plasma_age.envmap_method
+
+    @property
+    def python_method(self):
+        return bpy.context.scene.world.plasma_age.python_method
 
     @property
     def texcache_path(self):
