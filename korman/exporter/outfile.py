@@ -27,6 +27,7 @@ import time
 import weakref
 import zipfile
 
+_CHUNK_SIZE = 0xA00000
 _encoding = locale.getpreferredencoding(False)
 
 def _hashfile(filename, hasher, block=0xFFFF):
@@ -92,6 +93,42 @@ class _OutputFile:
             if self.file_data is None:
                 self.file_data = self.id_data.as_string()
 
+        # Last chance for encryption...
+        enc = kwargs.get("enc", None)
+        if enc is not None:
+            self._encrypt(enc)
+
+    def _encrypt(self, enc):
+        backing_stream = hsRAMStream()
+        with plEncryptedStream().open(backing_stream, fmCreate, enc) as enc_stream:
+            if self.file_path:
+                if plEncryptedStream.IsFileEncrypted(self.file_path):
+                    with plEncryptedStream().open(self.file_path, fmRead, plEncryptedStream.kEncAuto) as dec_stream:
+                        self._enc_spin_wash(enc_stream, dec_stream)
+                else:
+                    with hsFileStream().open(self.file_path, fmRead) as dec_stream:
+                        self._enc_spin_wash(enc_stream, dec_stream)
+            elif self.file_data:
+                if isinstance(self.file_data, str):
+                    enc_stream.write(self.file_data.encode(_encoding))
+                else:
+                    enc_stream.write(self.file_data)
+            else:
+                raise RuntimeError()
+
+        self.file_data = backing_stream.buffer
+        # do NOT copy over an unencrypted file...
+        self.file_path = None
+
+    def _enc_spin_wash(self, enc_stream, dec_stream):
+        while True:
+            size_rem = dec_stream.size - dec_stream.pos
+            readsz = min(size_rem, _CHUNK_SIZE)
+            if readsz == 0:
+                break
+            data = dec_stream.read(readsz)
+            enc_stream.write(data)
+
     def __eq__(self, rhs):
         return str(self) == str(rhs)
 
@@ -102,10 +139,10 @@ class _OutputFile:
         if self.file_path:
             with open(self.file_path, "rb") as handle:
                 h = md5()
-                data = handle.read(0xFFFF)
+                data = handle.read(_CHUNK_SIZE)
                 while data:
                     h.update(data)
-                    data = handle.read(0xFFFF)
+                    data = handle.read(_CHUNK_SIZE)
                 return h.digest()
         elif self.file_data is not None:
             if isinstance(self.file_data, str):
@@ -196,6 +233,9 @@ class OutputFiles:
             if not stream is backing_stream:
                 backing_stream.close()
 
+            # Not passing enc as a keyword argument to the output file definition. It makes more
+            # sense to yield an encrypted stream from this context manager and encrypt as we go
+            # instead of doing lots of buffer copying to encrypt as a post step.
             dirname = kwargs.get("dirname", "dat")
             kwargs = {
                 "file_type": _FileType.generated_dat if dirname == "dat" else
