@@ -207,18 +207,27 @@ class OutputFiles:
 
     @contextmanager
     def generate_dat_file(self, filename, **kwargs):
-        if self._is_zip:
+        dat_only = self._exporter().dat_only
+        dirname = kwargs.get("dirname", "dat")
+        bogus = dat_only and dirname != "dat"
+
+        if self._is_zip or bogus:
             stream = hsRAMStream(self._version)
         else:
-            file_path = str(self._export_file.parent / filename)
+            if dat_only:
+                file_path = str(self._export_file.parent / filename)
+            else:
+                file_path = str(self._export_path / dirname / filename)
             stream = hsFileStream(self._version)
             stream.open(file_path, fmCreate)
         backing_stream = stream
 
-        enc = kwargs.get("enc", None)
-        if enc is not None:
-            stream = plEncryptedStream(self._version)
-            stream.open(backing_stream, fmCreate, enc)
+        # No sense in wasting time encrypting data that isn't going to be used in the export
+        if not bogus:
+            enc = kwargs.get("enc", None)
+            if enc is not None:
+                stream = plEncryptedStream(self._version)
+                stream.open(backing_stream, fmCreate, enc)
 
         # The actual export code is run at the "yield" statement. If an error occurs, we
         # do not want to track this file. Note that the except block is required for the
@@ -236,20 +245,20 @@ class OutputFiles:
             # Not passing enc as a keyword argument to the output file definition. It makes more
             # sense to yield an encrypted stream from this context manager and encrypt as we go
             # instead of doing lots of buffer copying to encrypt as a post step.
-            dirname = kwargs.get("dirname", "dat")
-            kwargs = {
-                "file_type": _FileType.generated_dat if dirname == "dat" else
-                             _FileType.generated_ancillary,
-                "dirname": dirname,
-                "filename": filename,
-                "skip_hash": kwargs.get("skip_hash", False),
-                "internal": kwargs.get("internal", False),
-            }
-            if isinstance(backing_stream, hsRAMStream):
-                kwargs["file_data"] = backing_stream.buffer
-            else:
-                kwargs["file_path"] = file_path
-            self._files.add(_OutputFile(**kwargs))
+            if not bogus:
+                kwargs = {
+                    "file_type": _FileType.generated_dat if dirname == "dat" else
+                                 _FileType.generated_ancillary,
+                    "dirname": dirname,
+                    "filename": filename,
+                    "skip_hash": kwargs.get("skip_hash", False),
+                    "internal": kwargs.get("internal", False),
+                }
+                if isinstance(backing_stream, hsRAMStream):
+                    kwargs["file_data"] = backing_stream.buffer
+                else:
+                    kwargs["file_path"] = file_path
+                self._files.add(_OutputFile(**kwargs))
 
     def _generate_files(self, func=None):
         dat_only = self._exporter().dat_only
