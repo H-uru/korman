@@ -55,6 +55,8 @@ class _OutputFile:
         self.filename = kwargs.get("filename")
         self.skip_hash = kwargs.get("skip_hash", False)
         self.internal = kwargs.get("internal", False)
+        self.file_path = None
+        self.mod_time = None
 
         if self.file_type in (_FileType.generated_dat, _FileType.generated_ancillary):
             self.file_data = kwargs.get("file_data", None)
@@ -66,13 +68,14 @@ class _OutputFile:
 
         if self.file_type == _FileType.sfx:
             self.id_data = kwargs.get("id_data")
-            path = Path(self.id_data.filepath).resolve()
-            if path.exists():
-                self.file_path = str(path)
-                self.mod_time = path.stat().st_mtime
-            else:
-                self.file_path = None
-                self.mod_time = None
+            path = Path(self.id_data.filepath)
+            try:
+                if path.exists():
+                    self.file_path = str(path.resolve())
+                    self.mod_time = path.stat().st_mtime
+            except OSError:
+                pass
+
             if self.id_data.packed_file is not None:
                 self.file_data = self.id_data.packed_file.data
 
@@ -86,9 +89,12 @@ class _OutputFile:
             self.file_path = None
             if self.id_data is not None:
                 path = Path(self.id_data.filepath)
-                if path.exists():
-                    self.mod_time = path.stat().st_mtime
-                    self.file_path = self.id_data.filepath
+                try:
+                    if path.exists():
+                        self.file_path = str(path.resolve())
+                        self.mod_time = path.stat().st_mtime
+                except OSError:
+                    pass
 
             if self.file_data is None:
                 self.file_data = self.id_data.as_string()
@@ -347,6 +353,7 @@ class OutputFiles:
     def _write_deps(self):
         times = (self._time, self._time)
         func = lambda x: not x.internal and x.file_type not in (_FileType.generated_ancillary, _FileType.generated_dat)
+        report = self._exporter().report
 
         for i in self._generate_files(func):
             # Will only ever run for non-"dat" directories.
@@ -359,7 +366,8 @@ class OutputFiles:
                     handle.write(i.file_data)
                 os.utime(dst_path, times)
             else:
-                raise RuntimeError()
+                report.warn("No data found for dependency file '{}'. It will not be copied into the export directory.",
+                            str(i.dirname / i.filename), indent=1)
 
     def _write_sumfile(self):
         version = self._version
@@ -397,6 +405,7 @@ class OutputFiles:
             func = lambda x: x.dirname == "dat" and not x.internal
         else:
             func = lambda x: not x.internal
+        report = self._exporter().report
 
         with zipfile.ZipFile(str(self._export_file), 'w', zipfile.ZIP_DEFLATED) as zf:
             for i in self._generate_files(func):
@@ -410,6 +419,8 @@ class OutputFiles:
                         data = i.file_data
                     zi = zipfile.ZipInfo(arcpath, export_time)
                     zf.writestr(zi, data)
+                else:
+                    report.warn("No data found for dependency file '{}'. It will not be archived.", arcpath, indent=1)
 
     @property
     def _version(self):

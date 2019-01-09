@@ -363,6 +363,7 @@ class Exporter:
 
     def _save_age(self):
         self.report.progress_advance()
+        self.report.msg("\nWriting Age data...")
 
         # If something bad happens in the final flush, it would be a shame to
         # simply toss away the potentially freshly regenerated texture cache.
