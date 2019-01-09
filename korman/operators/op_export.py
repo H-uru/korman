@@ -163,8 +163,12 @@ class PlasmaAgeExportOperator(ExportOperator, bpy.types.Operator):
         if context.mode != "OBJECT":
             bpy.ops.object.mode_set(mode="OBJECT")
 
-        # Separate blender operator and actual export logic for my sanity
         ageName = path.stem
+        if korlib.is_python_keyword(ageName):
+            self.report({"ERROR"}, "The Age name conflicts with the Python keyword '{}'".format(ageName))
+            return {"CANCELLED"}
+
+        # Separate blender operator and actual export logic for my sanity
         with UiHelper(context) as _ui:
             e = exporter.Exporter(self)
             try:
@@ -255,6 +259,12 @@ class PlasmaPythonExportOperator(ExportOperator, bpy.types.Operator):
                     self.report({"ERROR"}, "Failed to create export directory")
                     return {"CANCELLED"}
             path.touch()
+
+        # Age names cannot be python keywords
+        age_name = context.scene.world.plasma_age.age_name
+        if korlib.is_python_keyword(age_name):
+            self.report({"ERROR"}, "The Age name conflicts with the Python keyword '{}'".format(age_name))
+            return {"CANCELLED"}
 
         # Bonus Fun: Implement Profile-mode here (later...)
         e = exporter.PythonPackageExporter(filepath=self.filepath,

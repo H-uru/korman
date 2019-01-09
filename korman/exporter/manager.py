@@ -19,6 +19,7 @@ from PyHSPlasma import *
 import weakref
 
 from . import explosions
+from .. import korlib
 from ..plasma_magic import *
 
 # These objects have to be in the plSceneNode pool in order to be loaded...
@@ -243,21 +244,22 @@ class ExportManager:
         output = self._exporter().output
 
         # AgeSDL Hook Python
-        py_filename = "{}.py".format(age)
+        fixed_agename = korlib.replace_python2_identifier(age)
+        py_filename = "{}.py".format(fixed_agename)
         age_py = get_text(py_filename, None)
         if output.want_py_text(age_py):
             py_code = age_py.as_string()
         else:
-            py_code = very_very_special_python.format(age_name=age).lstrip()
+            py_code = very_very_special_python.format(age_name=fixed_agename).lstrip()
         output.add_python_mod(py_filename, text_id=age_py, str_data=py_code)
 
         # AgeSDL
-        sdl_filename = "{}.sdl".format(age)
+        sdl_filename = "{}.sdl".format(fixed_agename)
         age_sdl = get_text(sdl_filename)
         if age_sdl is not None:
             sdl_code = None
         else:
-            sdl_code = very_very_special_sdl.format(age_name=age).lstrip()
+            sdl_code = very_very_special_sdl.format(age_name=fixed_agename).lstrip()
         output.add_sdl(sdl_filename, text_id=age_sdl, str_data=sdl_code)
 
     def save_age(self):

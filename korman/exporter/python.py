@@ -80,7 +80,8 @@ class PythonPackageExporter:
     def _ensure_age_sdl_hook(self, report):
         age_props = bpy.context.scene.world.plasma_age
         if age_props.age_sdl:
-            py_filename = "{}.py".format(age_props.age_name)
+            fixed_agename = korlib.replace_python2_identifier(age_props.age_name)
+            py_filename = "{}.py".format(fixed_agename)
             age_py = self._modules.get(py_filename)
             if age_py is not None:
                 del self._modules[py_filename]
@@ -88,11 +89,11 @@ class PythonPackageExporter:
                     self._pfms[py_filename] = age_py
                 else:
                     report.warn("AgeSDL Python Script provided, but not requested for packing... Using default Python.", indent=1)
-                    self._pfms[py_filename] = very_very_special_python.format(age_name=age_props.age_name)
+                    self._pfms[py_filename] = very_very_special_python.format(age_name=fixed_agename)
             else:
                 report.msg("Packing default AgeSDL Python", indent=1)
                 very_very_special_python.format(age_name=age_props.age_name)
-                self._pfms[py_filename] = very_very_special_python.format(age_name=age_props.age_name)
+                self._pfms[py_filename] = very_very_special_python.format(age_name=fixed_agename)
 
     def _harvest_pfms(self, report):
         objects = bpy.context.scene.objects

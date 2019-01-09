@@ -16,7 +16,7 @@
 import bpy
 from pathlib import Path
 
-from ..korlib import ConsoleToggler
+from .. import korlib
 
 
 class AgeButtonsPanel:
@@ -128,6 +128,9 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
             col.prop(active_page, "seq_suffix")
             col.prop_menu_enum(active_page, "version")
 
+        # Age Names should really be legal Python 2.x identifiers for AgeSDLHooks
+        legal_identifier = korlib.is_legal_python2_identifier(age.age_name)
+
         # Core settings
         layout.separator()
         split = layout.split()
@@ -140,15 +143,23 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
         col = split.column()
         col.label("Age Settings:")
         col.prop(age, "seq_prefix", text="ID")
-        col.alert = not age.age_name.strip()
+        col.alert = not legal_identifier or '_' in age.age_name
         col.prop(age, "age_name", text="")
+
+        # Display a hint if the identifier is illegal
+        if not legal_identifier:
+            if korlib.is_python_keyword(age.age_name):
+                layout.label(text="Ages should not be named the same as a Python keyword", icon="ERROR")
+            elif age.age_sdl:
+                fixed_identifier = korlib.replace_python2_identifier(age.age_name)
+                layout.label(text="Age's SDL will use the name '{}'".format(fixed_identifier), icon="ERROR")
 
         layout.separator()
         split = layout.split()
 
         col = split.column()
         col.label("Export Settings:")
-        col.enabled = ConsoleToggler.is_platform_supported()
+        col.enabled = korlib.ConsoleToggler.is_platform_supported()
         col.prop(age, "verbose")
         col.prop(age, "show_console")
 

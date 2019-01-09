@@ -17,7 +17,8 @@ very_very_special_python = """
 from Plasma import *
 from PlasmaTypes import *
 
-globals()["{age_name}"] = type("{age_name}", (ptResponder,), dict())
+class {age_name}(ptResponder):
+    pass
 """
 
 very_very_special_sdl = """
