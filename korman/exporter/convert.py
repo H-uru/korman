@@ -27,9 +27,9 @@ from . import image
 from . import logger
 from . import manager
 from . import mesh
+from . import outfile
 from . import physics
 from . import rtlight
-from . import sumfile
 from . import utils
 
 class Exporter:
@@ -40,10 +40,6 @@ class Exporter:
         self.node_trees_exported = set()
         self.want_node_trees = {}
 
-    @property
-    def age_name(self):
-        return Path(self._op.filepath).stem
-
     def run(self):
         log = logger.ExportVerboseLogger if self._op.verbose else logger.ExportProgressLogger
         with ConsoleToggler(self._op.show_console), log(self._op.filepath) as self.report:
@@ -53,7 +49,7 @@ class Exporter:
             self.physics = physics.PhysicsConverter(self)
             self.light = rtlight.LightConverter(self)
             self.animation = animation.AnimationConverter(self)
-            self.sumfile = sumfile.SumFile()
+            self.output = outfile.OutputFiles(self, self._op.filepath)
             self.camera = camera.CameraConverter(self)
             self.image = image.ImageCache(self)
 
@@ -66,6 +62,7 @@ class Exporter:
             self.report.progress_add_step("Exporting Scene Objects")
             self.report.progress_add_step("Exporting Logic Nodes")
             self.report.progress_add_step("Finalizing Plasma Logic")
+            self.report.progress_add_step("Handling Snakes")
             self.report.progress_add_step("Exporting Textures")
             self.report.progress_add_step("Composing Geometry")
             self.report.progress_add_step("Saving Age Files")
@@ -98,6 +95,9 @@ class Exporter:
                 #          processing that needs to inspect those objects
                 self._post_process_scene_objects()
 
+                # Step 3.3: Ensure any helper Python files are packed
+                self._pack_ancillary_python()
+
                 # Step 4: Finalize...
                 self.mesh.material.finalize()
                 self.mesh.finalize()
@@ -110,6 +110,11 @@ class Exporter:
                 #           these little warnings and notices.
                 self.report.progress_end()
                 self.report.save()
+
+                # Step 5.2: If any nonfatal errors were encountered during the export, we will
+                #           raise them here, now that everything is finished, to draw attention
+                #           to whatever the problem might be.
+                self.report.raise_errors()
 
     def _bake_static_lighting(self):
         lighting_method = self._op.lighting_method
@@ -345,14 +350,44 @@ class Exporter:
                     proc(self, bl_obj, sceneobject)
             inc_progress()
 
+    def _pack_ancillary_python(self):
+        texts = bpy.data.texts
+        self.report.progress_advance()
+        self.report.progress_range = len(texts)
+        inc_progress = self.report.progress_increment
+
+        for i in texts:
+            if i.name.endswith(".py") and self.output.want_py_text(i):
+                self.output.add_python_code(i.name, text_id=i)
+            inc_progress()
+
     def _save_age(self):
         self.report.progress_advance()
-        self.mgr.save_age(Path(self._op.filepath))
-        self.image.save()
+        self.report.msg("\nWriting Age data...")
+
+        # If something bad happens in the final flush, it would be a shame to
+        # simply toss away the potentially freshly regenerated texture cache.
+        try:
+            self.mgr.save_age()
+            self.output.save()
+        finally:
+            self.image.save()
+
+    @property
+    def age_name(self):
+        return Path(self._op.filepath).stem
+
+    @property
+    def dat_only(self):
+        return self._op.dat_only
 
     @property
     def envmap_method(self):
         return bpy.context.scene.world.plasma_age.envmap_method
+
+    @property
+    def python_method(self):
+        return bpy.context.scene.world.plasma_age.python_method
 
     @property
     def texcache_path(self):

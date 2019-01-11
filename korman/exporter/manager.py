@@ -19,6 +19,8 @@ from PyHSPlasma import *
 import weakref
 
 from . import explosions
+from .. import korlib
+from ..plasma_magic import *
 
 # These objects have to be in the plSceneNode pool in order to be loaded...
 # NOTE: We are using Factory indices because I doubt all of these classes are implemented.
@@ -136,14 +138,18 @@ class ExportManager:
     def create_builtins(self, age, textures):
         # BuiltIn.prp
         if bpy.context.scene.world.plasma_age.age_sdl:
-            builtin = self.create_page(age, "BuiltIn", -2, True)
-            sdl = self.add_object(plSceneObject, name="AgeSDLHook", loc=builtin)
-            pfm = self.add_object(plPythonFileMod, name="VeryVerySpecialPythonFileMod", so=sdl)
-            pfm.filename = age
+            self._create_builtin_pages(age)
+            self._pack_agesdl_hook(age)
 
         # Textures.prp
         if textures:
             self.create_page(age, "Textures", -1, True)
+
+    def _create_builtin_pages(self, age):
+        builtin = self.create_page(age, "BuiltIn", -2, True)
+        sdl = self.add_object(plSceneObject, name="AgeSDLHook", loc=builtin)
+        pfm = self.add_object(plPythonFileMod, name="VeryVerySpecialPythonFileMod", so=sdl)
+        pfm.filename = age
 
     def create_page(self, age, name, id, builtin=False):
         location = plLocation(self.mgr.getVer())
@@ -233,27 +239,46 @@ class ExportManager:
         else:
             return key.location
 
-    def save_age(self, path):
-        ageName = path.stem
-        sumfile = self._exporter().sumfile
+    def _pack_agesdl_hook(self, age):
+        get_text = bpy.data.texts.get
+        output = self._exporter().output
 
-        sumfile.append(path)
-        self.mgr.WriteAge(str(path), self._age_info)
-        self._write_fni(path)
-        self._write_pages(path)
-
-        if self.getVer() != pvMoul:
-            sumpath = path.with_suffix(".sum")
-            sumfile.write(sumpath, self.getVer())
-
-    def _write_fni(self, path):
-        if self.mgr.getVer() <= pvMoul:
-            enc = plEncryptedStream.kEncXtea
+        # AgeSDL Hook Python
+        fixed_agename = korlib.replace_python2_identifier(age)
+        py_filename = "{}.py".format(fixed_agename)
+        age_py = get_text(py_filename, None)
+        if output.want_py_text(age_py):
+            py_code = age_py.as_string()
         else:
-            enc = plEncryptedStream.kEncAES
-        fname = path.with_suffix(".fni")
+            py_code = very_very_special_python.format(age_name=fixed_agename).lstrip()
+        output.add_python_mod(py_filename, text_id=age_py, str_data=py_code)
 
-        with plEncryptedStream(self.mgr.getVer()).open(str(fname), fmWrite, enc) as stream:
+        # AgeSDL
+        sdl_filename = "{}.sdl".format(fixed_agename)
+        age_sdl = get_text(sdl_filename)
+        if age_sdl is not None:
+            sdl_code = None
+        else:
+            sdl_code = very_very_special_sdl.format(age_name=fixed_agename).lstrip()
+        output.add_sdl(sdl_filename, text_id=age_sdl, str_data=sdl_code)
+
+    def save_age(self):
+        self._write_age()
+        self._write_fni()
+        self._write_pages()
+
+    def _write_age(self):
+        f = "{}.age".format(self._age_info.name)
+        output = self._exporter().output
+
+        with output.generate_dat_file(f, enc=plEncryptedStream.kEncAuto) as stream:
+            self._age_info.writeToStream(stream)
+
+    def _write_fni(self):
+        f = "{}.fni".format(self._age_info.name)
+        output = self._exporter().output
+
+        with output.generate_dat_file(f, enc=plEncryptedStream.kEncAuto) as stream:
             fni = bpy.context.scene.world.plasma_fni
             stream.writeLine("Graphics.Renderer.SetClearColor {} {} {}".format(*fni.clear_color))
             if fni.fog_method != "none":
@@ -263,17 +288,14 @@ class ExportManager:
             elif fni.fog_method == "exp2":
                 stream.writeLine("Graphics.Renderer.Fog.SetDefExp2 {} {}".format(fni.fog_end, fni.fog_density))
             stream.writeLine("Graphics.Renderer.SetYon {}".format(fni.yon))
-        self._exporter().sumfile.append(fname)
 
-    def _write_pages(self, path):
+    def _write_pages(self):
+        age_name = self._age_info.name
+        output = self._exporter().output
         for loc in self._pages.values():
             page = self.mgr.FindPage(loc) # not cached because it's C++ owned
-            # I know that plAgeInfo has its own way of doing this, but we'd have
-            # to do some looping and stuff. This is easier.
-            if self.mgr.getVer() <= pvMoul:
-                chapter = "_District_"
-            else:
-                chapter = "_"
-            f = path.with_name("{}{}{}".format(path.stem, chapter, page.page)).with_suffix(".prp")
-            self.mgr.WritePage(str(f), page)
-            self._exporter().sumfile.append(f)
+            chapter = "_District_" if self.mgr.getVer() <= pvMoul else "_"
+            f = "{}{}{}.prp".format(age_name, chapter, page.page)
+
+            with output.generate_dat_file(f) as stream:
+                self.mgr.WritePage(stream, page)

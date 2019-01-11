@@ -13,22 +13,16 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
-from .ui_camera import *
-from .ui_image import *
-from .ui_lamp import *
-from .ui_list import *
-from .ui_menus import *
-from .ui_modifiers import *
-from .ui_object import *
-from .ui_render_layer import *
-from .ui_text import *
-from .ui_texture import *
-from .ui_toolbox import *
-from .ui_world import *
+import bpy
 
+class PlasmaTextEditorHeader(bpy.types.Header):
+    bl_space_type = "TEXT_EDITOR"
 
-def register():
-    ui_menus.register()
+    def draw(self, context):
+        layout, text = self.layout, context.space_data.text
 
-def unregister():
-    ui_menus.unregister()
+        if text is not None:
+            is_py = text.name.endswith(".py")
+            row = layout.row(align=True)
+            row.enabled = is_py
+            row.prop(text.plasma_text, "package")

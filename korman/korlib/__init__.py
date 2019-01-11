@@ -73,7 +73,15 @@ else:
 
 finally:
     from .console import ConsoleToggler
+    from .python import *
     from .texture import TEX_DETAIL_ALPHA, TEX_DETAIL_ADD, TEX_DETAIL_MULTIPLY
+
+    _IDENTIFIER_RANGES = ((ord('0'), ord('9')), (ord('A'), ord('Z')), (ord('a'), ord('z')))
+    from keyword import kwlist as _kwlist
+    _KEYWORDS = set(_kwlist)
+    # Python 2.x keywords
+    _KEYWORDS.add("exec")
+    _KEYWORDS.add("print")
 
     def _wave_chunks(stream):
         while not stream.eof():
@@ -100,3 +108,31 @@ finally:
         header.read(stream)
 
         return chunks[b"data"]["size"]
+
+    def is_legal_python2_identifier(identifier):
+        if not identifier:
+            return False
+
+        # FIXME: str.isascii in Python 3.7
+        if any(ord(i) > 0x7F for i in identifier):
+            return False
+        if is_python_keyword(identifier):
+            return False
+        return identifier.isidentifier()
+
+    is_python_keyword = _KEYWORDS.__contains__
+
+    def replace_python2_identifier(identifier):
+        """Replaces illegal characters in a Python identifier with a replacement character"""
+
+        def process(identifier):
+            # No leading digits in identifiers, so skip the first range element (0...9)
+            yield next((identifier[0] for low, high in _IDENTIFIER_RANGES[1:]
+                                      if low <= ord(identifier[0]) <= high), '_')
+            for i in identifier[1:]:
+                yield next((i for low, high in _IDENTIFIER_RANGES if low <= ord(i) <= high), '_')
+
+        if identifier:
+            return "".join(process(identifier))
+        else:
+            return ""

@@ -20,8 +20,8 @@ import mathutils
 from bpy.props import *
 from PyHSPlasma import *
 
+from ...addon_prefs import game_versions
 from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz
-from .logic import game_versions
 from ... import idprops
 
 
@@ -180,15 +180,16 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         # Assign journal script based on target version
         journal_pfm = journal_pfms[version]
         journalnode = nodes.new("PlasmaPythonFileNode")
-        journalnode.filename = journal_pfm["filename"]
+        with journalnode.NoUpdate():
+            journalnode.filename = journal_pfm["filename"]
 
-        # Manually add required attributes to the PFM
-        journal_attribs = journal_pfm["attribs"]
-        for attr in journal_attribs:
-            new_attr = journalnode.attributes.add()
-            new_attr.attribute_id = attr["id"]
-            new_attr.attribute_type = attr["type"]
-            new_attr.attribute_name = attr["name"]
+            # Manually add required attributes to the PFM
+            journal_attribs = journal_pfm["attribs"]
+            for attr in journal_attribs:
+                new_attr = journalnode.attributes.add()
+                new_attr.attribute_id = attr["id"]
+                new_attr.attribute_type = attr["type"]
+                new_attr.attribute_name = attr["name"]
         journalnode.update()
 
         if version == pvPrime:

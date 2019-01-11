@@ -26,6 +26,7 @@ class NodeOperator:
 class SelectFileOperator(NodeOperator, bpy.types.Operator):
     bl_idname = "file.plasma_file_picker"
     bl_label = "Select"
+    bl_description = "Load a file"
 
     filter_glob = StringProperty(options={"HIDDEN"})
     filepath = StringProperty(subtype="FILE_PATH")
@@ -41,6 +42,11 @@ class SelectFileOperator(NodeOperator, bpy.types.Operator):
             setattr(dest, self.filepath_property, self.filepath)
         if self.filename_property:
             setattr(dest, self.filename_property, self.filename)
+
+        if bpy.data.texts.get(self.filename, None) is None:
+            bpy.data.texts.load(self.filepath)
+        else:
+            self.report({"WARNING"}, "A file named '{}' is already loaded. It will be used.".format(self.filename))
         return {"FINISHED"}
 
     def invoke(self, context, event):
@@ -91,15 +97,17 @@ pyAttribArgMap= {
 
 class PlPyAttributeNodeOperator(NodeOperator, bpy.types.Operator):
     bl_idname = "node.plasma_attributes_to_node"
-    bl_label = "R"
+    bl_label = "Refresh Sockets"
+    bl_description = "Refresh the Python File node's attribute sockets"
     bl_options = {"INTERNAL"}
 
-    python_path = StringProperty(subtype="FILE_PATH")
+    text_path = StringProperty()
     node_path = StringProperty()
 
     def execute(self, context):
-        from ..plasma_attributes import get_attributes
-        attribs = get_attributes(self.python_path)
+        from ..plasma_attributes import get_attributes_from_str
+        text_id = bpy.data.texts[self.text_path]
+        attribs = get_attributes_from_str(text_id.as_string())
 
         node = eval(self.node_path)
         node_attrib_map = node.attribute_map

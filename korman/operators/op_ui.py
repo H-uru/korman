@@ -13,6 +13,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+import addon_utils
 import bpy
 from bpy.props import *
 
@@ -87,3 +88,17 @@ class CollectionRemoveOperator(UIOperator, bpy.types.Operator):
             return {"FINISHED"}
         else:
             return {"CANCELLED"}
+
+
+class OpenAddonPrefs(UIOperator, bpy.types.Operator):
+    bl_idname = "ui.korman_open_prefs"
+    bl_label = "Open Korman Preferences"
+    bl_description = "Opens the Korman User Preferences"
+
+    def execute(self, context):
+        bpy.ops.screen.userpref_show("INVOKE_DEFAULT")
+        context.user_preferences.active_section = "ADDONS"
+        context.window_manager.addon_filter = "System"
+        korman_addon = addon_utils.addons_fake_modules["korman"]
+        addon_utils.module_bl_info(korman_addon)["show_expanded"] = True
+        return {"FINISHED"}

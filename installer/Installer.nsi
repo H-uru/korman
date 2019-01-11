@@ -211,6 +211,14 @@ SectionGroup /e "Korman"
     SectionEnd
 SectionGroupEnd
 
+Section "Python 2.2"
+    SectionIn 1 2
+
+    SetOutPath    "$TEMP\Korman"
+    File "Files\x86\Python-2.2.3.exe"
+    ExecWait "$TEMP\Korman\Python-2.2.3.exe /S"
+SectionEnd
+
 Section #TheRemover
     WriteRegStr HKLM "Software\Korman" "" $INSTDIR
     WriteUninstaller "$INSTDIR\korman_uninstall.exe"

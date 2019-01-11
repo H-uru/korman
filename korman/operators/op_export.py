@@ -17,14 +17,34 @@ import bpy
 from bpy.props import *
 import cProfile
 from pathlib import Path
+from PyHSPlasma import *
 import pstats
 
+from ..addon_prefs import game_versions
 from .. import exporter
 from ..helpers import UiHelper
-from ..properties.prop_world import PlasmaAge, game_versions
-from ..korlib import ConsoleToggler
+from .. import korlib
+from ..properties.prop_world import PlasmaAge
 
-class ExportOperator(bpy.types.Operator):
+class ExportOperator:
+    def _get_default_path(self, context):
+        blend_filepath = context.blend_data.filepath
+        if not blend_filepath:
+            blend_filepath = context.scene.world.plasma_age.age_name
+        if not blend_filepath:
+            blend_filepath = "Korman"
+        return blend_filepath
+
+    @property
+    def has_reports(self):
+        return hasattr(self.report)
+
+    @classmethod
+    def poll(cls, context):
+        return context.scene.render.engine == "PLASMA_GAME"
+
+
+class PlasmaAgeExportOperator(ExportOperator, bpy.types.Operator):
     """Exports ages for Cyan Worlds' Plasma Engine"""
 
     bl_idname = "export.plasma_age"
@@ -71,6 +91,14 @@ class ExportOperator(bpy.types.Operator):
                                                    ("perengine", "Export Supported EnvMaps", "Only environment maps supported by the selected game engine are exported")],
                                          "default": "dcm2dem"}),
 
+        "python_method": (EnumProperty, {"name": "Python",
+                                         "description": "Specifies how Python should be packed",
+                                         "items": [("none", "Pack Nothing", "Don't pack any Python files."),
+                                                   ("as_requested", "Pack Requested Scripts", "Packs any script both linked as a Text file and requested for packaging."),
+                                                   ("all", "Pack All Scripts", "Packs all Python files linked as a Text file.")],
+                                         "default": "as_requested",
+                                         "options": set()}),
+
         "export_active": (BoolProperty, {"name": "INTERNAL: Export currently running",
                                          "default": False,
                                          "options": {"SKIP_SAVE"}}),
@@ -78,13 +106,18 @@ class ExportOperator(bpy.types.Operator):
 
     # This wigs out and very bad things happen if it's not directly on the operator...
     filepath = StringProperty(subtype="FILE_PATH")
-    filter_glob = StringProperty(default="*.age", options={'HIDDEN'})
+    filter_glob = StringProperty(default="*.age;*.zip", options={'HIDDEN'})
 
     version = EnumProperty(name="Version",
                            description="Plasma version to export this age for",
                            items=game_versions,
                            default="pvPots",
                            options=set())
+
+    dat_only = BoolProperty(name="Export Only PRPs",
+                            description="Only the Age PRPs should be exported",
+                            default=True,
+                            options={"HIDDEN"})
 
     def draw(self, context):
         layout = self.layout
@@ -95,7 +128,7 @@ class ExportOperator(bpy.types.Operator):
         layout.prop(age, "texcache_method", text="")
         layout.prop(age, "lighting_method")
         row = layout.row()
-        row.enabled = ConsoleToggler.is_platform_supported()
+        row.enabled = korlib.ConsoleToggler.is_platform_supported()
         row.prop(age, "show_console")
         layout.prop(age, "verbose")
         layout.prop(age, "profile_export")
@@ -111,14 +144,6 @@ class ExportOperator(bpy.types.Operator):
         else:
             super().__setattr__(attr, value)
 
-    @property
-    def has_reports(self):
-        return hasattr(self.report)
-
-    @classmethod
-    def poll(cls, context):
-        return context.scene.render.engine == "PLASMA_GAME"
-
     def execute(self, context):
         # Before we begin, do some basic sanity checking...
         path = Path(self.filepath)
@@ -132,13 +157,18 @@ class ExportOperator(bpy.types.Operator):
                 except:
                     self.report({"ERROR"}, "Failed to create export directory")
                     return {"CANCELLED"}
+            path.touch()
 
         # We need to back out of edit mode--this ensures that all changes are committed
         if context.mode != "OBJECT":
             bpy.ops.object.mode_set(mode="OBJECT")
 
-        # Separate blender operator and actual export logic for my sanity
         ageName = path.stem
+        if korlib.is_python_keyword(ageName):
+            self.report({"ERROR"}, "The Age name conflicts with the Python keyword '{}'".format(ageName))
+            return {"CANCELLED"}
+
+        # Separate blender operator and actual export logic for my sanity
         with UiHelper(context) as _ui:
             e = exporter.Exporter(self)
             try:
@@ -151,6 +181,9 @@ class ExportOperator(bpy.types.Operator):
             except exporter.ExportError as error:
                 self.report({"ERROR"}, str(error))
                 return {"CANCELLED"}
+            except exporter.NonfatalExportError as error:
+                self.report({"ERROR"}, str(error))
+                return {"FINISHED"}
             else:
                 if self.profile_export:
                     stats_out = path.with_name("{}_profile.log".format(ageName))
@@ -166,12 +199,8 @@ class ExportOperator(bpy.types.Operator):
         # Called when a user hits "export" from the menu
         # We will prompt them for the export info, then call execute()
         if not self.filepath:
-            blend_filepath = context.blend_data.filepath
-            if not blend_filepath:
-                blend_filepath = context.scene.world.plasma_age.age_name
-            if not blend_filepath:
-                blend_filepath = "Korman"
-            self.filepath = str(Path(blend_filepath).with_suffix(".age"))
+            bfp = self._get_default_path(context)
+            self.filepath = str(Path(bfp).with_suffix(".age"))
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
 
@@ -189,11 +218,85 @@ class ExportOperator(bpy.types.Operator):
             setattr(PlasmaAge, name, prop(**age_options))
 
 
+class PlasmaPythonExportOperator(ExportOperator, bpy.types.Operator):
+    bl_idname = "export.plasma_pak"
+    bl_label = "Package Scripts"
+    bl_description = "Package Age Python scripts"
+
+    filepath = StringProperty(subtype="FILE_PATH")
+    filter_glob = StringProperty(default="*.pak", options={'HIDDEN'})
+
+    version = EnumProperty(name="Version",
+                           description="Plasma version to export this age for",
+                           items=game_versions,
+                           default="pvPots",
+                           options=set())
+
+    def draw(self, context):
+        layout = self.layout
+        age = context.scene.world.plasma_age
+
+        # The crazy mess we're doing with props on the fly means we have to explicitly draw them :(
+        row = layout.row()
+        row.alert = age.python_method == "none"
+        row.prop(age, "python_method")
+        layout.prop(self, "version")
+        row = layout.row()
+        row.enabled = korlib.ConsoleToggler.is_platform_supported()
+        row.prop(age, "show_console")
+        layout.prop(age, "verbose")       
+
+    def execute(self, context):
+        path = Path(self.filepath)
+        if not self.filepath:
+            self.report({"ERROR"}, "No file specified")
+            return {"CANCELLED"}
+        else:
+            if not path.exists:
+                try:
+                    path.mkdir(parents=True)
+                except OSError:
+                    self.report({"ERROR"}, "Failed to create export directory")
+                    return {"CANCELLED"}
+            path.touch()
+
+        # Age names cannot be python keywords
+        age_name = context.scene.world.plasma_age.age_name
+        if korlib.is_python_keyword(age_name):
+            self.report({"ERROR"}, "The Age name conflicts with the Python keyword '{}'".format(age_name))
+            return {"CANCELLED"}
+
+        # Bonus Fun: Implement Profile-mode here (later...)
+        e = exporter.PythonPackageExporter(filepath=self.filepath,
+                                           version=globals()[self.version])
+        try:
+            e.run()
+        except exporter.ExportError as error:
+            self.report({"ERROR"}, str(error))
+            return {"CANCELLED"}
+        except korlib.PythonNotAvailableError as error:
+            self.report({"ERROR"}, "Python Version {} not found".format(error))
+            return {"CANCELLED"}
+        except exporter.NonfatalExportError as error:
+            self.report({"WARNING"}, str(error))
+            return {"FINISHED"}
+        else:
+            return {"FINISHED"}
+
+    def invoke(self, context, event):
+        if not self.filepath:
+            bfp = self._get_default_path(context)
+            self.filepath = str(Path(bfp).with_suffix(".pak"))
+        context.window_manager.fileselect_add(self)
+        return {"RUNNING_MODAL"}
+
+
 # Add the export operator to the Export menu :)
 def menu_cb(self, context):
     if context.scene.render.engine == "PLASMA_GAME":
         self.layout.operator_context = "INVOKE_DEFAULT"
-        self.layout.operator(ExportOperator.bl_idname, text="Plasma Age (.age)")
+        self.layout.operator(PlasmaAgeExportOperator.bl_idname, text="Plasma Age (.age)")
+        self.layout.operator(PlasmaPythonExportOperator.bl_idname, text="Plasma Scripts (.pak)")
 
 
 def register():
