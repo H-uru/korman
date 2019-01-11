@@ -127,20 +127,16 @@ class PlasmaSittingBehavior(idprops.IDPropObjectMixin, PlasmaModifierProperties,
             raise ExportError("'{}': Sitting Behavior's clickable object is invalid".format(self.key_name))
 
         # Generate the logic nodes now
-        self.logicwiz(bo)
-
-        # Now, export the node tree
-        self.node_tree.export(exporter, bo, so)
+        with self.generate_logic(bo) as tree:
+            tree.export(exporter, bo, so)
 
     def harvest_actors(self):
         if self.facing_enabled:
             return (self.clickable_object.name,)
         return ()
 
-    def logicwiz(self, bo):
-        tree = self.node_tree
+    def logicwiz(self, bo, tree):
         nodes = tree.nodes
-        nodes.clear()
 
         # Sitting Modifier
         sittingmod = nodes.new("PlasmaSittingBehaviorNode")

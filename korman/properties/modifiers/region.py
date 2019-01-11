@@ -140,16 +140,11 @@ class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
                           default="hull")
 
     def export(self, exporter, bo, so):
-        # Generate the logic nodes now
-        self.logicwiz(bo)
+        with self.generate_logic(bo) as tree:
+            tree.export(exporter, bo, so)
 
-        # Now, export the node tree
-        self.node_tree.export(exporter, bo, so)
-
-    def logicwiz(self, bo):
-        tree = self.node_tree
+    def logicwiz(self, bo, tree):
         nodes = tree.nodes
-        nodes.clear()
 
         # Region Sensor
         volsens = nodes.new("PlasmaVolumeSensorNode")

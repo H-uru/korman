@@ -163,19 +163,15 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
             self.temp_rgn = self.clickable_region
 
         # Generate the logic nodes
-        self.logicwiz(bo, version)
-
-        # Export the node tree
-        self.node_tree.export(exporter, bo, so)
+        with self.generate_logic(bo, version=version) as tree:
+            tree.export(exporter, bo, so)
 
         # Get rid of our temporary clickable region
         if self.clickable_region is None:
             bpy.context.scene.objects.unlink(self.temp_rgn)
 
-    def logicwiz(self, bo, version):
-        tree = self.node_tree
+    def logicwiz(self, bo, tree, version):
         nodes = tree.nodes
-        nodes.clear()
 
         # Assign journal script based on target version
         journal_pfm = journal_pfms[version]

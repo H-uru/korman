@@ -16,6 +16,7 @@
 import abc
 import bpy
 from bpy.props import *
+from contextlib import contextmanager
 
 class PlasmaModifierProperties(bpy.types.PropertyGroup):
     def created(self):
@@ -70,16 +71,20 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
 
 
 class PlasmaModifierLogicWiz:
-    @property
-    def node_tree(self):
-        name = self.key_name
+    @contextmanager
+    def generate_logic(self, bo, **kwargs):
+        name = kwargs.pop("name", self.key_name)
+        assert not "tree" in kwargs
+        tree = bpy.data.node_groups.new(name, "PlasmaNodeTree")
+        kwargs["tree"] = tree
         try:
-            return bpy.data.node_groups[name]
-        except LookupError:
-            return bpy.data.node_groups.new(name, "PlasmaNodeTree")
+            self.logicwiz(bo, **kwargs)
+            yield tree
+        finally:
+            bpy.data.node_groups.remove(tree)
 
     @abc.abstractmethod
-    def logicwiz(self, bo):
+    def logicwiz(self, bo, tree):
         pass
 
 
