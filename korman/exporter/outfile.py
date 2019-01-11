@@ -78,6 +78,8 @@ class _OutputFile:
 
             if self.id_data.packed_file is not None:
                 self.file_data = self.id_data.packed_file.data
+            else:
+                self.file_data = None
 
         if self.file_type in (_FileType.sdl, _FileType.python_code):
             self.id_data = kwargs.get("id_data")
@@ -358,13 +360,13 @@ class OutputFiles:
         for i in self._generate_files(func):
             # Will only ever run for non-"dat" directories.
             dst_path = str(self._export_path / i.dirname / i.filename)
-            if i.file_path:
-                shutil.copy2(i.file_path, dst_path)
-            elif i.file_data:
+            if i.file_data:
                 mode = "w" if isinstance(i.file_data, str) else "wb"
                 with open(dst_path, mode) as handle:
                     handle.write(i.file_data)
                 os.utime(dst_path, times)
+            elif i.file_path:
+                shutil.copy2(i.file_path, dst_path)
             else:
                 report.warn("No data found for dependency file '{}'. It will not be copied into the export directory.",
                             str(i.dirname / i.filename), indent=1)
@@ -410,15 +412,15 @@ class OutputFiles:
         with zipfile.ZipFile(str(self._export_file), 'w', zipfile.ZIP_DEFLATED) as zf:
             for i in self._generate_files(func):
                 arcpath = i.filename if dat_only else "{}/{}".format(i.dirname, i.filename)
-                if i.file_path:
-                    zf.write(i.file_path, arcpath)
-                elif i.file_data:
+                if i.file_data:
                     if isinstance(i.file_data, str):
                         data = i.file_data.encode(_encoding)
                     else:
                         data = i.file_data
                     zi = zipfile.ZipInfo(arcpath, export_time)
                     zf.writestr(zi, data)
+                elif i.file_path:
+                    zf.write(i.file_path, arcpath)
                 else:
                     report.warn("No data found for dependency file '{}'. It will not be archived.", arcpath, indent=1)
 
