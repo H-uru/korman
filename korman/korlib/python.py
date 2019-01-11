@@ -132,7 +132,9 @@ def package_python(stream, pyc_objects):
     # ~~~~~
     # uint32_t filesz
     # uint8_t data[filesz]
-    assert bool(pyc_objects)
+    if not pyc_objects:
+        stream.writeInt(0)
+        return
 
     # `stream` might be a plEncryptedStream, which doesn't seek very well at all.
     # Therefore, we will go ahead and calculate the size of the index block so

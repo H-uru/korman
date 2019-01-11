@@ -277,6 +277,9 @@ class PlasmaPythonExportOperator(ExportOperator, bpy.types.Operator):
         except korlib.PythonNotAvailableError as error:
             self.report({"ERROR"}, "Python Version {} not found".format(error))
             return {"CANCELLED"}
+        except exporter.NonfatalExportError as error:
+            self.report({"WARNING"}, str(error))
+            return {"FINISHED"}
         else:
             return {"FINISHED"}
 

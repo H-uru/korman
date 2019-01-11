@@ -149,9 +149,12 @@ class PythonPackageExporter:
 
             # DONE
             report.progress_end()
+            report.raise_errors()
 
     def _package_python(self, report):
         py_code = self._compyle(report)
+        if not py_code:
+            report.error("No Python files were packaged.")
         self._write_python_pak(py_code, report)
 
     def _write_python_pak(self, py_code, report):
