@@ -105,33 +105,20 @@ class KormanAddonPreferences(bpy.types.AddonPreferences):
         main_col.label("Plasma Games:")
         row = main_col.row()
         row.template_list("PlasmaGameListRW", "games", self, "games", self,
-                          "active_game_index", rows=2)
+                          "active_game_index", rows=3)
         col = row.column(align=True)
         col.operator("world.plasma_game_add", icon="ZOOMIN", text="")
         col.operator("world.plasma_game_remove", icon="ZOOMOUT", text="")
         col.operator("world.plasma_game_convert", icon="IMPORT", text="")
-
-        # Python Installs
-        assert self.python_validated
-        main_col = split.column()
-        main_col.label("Python Executables:")
-        col = main_col.column()
-        col.alert = not self.python22_valid
-        col.prop(self, "python22_executable")
-        col = main_col.column()
-        col.alert = not self.python23_valid
-        col.prop(self, "python23_executable")
-        col = main_col.column()
-        col.alert = not self.python27_valid
-        col.prop(self, "python27_executable")
 
         # Game Properties
         active_game_index = self.active_game_index
         if bool(self.games) and active_game_index < len(self.games):
             active_game = self.games[active_game_index]
 
-            layout.label("Game Configuration:")
-            box = layout.box().column()
+            col = split.column()
+            col.label("Game Configuration:")
+            box = col.box().column()
 
             box.prop(active_game, "path", emboss=False)
             box.prop(active_game, "version")
@@ -141,6 +128,17 @@ class KormanAddonPreferences(bpy.types.AddonPreferences):
             op = row.operator("world.plasma_game_add", icon="FILE_FOLDER", text="Change Path")
             op.filepath = active_game.path
             op.game_index = active_game_index
+
+        # Python Installs
+        assert self.python_validated
+        col = layout.column()
+        col.label("Python Executables:")
+        col.alert = not self.python22_valid
+        col.prop(self, "python22_executable")
+        col.alert = not self.python23_valid
+        col.prop(self, "python23_executable")
+        col.alert = not self.python27_valid
+        col.prop(self, "python27_executable")
 
     @classmethod
     def register(cls):
