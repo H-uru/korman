@@ -384,3 +384,17 @@ class PlasmaNodeTree(bpy.types.NodeTree):
     @classmethod
     def poll(cls, context):
         return (context.scene.render.engine == "PLASMA_GAME")
+
+
+# Welcome to HAXland!
+# Blender 2.79 is great in that it allows us to have ID Datablock pointer properties everywhere.
+# However, there is an error in the way user refcounts are handled in node trees. When a node is freed,
+# it always decrements the user count. Good. But, the node tree decrements that same count again, resulting
+# in a use-after-free (or double-free?) crash in Blender. I modelled and submitted a fix (see: Blender D4196)
+# but a workaround is to just remove the nodes from all Plasma node trees before the data is unloaded. :)
+@bpy.app.handlers.persistent
+def _nuke_plasma_nodes(dummy):
+    for i in bpy.data.node_groups:
+        if isinstance(i, PlasmaNodeTree):
+            i.nodes.clear()
+bpy.app.handlers.load_pre.append(_nuke_plasma_nodes)
