@@ -36,22 +36,34 @@ def imagelibmod(modifier, layout, context):
 
 def journalbookmod(modifier, layout, context):
     layout.prop_menu_enum(modifier, "versions")
+    layout.separator()
 
-    if not {"pvPrime", "pvMoul"}.isdisjoint(modifier.versions):
-        layout.prop(modifier, "start_state")
+    split = layout.split()
+    main_col = split.column()
 
-    if not {"pvPots", "pvMoul"}.isdisjoint(modifier.versions):
-        layout.prop(modifier, "book_type")
-        row = layout.row(align=True)
-        row.label("Book Scaling:")
-        row.prop(modifier, "book_scale_w", text="Width", slider=True)
-        row.prop(modifier, "book_scale_h", text="Height", slider=True)
+    main_col.label("Display Settings:")
+    col = main_col.column()
+    col.active = "pvMoul" in modifier.versions
+    col.prop(modifier, "start_state", text="")
+    main_col.prop(modifier, "book_type", text="")
+    main_col.separator()
+    main_col.label("Book Scaling:")
+    col = main_col.column(align=True)
+    col.prop(modifier, "book_scale_w", text="Width", slider=True)
+    col.prop(modifier, "book_scale_h", text="Height", slider=True)
 
-    if "pvPrime" in modifier.versions:
-        layout.prop(modifier, "book_source_name", text="Name")
-    if "pvPots" in modifier.versions:
-        layout.prop(modifier, "book_source_filename", text="Filename")
-    if "pvMoul" in modifier.versions:
-        layout.prop(modifier, "book_source_locpath", text="LocPath")
+    main_col = split.column()
+    main_col.label("Content Translations:")
+    main_col.prop(modifier, "active_translation", text="")
+    # This should never fail...
+    try:
+        translation = modifier.journal_translations[modifier.active_translation_index]
+    except Exception as e:
+        main_col.label(text="Error (see console)", icon="ERROR")
+        print(e)
+    else:
+        main_col.prop(translation, "text_id", text="")
+    main_col.separator()
 
-    layout.prop(modifier, "clickable_region")
+    main_col.label("Clickable Region:")
+    main_col.prop(modifier, "clickable_region", text="")
