@@ -182,6 +182,13 @@ class ExportManager:
             self._nodes[location] = None
         return location
 
+    @property
+    def _encryption(self):
+        if self.mgr.getVer() == pvEoa:
+            return plEncryptedStream.kEncAes
+        else:
+            return plEncryptedStream.kEncXtea
+
     def find_create_key(self, pClass, bl=None, name=None, so=None):
         key = self.find_key(pClass, bl, name, so)
         if key is None:
@@ -271,14 +278,14 @@ class ExportManager:
         f = "{}.age".format(self._age_info.name)
         output = self._exporter().output
 
-        with output.generate_dat_file(f, enc=plEncryptedStream.kEncAuto) as stream:
+        with output.generate_dat_file(f, enc=self._encryption) as stream:
             self._age_info.writeToStream(stream)
 
     def _write_fni(self):
         f = "{}.fni".format(self._age_info.name)
         output = self._exporter().output
 
-        with output.generate_dat_file(f, enc=plEncryptedStream.kEncAuto) as stream:
+        with output.generate_dat_file(f, enc=self._encryption) as stream:
             fni = bpy.context.scene.world.plasma_fni
             stream.writeLine("Graphics.Renderer.SetClearColor {} {} {}".format(*fni.clear_color))
             if fni.fog_method != "none":
