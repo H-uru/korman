@@ -370,8 +370,11 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
             text_id = bpy.data.texts.get(self.filename, None)
             if text_id is None:
                 path = Path(self.filepath)
-                if path.exists():
-                    text_id = bpy.data.texts.load(self.filepath)
+                try:
+                    if path.exists():
+                        text_id = bpy.data.texts.load(self.filepath)
+                except OSError:
+                    pass
             with self.NoUpdate():
                 self.text_id = text_id
             self.property_unset("filepath")
