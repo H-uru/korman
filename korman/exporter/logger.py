@@ -19,7 +19,7 @@ from pathlib import Path
 import threading
 import time
 
-_HEADING_SIZE = 50
+_HEADING_SIZE = 60
 _MAX_ELIPSES = 3
 _MAX_TIME_UNTIL_ELIPSES = 2.0
 
@@ -247,8 +247,18 @@ class ExportProgressLogger(_ExportLogger):
                     stage = ""
                 print_func = self._progress_print_line if error else self._progress_print_volatile
 
-            line = "{}\t(step {}/{}): {}".format(self._progress_steps[self._step_id], self._step_id+1,
-                                                len(self._progress_steps), stage)
+            # ALLLLL ABOARD!!!!! HAHAHAHA
+            step_name = self._progress_steps[self._step_id]
+            whitespace = ' ' * (self._step_spacing - len(step_name))
+            num_steps = len(self._progress_steps)
+            step_id = self._step_id + 1
+            stage_max_whitespace = len(str(num_steps)) * 2
+            stage_space_used = len(str(step_id)) + len(str(num_steps))
+            stage_whitespace = ' ' * (stage_max_whitespace - stage_space_used + 1)
+            # f-strings would be nice here...
+            line = "{step_name}{step_whitespace}(step {step_id}/{num_steps}):{stage_whitespace}{stage}".format(
+                step_name=step_name, step_whitespace=whitespace, step_id=step_id, num_steps=num_steps,
+                stage_whitespace=stage_whitespace, stage=stage)
             print_func(line)
 
     def _progress_get_max(self):
@@ -261,6 +271,11 @@ class ExportProgressLogger(_ExportLogger):
 
     def progress_start(self, action):
         super().progress_start(action)
+
+        # Need to know the spacing for this junk
+        self._step_spacing = max((len(i) for i in self._progress_steps)) + 4
+
+        # Begin displaying the progress console
         self._progress_print_heading("Korman")
         self._progress_print_heading(action)
         self._progress_alive = True
