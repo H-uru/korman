@@ -19,13 +19,9 @@
 
 #include "korlib.h"
 
-extern "C" {
-
 PyObject* scale_image(PyObject*, PyObject*, PyObject*);
 
 extern PyTypeObject pyGLTexture_Type;
 PyObject* Init_pyGLTexture_Type();
-
-};
 
 #endif // _KORLIB_TEXTURE_H

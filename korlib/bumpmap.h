@@ -19,11 +19,6 @@
 
 #include "korlib.h"
 
-extern "C" {
-
 PyObject* create_bump_LUT(PyObject*, PyObject* args);
 
-};
-
 #endif // _KORLIB_BUMPMAP_H
-

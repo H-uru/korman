@@ -15,26 +15,13 @@
  */
 
 #include "sound.h"
+#include "PyHSPlasma_private.h"
 
 #include <PRP/Audio/plSoundBuffer.h>
 #include <Stream/hsStream.h>
 #include <vorbis/vorbisfile.h>
 
 static const int BITS_PER_SAMPLE = 16;
-
-extern "C" {
-
-typedef struct {
-    PyObject_HEAD
-    hsStream* fThis;
-    bool fPyOwned;
-} pyStream;
-
-typedef struct {
-    PyObject_HEAD
-    plWAVHeader* fThis;
-    bool fPyOwned;
-} pyWAVHeader;
 
 static size_t _read_stream(void* ptr, size_t size, size_t nmemb, void* datasource) {
     hsStream* s = static_cast<hsStream*>(datasource);
@@ -115,5 +102,3 @@ PyObject* inspect_vorbisfile(PyObject*, PyObject* args) {
     // Therefore, we only need to return the size.
     return PyLong_FromSsize_t(size);
 }
-
-};

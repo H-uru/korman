@@ -20,6 +20,7 @@ endif()
 set(korlib_HEADERS
     bumpmap.h
     korlib.h
+    PyHSPlasma_private.h
     sound.h
     texture.h
 )

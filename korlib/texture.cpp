@@ -15,6 +15,7 @@
  */
 
 #include "texture.h"
+#include "PyHSPlasma_private.h"
 
 #ifdef _WIN32
 #   define WIN32_LEAN_AND_MEAN
@@ -204,12 +205,6 @@ typedef struct {
     bool m_bgra;
     bool m_imageInverted;
 } pyGLTexture;
-
-typedef struct {
-    PyObject_HEAD
-    plMipmap* fThis;
-    bool fPyOwned;
-} pyMipmap;
 
 // ===============================================================================================
 

@@ -21,8 +21,6 @@
 // This konstant is compared against that in the Python module to prevent sneaky errors...
 #define KORLIB_API_VERSION 1
 
-extern "C" {
-
 static PyMethodDef korlib_Methods[] = {
     { _pycs("create_bump_LUT"), (PyCFunction)create_bump_LUT, METH_VARARGS, NULL },
     { _pycs("inspect_vorbisfile"), (PyCFunction)inspect_vorbisfile, METH_VARARGS, NULL },
@@ -42,6 +40,8 @@ static PyModuleDef korlib_Module = {
     NULL,                       /* m_clear */
     NULL,                       /* m_free */
 };
+
+extern "C" {
 
 PyMODINIT_FUNC PyInit__korlib() {
     PyObject* module = PyModule_Create(&korlib_Module);

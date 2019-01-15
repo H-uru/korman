@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <Python.h>
+#include <utility>
 
 #define _pycs(x) const_cast<char*>(x)
 #define arrsize(a) (sizeof(a) / sizeof((a)[0]))
@@ -31,14 +32,29 @@ class PyObjectRef {
 public:
     PyObjectRef() : m_object() { }
     PyObjectRef(PyObject* o) : m_object(o) { }
+    PyObjectRef(const PyObjectRef& copy) = delete;
+    PyObjectRef(PyObjectRef&& move) {
+        m_object = move.m_object;
+        move.m_object = NULL;
+    }
+
     ~PyObjectRef() { Py_XDECREF(m_object); }
 
     operator PyObject*() const { return m_object; }
+
     PyObjectRef& operator =(PyObject* rhs) {
         Py_XDECREF(m_object);
         m_object = rhs;
         return *this;
     }
+
+    PyObjectRef& operator =(PyObjectRef&& move) {
+        m_object = move.m_object;
+        move.m_object = NULL;
+        return *this;
+    }
+
+    PyObjectRef& operator =(const PyObjectRef& copy) = delete;
 };
 
 #endif // _KORLIB_H

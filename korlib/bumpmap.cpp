@@ -15,6 +15,8 @@
  */
 
 #include "bumpmap.h"
+#include "PyHSPlasma_private.h"
+
 #include <PRP/Surface/plMipmap.h>
 
 static uint32_t MakeUInt32Color(float r, float g, float b, float a) {
@@ -23,14 +25,6 @@ static uint32_t MakeUInt32Color(float r, float g, float b, float a) {
             (uint32_t(g * 255.9f) << 8) |
             (uint32_t(b * 255.9f) << 0);
 }
-
-typedef struct {
-    PyObject_HEAD
-    plMipmap* fThis;
-    bool fPyOwned;
-} pyMipmap;
-
-extern "C" {
 
 PyObject* create_bump_LUT(PyObject*, PyObject* args) {
     static const int kLUTHeight = 16;
@@ -110,5 +104,3 @@ PyObject* create_bump_LUT(PyObject*, PyObject* args) {
 
     Py_RETURN_NONE;
 }
-
-};

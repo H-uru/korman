@@ -14,11 +14,27 @@
  * along with Korman.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _KORLIB_SOUND_H
-#define _KORLIB_SOUND_H
+#ifndef _PYHSPLASMA_PRIVATE_H
+#define _PYHSPLASMA_PRIVATE_H
 
 #include "korlib.h"
 
-PyObject* inspect_vorbisfile(PyObject*, PyObject* args);
+typedef struct {
+    PyObject_HEAD
+    class plMipmap* fThis;
+    bool fPyOwned;
+} pyMipmap;
 
-#endif // _KORLIB_SOUND_H
+typedef struct {
+    PyObject_HEAD
+    class hsStream* fThis;
+    bool fPyOwned;
+} pyStream;
+
+typedef struct {
+    PyObject_HEAD
+    class plWAVHeader* fThis;
+    bool fPyOwned;
+} pyWAVHeader;
+
+#endif
