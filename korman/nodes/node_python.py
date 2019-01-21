@@ -174,6 +174,9 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
     bl_label = "Python File"
     bl_width_default = 290
 
+    def _poll_pytext(self, value):
+        return value.name.endswith(".py")
+
     def _update_pyfile(self, context):
         if self.no_update:
             return
@@ -185,7 +188,7 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
         if self.no_update:
             return
         with self.NoUpdate():
-            self.filename = self.text_id.name
+            self.filename = self.text_id.name if self.text_id is not None else ""
             self.attributes.clear()
             self.inputs.clear()
         if self.text_id is not None:
@@ -198,6 +201,7 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
     text_id = PointerProperty(name="Script File",
                               description="Script file datablock",
                               type=bpy.types.Text,
+                              poll=_poll_pytext,
                               update=_update_pytext)
 
     # This property exists for UI purposes ONLY
@@ -215,27 +219,31 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
         row = main_row.row(align=True)
         row.alert = self.text_id is None and bool(self.filename)
         row.prop(self, "text_id", text="Script")
+
         # open operator
-        operator = main_row.operator("file.plasma_file_picker", icon="FILESEL", text="")
+        sel_text = "Load Script" if self.text_id is None else ""
+        operator = main_row.operator("file.plasma_file_picker", icon="FILESEL", text=sel_text)
         operator.filter_glob = "*.py"
         operator.data_path = self.node_path
         operator.filename_property = "filename"
-        # package button
-        row = main_row.row(align=True)
+
         if self.text_id is not None:
-            row.enabled = True
-            icon = "PACKAGE" if self.text_id.plasma_text.package else "UGLYPACKAGE"
-            row.prop(self.text_id.plasma_text, "package", icon=icon, text="")
-        else:
-            row.enabled = False
-            row.prop(self, "package", text="", icon="UGLYPACKAGE")
-        # rescan operator
-        row = main_row.row(align=True)
-        row.enabled = self.text_id is not None
-        operator = row.operator("node.plasma_attributes_to_node", icon="FILE_REFRESH", text="")
-        if self.text_id is not None:
-            operator.text_path = self.text_id.name
-            operator.node_path = self.node_path
+            # package button
+            row = main_row.row(align=True)
+            if self.text_id is not None:
+                row.enabled = True
+                icon = "PACKAGE" if self.text_id.plasma_text.package else "UGLYPACKAGE"
+                row.prop(self.text_id.plasma_text, "package", icon=icon, text="")
+            else:
+                row.enabled = False
+                row.prop(self, "package", text="", icon="UGLYPACKAGE")
+            # rescan operator
+            row = main_row.row(align=True)
+            row.enabled = self.text_id is not None
+            operator = row.operator("node.plasma_attributes_to_node", icon="FILE_REFRESH", text="")
+            if self.text_id is not None:
+                operator.text_path = self.text_id.name
+                operator.node_path = self.node_path
 
         # This could happen on an upgrade
         if self.text_id is None and self.filename:
