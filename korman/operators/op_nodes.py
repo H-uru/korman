@@ -37,16 +37,16 @@ class SelectFileOperator(NodeOperator, bpy.types.Operator):
     filename_property = StringProperty(description="Name of property to store filename in", options={"HIDDEN"})
 
     def execute(self, context):
+        if bpy.data.texts.get(self.filename, None) is None:
+            bpy.data.texts.load(self.filepath)
+        else:
+            self.report({"WARNING"}, "A file named '{}' is already loaded. It will be used.".format(self.filename))
+
         dest = eval(self.data_path)
         if self.filepath_property:
             setattr(dest, self.filepath_property, self.filepath)
         if self.filename_property:
             setattr(dest, self.filename_property, self.filename)
-
-        if bpy.data.texts.get(self.filename, None) is None:
-            bpy.data.texts.load(self.filepath)
-        else:
-            self.report({"WARNING"}, "A file named '{}' is already loaded. It will be used.".format(self.filename))
         return {"FINISHED"}
 
     def invoke(self, context, event):
