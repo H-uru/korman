@@ -241,7 +241,7 @@ class MaterialConverter:
                     curr_stencils = len(stencils)
                     for i in range(curr_stencils):
                         stencil_idx, stencil = stencils[i]
-                        stencil_name = "STENCILGEN_{}@{}_{}".format(stencil.name, hsgmat.key.name, slot.name)
+                        stencil_name = "STENCILGEN_{}@{}_{}".format(stencil.name, bm.name, slot.name)
                         stencil_layer = self.export_texture_slot(bo, bm, hsgmat, stencil, stencil_idx, name=stencil_name)
                         if i+1 < curr_stencils:
                             stencil_layer.state.miscFlags |= hsGMatState.kMiscBindNext
@@ -250,7 +250,7 @@ class MaterialConverter:
         # Plasma makes several assumptions that every hsGMaterial has at least one layer. If this
         # material had no Textures, we will need to initialize a default layer
         if not hsgmat.layers:
-            layer = self._mgr.add_object(plLayer, name="{}_AutoLayer".format(mat_name), bl=bo)
+            layer = self._mgr.find_create_object(plLayer, name="{}_AutoLayer".format(bm.name), bl=bo)
             self._propagate_material_settings(bm, layer)
             hsgmat.addLayer(layer.key)
 
@@ -278,13 +278,13 @@ class MaterialConverter:
         return hsgmat.key
 
     def export_bumpmap_slot(self, bo, bm, hsgmat, slot, idx):
-        name = "{}_{}".format(hsgmat.key.name, slot.name)
+        name = "{}_{}".format(bm.name if bm is not None else bo.name, slot.name)
         self._report.msg("Exporting Plasma Bumpmap Layers for '{}'", name, indent=2)
 
         # Okay, now we need to make 3 layers for the Du, Dw, and Dv
-        du_layer = self._mgr.add_object(plLayer, name="{}_DU_BumpLut".format(name), bl=bo)
-        dw_layer = self._mgr.add_object(plLayer, name="{}_DW_BumpLut".format(name), bl=bo)
-        dv_layer = self._mgr.add_object(plLayer, name="{}_DV_BumpLut".format(name), bl=bo)
+        du_layer = self._mgr.find_create_object(plLayer, name="{}_DU_BumpLut".format(name), bl=bo)
+        dw_layer = self._mgr.find_create_object(plLayer, name="{}_DW_BumpLut".format(name), bl=bo)
+        dv_layer = self._mgr.find_create_object(plLayer, name="{}_DV_BumpLut".format(name), bl=bo)
 
         for layer in (du_layer, dw_layer, dv_layer):
             layer.ambient = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
@@ -327,9 +327,9 @@ class MaterialConverter:
 
     def export_texture_slot(self, bo, bm, hsgmat, slot, idx, name=None, blend_flags=True):
         if name is None:
-            name = "{}_{}".format(hsgmat.key.name, slot.name)
+            name = "{}_{}".format(bm.name if bm is not None else bo.name, slot.name)
         self._report.msg("Exporting Plasma Layer '{}'", name, indent=2)
-        layer = self._mgr.add_object(plLayer, name=name, bl=bo)
+        layer = self._mgr.find_create_object(plLayer, name=name, bl=bo)
         if bm is not None and not slot.use_map_normal:
             self._propagate_material_settings(bm, layer)
 
@@ -541,21 +541,12 @@ class MaterialConverter:
 
 
     def export_dynamic_env(self, bo, layer, texture, pl_class):
-        # To protect the user from themselves, let's check to make sure that a DEM/DCM matching this
-        # viewpoint object has not already been exported...
         bl_env = texture.environment_map
         viewpt = bl_env.viewpoint_object
         if viewpt is None:
             viewpt = bo
-        name = "{}_DynEnvMap".format(viewpt.name)
+        name = "{}_DynEnvMap".format(texture.name)
         pl_env = self._mgr.find_object(pl_class, bl=bo, name=name)
-        if pl_env is not None:
-            self._report.msg("EnvMap for viewpoint {} already exported... NOTE: Your settings here will be overridden by the previous object!",
-                             viewpt.name, indent=3)
-            if isinstance(pl_env, plDynamicCamMap):
-                pl_env.addTargetNode(self._mgr.find_key(plSceneObject, bl=bo))
-                pl_env.addMatLayer(layer.key)
-            return pl_env
 
         # Ensure POT
         oRes = bl_env.resolution
@@ -564,7 +555,7 @@ class MaterialConverter:
             self._report.msg("Overriding EnvMap size to ({}x{}) -- POT", eRes, eRes, indent=3)
 
         # And now for the general ho'hum-ness
-        pl_env = self._mgr.add_object(pl_class, bl=bo, name=name)
+        pl_env = self._mgr.find_create_object(pl_class, bl=bo, name=name)
         pl_env.hither = bl_env.clip_start
         pl_env.yon = bl_env.clip_end
         pl_env.refreshRate = 0.01 if bl_env.source == "ANIMATED" else 0.0
@@ -604,7 +595,7 @@ class MaterialConverter:
             # This is really just so we don't raise any eyebrows if anyone is looking at the files.
             # If you're disabling DCMs, then you're obviuously trolling!
             # Cyan generates a single color image, but we'll just set the layer colors and go away.
-            fake_layer = self._mgr.add_object(plLayer, bl=bo, name="{}_DisabledDynEnvMap".format(viewpt.name))
+            fake_layer = self._mgr.find_create_object(plLayer, bl=bo, name="{}_DisabledDynEnvMap".format(texture.name))
             fake_layer.ambient = layer.ambient
             fake_layer.preshade = layer.preshade
             fake_layer.runtime = layer.runtime
@@ -985,10 +976,7 @@ class MaterialConverter:
         if not tex_name in bm.texture_slots:
             raise ExportError("Texture '{}' not used in Material '{}'".format(bm.name, tex_name))
 
-        if self._requires_single_user_material(bo, bm):
-            name = "{}_{}_{}_LayerAnim".format(bo.name, bm.name, tex_name)
-        else:
-            name = "{}_{}_LayerAnim".format(bm.name, tex_name)
+        name = "{}_{}_LayerAnim".format(bm.name, tex_name)
         layer = texture.plasma_layer
         pClass = plLayerSDLAnimation if layer.anim_sdl_var else plLayerAnimation
         return self._mgr.find_create_key(pClass, bl=bo, name=name)
