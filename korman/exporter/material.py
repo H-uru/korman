@@ -255,10 +255,8 @@ class MaterialConverter:
             hsgmat.addLayer(layer.key)
 
         # Cache this material for later
-        if bo in self._obj2mat:
-            self._obj2mat[bo].append(hsgmat.key)
-        else:
-            self._obj2mat[bo] = [hsgmat.key]
+        mat_list = self._obj2mat.setdefault(bo, [])
+        mat_list.append(hsgmat.key)
 
         # Looks like we're done...
         return hsgmat.key
