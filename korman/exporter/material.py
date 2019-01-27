@@ -184,7 +184,7 @@ class MaterialConverter:
         # that's a special case as of the writing of this code.
         single_user = self._requires_single_user_material(bo, bm)
         if single_user:
-            mat_name = "{}_{}".format(bo.name, bm.name)
+            mat_name = "{}_AutoSingle".format(bm.name) if bo.name == bm.name else "{}_{}".format(bo.name, bm.name)
             self._report.msg("Exporting Material '{}' as single user '{}'", bm.name, mat_name, indent=1)
             hgmat = None
         else:
