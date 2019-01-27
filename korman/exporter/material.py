@@ -178,9 +178,23 @@ class MaterialConverter:
 
     def export_material(self, bo, bm):
         """Exports a Blender Material as an hsGMaterial"""
-        self._report.msg("Exporting Material '{}'", bm.name, indent=1)
 
-        hsgmat = self._mgr.add_object(hsGMaterial, name=bm.name, bl=bo)
+        # Sometimes, a material might need to be single-use. Right now, the most apparent example
+        # of that situation is when a lightmap image is baked. Wavesets are in the same boat, but
+        # that's a special case as of the writing of this code.
+        single_user = self._requires_single_user_material(bo, bm)
+        if single_user:
+            mat_name = "{}_{}".format(bo.name, bm.name)
+            self._report.msg("Exporting Material '{}' as single user '{}'", bm.name, mat_name, indent=1)
+            hgmat = None
+        else:
+            mat_name = bm.name
+            self._report.msg("Exporting Material '{}'", mat_name, indent=1)
+            hsgmat = self._mgr.find_key(hsGMaterial, name=mat_name, bl=bo)
+            if hsgmat is not None:
+                return hsgmat
+
+        hsgmat = self._mgr.add_object(hsGMaterial, name=mat_name, bl=bo)
         slots = [(idx, slot) for idx, slot in enumerate(bm.texture_slots) if self._can_export_texslot(slot)]
 
         # There is a major difference in how Blender and Plasma handle stencils.
@@ -227,7 +241,7 @@ class MaterialConverter:
                     curr_stencils = len(stencils)
                     for i in range(curr_stencils):
                         stencil_idx, stencil = stencils[i]
-                        stencil_name = "STENCILGEN_{}@{}_{}".format(stencil.name, bm.name, slot.name)
+                        stencil_name = "STENCILGEN_{}@{}_{}".format(stencil.name, hsgmat.key.name, slot.name)
                         stencil_layer = self.export_texture_slot(bo, bm, hsgmat, stencil, stencil_idx, name=stencil_name)
                         if i+1 < curr_stencils:
                             stencil_layer.state.miscFlags |= hsGMatState.kMiscBindNext
@@ -236,7 +250,7 @@ class MaterialConverter:
         # Plasma makes several assumptions that every hsGMaterial has at least one layer. If this
         # material had no Textures, we will need to initialize a default layer
         if not hsgmat.layers:
-            layer = self._mgr.add_object(plLayer, name="{}_AutoLayer".format(bm.name), bl=bo)
+            layer = self._mgr.add_object(plLayer, name="{}_AutoLayer".format(mat_name), bl=bo)
             self._propagate_material_settings(bm, layer)
             hsgmat.addLayer(layer.key)
 
@@ -266,7 +280,7 @@ class MaterialConverter:
         return hsgmat.key
 
     def export_bumpmap_slot(self, bo, bm, hsgmat, slot, idx):
-        name = "{}_{}".format(bm.name if bm is not None else bo.name, slot.name)
+        name = "{}_{}".format(hsgmat.key.name, slot.name)
         self._report.msg("Exporting Plasma Bumpmap Layers for '{}'", name, indent=2)
 
         # Okay, now we need to make 3 layers for the Du, Dw, and Dv
@@ -315,7 +329,7 @@ class MaterialConverter:
 
     def export_texture_slot(self, bo, bm, hsgmat, slot, idx, name=None, blend_flags=True):
         if name is None:
-            name = "{}_{}".format(bm.name if bm is not None else bo.name, slot.name)
+            name = "{}_{}".format(hsgmat.key.name, slot.name)
         self._report.msg("Exporting Plasma Layer '{}'", name, indent=2)
         layer = self._mgr.add_object(plLayer, name=name, bl=bo)
         if bm is not None and not slot.use_map_normal:
@@ -973,7 +987,10 @@ class MaterialConverter:
         if not tex_name in bm.texture_slots:
             raise ExportError("Texture '{}' not used in Material '{}'".format(bm.name, tex_name))
 
-        name = "{}_{}_LayerAnim".format(bm.name, tex_name)
+        if self._requires_single_user_material(bo, bm):
+            name = "{}_{}_{}_LayerAnim".format(bo.name, bm.name, tex_name)
+        else:
+            name = "{}_{}_LayerAnim".format(bm.name, tex_name)
         layer = texture.plasma_layer
         pClass = plLayerSDLAnimation if layer.anim_sdl_var else plLayerAnimation
         return self._mgr.find_create_key(pClass, bl=bo, name=name)
@@ -1015,6 +1032,14 @@ class MaterialConverter:
     @property
     def _report(self):
         return self._exporter().report
+
+    def _requires_single_user_material(self, bo, bm):
+        modifiers = bo.plasma_modifiers
+        if modifiers.lightmap.bake_lightmap:
+            return True
+        if modifiers.water_basic.enabled:
+            return True
+        return False
 
     def _test_image_alpha(self, image):
         """Tests to see if this image has any alpha data"""
