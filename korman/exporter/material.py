@@ -178,9 +178,23 @@ class MaterialConverter:
 
     def export_material(self, bo, bm):
         """Exports a Blender Material as an hsGMaterial"""
-        self._report.msg("Exporting Material '{}'", bm.name, indent=1)
 
-        hsgmat = self._mgr.add_object(hsGMaterial, name=bm.name, bl=bo)
+        # Sometimes, a material might need to be single-use. Right now, the most apparent example
+        # of that situation is when a lightmap image is baked. Wavesets are in the same boat, but
+        # that's a special case as of the writing of this code.
+        single_user = self._requires_single_user_material(bo, bm)
+        if single_user:
+            mat_name = "{}_AutoSingle".format(bm.name) if bo.name == bm.name else "{}_{}".format(bo.name, bm.name)
+            self._report.msg("Exporting Material '{}' as single user '{}'", bm.name, mat_name, indent=1)
+            hgmat = None
+        else:
+            mat_name = bm.name
+            self._report.msg("Exporting Material '{}'", mat_name, indent=1)
+            hsgmat = self._mgr.find_key(hsGMaterial, name=mat_name, bl=bo)
+            if hsgmat is not None:
+                return hsgmat
+
+        hsgmat = self._mgr.add_object(hsGMaterial, name=mat_name, bl=bo)
         slots = [(idx, slot) for idx, slot in enumerate(bm.texture_slots) if self._can_export_texslot(slot)]
 
         # There is a major difference in how Blender and Plasma handle stencils.
@@ -236,15 +250,13 @@ class MaterialConverter:
         # Plasma makes several assumptions that every hsGMaterial has at least one layer. If this
         # material had no Textures, we will need to initialize a default layer
         if not hsgmat.layers:
-            layer = self._mgr.add_object(plLayer, name="{}_AutoLayer".format(bm.name), bl=bo)
+            layer = self._mgr.find_create_object(plLayer, name="{}_AutoLayer".format(bm.name), bl=bo)
             self._propagate_material_settings(bm, layer)
             hsgmat.addLayer(layer.key)
 
         # Cache this material for later
-        if bo in self._obj2mat:
-            self._obj2mat[bo].append(hsgmat.key)
-        else:
-            self._obj2mat[bo] = [hsgmat.key]
+        mat_list = self._obj2mat.setdefault(bo, [])
+        mat_list.append(hsgmat.key)
 
         # Looks like we're done...
         return hsgmat.key
@@ -270,9 +282,9 @@ class MaterialConverter:
         self._report.msg("Exporting Plasma Bumpmap Layers for '{}'", name, indent=2)
 
         # Okay, now we need to make 3 layers for the Du, Dw, and Dv
-        du_layer = self._mgr.add_object(plLayer, name="{}_DU_BumpLut".format(name), bl=bo)
-        dw_layer = self._mgr.add_object(plLayer, name="{}_DW_BumpLut".format(name), bl=bo)
-        dv_layer = self._mgr.add_object(plLayer, name="{}_DV_BumpLut".format(name), bl=bo)
+        du_layer = self._mgr.find_create_object(plLayer, name="{}_DU_BumpLut".format(name), bl=bo)
+        dw_layer = self._mgr.find_create_object(plLayer, name="{}_DW_BumpLut".format(name), bl=bo)
+        dv_layer = self._mgr.find_create_object(plLayer, name="{}_DV_BumpLut".format(name), bl=bo)
 
         for layer in (du_layer, dw_layer, dv_layer):
             layer.ambient = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
@@ -317,7 +329,7 @@ class MaterialConverter:
         if name is None:
             name = "{}_{}".format(bm.name if bm is not None else bo.name, slot.name)
         self._report.msg("Exporting Plasma Layer '{}'", name, indent=2)
-        layer = self._mgr.add_object(plLayer, name=name, bl=bo)
+        layer = self._mgr.find_create_object(plLayer, name=name, bl=bo)
         if bm is not None and not slot.use_map_normal:
             self._propagate_material_settings(bm, layer)
 
@@ -529,21 +541,12 @@ class MaterialConverter:
 
 
     def export_dynamic_env(self, bo, layer, texture, pl_class):
-        # To protect the user from themselves, let's check to make sure that a DEM/DCM matching this
-        # viewpoint object has not already been exported...
         bl_env = texture.environment_map
         viewpt = bl_env.viewpoint_object
         if viewpt is None:
             viewpt = bo
-        name = "{}_DynEnvMap".format(viewpt.name)
+        name = "{}_DynEnvMap".format(texture.name)
         pl_env = self._mgr.find_object(pl_class, bl=bo, name=name)
-        if pl_env is not None:
-            self._report.msg("EnvMap for viewpoint {} already exported... NOTE: Your settings here will be overridden by the previous object!",
-                             viewpt.name, indent=3)
-            if isinstance(pl_env, plDynamicCamMap):
-                pl_env.addTargetNode(self._mgr.find_key(plSceneObject, bl=bo))
-                pl_env.addMatLayer(layer.key)
-            return pl_env
 
         # Ensure POT
         oRes = bl_env.resolution
@@ -552,7 +555,7 @@ class MaterialConverter:
             self._report.msg("Overriding EnvMap size to ({}x{}) -- POT", eRes, eRes, indent=3)
 
         # And now for the general ho'hum-ness
-        pl_env = self._mgr.add_object(pl_class, bl=bo, name=name)
+        pl_env = self._mgr.find_create_object(pl_class, bl=bo, name=name)
         pl_env.hither = bl_env.clip_start
         pl_env.yon = bl_env.clip_end
         pl_env.refreshRate = 0.01 if bl_env.source == "ANIMATED" else 0.0
@@ -592,7 +595,7 @@ class MaterialConverter:
             # This is really just so we don't raise any eyebrows if anyone is looking at the files.
             # If you're disabling DCMs, then you're obviuously trolling!
             # Cyan generates a single color image, but we'll just set the layer colors and go away.
-            fake_layer = self._mgr.add_object(plLayer, bl=bo, name="{}_DisabledDynEnvMap".format(viewpt.name))
+            fake_layer = self._mgr.find_create_object(plLayer, bl=bo, name="{}_DisabledDynEnvMap".format(texture.name))
             fake_layer.ambient = layer.ambient
             fake_layer.preshade = layer.preshade
             fake_layer.runtime = layer.runtime
@@ -1015,6 +1018,14 @@ class MaterialConverter:
     @property
     def _report(self):
         return self._exporter().report
+
+    def _requires_single_user_material(self, bo, bm):
+        modifiers = bo.plasma_modifiers
+        if modifiers.lightmap.bake_lightmap:
+            return True
+        if modifiers.water_basic.enabled:
+            return True
+        return False
 
     def _test_image_alpha(self, image):
         """Tests to see if this image has any alpha data"""
