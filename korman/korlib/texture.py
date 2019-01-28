@@ -171,7 +171,7 @@ class GLTexture:
 
         # Scale, if needed...
         if oWidth != eWidth or oHeight != eHeight:
-            buf = _scale_image(self._image_data, oWidth, oHeight, eWidth, eHeight)
+            buf = scale_image(self._image_data, oWidth, oHeight, eWidth, eHeight)
         else:
             buf = self._image_data
 
