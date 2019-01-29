@@ -29,7 +29,59 @@ class AgeButtonsPanel:
         return context.world and context.scene.render.engine == "PLASMA_GAME"
 
 
-class PlasmaGamePanel(AgeButtonsPanel, bpy.types.Panel):
+class PlasmaGameHelper:
+    @property
+    def active_game(self):
+        games = bpy.context.world.plasma_games
+        prefs = bpy.context.user_preferences.addons["korman"].preferences
+        active_game_index = games.active_game_index
+        if active_game_index < len(prefs.games):
+            return prefs.games[active_game_index]
+        else:
+            return None
+
+    def format_path(self, dirname="dat", ext=".age"):
+        active_game = self.active_game
+        if active_game is None:
+            return ""
+        age_name = bpy.context.world.plasma_age.age_name
+        return str((Path(active_game.path) / dirname / age_name).with_suffix(ext))
+
+    @property
+    def legal_game(self):
+        if self.active_game is not None:
+            return bool(bpy.context.world.plasma_age.age_name.strip())
+
+
+class PlasmaGameExportMenu(PlasmaGameHelper, bpy.types.Menu):
+    bl_label = "Plasma Export Menu"
+
+    def draw(self, context):
+        layout = self.layout
+        age_name = context.world.plasma_age.age_name
+        active_game = self.active_game
+        legal_game = self.legal_game
+
+        # Localization
+        row = layout.row()
+        row.operator_context = "EXEC_DEFAULT"
+        row.enabled = legal_game
+        op = row.operator("export.plasma_loc", icon="FILE_SCRIPT")
+        if active_game is not None:
+            op.filepath = active_game.path
+            op.version = active_game.version
+
+        # Python
+        row = layout.row()
+        row.operator_context = "EXEC_DEFAULT"
+        row.enabled = legal_game and active_game.version != "pvMoul"
+        op = row.operator("export.plasma_pak", icon="FILE_SCRIPT")
+        op.filepath = self.format_path("Python", ".pak")
+        if active_game is not None:
+            op.version = active_game.version
+
+
+class PlasmaGamePanel(AgeButtonsPanel, PlasmaGameHelper, bpy.types.Panel):
     bl_label = "Plasma Games"
 
     def draw(self, context):
@@ -37,6 +89,8 @@ class PlasmaGamePanel(AgeButtonsPanel, bpy.types.Panel):
         prefs = context.user_preferences.addons["korman"].preferences
         games = context.world.plasma_games
         age = context.world.plasma_age
+        active_game = self.active_game
+        legal_game = self.legal_game
 
         row = layout.row()
         # Remember: game storage moved to addon preferences!
@@ -44,16 +98,8 @@ class PlasmaGamePanel(AgeButtonsPanel, bpy.types.Panel):
                           "active_game_index", rows=2)
         row.operator("ui.korman_open_prefs", icon="PREFERENCES", text="")
 
-        # Game Tools
-        active_game_index = games.active_game_index
-        if active_game_index < len(prefs.games):
-            active_game = prefs.games[active_game_index]
-        else:
-            active_game = None
-
         layout.separator()
         row = layout.row(align=True)
-        legal_game = bool(age.age_name.strip()) and active_game is not None
 
         # Export Age
         row.operator_context = "EXEC_DEFAULT"
@@ -61,33 +107,22 @@ class PlasmaGamePanel(AgeButtonsPanel, bpy.types.Panel):
         op = row.operator("export.plasma_age", icon="EXPORT")
         if active_game is not None:
             op.dat_only = False
-            op.filepath = str((Path(active_game.path) / "dat" / age.age_name).with_suffix(".age"))
+            op.filepath = self.format_path()
             op.version = active_game.version
+
         # Package Age
         row = row.row(align=True)
         row.enabled = legal_game
         row.operator_context = "INVOKE_DEFAULT"
         op = row.operator("export.plasma_age", icon="PACKAGE", text="Package Age")
+        op.dat_only = False
+        op.filepath = "{}.zip".format(age.age_name)
         if active_game is not None:
-            op.dat_only = False
-            op.filepath = "{}.zip".format(age.age_name)
             op.version = active_game.version
-        # Export Localization
+
+        # Special Menu
         row = row.row(align=True)
-        row.operator_context = "EXEC_DEFAULT"
-        row.enabled = legal_game
-        op = row.operator("export.plasma_loc", icon="FILE_SCRIPT")
-        if active_game is not None:
-            op.filepath = active_game.path
-            op.version = active_game.version
-        # Package Scripts
-        row = row.row(align=True)
-        row.operator_context = "EXEC_DEFAULT"
-        row.enabled = legal_game and active_game.version != "pvMoul"
-        op = row.operator("export.plasma_pak", icon="FILE_SCRIPT")
-        if active_game is not None:
-            op.filepath = str((Path(active_game.path) / "Python" / age.age_name).with_suffix(".pak"))
-            op.version = active_game.version
+        row.menu("PlasmaGameExportMenu", icon='DOWNARROW_HLT', text="")
 
 
 class PlasmaGameListRO(bpy.types.UIList):
