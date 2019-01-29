@@ -55,6 +55,7 @@ class PlasmaGamePanel(AgeButtonsPanel, bpy.types.Panel):
         row = layout.row(align=True)
         legal_game = bool(age.age_name.strip()) and active_game is not None
 
+        # Export Age
         row.operator_context = "EXEC_DEFAULT"
         row.enabled = legal_game
         op = row.operator("export.plasma_age", icon="EXPORT")
@@ -62,6 +63,7 @@ class PlasmaGamePanel(AgeButtonsPanel, bpy.types.Panel):
             op.dat_only = False
             op.filepath = str((Path(active_game.path) / "dat" / age.age_name).with_suffix(".age"))
             op.version = active_game.version
+        # Package Age
         row = row.row(align=True)
         row.enabled = legal_game
         row.operator_context = "INVOKE_DEFAULT"
@@ -70,6 +72,15 @@ class PlasmaGamePanel(AgeButtonsPanel, bpy.types.Panel):
             op.dat_only = False
             op.filepath = "{}.zip".format(age.age_name)
             op.version = active_game.version
+        # Export Localization
+        row = row.row(align=True)
+        row.operator_context = "EXEC_DEFAULT"
+        row.enabled = legal_game
+        op = row.operator("export.plasma_loc", icon="FILE_SCRIPT")
+        if active_game is not None:
+            op.filepath = active_game.path
+            op.version = active_game.version
+        # Package Scripts
         row = row.row(align=True)
         row.operator_context = "EXEC_DEFAULT"
         row.enabled = legal_game and active_game.version != "pvMoul"

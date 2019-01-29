@@ -13,6 +13,12 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+import bpy
+from contextlib import contextmanager
+from .explosions import NonfatalExportError
+from .. import korlib
+from . import logger
+from pathlib import Path
 from PyHSPlasma import *
 import weakref
 from xml.sax.saxutils import escape as xml_escape
@@ -20,8 +26,17 @@ from xml.sax.saxutils import escape as xml_escape
 _SP_LANGUAGES = {"English", "French", "German", "Italian", "Spanish"}
 
 class LocalizationConverter:
-    def __init__(self, exporter):
-        self._exporter = weakref.ref(exporter)
+    def __init__(self, exporter=None, **kwargs):
+        if exporter is not None:
+            self._exporter = weakref.ref(exporter)
+            self._age_name = exporter.age_name
+            self._report = exporter.report
+            self._version = exporter.mgr.getVer()
+        else:
+            self._exporter = None
+            self._age_name = kwargs.get("age_name")
+            self._path = kwargs.get("path")
+            self._version = kwargs.get("version")
         self._journals = {}
         self._strings = {}
 
@@ -37,13 +52,28 @@ class LocalizationConverter:
         trans_element = trans_set.setdefault(element_name, {})
         trans_element[language] = value
 
+    @contextmanager
+    def _generate_file(self, filename, **kwargs):
+        if self._exporter is not None:
+            with self._exporter().output.generate_dat_file(filename, **kwargs) as handle:
+                yield handle
+        else:
+            dirname = kwargs.get("dirname", "dat")
+            filepath = str(Path(self._path) / dirname / filename)
+            handle = open(filepath, "wb")
+            try:
+                yield handle
+            except:
+                raise
+            finally:
+                handle.close()
+
     def _generate_journal_texts(self):
-        age_name = self._exporter().age_name
-        output = self._exporter().output
+        age_name = self._age_name
 
         def write_journal_file(language, file_name, contents):
             try:
-                with output.generate_dat_file(dirname="ageresources", filename=file_name) as stream:
+                with self._generate_file(dirname="ageresources", filename=file_name) as stream:
                     stream.write(contents.encode("windows-1252"))
             except UnicodeEncodeError:
                 self._report.error("Translation '{}': Contents contains characters that cannot be used in this version of Plasma",
@@ -89,10 +119,10 @@ class LocalizationConverter:
             line = "".join((whitespace, value, "\n"))
             stream.write(line.encode("utf-16_le"))
 
-        age_name = self._exporter().age_name
+        age_name = self._age_name
         enc = plEncryptedStream.kEncAes if self._version == pvEoa else None
         file_name = "{}.loc".format(age_name)
-        with self._exporter().output.generate_dat_file(file_name, enc=enc) as stream:
+        with self._generate_file(file_name, enc=enc) as stream:
             # UTF-16 little endian byte order mark
             stream.write(b"\xFF\xFE")
 
@@ -127,16 +157,45 @@ class LocalizationConverter:
             write_line("</age>", indent=1)
             write_line("</localizations>")
 
+    def run(self):
+        age_props = bpy.context.scene.world.plasma_age
+        loc_path = str(Path(self._path) / "dat" / "{}.loc".format(self._age_name))
+        log = logger.ExportVerboseLogger if age_props.verbose else logger.ExportProgressLogger
+        with korlib.ConsoleToggler(age_props.show_console), log(loc_path) as self._report:
+            self._report.progress_add_step("Harvesting Journals")
+            self._report.progress_add_step("Generating Localization")
+            self._report.progress_start("Exporting Localization Data")
+
+            self._run_harvest_journals()
+            self._run_generate()
+
+            # DONE
+            self._report.progress_end()
+            self._report.raise_errors()
+
+    def _run_harvest_journals(self):
+        objects = bpy.context.scene.objects
+        self._report.progress_advance()
+        self._report.progress_range = len(objects)
+        inc_progress = self._report.progress_increment
+
+        for i in objects:
+            journal = i.plasma_modifiers.journalbookmod
+            if journal.enabled:
+                translations = [j for j in journal.journal_translations if j.text_id is not None]
+                if not translations:
+                    self._report.error("Journal '{}': No content translations available. The journal will not be exported.",
+                                       i.name, indent=2)
+                for j in translations:
+                    self.add_journal(journal.key_name, j.language, j.text_id, indent=1)
+            inc_progress()
+
+    def _run_generate(self):
+        self._report.progress_advance()
+        self.save()
+
     def save(self):
         if self._version > pvPots:
             self._generate_loc_file()
         else:
             self._generate_journal_texts()
-
-    @property
-    def _report(self):
-        return self._exporter().report
-
-    @property
-    def _version(self):
-        return self._exporter().mgr.getVer()
