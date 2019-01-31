@@ -218,6 +218,54 @@ class PlasmaAgeExportOperator(ExportOperator, bpy.types.Operator):
             setattr(PlasmaAge, name, prop(**age_options))
 
 
+class PlasmaLocalizationExportOperator(ExportOperator, bpy.types.Operator):
+    bl_idname = "export.plasma_loc"
+    bl_label = "Export Localization"
+    bl_description = "Export Age Localization Data"
+
+    filepath = StringProperty(subtype="DIR_PATH")
+    filter_glob = StringProperty(default="*.pak", options={'HIDDEN'})
+
+    version = EnumProperty(name="Version",
+                           description="Plasma version to export this age for",
+                           items=game_versions,
+                           default="pvPots",
+                           options=set())
+
+    def execute(self, context):
+        path = Path(self.filepath)
+        if not self.filepath:
+            self.report({"ERROR"}, "No file specified")
+            return {"CANCELLED"}
+        else:
+            if not path.exists:
+                try:
+                    path.mkdir(parents=True)
+                except OSError:
+                    self.report({"ERROR"}, "Failed to create export directory")
+                    return {"CANCELLED"}
+
+        # Age names cannot be python keywords
+        age_name = context.scene.world.plasma_age.age_name
+        if korlib.is_python_keyword(age_name):
+            self.report({"ERROR"}, "The Age name conflicts with the Python keyword '{}'".format(age_name))
+            return {"CANCELLED"}
+
+        # Bonus Fun: Implement Profile-mode here (later...)
+        e = exporter.LocalizationConverter(age_name=age_name, path=self.filepath,
+                                           version=globals()[self.version])
+        try:
+            e.run()
+        except exporter.ExportError as error:
+            self.report({"ERROR"}, str(error))
+            return {"CANCELLED"}
+        except exporter.NonfatalExportError as error:
+            self.report({"WARNING"}, str(error))
+            return {"FINISHED"}
+        else:
+            return {"FINISHED"}
+
+
 class PlasmaPythonExportOperator(ExportOperator, bpy.types.Operator):
     bl_idname = "export.plasma_pak"
     bl_label = "Package Scripts"

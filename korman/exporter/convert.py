@@ -24,6 +24,7 @@ from . import camera
 from . import explosions
 from . import etlight
 from . import image
+from . import locman
 from . import logger
 from . import manager
 from . import mesh
@@ -52,6 +53,7 @@ class Exporter:
             self.output = outfile.OutputFiles(self, self._op.filepath)
             self.camera = camera.CameraConverter(self)
             self.image = image.ImageCache(self)
+            self.locman = locman.LocalizationConverter(self)
 
             # Step 0.8: Init the progress mgr
             self.mesh.add_progress_presteps(self.report)
@@ -368,6 +370,7 @@ class Exporter:
         # If something bad happens in the final flush, it would be a shame to
         # simply toss away the potentially freshly regenerated texture cache.
         try:
+            self.locman.save()
             self.mgr.save_age()
             self.output.save()
         finally:

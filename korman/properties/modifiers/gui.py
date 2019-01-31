@@ -21,19 +21,11 @@ from bpy.props import *
 from PyHSPlasma import *
 
 from ...addon_prefs import game_versions
-from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz
+from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz, PlasmaModifierUpgradable
 from ... import idprops
 
 
 journal_pfms = {
-    pvPrime : {
-        "filename": "xJournalBookGUIPopup.py",
-        "attribs": (
-            { 'id':  1, 'type': "ptAttribActivator", "name": "actClickableBook" },
-            { 'id':  3, 'type': "ptAttribString",    "name": "JournalName" },
-            { 'id': 10, 'type': "ptAttribBoolean",   'name': "StartOpen" },
-        )
-    },
     pvPots : {
         # Supplied by the OfflineKI script:
         # https://gitlab.com/diafero/offline-ki/blob/master/offlineki/xSimpleJournal.py
@@ -58,6 +50,26 @@ journal_pfms = {
         )
     },
 }
+
+# Do not change the numeric IDs. They allow the list to be rearranged.
+_languages = [("Dutch", "Nederlands", "Dutch", 0),
+              ("English", "English", "", 1),
+              ("Finnish", "Suomi", "Finnish", 2),
+              ("French", "Français", "French", 3),
+              ("German", "Deutsch", "German", 4),
+              ("Hungarian", "Magyar", "Hungarian", 5),
+              ("Italian", "Italiano ", "Italian", 6),
+              # Blender 2.79b can't render 日本語 by default
+              ("Japanese", "Nihongo", "Japanese", 7),
+              ("Norwegian", "Norsk", "Norwegian", 8),
+              ("Polish", "Polski", "Polish", 9),
+              ("Romanian", "Română", "Romanian", 10),
+              ("Russian", "Pyccĸий", "Russian", 11),
+              ("Spanish", "Español", "Spanish", 12),
+              ("Swedish", "Svenska", "Swedish", 13)]
+languages = sorted(_languages, key=lambda x: x[1])
+_DEFAULT_LANGUAGE_NAME = "English"
+_DEFAULT_LANGUAGE_ID = 1
 
 
 class ImageLibraryItem(bpy.types.PropertyGroup):
@@ -91,6 +103,22 @@ class PlasmaImageLibraryModifier(PlasmaModifierProperties):
                     exporter.mesh.material.export_prepared_image(owner=ilmod, image=item.image, allowed_formats={"JPG", "PNG"}, extension="hsm")
 
 
+class PlasmaJournalTranslation(bpy.types.PropertyGroup):
+    def _poll_nonpytext(self, value):
+        return not value.name.endswith(".py")
+
+    language = EnumProperty(name="Language",
+                            description="Language of this translation",
+                            items=languages,
+                            default=_DEFAULT_LANGUAGE_NAME,
+                            options=set())
+    text_id = PointerProperty(name="Journal Contents",
+                              description="Text data block containing the journal's contents for this language",
+                              type=bpy.types.Text,
+                              poll=_poll_nonpytext,
+                              options=set())
+
+
 class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     pl_id = "journalbookmod"
 
@@ -122,27 +150,68 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
                                description="Height scale",
                                default=100, min=0, max=100,
                                subtype="PERCENTAGE")
-    book_source_locpath = StringProperty(name="Book Source LocPath",
-                                         description="LocPath for book's text (MO:UL)",
-                                         default="Global.Journals.Empty")
-    book_source_filename = StringProperty(name="Book Source Filename",
-                                          description="Filename for book's text (Uru:CC)",
-                                          default="")
-    book_source_name = StringProperty(name="Book Source Name",
-                                      description="Name of xJournalBookDefs.py entry for book's text (Uru:ABM)",
-                                      default="Dummy")
     clickable_region = PointerProperty(name="Region",
                                        description="Region inside which the avatar must stand to be able to open the journal (optional)",
                                        type=bpy.types.Object,
                                        poll=idprops.poll_mesh_objects)
 
+    def _get_translation(self):
+        # Ensure there is always a default (read: English) translation available.
+        default_idx, default = next(((idx, translation) for idx, translation in enumerate(self.journal_translations)
+                                    if translation.language == _DEFAULT_LANGUAGE_NAME), (None, None))
+        if default is None:
+            default_idx = len(self.journal_translations)
+            default = self.journal_translations.add()
+            default.language = _DEFAULT_LANGUAGE_NAME
+        if self.active_translation_index < len(self.journal_translations):
+            language = self.journal_translations[self.active_translation_index].language
+        else:
+            self.active_translation_index = default_idx
+            language = default.language
+
+        # Due to the fact that we are using IDs to keep the data from becoming insane on new
+        # additions, we must return the integer id...
+        return next((idx for key, _, _, idx in languages if key == language))
+
+    def _set_translation(self, value):
+        # We were given an int here, must change to a string
+        language_name = next((key for key, _, _, i in languages if i == value))
+        idx = next((idx for idx, translation in enumerate(self.journal_translations)
+                   if translation.language == language_name), None)
+        if idx is None:
+            self.active_translation_index = len(self.journal_translations)
+            translation = self.journal_translations.add()
+            translation.language = language_name
+        else:
+            self.active_translation_index = idx
+
+    journal_translations = CollectionProperty(name="Journal Translations",
+                                              type=PlasmaJournalTranslation,
+                                              options=set())
+    active_translation_index = IntProperty(options={"HIDDEN"})
+    active_translation = EnumProperty(name="Language",
+                                      description="Language of this translation",
+                                      items=languages,
+                                      get=_get_translation, set=_set_translation,
+                                      options=set())
+
     def export(self, exporter, bo, so):
-        our_versions = [globals()[j] for j in self.versions]
+        our_versions = (globals()[j] for j in self.versions)
         version = exporter.mgr.getVer()
         if version not in our_versions:
             # We aren't needed here
-            exporter.report.port("Object '{}' has a JournalMod not enabled for export to the selected engine.  Skipping.".format(bo.name, version), indent=2)
+            exporter.report.port("Object '{}' has a JournalMod not enabled for export to the selected engine.  Skipping.",
+                                 bo.name, version, indent=2)
             return
+
+        # Export the Journal translation contents
+        translations = [i for i in self.journal_translations if i.text_id is not None]
+        if not translations:
+            exporter.report.error("Journal '{}': No content translations available. The journal will not be exported.",
+                                  bo.name, indent=2)
+            return
+        for i in translations:
+            exporter.locman.add_journal(self.key_name, i.language, i.text_id, indent=2)
 
         if self.clickable_region is None:
             # Create a region for the clickable's condition
@@ -163,14 +232,14 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
             self.temp_rgn = self.clickable_region
 
         # Generate the logic nodes
-        with self.generate_logic(bo, version=version) as tree:
+        with self.generate_logic(bo, age_name=exporter.age_name, version=version) as tree:
             tree.export(exporter, bo, so)
 
         # Get rid of our temporary clickable region
         if self.clickable_region is None:
             bpy.context.scene.objects.unlink(self.temp_rgn)
 
-    def logicwiz(self, bo, tree, version):
+    def logicwiz(self, bo, tree, age_name, version):
         nodes = tree.nodes
 
         # Assign journal script based on target version
@@ -188,36 +257,12 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
                 new_attr.attribute_name = attr["name"]
         journalnode.update()
 
-        if version == pvPrime:
-            self.create_prime_nodes(bo, nodes, journalnode)
-        elif version == pvPots:
-            self.create_pots_nodes(bo, nodes, journalnode)
-        elif version == pvMoul:
-            self.create_moul_nodes(bo, nodes, journalnode)
+        if version <= pvPots:
+            self._create_pots_nodes(bo, nodes, journalnode, age_name)
+        else:
+            self._create_moul_nodes(bo, nodes, journalnode, age_name)
 
-    def create_prime_nodes(self, clickable_object, nodes, journalnode):
-        clickable_region = nodes.new("PlasmaClickableRegionNode")
-        clickable_region.region_object = self.temp_rgn
-
-        facing_object = nodes.new("PlasmaFacingTargetNode")
-        facing_object.directional = False
-        facing_object.tolerance = math.degrees(-1)
-
-        clickable = nodes.new("PlasmaClickableNode")
-        clickable.link_input(clickable_region, "satisfies", "region")
-        clickable.link_input(facing_object, "satisfies", "facing")
-        clickable.link_output(journalnode, "satisfies", "actClickableBook")
-        clickable.clickable_object = clickable_object
-
-        start_open = nodes.new("PlasmaAttribBoolNode")
-        start_open.link_output(journalnode, "pfm", "StartOpen")
-        start_open.value = self.start_state == "OPEN"
-
-        journal_name = nodes.new("PlasmaAttribStringNode")
-        journal_name.link_output(journalnode, "pfm", "JournalName")
-        journal_name.value = self.book_source_name
-
-    def create_pots_nodes(self, clickable_object, nodes, journalnode):
+    def _create_pots_nodes(self, clickable_object, nodes, journalnode, age_name):
         clickable_region = nodes.new("PlasmaClickableRegionNode")
         clickable_region.region_object = self.temp_rgn
 
@@ -233,7 +278,7 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
 
         srcfile = nodes.new("PlasmaAttribStringNode")
         srcfile.link_output(journalnode, "pfm", "journalFileName")
-        srcfile.value = self.book_source_filename
+        srcfile.value = self.key_name
 
         guitype = nodes.new("PlasmaAttribBoolNode")
         guitype.link_output(journalnode, "pfm", "isNotebook")
@@ -247,7 +292,7 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         height.link_output(journalnode, "pfm", "BookHeight")
         height.value_float = self.book_scale_h / 100.0
 
-    def create_moul_nodes(self, clickable_object, nodes, journalnode):
+    def _create_moul_nodes(self, clickable_object, nodes, journalnode, age_name):
         clickable_region = nodes.new("PlasmaClickableRegionNode")
         clickable_region.region_object = self.temp_rgn
 
@@ -275,7 +320,7 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
 
         locpath = nodes.new("PlasmaAttribStringNode")
         locpath.link_output(journalnode, "pfm", "LocPath")
-        locpath.value = self.book_source_locpath
+        locpath.value = "{}.Journals.{}".format(age_name, self.key_name)
 
         guitype = nodes.new("PlasmaAttribStringNode")
         guitype.link_output(journalnode, "pfm", "GUIType")

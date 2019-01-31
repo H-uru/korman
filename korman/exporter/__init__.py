@@ -18,5 +18,6 @@ from PyHSPlasma import *
 
 from .convert import *
 from .explosions import *
+from .locman import *
 from .python import *
 from . import utils
