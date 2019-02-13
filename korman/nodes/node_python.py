@@ -19,6 +19,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from PyHSPlasma import *
 
+from ..korlib import replace_python2_identifier
 from .node_core import *
 from .node_deprecated import PlasmaVersionedNode
 from .. import idprops
@@ -304,6 +305,12 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
         for i in self.inputs:
             if i.attribute_id == idx:
                 yield i
+
+    @property
+    def key_name(self):
+        # PFM names ***must*** be valid Python identifiers, but Blender likes inserting
+        # periods into the object names "Foo.001" -- this causes bad internal chaos in PotS
+        return replace_python2_identifier("{}_{}".format(self.id_data.name, self.name))
 
     def _make_attrib_socket(self, attrib, is_init=False):
         new_pos = len(self.inputs)
