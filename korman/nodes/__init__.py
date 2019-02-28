@@ -50,26 +50,48 @@ _kategory_names = {
     "SV": "Soft Volume",
 }
 
+class PlasmaNodeItem(NodeItem):
+    def __init__(self, **kwargs):
+        self._poll_add = kwargs.pop("poll_add", None)
+        super().__init__(**kwargs)
+
+    @staticmethod
+    def draw(self, layout, context):
+        # Blender's NodeItem completely unlists anything that polls False. We would rather
+        # display the item but disabled so the user has a hint that it exists but cannot be
+        # used at the present time.
+        if self._poll_add is not None and not self._poll_add(context):
+            row = layout.row()
+            row.enabled = False
+            NodeItem.draw(self, row, context)
+        else:
+            NodeItem.draw(self, layout, context)
+
+
 # Now, generate the categories as best we can...
 _kategories = {}
 for cls in dict(globals()).values():
     if inspect.isclass(cls):
+        item = {}
         if not issubclass(cls, PlasmaNodeBase):
             continue
         if not issubclass(cls, bpy.types.Node):
             continue
         if issubclass(cls, PlasmaDeprecatedNode):
             continue
-    else:
-        continue
-    try:
-        _kategories[cls.bl_category].append(cls)
-    except LookupError:
-        _kategories[cls.bl_category] = [cls,]
+        if issubclass(cls, PlasmaTreeOutputNodeBase):
+            item["poll_add"] = PlasmaTreeOutputNodeBase.poll_add
+
+        item["nodetype"] = cls.bl_idname
+        item["label"] = cls.bl_label
+
+        kat = _kategories.setdefault(cls.bl_category, [])
+        kat.append(item)
+
 _actual_kategories = []
 for i in sorted(_kategories.keys(), key=lambda x: _kategory_names[x]):
     # Note that even though we're sorting the category names, Blender appears to not care...
-    _kat_items = [NodeItem(j.bl_idname) for j in sorted(_kategories[i], key=lambda x: x.bl_label)]
+    _kat_items = [PlasmaNodeItem(**j) for j in sorted(_kategories[i], key=lambda x: x["label"])]
     _actual_kategories.append(PlasmaNodeCategory(i, _kategory_names[i], items=_kat_items))
 
 def register():

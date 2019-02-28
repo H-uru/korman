@@ -313,14 +313,11 @@ class PlasmaNodeBase:
 
 class PlasmaTreeOutputNodeBase(PlasmaNodeBase):
     """Represents the final output of a node tree"""
-    def init(self, context):
-        nodes = self.id_data.nodes
-
-        # There can only be one of these nodes per tree, so let's make sure I'm the only one.
-        for i in nodes:
-            if isinstance(i, self.__class__) and i != self:
-                nodes.remove(self)
-                return
+    @classmethod
+    def poll_add(cls, context):
+        # There can only be one of these nodes per tree, so we will only allow this to be
+        # added if no other output nodes are found.
+        return not any((isinstance(node, cls) for node in context.space_data.node_tree.nodes))
 
 
 class PlasmaNodeSocketBase:
