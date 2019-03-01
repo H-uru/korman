@@ -72,7 +72,7 @@ else:
     from _korlib import *
 
 finally:
-    from .console import ConsoleToggler
+    from .console import ConsoleCursor, ConsoleToggler
     from .python import *
     from .texture import TEX_DETAIL_ALPHA, TEX_DETAIL_ADD, TEX_DETAIL_MULTIPLY
 

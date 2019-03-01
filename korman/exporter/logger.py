@@ -13,7 +13,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
-from ..korlib import ConsoleToggler
+from ..korlib import ConsoleCursor, ConsoleToggler
 from .explosions import NonfatalExportError
 from pathlib import Path
 import threading
@@ -142,6 +142,7 @@ class ExportProgressLogger(_ExportLogger):
         # because it is difficult to inspect the progress of Blender's internal operators. The best
         # solution here is to move printing into a thread that can detect long-running ops and display
         # something visible such as a moving elipsis
+        self._cursor = ConsoleCursor()
         self._thread = threading.Thread(target=self._progress_thread)
         self._queued_lines = []
         self._print_condition = threading.Condition()
@@ -283,6 +284,8 @@ class ExportProgressLogger(_ExportLogger):
 
     def _progress_thread(self):
         num_dots = 0
+        self._cursor.update()
+
         while self._progress_alive:
             with self._print_condition:
                 signalled = self._print_condition.wait(timeout=1.0)
@@ -290,12 +293,16 @@ class ExportProgressLogger(_ExportLogger):
 
                 # First, we need to print out any queued whole lines.
                 # NOTE: no need to lock anything here as Blender uses CPython (GIL)
-                if self._queued_lines:
-                    print(*self._queued_lines, sep='\n')
-                    self._queued_lines.clear()
+                with self._cursor:
+                    if self._queued_lines:
+                        print(*self._queued_lines, sep='\n')
+                        self._queued_lines.clear()
 
                 # Now, we need to print out the current volatile line, if any.
                 if self._volatile_line:
+                    # On Windows, if we clear the line, the volatile line is nuked as well.
+                    # Probably a race condition in the Win32 console host.
+                    self._cursor.reset()
                     print(self._volatile_line, end="")
 
                     # If the proc is long running, let us display some elipses so as to not alarm the user
@@ -305,6 +312,7 @@ class ExportProgressLogger(_ExportLogger):
                         else:
                             num_dots = 0
                     print('.' * num_dots, end=" " * (_MAX_ELIPSES - num_dots))
+                    self._cursor.update()
 
     def _progress_get_current(self):
         return self._step_progress
