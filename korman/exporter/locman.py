@@ -76,11 +76,13 @@ class LocalizationConverter:
                 with self._generate_file(dirname="ageresources", filename=file_name) as stream:
                     stream.write(contents.encode("windows-1252"))
             except UnicodeEncodeError:
-                self._report.error("Translation '{}': Contents contains characters that cannot be used in this version of Plasma",
+                self._report.warn("Translation '{}': Contents contains characters that cannot be used in this version of Plasma. They will appear as a '?' in game.",
                                    language, indent=2)
-                return False
-            else:
-                return True
+
+                # Yes, there are illegal characters... As a stopgap, we will export the file with
+                # replacement characters ("?") just so it'll work dammit.
+                stream.write(contents.encode("windows-1252", "replace"))
+            return True
 
         for journal_name, translations in self._journals.items():
             self._report.msg("Copying Journal '{}'", journal_name, indent=1)
