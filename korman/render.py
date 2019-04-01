@@ -65,3 +65,10 @@ del properties_render
 from bl_ui import properties_texture
 _whitelist_all(properties_texture)
 del properties_texture
+
+from bl_ui import properties_world
+properties_world.WORLD_PT_ambient_occlusion.COMPAT_ENGINES.add("PLASMA_GAME")
+properties_world.WORLD_PT_environment_lighting.COMPAT_ENGINES.add("PLASMA_GAME")
+properties_world.WORLD_PT_indirect_lighting.COMPAT_ENGINES.add("PLASMA_GAME")
+properties_world.WORLD_PT_gather.COMPAT_ENGINES.add("PLASMA_GAME")
+del properties_world
