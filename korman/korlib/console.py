@@ -39,9 +39,6 @@ if sys.platform == "win32":
             self._handle = ctypes.windll.kernel32.GetStdHandle(-11)
             self.position = _Coord(0, 0)
 
-        def __del__(self):
-            ctypes.windll.kernel32.CloseHandle(self._handle)
-
         @property
         def _screen_buffer_info(self):
             info = _ConsoleScreenBufferInfo()
