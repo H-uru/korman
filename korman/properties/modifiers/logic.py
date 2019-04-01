@@ -60,7 +60,7 @@ class PlasmaAdvancedLogic(PlasmaModifierProperties):
             our_versions = [globals()[j] for j in i.version]
             if version in our_versions:
                 if i.node_tree is None:
-                    raise ExportError("'{}': Advanced Logic is missing a node tree for '{}'".format(bo.name, i.version))
+                    raise ExportError("'{}': Advanced Logic is missing a node tree for '{}'".format(bo.name, i.name))
 
                 # If node_name is defined, then we're only adding a reference. We will make sure that
                 # the entire node tree is exported once before the post_export step, however.
@@ -80,7 +80,8 @@ class PlasmaAdvancedLogic(PlasmaModifierProperties):
     def harvest_actors(self):
         actors = set()
         for i in self.logic_groups:
-            actors.update(i.node_tree.harvest_actors())
+            if i.node_tree is not None:
+                actors.update(i.node_tree.harvest_actors())
         return actors
 
 
