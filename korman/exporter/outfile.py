@@ -89,7 +89,7 @@ class _OutputFile:
 
             self.mod_time = None
             self.file_path = None
-            if self.id_data is not None:
+            if self.id_data is not None and not self.id_data.is_in_memory:
                 path = Path(self.id_data.filepath)
                 try:
                     if path.exists():
