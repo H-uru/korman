@@ -215,12 +215,12 @@ class ExportManager:
         key = self._keys.get((location, pClass, name), None)
         if key is not None and so is not None:
             # Purposefully not checking for plObjInterface -- they should never be shared.
-            if isinstance(pClass, plModifier):
+            if issubclass(pClass, plModifier):
                 if key not in so.modifiers:
                     # We really shouldn't add plSingleModifiers to multiple objects. This may
                     # potentially cause URU to crash. I'm uncertain though, so we'll just warn
                     # for now.
-                    if isinstance(pClass, plSingleModifier):
+                    if issubclass(pClass, plSingleModifier):
                         self._exporter().report.warn("Adding SingleModifier '{}' (type: '{}'') to another SceneObject '{}'",
                                                      key.name, pClass.__name__[2:], so.key.name)
                     so.addModifier(key)
