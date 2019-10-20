@@ -38,8 +38,8 @@ class AnimationConverter:
             if id_data is not None:
                 if id_data.animation_data is not None:
                     action = id_data.animation_data.action
-                    return action, getattr(action, "fcurves", None)
-            return None, None
+                    return action, getattr(action, "fcurves", [])
+            return None, []
 
         # TODO: At some point, we should consider supporting NLA stuff.
         # But for now, this seems sufficient.
