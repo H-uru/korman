@@ -228,9 +228,16 @@ class PlasmaCameraProperties(bpy.types.PropertyGroup):
         return self.circle_radius_value
 
     def harvest_actors(self):
+        actors = set()
         if self.poa_type == "object":
-            return set((self.poa_object.name),)
-        return set()
+            actors.add(self.poa_object.name)
+
+        # Dang! We need to escape out to the object to figure out if this is a circle camera...
+        data = self.id_data
+        if isinstance(data, bpy.types.Camera) and data.plasma_camera.camera_type == "circle":
+            if self.circle_center is not None:
+                actors.add(self.circle_center.name)
+        return actors
 
 
 class PlasmaCamera(bpy.types.PropertyGroup):
