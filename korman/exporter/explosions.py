@@ -23,8 +23,13 @@ class NonfatalExportError(Exception):
 
 
 class ExportError(Exception):
-    def __init__(self, value="Undefined Export Error"):
-        super(Exception, self).__init__(value)
+    def __init__(self, *args, **kwargs):
+        if not args:
+            super(Exception, self).__init__("Undefined Export Error")
+        elif len(args) > 1:
+            super(Exception, self).__init__(args[0].format(*args[1:], **kwargs))
+        else:
+            super(Exception, self).__init__(args[0])
 
 
 class BlenderOptionNotSupportedError(ExportError):
