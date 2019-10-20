@@ -136,20 +136,20 @@ class ExportManager:
         return pl
 
     def create_builtins(self, age, textures):
+        # WARNING: Path of the Shell expects for all builtin pages to be at bare minimum
+        #          present and valid. They do not have to have any contents. See AvatarCustomization.
         # BuiltIn.prp
-        if bpy.context.scene.world.plasma_age.age_sdl:
-            self._create_builtin_pages(age)
-            self._pack_agesdl_hook(age)
+        want_pysdl = bpy.context.scene.world.plasma_age.age_sdl
+        builtin = self.create_page(age, "BuiltIn", -2, True)
+        if want_pysdl:
+            sdl = self.add_object(plSceneObject, name="AgeSDLHook", loc=builtin)
+            pfm = self.add_object(plPythonFileMod, name="VeryVerySpecialPythonFileMod", so=sdl)
+            pfm.filename = age
 
         # Textures.prp
-        if textures:
-            self.create_page(age, "Textures", -1, True)
-
-    def _create_builtin_pages(self, age):
-        builtin = self.create_page(age, "BuiltIn", -2, True)
-        sdl = self.add_object(plSceneObject, name="AgeSDLHook", loc=builtin)
-        pfm = self.add_object(plPythonFileMod, name="VeryVerySpecialPythonFileMod", so=sdl)
-        pfm.filename = age
+        # FIXME: unconditional creation will overwrite any existing textures PRP. This should
+        # be addressed by a successful implementation of #145.
+        self.create_page(age, "Textures", -1, True)
 
     def create_page(self, age, name, id, builtin=False):
         location = plLocation(self.mgr.getVer())
