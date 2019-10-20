@@ -43,7 +43,11 @@ class PhysicsConverter:
         return indices
 
     def _convert_mesh_data(self, bo, physical, indices=True, mesh_func=None):
-        mesh = bo.to_mesh(bpy.context.scene, True, "RENDER", calc_tessface=False)
+        try:
+            mesh = bo.to_mesh(bpy.context.scene, True, "RENDER", calc_tessface=False)
+        except:
+            raise ExportError("Unable to convert object [{}] '{}' to a mesh. Make sure you didn't try to use this object as a region!",
+                              bo.type, bo.name)
         mat = bo.matrix_world
 
         with TemporaryObject(mesh, bpy.data.meshes.remove):
