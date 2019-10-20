@@ -253,7 +253,7 @@ class ExportManager:
     def get_textures_page(self, key):
         """Gets the appropriate page for a texture for a given plLayer"""
         # The point of this is to account for per-page textures...
-        if "Textures" in self._pages:
+        if bpy.context.scene.world.plasma_age.use_texture_page:
             return self._pages["Textures"]
         else:
             return key.location
