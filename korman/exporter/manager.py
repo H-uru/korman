@@ -259,13 +259,20 @@ class ExportManager:
             return key.location
 
     def _pack_agesdl_hook(self, age):
-        get_text = bpy.data.texts.get
         output = self._exporter().output
+
+        def get_text(name):
+            namei = name.lower()
+            generator = (i for i in bpy.data.texts if i.name.lower() == namei)
+            result, collision = next(generator, None), next(generator, None)
+            if collision is not None:
+                raise explosions.ExportError("There are multiple copies of case insensitive text block '{}'.", name)
+            return result
 
         # AgeSDL Hook Python
         fixed_agename = korlib.replace_python2_identifier(age)
         py_filename = "{}.py".format(fixed_agename)
-        age_py = get_text(py_filename, None)
+        age_py = get_text(py_filename)
         if output.want_py_text(age_py):
             py_code = age_py.as_string()
         else:
