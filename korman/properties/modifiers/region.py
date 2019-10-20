@@ -114,13 +114,15 @@ class PlasmaCameraRegion(PlasmaModifierProperties):
         region.addMessage(msg)
 
     def harvest_actors(self):
+        actors = set()
         if self.camera_type == "manual":
             if self.camera_object is None:
                 raise ExportError("Camera Modifier '{}' does not specify a valid camera object".format(self.id_data.name))
-            camera = self.camera_object.data.plasma_camera.settings
+            actors.update(self.camera_object.data.plasma_camera.settings.harvest_actors())
         else:
-            camera = self.auto_camera
-        return camera.harvest_actors()
+            actors.add(self.id_data.name)
+            actors.update(self.auto_camera.harvest_actors())
+        return actors
 
 
 class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
