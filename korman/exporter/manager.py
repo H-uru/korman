@@ -142,6 +142,7 @@ class ExportManager:
         want_pysdl = bpy.context.scene.world.plasma_age.age_sdl
         builtin = self.create_page(age, "BuiltIn", -2, True)
         if want_pysdl:
+            self._pack_agesdl_hook(age)
             sdl = self.add_object(plSceneObject, name="AgeSDLHook", loc=builtin)
             pfm = self.add_object(plPythonFileMod, name="VeryVerySpecialPythonFileMod", so=sdl)
             pfm.filename = age
