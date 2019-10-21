@@ -141,9 +141,13 @@ class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.N
         else:
             return (None, parent_so)
 
-    def harvest_actors(self):
-        if self.clickable_object:
-            return (self.clickable_object.name,)
+    def harvest_actors(self, bo):
+        actors = set()
+        if self.clickable_object is not None:
+            actors.add(self.clickable_object.name)
+        else:
+            actors.add(bo.name)
+        return actors
 
     @classmethod
     def _idprop_mapping(cls):

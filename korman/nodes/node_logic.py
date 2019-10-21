@@ -84,7 +84,7 @@ class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.typ
             self.raise_error("Region must be set")
         return exporter.mgr.find_create_key(plExcludeRegionModifier, bl=self.region_object, name=self.key_name)
 
-    def harvest_actors(self):
+    def harvest_actors(self, bo):
         return [i.safepoint.name for i in self.find_input_sockets("safe_points") if i.safepoint is not None]
 
     def export(self, exporter, bo, parent_so):

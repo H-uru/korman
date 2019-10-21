@@ -560,9 +560,13 @@ class PlasmaOneShotMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacks
         else:
             return exporter.mgr.find_create_key(plOneShotMod, name=name, so=so)
 
-    def harvest_actors(self):
+    def harvest_actors(self, bo):
+        actors = set()
         if self.pos_object:
-            return (self.pos_object.name,)
+            actors.add(self.pos_object.name)
+        else:
+            actors.add(bo.name)
+        return actors
 
     @property
     def has_callbacks(self):

@@ -306,6 +306,15 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
             if i.attribute_id == idx:
                 yield i
 
+    def harvest_actors(self, bo):
+        actors = set()
+        actors.add(bo.name)
+
+        so_nodes = (i.links[0].from_node for i in self.inputs
+                    if i.is_linked and i.attribute_type in {"ptAttribSceneobject", "ptAttribSceneobjectList"})
+        actors.update((i.target_object for i in so_nodes if i.target_object is not None))
+        return actors
+
     @property
     def key_name(self):
         # PFM names ***must*** be valid Python identifiers, but Blender likes inserting

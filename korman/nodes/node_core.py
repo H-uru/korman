@@ -139,7 +139,7 @@ class PlasmaNodeBase:
                     if idname == node.bl_idname:
                         yield i
 
-    def harvest_actors(self):
+    def harvest_actors(self, bo):
         return set()
 
     @property
@@ -368,12 +368,12 @@ class PlasmaNodeTree(bpy.types.NodeTree):
                 return node
         return None
 
-    def harvest_actors(self):
+    def harvest_actors(self, bo):
         actors = set()
         for node in self.nodes:
             harvest_method = getattr(node, "harvest_actors", None)
             if harvest_method is not None:
-                actors.update(harvest_method())
+                actors.update(harvest_method(bo))
             elif not isinstance(node, PlasmaNodeBase):
                 raise ExportError("Plasma Node Tree '{}' Node '{}': is not a valid node for this tree".format(self.id_data.name, node.name))
         return actors

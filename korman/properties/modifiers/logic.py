@@ -81,7 +81,7 @@ class PlasmaAdvancedLogic(PlasmaModifierProperties):
         actors = set()
         for i in self.logic_groups:
             if i.node_tree is not None:
-                actors.update(i.node_tree.harvest_actors())
+                actors.update(i.node_tree.harvest_actors(self.id_data))
         return actors
 
 
