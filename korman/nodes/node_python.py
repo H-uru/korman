@@ -21,7 +21,7 @@ from PyHSPlasma import *
 
 from ..korlib import replace_python2_identifier
 from .node_core import *
-from .node_deprecated import PlasmaVersionedNode
+from .node_deprecated import PlasmaDeprecatedNode, PlasmaVersionedNode
 from .. import idprops
 
 _single_user_attribs = {
@@ -306,6 +306,42 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
             if i.attribute_id == idx:
                 yield i
 
+    def get_valid_link_search(self, context, socket, is_output):
+        assert is_output is False
+
+        attrib_type = socket.attribute_type
+        for i in bpy.types.Node.__subclasses__():
+            node_attrib_types = getattr(i, "pl_attrib", None)
+            if node_attrib_types is None or issubclass(i, PlasmaDeprecatedNode):
+                continue
+
+            if attrib_type in node_attrib_types:
+                if issubclass(i, PlasmaAttribNodeBase):
+                   yield { "node_idname": i.bl_idname,
+                           "node_text": i.bl_label,
+                           "socket_name": "pfm",
+                           "socket_text": "Python File" }
+                else:
+                    for socket_name, socket_def in i.output_sockets.items():
+                        if socket_def.get("hidden") is True:
+                            continue
+                        if socket_def.get("can_link") is False:
+                            continue
+
+                        valid_link_nodes = socket_def.get("valid_link_nodes")
+                        valid_link_sockets = socket_def.get("valid_link_sockets")
+                        if valid_link_nodes is not None and self.bl_idname not in valid_link_nodes:
+                            print(socket_name, self.bl_idname, valid_link_nodes)
+                            continue
+                        if valid_link_sockets is not None and "PlasmaPythonFileNodeSocket" not in valid_link_sockets:
+                            print(socket_name, "PlasmaPythonFileNodeSocket", valid_link_sockets)
+                            continue
+
+                        yield { "node_idname": i.bl_idname,
+                                "node_text": i.bl_label,
+                                "socket_name": socket_name,
+                                "socket_text": socket_def["text"] }
+
     def harvest_actors(self, bo):
         actors = set()
         actors.add(bo.name)
@@ -421,7 +457,7 @@ class PlasmaPythonFileNodeSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
         return self.node.attribute_map[self.attribute_id].attribute_type
 
     def draw(self, context, layout, node, text):
-        layout.alignment = "LEFT"
+        self.draw_add_operator(context, layout, node)
         layout.label("ID: {}".format(self.attribute_id))
         layout.label(self.attribute_description)
 
@@ -442,7 +478,7 @@ class PlasmaPythonFileNodeSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
 
 
 class PlasmaPythonAttribNodeSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
-    def draw(self, context, layout, node, text):
+    def draw_content(self, context, layout, node, text):
         attrib = node.to_socket
         if attrib is None:
             layout.label(text)
@@ -465,6 +501,10 @@ class PlasmaAttribNodeBase(PlasmaNodeBase):
     def attribute_name(self):
         attr = self.to_socket
         return "Value" if attr is None else attr.attribute_name
+
+    def get_valid_link_search(self, context, socket, is_output):
+        # This quick'n'dirty hack disables the + button on all sockets.
+        return []
 
     @property
     def to_socket(self):

@@ -258,7 +258,7 @@ class PlasmaFacingTargetSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
                            description="Avatar must be facing the target object",
                            default=True)
 
-    def draw(self, context, layout, node, text):
+    def draw_content(self, context, layout, node, text):
         if self.simple_mode:
             layout.prop(self, "allow_simple", text="")
         layout.label(text)
@@ -505,7 +505,7 @@ class PlasmaVolumeSettingsSocket(PlasmaNodeSocketBase):
 class PlasmaVolumeSettingsSocketIn(PlasmaVolumeSettingsSocket, bpy.types.NodeSocket):
     allow = BoolProperty()
 
-    def draw(self, context, layout, node, text):
+    def draw_content(self, context, layout, node, text):
         if not self.is_linked:
             layout.prop(self, "allow", text="")
         layout.label(text)

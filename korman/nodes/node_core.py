@@ -139,6 +139,41 @@ class PlasmaNodeBase:
                     if idname == node.bl_idname:
                         yield i
 
+    def get_valid_link_search(self, context, socket, is_output):
+        from .node_deprecated import PlasmaDeprecatedNode
+
+        for dest_node_cls in bpy.types.Node.__subclasses__():
+            if not issubclass(dest_node_cls, PlasmaNodeBase) or issubclass(dest_node_cls, PlasmaDeprecatedNode):
+                continue
+            socket_defs = getattr(dest_node_cls, "input_sockets", {}) if is_output else \
+                          getattr(dest_node_cls, "output_sockets", {})
+
+            for socket_name, socket_def in socket_defs.items():
+                if socket_def.get("can_link") is False:
+                    continue
+                if socket_def.get("hidden") is True:
+                    continue
+                
+                valid_source_nodes = socket_def.get("valid_link_nodes")
+                valid_source_sockets = socket_def.get("valid_link_sockets")
+                if valid_source_nodes is not None and self.bl_idname not in valid_source_nodes:
+                    continue
+                if valid_source_sockets is not None and socket.bl_idname not in valid_source_sockets:
+                    continue
+                if valid_source_sockets is None and valid_source_nodes is None:
+                    if socket.bl_idname != socket_def["type"]:
+                        continue
+
+                # Can we even add the node?
+                poll_add = getattr(dest_node_cls, "poll_add", None)
+                if poll_add is not None and not poll_add(context):
+                    continue
+
+                yield { "node_idname": dest_node_cls.bl_idname,
+                        "node_text": dest_node_cls.bl_label,
+                        "socket_name": socket_name,
+                        "socket_text": socket_def["text"] }
+
     def harvest_actors(self, bo):
         return set()
 
@@ -330,13 +365,29 @@ class PlasmaNodeSocketBase:
         return ident.rsplit('.', 1)[0]
 
     def draw(self, context, layout, node, text):
-        layout.label(text)
+        if not self.is_output:
+            self.draw_add_operator(context, layout, node)
+        self.draw_content(context, layout, node, text)
+        if self.is_output:
+            self.draw_add_operator(context, layout, node)
+
+    def draw_add_operator(self, context, layout, node):
+        row = layout.row()
+        row.enabled = any(node.get_valid_link_search(context, self, self.is_output))
+        row.operator_context = "INVOKE_DEFAULT"
+        add_op = row.operator("node.plasma_create_link_node", text="", icon="ZOOMIN")
+        add_op.node_name = node.name
+        add_op.sock_ident = self.identifier
+        add_op.is_output = self.is_output
 
     def draw_color(self, context, node):
         # It's so tempting to just do RGB sometimes... Let's be nice.
         if len(self.bl_color) == 3:
             return tuple(self.bl_color[0], self.bl_color[1], self.bl_color[2], 1.0)
         return self.bl_color
+
+    def draw_content(self, context, layout, node, text):
+        layout.label(text)
 
     @property
     def is_used(self):
