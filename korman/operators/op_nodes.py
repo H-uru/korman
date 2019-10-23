@@ -16,11 +16,125 @@
 import bpy
 from bpy.props import *
 import itertools
+import pickle
 
 class NodeOperator:
     @classmethod
     def poll(cls, context):
         return context.scene.render.engine == "PLASMA_GAME"
+
+
+class CreateLinkNodeOperator(NodeOperator, bpy.types.Operator):
+    bl_idname = "node.plasma_create_link_node"
+    bl_label = "Create Node"
+    bl_description = "Create and link a new node to this socket"
+    bl_options = {"UNDO", "INTERNAL"}
+    bl_property = "node_item"
+
+    node_name = StringProperty()
+    sock_ident = StringProperty()
+    is_output = BoolProperty()
+
+    # The "official" node search operator does something like this...
+    # Documentation seems to indicate this works around poor refcounting.
+    _hack = []
+
+    def _link_search_list(self, context):
+        CreateLinkNodeOperator._hack = list(CreateLinkNodeOperator._link_search_list_imp(self, context))
+        return CreateLinkNodeOperator._hack
+
+    def _link_search_list_imp(self, context):
+        # NOTE: `self` is not actually an instance of this class. It's a fancy wrapper object
+        # whose only members are the above properties...
+        tree = context.space_data.edit_tree
+        src_node = tree.nodes[self.node_name]
+        src_socket = CreateLinkNodeOperator._find_source_socket(self, src_node)
+
+        links = list(src_node.generate_valid_links_for(context, src_socket, self.is_output))
+        max_node = max((len(i["node_text"]) for i in links)) if links else 0
+        for i, link in enumerate(links):
+            # Pickle protocol 0 uses only ASCII bytes, so we can pretend it's a string easily...
+            id_string = pickle.dumps(link, protocol=0).decode()
+            desc_string = "{node}:{node_sock_space}{sock}".format(node=link["node_text"],
+                node_sock_space=(" " * (max_node - len(link["node_text"]) + 4)),
+                sock=link["socket_text"])
+            yield (id_string, desc_string, "", i)
+
+    node_item = EnumProperty(items=_link_search_list)
+
+    def _find_source_socket(self, node):
+        sockets = node.outputs if self.is_output else node.inputs
+        for i in sockets:
+            if i.identifier == self.sock_ident:
+                return i
+        raise LookupError()
+
+    def invoke(self, context, event):
+        possible_links = self._link_search_list(context)
+        if not possible_links:
+            self.report({"WARNING"}, "No nodes can be created.")
+            return {"FINISHED"}
+        elif len(possible_links) == 1:
+            context.window_manager.modal_handler_add(self)
+            return {"RUNNING_MODAL"}
+        else:
+            context.window_manager.invoke_search_popup(self)
+            return {"RUNNING_MODAL"}
+
+    def execute(self, context):
+        context.window_manager.modal_handler_add(self)
+        return {"RUNNING_MODAL"}
+
+    def _create_link_node(self, context, node_item):
+        link = pickle.loads(node_item.encode())
+        self._hack.clear()
+
+        tree = context.space_data.edit_tree
+        dest_node = tree.nodes.new(type=link["node_idname"])
+        for attr, value in link.get("node_settings", {}).items():
+            setattr(dest_node, attr, value)
+        for i in tree.nodes:
+            i.select = i == dest_node
+        tree.nodes.active = dest_node
+        dest_node.location = context.space_data.cursor_location
+
+        src_node = tree.nodes[self.node_name]
+        src_socket = self._find_source_socket(src_node)
+        # We need to use Korman's functions because they may generate a node socket.
+        find_socket = dest_node.find_input_socket if self.is_output else dest_node.find_output_socket
+        dest_socket = find_socket(link["socket_name"], True)
+
+        if self.is_output:
+            tree.links.new(src_socket, dest_socket)
+        else:
+            tree.links.new(dest_socket, src_socket)
+        self.finished = True
+        return {"FINISHED"}
+
+    def modal(self, context, event):
+        # Ugh. The Blender API sucks so much. We can only get the cursor pos from here???
+        context.space_data.cursor_location_from_region(event.mouse_region_x, event.mouse_region_y)
+        if len(self._hack) == 1:
+            self._create_link_node(context, self._hack[0][0])
+            self._hack.clear()
+        elif self._hack:
+            self._create_link_node(context, self.node_item)
+            self._hack.clear()
+
+        if event.type == "MOUSEMOVE":
+            tree = context.space_data.edit_tree
+            tree.nodes.active.location = context.space_data.cursor_location
+        elif event.type in {"ESC", "LEFTMOUSE"}:
+            return {"FINISHED"}
+        return {"RUNNING_MODAL"}
+
+    @classmethod
+    def poll(cls, context):
+        space = context.space_data
+        # needs active node editor and a tree to add nodes to
+        return (space.type == 'NODE_EDITOR' and
+                space.edit_tree and not space.edit_tree.library and
+                context.scene.render.engine == "PLASMA_GAME")
 
 
 class SelectFileOperator(NodeOperator, bpy.types.Operator):

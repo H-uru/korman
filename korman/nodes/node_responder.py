@@ -355,7 +355,7 @@ class PlasmaRespStateSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
 class PlasmaRespStateRefSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
     bl_color = (1.00, 0.980, 0.322, 1.0)
 
-    def draw(self, context, layout, node, text):
+    def draw_content(self, context, layout, node, text):
         if isinstance(node, PlasmaResponderNode):
             try:
                 idx = next((idx for idx, socket in enumerate(node.find_output_sockets("state_refs")) if socket == self))
