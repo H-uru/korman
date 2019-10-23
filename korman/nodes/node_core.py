@@ -139,15 +139,17 @@ class PlasmaNodeBase:
                     if idname == node.bl_idname:
                         yield i
 
-    def get_valid_link_search(self, context, socket, is_output):
+    def generate_valid_links_for(self, context, socket, is_output):
+        """Generates valid node sockets that can be linked to a specific socket on this node."""
         from .node_deprecated import PlasmaDeprecatedNode
 
         for dest_node_cls in bpy.types.Node.__subclasses__():
             if not issubclass(dest_node_cls, PlasmaNodeBase) or issubclass(dest_node_cls, PlasmaDeprecatedNode):
                 continue
+
+            # Korman standard node socket definitions
             socket_defs = getattr(dest_node_cls, "input_sockets", {}) if is_output else \
                           getattr(dest_node_cls, "output_sockets", {})
-
             for socket_name, socket_def in socket_defs.items():
                 if socket_def.get("can_link") is False:
                     continue
@@ -173,6 +175,15 @@ class PlasmaNodeBase:
                         "node_text": dest_node_cls.bl_label,
                         "socket_name": socket_name,
                         "socket_text": socket_def["text"] }
+
+            # Some node types (eg Python) may auto-generate their own sockets, so we ask them now.
+            for i in dest_node_cls.generate_valid_links_to(context, socket, is_output):
+                yield i
+
+    @classmethod
+    def generate_valid_links_to(cls, context, socket, is_output):
+        """Generates valid sockets on this node type that can be linked to a specific node's socket."""
+        return []
 
     def harvest_actors(self, bo):
         return set()
@@ -373,7 +384,7 @@ class PlasmaNodeSocketBase:
 
     def draw_add_operator(self, context, layout, node):
         row = layout.row()
-        row.enabled = any(node.get_valid_link_search(context, self, self.is_output))
+        row.enabled = any(node.generate_valid_links_for(context, self, self.is_output))
         row.operator_context = "INVOKE_DEFAULT"
         add_op = row.operator("node.plasma_create_link_node", text="", icon="ZOOMIN")
         add_op.node_name = node.name

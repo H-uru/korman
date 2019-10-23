@@ -16,6 +16,7 @@
 import bpy
 from bpy.props import *
 import itertools
+import pickle
 
 class NodeOperator:
     @classmethod
@@ -49,10 +50,11 @@ class CreateLinkNodeOperator(NodeOperator, bpy.types.Operator):
         src_node = tree.nodes[self.node_name]
         src_socket = CreateLinkNodeOperator._find_source_socket(self, src_node)
 
-        links = list(src_node.get_valid_link_search(context, src_socket, self.is_output))
+        links = list(src_node.generate_valid_links_for(context, src_socket, self.is_output))
         max_node = max((len(i["node_text"]) for i in links)) if links else 0
         for i, link in enumerate(links):
-            id_string = "{}!@!{}".format(link["node_idname"], link["socket_name"])
+            # Pickle protocol 0 uses only ASCII bytes, so we can pretend it's a string easily...
+            id_string = pickle.dumps(link, protocol=0).decode()
             desc_string = "{node}:{node_sock_space}{sock}".format(node=link["node_text"],
                 node_sock_space=(" " * (max_node - len(link["node_text"]) + 4)),
                 sock=link["socket_text"])
@@ -84,11 +86,13 @@ class CreateLinkNodeOperator(NodeOperator, bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     def _create_link_node(self, context, node_item):
-        node_type, socket_name = node_item.split("!@!")
+        link = pickle.loads(node_item.encode())
         self._hack.clear()
 
         tree = context.space_data.edit_tree
-        dest_node = tree.nodes.new(type=node_type)
+        dest_node = tree.nodes.new(type=link["node_idname"])
+        for attr, value in link.get("node_settings", {}).items():
+            setattr(dest_node, attr, value)
         for i in tree.nodes:
             i.select = i == dest_node
         tree.nodes.active = dest_node
@@ -98,7 +102,7 @@ class CreateLinkNodeOperator(NodeOperator, bpy.types.Operator):
         src_socket = self._find_source_socket(src_node)
         # We need to use Korman's functions because they may generate a node socket.
         find_socket = dest_node.find_input_socket if self.is_output else dest_node.find_output_socket
-        dest_socket = find_socket(socket_name, True)
+        dest_socket = find_socket(link["socket_name"], True)
 
         if self.is_output:
             tree.links.new(src_socket, dest_socket)

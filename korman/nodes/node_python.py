@@ -23,6 +23,7 @@ from ..korlib import replace_python2_identifier
 from .node_core import *
 from .node_deprecated import PlasmaDeprecatedNode, PlasmaVersionedNode
 from .. import idprops
+from ..plasma_attributes import get_attributes_from_str
 
 _single_user_attribs = {
     "ptAttribBoolean", "ptAttribInt", "ptAttribFloat", "ptAttribString", "ptAttribDropDownList",
@@ -306,7 +307,8 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
             if i.attribute_id == idx:
                 yield i
 
-    def get_valid_link_search(self, context, socket, is_output):
+    def generate_valid_links_for(self, context, socket, is_output):
+        # Python nodes have no outputs...
         assert is_output is False
 
         attrib_type = socket.attribute_type
@@ -341,6 +343,51 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
                                 "node_text": i.bl_label,
                                 "socket_name": socket_name,
                                 "socket_text": socket_def["text"] }
+
+    @classmethod
+    def generate_valid_links_to(cls, context, socket, is_output):
+        # This is only useful for nodes wanting to connect to our inputs (ptAttributes)
+        if not is_output:
+            return
+
+        if isinstance(socket, PlasmaPythonAttribNodeSocket):
+            pl_attrib = socket.node.pl_attrib
+        else:
+            pl_attrib = getattr(socket.node, "pl_attrib", set())
+            if not pl_attrib:
+                return
+
+            # Fetch the output definition for the requested socket and make sure it can connect to us.
+            socket_def = getattr(socket.node, "output_sockets", {}).get(socket.alias)
+            if socket_def is None:
+                return
+            valid_link_sockets = socket_def.get("valid_link_sockets")
+            valid_link_nodes = socket_def.get("valid_link_nodes")
+            if valid_link_sockets is not None and "PlasmaPythonFileNodeSocket" not in valid_link_sockets:
+                return
+            if valid_link_nodes is not None and "PlasmaPythonFileNode" not in valid_link_nodes:
+                return
+
+        # Ok, apparently this thing can connect as a ptAttribute. The only problem with that is
+        # that we have no freaking where... The sockets are spawned by Python files... So, we
+        # need to look at all the Python files we know about...
+        for text_id in bpy.data.texts:
+            if not text_id.name.endswith(".py"):
+                continue
+            attribs = get_attributes_from_str(text_id.as_string())
+            if not attribs:
+                continue
+
+            for _, attrib in attribs.items():
+                if not attrib["type"] in pl_attrib:
+                    continue
+
+                # *gulp*
+                yield { "node_idname": "PlasmaPythonFileNode",
+                        "node_text": text_id.name,
+                        "node_settings": { "filename": text_id.name },
+                        "socket_name":  attrib["name"],
+                        "socket_text": attrib["name"] }
 
     def harvest_actors(self, bo):
         actors = set()
@@ -501,10 +548,6 @@ class PlasmaAttribNodeBase(PlasmaNodeBase):
     def attribute_name(self):
         attr = self.to_socket
         return "Value" if attr is None else attr.attribute_name
-
-    def get_valid_link_search(self, context, socket, is_output):
-        # This quick'n'dirty hack disables the + button on all sockets.
-        return []
 
     @property
     def to_socket(self):
