@@ -16,10 +16,11 @@
 from contextlib import contextmanager
 import enum
 from hashlib import md5
+import json
 from .. import korlib
 import locale
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from ..plasma_magic import plasma_python_glue
 from PyHSPlasma import *
 import shutil
@@ -46,7 +47,16 @@ class _FileType(enum.Enum):
     sdl = 2
     python_code = 3
     generated_ancillary = 4
+    video = 5
 
+
+_GATHER_BUILD = {
+    _FileType.generated_dat: "data",
+    _FileType.sfx: "sfx",
+    _FileType.sdl: "sdl",
+    _FileType.python_code: "python",
+    _FileType.video: "avi",
+}
 
 class _OutputFile:
     def __init__(self, **kwargs):
@@ -176,6 +186,12 @@ class OutputFiles:
         self._is_zip = self._export_file.suffix.lower() == ".zip"
         self._py_files = set()
         self._time = time.time()
+
+    def add_ancillary(self, filename, dirname="", text_id=None, str_data=None):
+        of = _OutputFile(file_type=_FileType.generated_ancillary,
+                         dirname=dirname, filename=filename,
+                         id_data=text_id, file_data=str_data)
+        self._files.add(of)
 
     def add_python_code(self, filename, text_id=None, str_data=None):
         assert filename not in self._py_files
@@ -323,6 +339,9 @@ class OutputFiles:
         # Step 2: Generate sumfile
         if self._version != pvMoul:
             self._write_sumfile()
+        else:
+            if self._is_zip:
+                self._write_gather_build()
 
         # Step 3: Ensure errbody is gut
         if self._is_zip:
@@ -372,6 +391,19 @@ class OutputFiles:
                 report.warn("No data found for dependency file '{}'. It will not be copied into the export directory.",
                             str(i.dirname / i.filename), indent=1)
 
+    def _write_gather_build(self):
+        report = self._exporter().report
+        files = {}
+        for i in self._generate_files():
+            key = _GATHER_BUILD.get(i.file_type)
+            if key is None:
+                report.warn("Output file '{}' of type '{}' is not supported by MOULa's GatherBuild format.",
+                            i.file_type, i.filename)
+            else:
+                path_str = str(PureWindowsPath(i.dirname, i.filename))
+                files.setdefault(key, []).append(path_str)
+        self.add_ancillary("contents.json", str_data=json.dumps(files, ensure_ascii=False, indent=2))
+
     def _write_sumfile(self):
         version = self._version
         dat_only = self._exporter().dat_only
@@ -412,7 +444,7 @@ class OutputFiles:
 
         with zipfile.ZipFile(str(self._export_file), 'w', zipfile.ZIP_DEFLATED) as zf:
             for i in self._generate_files(func):
-                arcpath = i.filename if dat_only else "{}/{}".format(i.dirname, i.filename)
+                arcpath = i.filename if dat_only else str(Path(i.dirname, i.filename))
                 if i.file_data:
                     if isinstance(i.file_data, str):
                         data = i.file_data.encode(_encoding)
