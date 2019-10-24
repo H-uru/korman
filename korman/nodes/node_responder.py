@@ -263,12 +263,9 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
             def add_waitable_node(self, node):
                 self.waitable_nodes.append(node)
 
-            def ensure_last_wait(self, exporter, so, force=False):
+            def ensure_last_wait(self, exporter, so):
                 if self.waitable_nodes:
-                    lastWaitNode = self.waitable_nodes[-1]
-                    lastMsgNode = self.commands[-1][0]
-                    if lastMsgNode == lastWaitNode or force:
-                        return self.find_create_wait(exporter, so, lastWaitNode)
+                    return self.find_create_wait(exporter, so, self.waitable_nodes[-1])
                 return -1
 
             def find_create_wait(self, exporter, so, node):
@@ -298,7 +295,8 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
         # Imaging a responder that sends only one animation command message, for example.
         # That means a wait will not be set up for that command due to no child linkage.
         # However, the PFM notification below expects a wait for stuff like that.
-        lastWait = commands.ensure_last_wait(exporter, so, force=stateMgr.has_pfm)
+        if stateMgr.has_pfm:
+            lastWait = commands.ensure_last_wait(exporter, so)
 
         # This commits the responder commands to the responder. Needs to happen before we
         # add the PFM notification directly to the responder.
