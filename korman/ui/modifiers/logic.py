@@ -19,25 +19,22 @@ from .. import ui_list
 
 class LogicListUI(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        layout.prop(item, "name", emboss=False, text="", icon="NODETREE")
+        if item.node_tree:
+            # Using layout.prop on the pointer prevents clicking on the item O.o
+            layout.label(item.node_tree.name, icon="NODETREE")
+        else:
+            layout.label("[Empty]")
 
 
 def advanced_logic(modifier, layout, context):
     ui_list.draw_modifier_list(layout, "LogicListUI", modifier, "logic_groups",
-                               "active_group_index", name_prefix="Logic",
-                               name_prop="name", rows=2, maxrows=3)
+                               "active_group_index", rows=2, maxrows=3)
 
     # Modify the logic groups
     if modifier.logic_groups:
         logic = modifier.logic_groups[modifier.active_group_index]
         layout.row().prop_menu_enum(logic, "version")
         layout.prop(logic, "node_tree", icon="NODETREE")
-        try:
-            layout.prop_search(logic, "node_name", logic.node_tree, "nodes", icon="NODE")
-        except:
-            row = layout.row()
-            row.enabled = False
-            row.prop(logic, "node_name", icon="NODE")
 
 def spawnpoint(modifier, layout, context):
     layout.label(text="Avatar faces negative Y.")

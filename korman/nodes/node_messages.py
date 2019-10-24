@@ -544,6 +544,8 @@ class PlasmaOneShotMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacks
         layout.prop(self, "seek")
 
     def export(self, exporter, bo, so):
+        # Note: we purposefully allow this to proceed because plOneShotMod is a MultiMod, so we
+        # want all referencing SOs to get a copy of the modifier.
         oneshotmod = self.get_key(exporter, so).object
         oneshotmod.animName = self.animation
         oneshotmod.drivable = self.drivable
@@ -553,12 +555,11 @@ class PlasmaOneShotMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacks
         oneshotmod.seekDuration = 1.0
 
     def get_key(self, exporter, so):
-        name = self.key_name
         if self.pos_object is not None:
             pos_so = exporter.mgr.find_create_object(plSceneObject, bl=self.pos_object)
-            return exporter.mgr.find_create_key(plOneShotMod, name=name, so=pos_so)
+            return self._find_create_key(plOneShotMod, exporter, so=pos_so)
         else:
-            return exporter.mgr.find_create_key(plOneShotMod, name=name, so=so)
+            return self._find_create_key(plOneShotMod, exporter, so=so)
 
     def harvest_actors(self, bo):
         actors = set()

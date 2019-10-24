@@ -15,7 +15,7 @@
 
 import abc
 import bpy
-from PyHSPlasma import plMessage, plNotifyMsg
+from PyHSPlasma import *
 
 from ..exporter import ExportError
 
@@ -37,6 +37,20 @@ class PlasmaNodeBase:
     def get_key(self, exporter, so):
         return None
 
+    def get_key_name(self, single, suffix=None, bl=None, so=None):
+        assert bl or so
+        if single:
+            name = bl.name if bl is not None else so.key.name
+            if suffix:
+                return "{}_{}_{}_{}".format(name, self.id_data.name, self.name, suffix)
+            else:
+                return "{}_{}_{}".format(name, self.id_data.name, self.name)
+        else:
+            if suffix:
+                return "{}_{}_{}".format(self.id_data.name, self.name, suffix)
+            else:
+                return "{}_{}".format(self.id_data.name, self.name)
+
     def draw_label(self):
         if hasattr(self, "pl_label_attr") and self.hide:
             return str(getattr(self, self.pl_label_attrib, self.bl_label))
@@ -44,6 +58,27 @@ class PlasmaNodeBase:
 
     def export(self, exporter, bo, so):
         pass
+
+    @property
+    def export_once(self):
+        """This node can only be exported once because it is a targeted plSingleModifier"""
+        return False
+
+    def _find_create_object(self, pClass, exporter, **kwargs):
+        """Finds or creates an hsKeyedObject specific to this node."""
+        assert "name" not in kwargs
+        kwargs["name"] = self.get_key_name(issubclass(pClass, (plObjInterface, plSingleModifier)),
+                                           kwargs.pop("suffix", ""), kwargs.get("bl"),
+                                           kwargs.get("so"))
+        return exporter.mgr.find_create_object(pClass, **kwargs)
+
+    def _find_create_key(self, pClass, exporter, **kwargs):
+        """Finds or creates a plKey specific to this node."""
+        assert "name" not in kwargs
+        kwargs["name"] = self.get_key_name(issubclass(pClass, (plObjInterface, plSingleModifier)),
+                                           kwargs.pop("suffix", ""), kwargs.get("bl"),
+                                           kwargs.get("so"))
+        return exporter.mgr.find_create_key(pClass, **kwargs)
 
     def find_input(self, key, idname=None):
         for i in self.inputs:
@@ -188,10 +223,6 @@ class PlasmaNodeBase:
     def harvest_actors(self, bo):
         return set()
 
-    @property
-    def key_name(self):
-        return "{}_{}".format(self.id_data.name, self.name)
-
     def link_input(self, node, out_key, in_key):
         """Links a given Node's output socket to a given input socket on this Node"""
         if isinstance(in_key, str):
@@ -220,6 +251,9 @@ class PlasmaNodeBase:
     def node_path(self):
         """Returns an absolute path to this Node. Needed because repr() uses an elipsis..."""
         return "{}.{}".format(repr(self.id_data), self.path_from_id())
+
+    def previously_exported(self, exporter):
+        return self.name in exporter.exported_nodes[self.id_data.name]
 
     @classmethod
     def poll(cls, context):
@@ -420,9 +454,11 @@ class PlasmaNodeTree(bpy.types.NodeTree):
     bl_icon = "NODETREE"
 
     def export(self, exporter, bo, so):
-        # just pass it off to each node
+        exported_nodes = exporter.exported_nodes.setdefault(self.name, set())
         for node in self.nodes:
-            node.export(exporter, bo, so)
+            if not (node.export_once and node.previously_exported(exporter)):
+                node.export(exporter, bo, so)
+                exported_nodes.add(node.name)
 
     def find_output(self, idname):
         for node in self.nodes:

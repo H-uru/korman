@@ -130,7 +130,7 @@ class PlasmaSoftVolumeInvertNode(PlasmaNodeBase, bpy.types.Node):
     ])
 
     def get_key(self, exporter, so):
-        return exporter.mgr.find_create_key(plSoftVolumeInvert, name=self.key_name, so=so)
+        return self._find_create_key(plSoftVolumeInvert, exporter, so=so)
 
     def export(self, exporter, bo, so):
         parent = self.find_input("input")
@@ -146,6 +146,10 @@ class PlasmaSoftVolumeInvertNode(PlasmaNodeBase, bpy.types.Node):
         else:
             sv.insideStrength = 1.0
             sv.outsideStrength = 0.0
+
+    @property
+    def export_once(self):
+        return True
 
 
 class PlasmaSoftVolumeLinkNode(PlasmaNodeBase):
@@ -180,6 +184,10 @@ class PlasmaSoftVolumeLinkNode(PlasmaNodeBase):
             sv.insideStrength = 1.0
             sv.outsideStrength = 0.0
 
+    @property
+    def export_once(self):
+        return True
+
 
 class PlasmaSoftVolumeIntersectNode(PlasmaSoftVolumeLinkNode, bpy.types.Node):
     bl_category = "SV"
@@ -188,7 +196,7 @@ class PlasmaSoftVolumeIntersectNode(PlasmaSoftVolumeLinkNode, bpy.types.Node):
 
     def get_key(self, exporter, so):
         ## FIXME: SoftVolumeIntersect should not be listed as an interface
-        return exporter.mgr.find_create_key(plSoftVolumeIntersect, name=self.key_name, so=so)
+        return self._find_create_key(plSoftVolumeIntersect, exporter, so=so)
 
 
 class PlasmaSoftVolumeUnionNode(PlasmaSoftVolumeLinkNode, bpy.types.Node):
@@ -198,4 +206,4 @@ class PlasmaSoftVolumeUnionNode(PlasmaSoftVolumeLinkNode, bpy.types.Node):
 
     def get_key(self, exporter, so):
         ## FIXME: SoftVolumeUnion should not be listed as an interface
-        return exporter.mgr.find_create_key(plSoftVolumeUnion, name=self.key_name, so=so)
+        return self._find_create_key(plSoftVolumeUnion, exporter, so=so)

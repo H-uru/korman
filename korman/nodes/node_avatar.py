@@ -56,10 +56,10 @@ class PlasmaSittingBehaviorNode(PlasmaNodeBase, bpy.types.Node):
         layout.prop_menu_enum(self, "approach")
 
     def get_key(self, exporter, so):
-        return exporter.mgr.find_create_key(plSittingModifier, name=self.key_name, so=so)
+        return self._find_create_key(plSittingModifier, exporter, so=so)
 
     def export(self, exporter, bo, so):
-        sitmod = self.get_key(exporter, so).object
+        sitmod = self._find_create_object(plSittingModifier, exporter, so=so)
         for flag in self.approach:
             sitmod.miscFlags |= getattr(plSittingModifier, flag)
         for i in self.find_outputs("satisfies"):

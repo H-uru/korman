@@ -38,8 +38,8 @@ class Exporter:
         self._op = op # Blender export operator
         self._objects = []
         self.actors = set()
-        self.node_trees_exported = set()
         self.want_node_trees = {}
+        self.exported_nodes = {}
 
     def run(self):
         log = logger.ExportVerboseLogger if self._op.verbose else logger.ExportProgressLogger
@@ -276,13 +276,11 @@ class Exporter:
         inc_progress = self.report.progress_increment
 
         self.report.msg("\nChecking Logic Trees...")
-        need_to_export = [(name, bo, so) for name, (bo, so) in self.want_node_trees.items()
-                                         if name not in self.node_trees_exported]
-        self.report.progress_value = len(self.want_node_trees) - len(need_to_export)
-
-        for tree, bo, so in need_to_export:
-            self.report.msg("NodeTree '{}'", tree, indent=1)
-            bpy.data.node_groups[tree].export(self, bo, so)
+        for tree_name, references in self.want_node_trees.items():
+            self.report.msg("NodeTree '{}'", tree_name, indent=1)
+            tree = bpy.data.node_groups[tree_name]
+            for bo, so in references:
+                tree.export(self, bo, so)
             inc_progress()
 
     def _harvest_actors(self):

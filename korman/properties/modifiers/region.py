@@ -284,9 +284,8 @@ class PlasmaSoftVolume(idprops.IDPropMixin, PlasmaModifierProperties):
 
     def _export_sv_nodes(self, exporter, bo, so):
         tree = self.get_node_tree()
-        if tree.name not in exporter.node_trees_exported:
-            exporter.node_trees_exported.add(tree.name)
-            tree.export(exporter, bo, so)
+        # Stash for later
+        exporter.want_node_trees.setdefault(tree.name, set()).add((bo, so))
 
     def get_node_tree(self):
         if self.node_tree is None:
