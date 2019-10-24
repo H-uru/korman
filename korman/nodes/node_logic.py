@@ -82,7 +82,7 @@ class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.typ
     def get_key(self, exporter, parent_so):
         if self.region_object is None:
             self.raise_error("Region must be set")
-        return exporter.mgr.find_create_key(plExcludeRegionModifier, bl=self.region_object, name=self.key_name)
+        return self._find_create_key(plExcludeRegionModifier, exporter, bl=self.region_object)
 
     def harvest_actors(self, bo):
         return [i.safepoint.name for i in self.find_input_sockets("safe_points") if i.safepoint is not None]
@@ -107,6 +107,10 @@ class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.typ
         if exporter.mgr.getVer() < pvMoul:
             physical.memberGroup = plSimDefs.kGroupDetector
             physical.collideGroup |= 1 << plSimDefs.kGroupDynamic
+
+    @property
+    def export_once(self):
+        return True
 
     @classmethod
     def _idprop_mapping(cls):

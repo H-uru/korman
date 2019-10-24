@@ -23,7 +23,6 @@ from ...exporter import ExportError
 from ... import idprops
 
 class PlasmaVersionedNodeTree(idprops.IDPropMixin, bpy.types.PropertyGroup):
-    name = StringProperty(name="Name")
     version = EnumProperty(name="Version",
                            description="Plasma versions this node tree exports under",
                            items=game_versions,
@@ -32,8 +31,6 @@ class PlasmaVersionedNodeTree(idprops.IDPropMixin, bpy.types.PropertyGroup):
     node_tree = PointerProperty(name="Node Tree",
                                 description="Node Tree to export",
                                 type=bpy.types.NodeTree)
-    node_name = StringProperty(name="Node Ref",
-                               description="Attach a reference to this node")
 
     @classmethod
     def _idprop_mapping(cls):
@@ -62,20 +59,8 @@ class PlasmaAdvancedLogic(PlasmaModifierProperties):
                 if i.node_tree is None:
                     raise ExportError("'{}': Advanced Logic is missing a node tree for '{}'".format(bo.name, i.name))
 
-                # If node_name is defined, then we're only adding a reference. We will make sure that
-                # the entire node tree is exported once before the post_export step, however.
-                if i.node_name:
-                    exporter.want_node_trees[i.node_tree.name] = (bo, so)
-                    node = i.node_tree.nodes.get(i.node_name, None)
-                    if node is None:
-                        raise ExportError("Node '{}' does not exist in '{}'".format(i.node_name, i.node_tree.name))
-                    # We are going to assume get_key will do the adding correctly. Single modifiers
-                    # should fetch the appropriate SceneObject before doing anything, so this will
-                    # be a no-op in that case. Multi modifiers should accept any SceneObject, however
-                    node.get_key(exporter, so)
-                else:
-                    exporter.node_trees_exported.add(i.node_tree.name)
-                    i.node_tree.export(exporter, bo, so)
+                # Defer node tree export until all trees are harvested.
+                exporter.want_node_trees.setdefault(i.node_tree.name, set()).add((bo, so))
 
     def harvest_actors(self):
         actors = set()

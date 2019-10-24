@@ -74,9 +74,8 @@ class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.N
         if clickable_bo is None:
             clickable_bo = parent_bo
 
-        name = self.key_name
-        interface = exporter.mgr.find_create_key(plInterfaceInfoModifier, name=name, so=clickable_so).object
-        logicmod = exporter.mgr.find_create_key(plLogicModifier, name=name, so=clickable_so)
+        interface = self._find_create_object(plInterfaceInfoModifier, exporter, bl=clickable_bo, so=clickable_so)
+        logicmod = self._find_create_key(plLogicModifier, exporter, bl=clickable_bo, so=clickable_so)
         interface.addIntfKey(logicmod)
         # Matches data seen in Cyan's PRPs...
         interface.addIntfKey(logicmod)
@@ -105,11 +104,11 @@ class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.N
         physical.LOSDBs |= plSimDefs.kLOSDBUIItems
 
         # Picking Detector -- detect when the physical is clicked
-        detector = exporter.mgr.find_create_key(plPickingDetector, name=name, so=clickable_so).object
+        detector = self._find_create_object(plPickingDetector, exporter, bl=clickable_bo, so=clickable_so)
         detector.addReceiver(logicmod.key)
 
         # Clickable
-        activator = exporter.mgr.find_create_key(plActivatorConditionalObject, name=name, so=clickable_so).object
+        activator = self._find_create_object(plActivatorConditionalObject, exporter, bl=clickable_bo, so=clickable_so)
         activator.addActivator(detector.key)
         logicmod.addCondition(activator.key)
         logicmod.setLogicFlag(plLogicModifier.kLocalElement, True)
@@ -125,10 +124,14 @@ class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.N
         face_target = self.find_input_socket("facing")
         face_target.convert_subcondition(exporter, clickable_bo, clickable_so, logicmod)
 
+    @property
+    def export_once(self):
+        return self.clickable_object is not None
+
     def get_key(self, exporter, parent_so):
         # careful... we really make lots of keys...
         clickable_bo, clickable_so = self._get_objects(exporter, parent_so)
-        key = exporter.mgr.find_create_key(plLogicModifier, name=self.key_name, so=clickable_so)
+        key = self._find_create_key(plLogicModifier, exporter, bl=clickable_bo, so=clickable_so)
         return key
 
     def _get_objects(self, exporter, parent_so):
@@ -185,7 +188,7 @@ class PlasmaClickableRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.t
         region_bo = self.region_object
         if region_bo is None:
             self.raise_error("invalid Region")
-        region_so = exporter.mgr.find_create_key(plSceneObject, bl=region_bo).object
+        region_so = exporter.mgr.find_create_object(plSceneObject, bl=region_bo)
 
         # Try to figure out the appropriate bounds type for the region....
         phys_mod = region_bo.plasma_modifiers.collision
@@ -202,15 +205,13 @@ class PlasmaClickableRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.t
         # one detector for many unrelated logic mods. However, LogicMods and Conditions appear to
         # assume they pwn each other... so we need a unique detector. This detector must be attached
         # as a modifier to the region's SO however.
-        name = self.key_name
-        detector_key = exporter.mgr.find_create_key(plObjectInVolumeDetector, name=name, so=region_so)
-        detector = detector_key.object
+        detector = self._find_create_object(plObjectInVolumeDetector, exporter, bl=region_bo, so=region_so)
         detector.addReceiver(logicmod.key)
         detector.type = plObjectInVolumeDetector.kTypeAny
 
         # Now, the conditional object. At this point, these seem very silly. At least it's not a plModifier.
         # All they really do is hold a satisfied boolean...
-        objinbox_key = exporter.mgr.find_create_key(plObjectInBoxConditionalObject, name=name, so=parent_so)
+        objinbox_key = self._find_create_key(plObjectInBoxConditionalObject, exporter, bl=region_bo, so=parent_so)
         objinbox_key.object.satisfied = True
         logicmod.addCondition(objinbox_key)
 
@@ -270,19 +271,18 @@ class PlasmaFacingTargetSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
 
         # First, gather the schtuff from the appropriate blah blah blah
         if self.simple_mode:
+            node = self.node
             directional = True
             tolerance = 45
-            name = "{}_SimpleFacing".format(self.node.key_name)
         elif self.is_linked:
             node = self.links[0].from_node
             directional = node.directional
             tolerance = node.tolerance
-            name = node.key_name
         else:
             # This is a programmer failure, so we need a traceback.
             raise RuntimeError("Tried to export an unused PlasmaFacingTargetSocket")
 
-        facing_key = exporter.mgr.find_create_key(plFacingConditionalObject, name=name, so=so)
+        facing_key = node._find_create_key(plFacingConditionalObject, exporter, bl=bo, so=so)
         facing = facing_key.object
         facing.directional = directional
         facing.satisfied = True
@@ -395,13 +395,12 @@ class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.type
             self.raise_error("Region cannot be empty")
         so = exporter.mgr.find_create_object(plSceneObject, bl=bo)
         rgn_enter, rgn_exit = None, None
+        parent_key = parent_so.key
 
         if self.report_enters:
-            theName = "{}_{}_Enter".format(self.id_data.name, self.name)
-            rgn_enter = exporter.mgr.find_create_key(plLogicModifier, name=theName, so=so)
+            rgn_enter = self._find_create_key(plLogicModifier, exporter, suffix="Enter", bl=bo, so=so)
         if self.report_exits:
-            theName = "{}_{}_Exit".format(self.id_data.name, self.name)
-            rgn_exit = exporter.mgr.find_create_key(plLogicModifier, name=theName, so=so)
+            rgn_exit = self._find_create_key(plLogicModifier, exporter, suffix="Exit", bl=bo, so=so)
 
         if rgn_enter is None:
             return rgn_exit
@@ -415,12 +414,12 @@ class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.type
             return (rgn_enter, rgn_exit)
 
     def export(self, exporter, bo, parent_so):
-        # We need to ensure we export to the correct SO
         region_bo = self.region_object
         if region_bo is None:
             self.raise_error("Region cannot be empty")
+
         region_so = exporter.mgr.find_create_object(plSceneObject, bl=region_bo)
-        interface = exporter.mgr.find_create_object(plInterfaceInfoModifier, name=self.key_name, so=region_so)
+        interface = self._find_create_object(plInterfaceInfoModifier, exporter, bl=region_bo, so=region_so)
 
         # Region Enters
         enter_simple = self.find_input_socket("enter").allow
@@ -452,20 +451,15 @@ class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.type
         else:
             suffix = "Exit"
 
-        theName = "{}_{}_{}".format(self.id_data.name, self.name, suffix)
-        exporter.report.msg("[LogicModifier '{}']", theName, indent=2)
-        logicKey = exporter.mgr.find_create_key(plLogicModifier, name=theName, so=so)
+        logicKey = self._find_create_key(plLogicModifier, exporter, suffix=suffix, bl=bo, so=so)
         logicmod = logicKey.object
         logicmod.setLogicFlag(plLogicModifier.kMultiTrigger, True)
         logicmod.notify = self.generate_notify_msg(exporter, so, "satisfies")
 
         # Now, the detector objects
-        exporter.report.msg("[ObjectInVolumeDetector '{}']", theName, indent=2)
-        detKey = exporter.mgr.find_create_key(plObjectInVolumeDetector, name=theName, so=so)
-        det = detKey.object
+        det = self._find_create_object(plObjectInVolumeDetector, exporter, suffix=suffix, bl=bo, so=so)
 
-        exporter.report.msg("[VolumeSensorConditionalObject '{}']", theName, indent=2)
-        volKey = exporter.mgr.find_create_key(plVolumeSensorConditionalObject, name=theName, so=so)
+        volKey = self._find_create_key(plVolumeSensorConditionalObject, exporter, suffix=suffix, bl=bo, so=so)
         volsens = volKey.object
 
         volsens.type = event
@@ -482,6 +476,10 @@ class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.type
         # End mandatory order
         logicmod.addCondition(volKey)
         return logicKey
+
+    @property
+    def export_once(self):
+        return True
 
     @classmethod
     def _idprop_mapping(cls):

@@ -83,7 +83,7 @@ class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
         layout.prop(self, "no_ff_sounds")
 
     def get_key(self, exporter, so):
-        return exporter.mgr.find_create_key(plResponderModifier, name=self.key_name, so=so)
+        return self._find_create_key(plResponderModifier, exporter, so=so)
 
     def export(self, exporter, bo, so):
         responder = self.get_key(exporter, so).object
@@ -134,6 +134,11 @@ class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
         for stateNode in self.find_outputs("state_refs", "PlasmaResponderStateNode"):
             stateMgr.register_state(stateNode)
         stateMgr.convert_states(exporter, so)
+
+    @property
+    def export_once(self):
+        # What exactly is a reused responder? All the messages are directed, after all...
+        return True
 
     @property
     def latest_version(self):

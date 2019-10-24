@@ -252,10 +252,15 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
             layout.label(text="Script '{}' is not loaded in Blender".format(self.filename), icon="ERROR")
 
     def get_key(self, exporter, so):
-        return exporter.mgr.find_create_key(plPythonFileMod, name=self.key_name, so=so)
+        return self._find_create_key(plPythonFileMod, exporter, so=so)
 
     def export(self, exporter, bo, so):
         pfm = self.get_key(exporter, so).object
+
+        # No need to continue if the PFM was already generated.
+        if self.previously_exported(exporter):
+            return
+
         py_name = Path(self.filename).stem
         pfm.filename = py_name
 
