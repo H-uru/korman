@@ -149,13 +149,14 @@ class PlasmaCameraProperties(bpy.types.PropertyGroup):
 
     # Miscellaneous Movement Props
     maintain_los = BoolProperty(name="Maintain LOS",
-                                description="The camera should maintain line-of-sight with the object it's tracking",
+                                description="The camera should move to maintain line-of-sight with the object it's tracking",
+                                default=True,
                                 options=set())
     fall_vertical = BoolProperty(name="Fall Camera",
                                  description="The camera will orient itself vertically when the local player begins falling",
                                  options=set())
     fast_run = BoolProperty(name="Faster When Falling",
-                            description="The camera's velocity will have a floor when the local player is falling",
+                            description="The camera's velocity will be increased when the local player is falling",
                             options=set())
     ignore_subworld = BoolProperty(name="Ignore Subworld Movement",
                                    description="The camera will not be parented to any subworlds",

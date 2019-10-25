@@ -52,23 +52,24 @@ class CameraConverter:
         if isinstance(brain, plCameraBrain1_Avatar):
             brain.setFlags(plCameraBrain1.kCutPos, trans_props.pos_cut)
             brain.setFlags(plCameraBrain1.kCutPOA, trans_props.poa_cut)
+            if camera_props.poa_type != "none":
+                if camera_props.maintain_los:
+                    brain.setFlags(plCameraBrain1.kMaintainLOS, True)
+                if camera_props.fall_vertical:
+                    brain.setFlags(plCameraBrain1.kVerticalWhenFalling, True)
+                if camera_props.fast_run:
+                    brain.setFlags(plCameraBrain1.kSpeedUpWhenRunning, True)
         else:
             brain.setFlags(plCameraBrain1.kCutPos, True)
             brain.setFlags(plCameraBrain1.kCutPOA, True)
         if camera_props.poa_type == "avatar":
             brain.setFlags(plCameraBrain1.kFollowLocalAvatar, True)
-        if camera_props.maintain_los:
-            brain.setFlags(plCameraBrain1.kMaintainLOS, True)
         if camera_props.poa_worldspace:
             brain.setFlags(plCameraBrain1.kWorldspacePOA, True)
         if camera_props.pos_worldspace:
             brain.setFlags(plCameraBrain1.kWorldspacePos, True)
         if camera_props.ignore_subworld:
             brain.setFlags(plCameraBrain1.kIgnoreSubworldMovement, True)
-        if camera_props.fall_vertical:
-            brain.setFlags(plCameraBrain1.kVerticalWhenFalling, True)
-        if camera_props.fast_run:
-            brain.setFlags(plCameraBrain1.kSpeedUpWhenRunning, True)
 
     def export_camera(self, so, bo, camera_type, camera_props, camera_trans=[]):
         brain = getattr(self, "_export_{}_camera".format(camera_type))(so, bo, camera_props)

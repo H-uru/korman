@@ -49,7 +49,7 @@ class PlasmaCollider(PlasmaModifierProperties):
     bounds = EnumProperty(name="Bounds Type", description="", items=bounds_types, default="hull")
 
     avatar_blocker = BoolProperty(name="Blocks Avatars", description="Object blocks avatars", default=True)
-    camera_blocker = BoolProperty(name="Blocks Camera", description="Object blocks the camera", default=True)
+    camera_blocker = BoolProperty(name="Blocks Camera LOS", description="Object blocks camera line-of-sight", default=True)
 
     friction = FloatProperty(name="Friction", min=0.0, default=0.5)
     restitution = FloatProperty(name="Restitution", description="Coefficient of collision elasticity", min=0.0, max=1.0)

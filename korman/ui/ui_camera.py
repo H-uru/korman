@@ -72,10 +72,14 @@ def draw_camera_mode_props(layout, cam_type, props):
     # Miscellaneous
     col = split.column()
     col.label("Tracking Settings:")
-    col.prop(props, "maintain_los")
-    col.prop(props, "fall_vertical")
-    col.prop(props, "fast_run")
-    col.prop(props, "ignore_subworld")
+    col_follow = col.column()
+    col_follow.active = cam_type == "follow"
+    col_follow.prop(props, "maintain_los")
+    col_follow.prop(props, "fall_vertical")
+    col_follow.prop(props, "fast_run")
+    col_target = col.column()
+    col_target.active = props.poa_type != "none"
+    col_target.prop(props, "ignore_subworld")
 
 def draw_camera_poa_props(layout, cam_type, props):
     trans = props.transition
