@@ -195,6 +195,12 @@ enum {
     TEX_DETAIL_MULTIPLY = 2,
 };
 
+enum {
+    kOpaque = 0,
+    kOnOff = 1,
+    kFull = 2,
+};
+
 typedef struct {
     PyObject_HEAD
     PyObject* m_blenderImage;
@@ -476,12 +482,19 @@ static PyMethodDef pyGLTexture_Methods[] = {
 static PyObject* pyGLTexture_get_has_alpha(pyGLTexture* self, void*) {
     char* data = PyBytes_AsString(self->m_imageData);
     size_t bufsz = self->m_width * self->m_height * sizeof(uint32_t);
-    for (size_t i = 3; i < bufsz; i += 4) {
-        if (data[i] != 255) {
-            return PyBool_FromLong(1);
-        }
+    bool transparency = false;
+
+    uint32_t* datap = reinterpret_cast<uint32_t*>(data);
+    uint32_t* endp = reinterpret_cast<uint32_t*>(data + bufsz);
+    while (datap < endp) {
+        uint8_t alpha = ((*datap & 0xFF000000) >> 24);
+        if (alpha == 0x00)
+            transparency = true;
+        else if (alpha != 0xFF)
+            return PyLong_FromLong(kFull);
+        datap++;
     }
-    return PyBool_FromLong(0);
+    return PyLong_FromLong(transparency ? kOnOff : kOpaque);
 }
 
 static PyObject* pyGLTexture_get_image_data(pyGLTexture* self, void*) {

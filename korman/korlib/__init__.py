@@ -13,7 +13,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
-_KORLIB_API_VERSION = 1
+_KORLIB_API_VERSION = 2
 
 try:
     from _korlib import _KORLIB_API_VERSION as _C_API_VERSION
@@ -70,6 +70,7 @@ except ImportError as ex:
 
 else:
     from _korlib import *
+    from .texture import TextureAlpha
 
 finally:
     from .console import ConsoleCursor, ConsoleToggler

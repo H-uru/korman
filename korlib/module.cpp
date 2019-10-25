@@ -19,7 +19,7 @@
 #include "texture.h"
 
 // This konstant is compared against that in the Python module to prevent sneaky errors...
-#define KORLIB_API_VERSION 1
+#define KORLIB_API_VERSION 2
 
 static PyMethodDef korlib_Methods[] = {
     { _pycs("create_bump_LUT"), (PyCFunction)create_bump_LUT, METH_VARARGS, NULL },

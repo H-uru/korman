@@ -15,6 +15,7 @@
 
 import array
 import bgl
+import enum
 from ..helpers import ensure_power_of_two
 import math
 from PyHSPlasma import plBitmap
@@ -93,6 +94,13 @@ def scale_image(buf, srcW, srcH, dstW, dstH):
             dst_idx += 4
 
     return bytes(dst)
+
+
+@enum.unique
+class TextureAlpha(enum.IntEnum):
+    opaque = 0
+    on_off = 1
+    full = 2
 
 
 class GLTexture:
@@ -224,11 +232,13 @@ class GLTexture:
 
     @property
     def has_alpha(self):
-        data = self._image_data
+        data, xparency = self._image_data, False
         for i in range(3, len(data), 4):
-            if data[i] != 255:
-                return True
-        return False
+            if data[i] == 0:
+                xparency = True
+            elif data[i] != 255:
+                return TextureAlpha.full
+        return TextureAlpha.on_off if xparency else TextureAlpha.opaque
 
     def _get_image_data(self):
         return (self._width, self._height, self._image_data)

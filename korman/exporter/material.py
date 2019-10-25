@@ -61,19 +61,16 @@ class _Texture:
             self.detail_opacity_start = kwargs["detail_opacity_start"]
             self.detail_opacity_stop = kwargs["detail_opacity_stop"]
             self.calc_alpha = False
-            self.use_alpha = True
+            self.alpha_type = TextureAlpha.full
             self.allowed_formats = {"DDS"}
             self.is_cube_map = False
         else:
             self.is_detail_map = False
-            use_alpha = kwargs.get("use_alpha")
             if kwargs.get("force_calc_alpha", False) or self.calc_alpha:
                 self.calc_alpha = True
-                self.use_alpha  = True
-            elif use_alpha is None:
-                self.use_alpha = (image.channels == 4 and image.use_alpha)
+                self.alpha_type = TextureAlpha.full
             else:
-                self.use_alpha = use_alpha
+                self.alpha_type = kwargs.get("alpha_type", TextureAlpha.opaque)
             self.allowed_formats = kwargs.get("allowed_formats",
                                               {"DDS"} if self.mipmap else {"PNG", "JPG"})
             self.is_cube_map = kwargs.get("is_cube_map", False)
@@ -124,8 +121,8 @@ class _Texture:
     def _update(self, other):
         """Update myself with any props that might be overridable from another copy of myself"""
         # NOTE: detail map properties should NEVER be overridden. NEVER. EVER. kthx.
-        if other.use_alpha:
-            self.use_alpha = True
+        if self.alpha_type < other.alpha_type:
+            self.alpha_type = other.alpha_type
         if other.mipmap:
             self.mipmap = True
 
@@ -536,8 +533,8 @@ class MaterialConverter:
         # prevent that as well, so we could theoretically slice-and-dice the single
         # image here... but... meh. Offloading taim.
         self.export_prepared_image(texture=texture, owner=layer, indent=3,
-                                   use_alpha=False, mipmap=True, allowed_formats={"DDS"},
-                                   is_cube_map=True, tag="cubemap")
+                                   alpha_type=TextureAlpha.opaque, mipmap=True,
+                                   allowed_formats={"DDS"}, is_cube_map=True, tag="cubemap")
 
 
     def export_dynamic_env(self, bo, layer, texture, pl_class):
@@ -650,12 +647,13 @@ class MaterialConverter:
 
         # Does the image have any alpha at all?
         if texture.image is not None:
-            has_alpha = texture.use_calculate_alpha or slot.use_stencil or self._test_image_alpha(texture.image)
+            alpha_type = self._test_image_alpha(texture.image)
+            has_alpha = texture.use_calculate_alpha or slot.use_stencil or alpha_type != TextureAlpha.opaque
             if (texture.image.use_alpha and texture.use_alpha) and not has_alpha:
                 warning = "'{}' wants to use alpha, but '{}' is opaque".format(texture.name, texture.image.name)
                 self._exporter().report.warn(warning, indent=3)
         else:
-            has_alpha = True
+            alpha_type, has_alpha = TextureAlpha.opaque, False
 
         # First, let's apply any relevant flags
         state = layer.state
@@ -699,7 +697,7 @@ class MaterialConverter:
 
             allowed_formats = {"DDS"} if mipmap else {"PNG", "BMP"}
             self.export_prepared_image(texture=texture, owner=layer,
-                                       use_alpha=has_alpha, force_calc_alpha=slot.use_stencil,
+                                       alpha_type=alpha_type, force_calc_alpha=slot.use_stencil,
                                        is_detail_map=layer_props.is_detail_map,
                                        detail_blend=detail_blend,
                                        detail_fade_start=layer_props.detail_fade_start,
@@ -778,7 +776,7 @@ class MaterialConverter:
                     compression = plBitmap.kUncompressed
                 else:
                     raise RuntimeError(allowed_formats)
-                dxt = plBitmap.kDXT5 if key.use_alpha or key.calc_alpha else plBitmap.kDXT1
+                dxt = plBitmap.kDXT5 if key.alpha_type == TextureAlpha.full else plBitmap.kDXT1
 
                 # Mayhaps we have a cached version of this that has already been exported
                 cached_image = texcache.get_from_texture(key, compression)
@@ -1035,10 +1033,8 @@ class MaterialConverter:
         if result is not None:
             return result
 
-        if image.channels != 4:
-            result = False
-        elif not image.use_alpha:
-            result = False
+        if image.channels != 4 or not image.use_alpha:
+            result = TextureAlpha.opaque
         else:
             # Using bpy.types.Image.pixels is VERY VERY VERY slow...
             key = _Texture(image=image)
