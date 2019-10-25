@@ -338,10 +338,8 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
                         valid_link_nodes = socket_def.get("valid_link_nodes")
                         valid_link_sockets = socket_def.get("valid_link_sockets")
                         if valid_link_nodes is not None and self.bl_idname not in valid_link_nodes:
-                            print(socket_name, self.bl_idname, valid_link_nodes)
                             continue
                         if valid_link_sockets is not None and "PlasmaPythonFileNodeSocket" not in valid_link_sockets:
-                            print(socket_name, "PlasmaPythonFileNodeSocket", valid_link_sockets)
                             continue
 
                         yield { "node_idname": i.bl_idname,

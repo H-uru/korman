@@ -15,7 +15,9 @@
 
 import abc
 import bpy
+from bpy.props import *
 from PyHSPlasma import *
+import time
 
 from ..exporter import ExportError
 
@@ -418,7 +420,7 @@ class PlasmaNodeSocketBase:
 
     def draw_add_operator(self, context, layout, node):
         row = layout.row()
-        row.enabled = any(node.generate_valid_links_for(context, self, self.is_output))
+        row.enabled = self.has_possible_links
         row.operator_context = "INVOKE_DEFAULT"
         add_op = row.operator("node.plasma_create_link_node", text="", icon="ZOOMIN")
         add_op.node_name = node.name
@@ -434,9 +436,33 @@ class PlasmaNodeSocketBase:
     def draw_content(self, context, layout, node, text):
         layout.label(text)
 
+    def _has_possible_links(self):
+        tval = time.monotonic()
+        if (tval - self.possible_links_update_time) > 2:
+            # Danger: hax!
+            # We don't want to unleash errbody at exactly the same time. The good news is that
+            # ***CURRENTLY*** the only way for the result to change is for a new PY file to be
+            # loaded. So, only check in that case.
+            hval = str(hash((i for i in bpy.data.texts)))
+            if hval != self.possible_links_texts_hash:
+                self.has_possible_links_value = any(self.node.generate_valid_links_for(bpy.context,
+                                                                                       self,
+                                                                                       self.is_output))
+                self.possible_links_texts_hash = hval
+            self.possible_links_update_time = tval
+        return self.has_possible_links_value
+
     @property
     def is_used(self):
         return bool(self.links)
+
+    @classmethod
+    def register(cls):
+        cls.has_possible_links = BoolProperty(options={"HIDDEN", "SKIP_SAVE"},
+                                              get=cls._has_possible_links)
+        cls.has_possible_links_value = BoolProperty(options={"HIDDEN", "SKIP_SAVE"})
+        cls.possible_links_update_time = FloatProperty(options={"HIDDEN", "SKIP_SAVE"})
+        cls.possible_links_texts_hash = StringProperty(options={"HIDDEN", "SKIP_SAVE"})
 
 
 class PlasmaNodeSocketInputGeneral(PlasmaNodeSocketBase, bpy.types.NodeSocket):
