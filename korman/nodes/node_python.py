@@ -394,14 +394,13 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
                         "socket_name":  attrib["name"],
                         "socket_text": attrib["name"] }
 
-    def harvest_actors(self, bo):
-        actors = set()
-        actors.add(bo.name)
-
-        so_nodes = (i.links[0].from_node for i in self.inputs
-                    if i.is_linked and i.attribute_type in {"ptAttribSceneobject", "ptAttribSceneobjectList"})
-        actors.update((i.target_object for i in so_nodes if i.target_object is not None))
-        return actors
+    def harvest_actors(self):
+        for i in self.inputs:
+            if not i.is_linked or i.attribute_type not in {"ptAttribSceneobject", "ptAttribSceneobjectList"}:
+                continue
+            node = i.links[0].from_node
+            if node.target_object is not None:
+                yield node.target_object.name
 
     @property
     def key_name(self):
@@ -421,6 +420,10 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
         socket.attribute_id = attrib.attribute_id
         if not is_init and new_pos != old_pos:
             self.inputs.move(old_pos, new_pos)
+
+    @property
+    def requires_actor(self):
+        return True
 
     @contextmanager
     def NoUpdate(self):

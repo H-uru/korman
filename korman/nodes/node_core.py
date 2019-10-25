@@ -220,7 +220,7 @@ class PlasmaNodeBase:
         """Generates valid sockets on this node type that can be linked to a specific node's socket."""
         return []
 
-    def harvest_actors(self, bo):
+    def harvest_actors(self):
         return set()
 
     def link_input(self, node, out_key, in_key):
@@ -466,12 +466,12 @@ class PlasmaNodeTree(bpy.types.NodeTree):
                 return node
         return None
 
-    def harvest_actors(self, bo):
+    def harvest_actors(self):
         actors = set()
         for node in self.nodes:
             harvest_method = getattr(node, "harvest_actors", None)
             if harvest_method is not None:
-                actors.update(harvest_method(bo))
+                actors.update(harvest_method())
             elif not isinstance(node, PlasmaNodeBase):
                 raise ExportError("Plasma Node Tree '{}' Node '{}': is not a valid node for this tree".format(self.id_data.name, node.name))
         return actors
@@ -479,6 +479,10 @@ class PlasmaNodeTree(bpy.types.NodeTree):
     @classmethod
     def poll(cls, context):
         return (context.scene.render.engine == "PLASMA_GAME")
+
+    @property
+    def requires_actor(self):
+        return any((node.requires_actor for node in self.nodes))
 
 
 # Welcome to HAXland!

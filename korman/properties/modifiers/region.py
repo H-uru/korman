@@ -120,9 +120,12 @@ class PlasmaCameraRegion(PlasmaModifierProperties):
                 raise ExportError("Camera Modifier '{}' does not specify a valid camera object".format(self.id_data.name))
             actors.update(self.camera_object.data.plasma_camera.settings.harvest_actors())
         else:
-            actors.add(self.id_data.name)
             actors.update(self.auto_camera.harvest_actors())
         return actors
+
+    @property
+    def requires_actor(self):
+        return self.camera_type == "auto_follow"
 
 
 class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
