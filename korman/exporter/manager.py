@@ -283,11 +283,11 @@ class ExportManager:
         # AgeSDL
         sdl_filename = "{}.sdl".format(fixed_agename)
         age_sdl = get_text(sdl_filename)
-        if age_sdl is not None:
-            sdl_code = None
-        else:
+        if age_sdl is None:
             sdl_code = very_very_special_sdl.format(age_name=fixed_agename).lstrip()
-        output.add_sdl(sdl_filename, text_id=age_sdl, str_data=sdl_code)
+            age_sdl = bpy.data.texts.new(sdl_filename)
+            age_sdl.from_string(sdl_code)
+        output.add_sdl(sdl_filename, text_id=age_sdl)
 
     def save_age(self):
         self._write_age()
