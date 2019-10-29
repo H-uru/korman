@@ -302,92 +302,95 @@ class PlasmaNodeBase:
         """Ensures that sockets are linked appropriately and there are enough inputs"""
         input_defs, output_defs = self._socket_defs
         for defs, sockets in ((input_defs, self.inputs), (output_defs, self.outputs)):
-            done = set()
+            self._update_extant_sockets(defs, sockets)
+            self._update_init_sockets(defs, sockets)
 
-            # Need to enumerate by hand because blendsucks has major (crashing) issues if we modify
-            # this swhizzle while stuff is going down.
-            i = 0
-            while i < len(sockets):
-                socket = sockets[i]
-                node = socket.node
+    def _update_init_sockets(self, defs, sockets):
+        # Create any missing sockets and spawn any required empties.
+        for alias, options in defs.items():
+            working_sockets = [(i, socket) for i, socket in enumerate(sockets) if socket.alias == alias]
+            if not working_sockets:
+                self._spawn_socket(alias, options, sockets)
+            elif options.get("spawn_empty", False):
+                last_socket_id = next(reversed(working_sockets))[0]
+                for working_id, working_socket in working_sockets:
+                    if working_id == last_socket_id and working_socket.is_linked:
+                        new_socket_id = len(sockets)
+                        new_socket = self._spawn_socket(alias, options, sockets)
+                        desired_id = last_socket_id + 1
+                        if new_socket_id != desired_id:
+                            sockets.move(new_socket_id, desired_id)
+                    elif working_id < last_socket_id and not working_socket.is_linked:
+                        # Indices do not update until after the update() function finishes, so
+                        # no need to decrement last_socket_id
+                        sockets.remove(working_socket)
 
-                options = defs.get(socket.alias, None)
-                if options is None or socket.bl_idname != options["type"]:
-                    sockets.remove(socket)
-                    continue
+    def _update_extant_sockets(self, defs, sockets):
+        # Manually enumerate the sockets that are present for their presence and for the
+        # validity of their links. Can't use a for because we will overrun and crash Blender.
+        i = 0
+        while i < len(sockets):
+            socket = sockets[i]
+            node = socket.node
 
-                # Make sure the socket info is up to date
-                socket.name = options["text"]
-                link_limit = options.get("link_limit", None)
-                if link_limit is not None:
-                    socket.link_limit = link_limit
-                socket.hide = options.get("hidden", False)
-                socket.hide_value = options.get("hidden", False)
+            options = defs.get(socket.alias, None)
+            if options is None or socket.bl_idname != options["type"]:
+                sockets.remove(socket)
+                continue
 
-                # Make sure the link is good
-                allowed_sockets = options.get("valid_link_sockets", None)
-                allowed_nodes = options.get("valid_link_nodes", None)
+            # Make sure the socket info is up to date
+            socket.name = options["text"]
+            link_limit = options.get("link_limit", None)
+            if link_limit is not None:
+                socket.link_limit = link_limit
+            socket.hide = options.get("hidden", False)
+            socket.hide_value = options.get("hidden", False)
 
-                # The socket may decide it doesn't want anyone linked to it.
-                can_link_attr = options.get("can_link", None)
-                if can_link_attr is not None:
-                    can_link = getattr(node, can_link_attr)
-                    socket.enabled = can_link
-                    if not can_link:
-                        for link in socket.links:
+            # Make sure the link is good
+            allowed_sockets = options.get("valid_link_sockets", None)
+            allowed_nodes = options.get("valid_link_nodes", None)
+
+            # The socket may decide it doesn't want anyone linked to it.
+            can_link_attr = options.get("can_link", None)
+            if can_link_attr is not None:
+                can_link = getattr(node, can_link_attr)
+                socket.enabled = can_link
+                if not can_link:
+                    for link in socket.links:
+                        try:
+                            self._tattle(socket, link, "(socket refused link)")
+                            self.id_data.links.remove(link)
+                        except RuntimeError:
+                            # was already removed by someone else
+                            pass
+
+            # Helpful default... If neither are set, require the link to be to the same socket type
+            if allowed_nodes is None and allowed_sockets is None:
+                allowed_sockets = frozenset((options["type"],))
+            if allowed_sockets or allowed_nodes:
+                for link in socket.links:
+                    if allowed_nodes:
+                        to_from_node = link.to_node if socket.is_output else link.from_node
+                        if to_from_node.bl_idname not in allowed_nodes:
                             try:
-                                self._tattle(socket, link, "(socket refused link)")
+                                self._tattle(socket, link, "(bad node)")
                                 self.id_data.links.remove(link)
                             except RuntimeError:
                                 # was already removed by someone else
                                 pass
+                            continue
+                    if allowed_sockets:
+                        to_from_socket = link.to_socket if socket.is_output else link.from_socket
+                        if to_from_socket is None or to_from_socket.bl_idname not in allowed_sockets:
+                            try:
+                                self._tattle(socket, link, "(bad socket)")
+                                self.id_data.links.remove(link)
+                            except RuntimeError:
+                                # was already removed by someone else
+                                pass
+                            continue
 
-                # Helpful default... If neither are set, require the link to be to the same socket type
-                if allowed_nodes is None and allowed_sockets is None:
-                    allowed_sockets = frozenset((options["type"],))
-                if allowed_sockets or allowed_nodes:
-                    for link in socket.links:
-                        if allowed_nodes:
-                            to_from_node = link.to_node if socket.is_output else link.from_node
-                            if to_from_node.bl_idname not in allowed_nodes:
-                                try:
-                                    self._tattle(socket, link, "(bad node)")
-                                    self.id_data.links.remove(link)
-                                except RuntimeError:
-                                    # was already removed by someone else
-                                    pass
-                                continue
-                        if allowed_sockets:
-                            to_from_socket = link.to_socket if socket.is_output else link.from_socket
-                            if to_from_socket is None or to_from_socket.bl_idname not in allowed_sockets:
-                                try:
-                                    self._tattle(socket, link, "(bad socket)")
-                                    self.id_data.links.remove(link)
-                                except RuntimeError:
-                                    # was already removed by someone else
-                                    pass
-                                continue
-
-                # If this is a spawn empty socket, make sure we have exactly one empty socket
-                if options.get("spawn_empty", False) and not socket.alias in done:
-                    empty_sockets = [j for j in sockets if j.bl_idname == socket.bl_idname and not j.is_used]
-                    if not empty_sockets:
-                        idx = len(sockets)
-                        dbg = sockets.new(socket.bl_idname, socket.name, socket.alias)
-                        # don't even ask...
-                        new_idx = i + 2
-                        if idx != new_idx:
-                            sockets.move(idx, new_idx)
-                    else:
-                        while len(empty_sockets) > 1:
-                            sockets.remove(empty_sockets.pop())
-                done.add(socket.alias)
-
-                i += 1
-
-            # Create any new sockets
-            for alias in (j for j in defs if j not in done):
-                self._spawn_socket(alias, defs[alias], sockets)
+            i += 1
 
     def _whine(self, msg, *args):
         if args:
