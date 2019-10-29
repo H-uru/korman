@@ -376,7 +376,10 @@ class Exporter:
 
     @property
     def age_name(self):
-        return Path(self._op.filepath).stem
+        if self._op.dat_only:
+            return Path(self._op.filepath).stem
+        else:
+            return bpy.context.scene.world.plasma_age.age_name
 
     @property
     def dat_only(self):
