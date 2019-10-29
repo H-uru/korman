@@ -14,6 +14,7 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+import functools
 import math
 from pathlib import Path
 from PyHSPlasma import *
@@ -454,10 +455,12 @@ class MaterialConverter:
 
             fps = bpy.context.scene.render.fps
             atc = layer_animation.timeConvert
-            if tex_action is not None:
-                start, end = tex_action.frame_range
-            else:
-                start, end = mat_action.frame_range
+
+            # Since we are harvesting from the material action but are exporting to a layer, the
+            # action's range is relatively useless. We'll figure our own.
+            start, end = functools.reduce(lambda x, y: (min(x[0], y[0]), max(x[1], y[1])),
+                                          (fcurve.range() for fcurve in fcurves))
+
             atc.begin = start / fps
             atc.end = end / fps
 
