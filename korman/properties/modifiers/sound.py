@@ -17,7 +17,6 @@ import bpy
 from bpy.props import *
 from bpy.app.handlers import persistent
 import math
-from pathlib import Path
 from PyHSPlasma import *
 
 from ... import korlib
@@ -303,7 +302,7 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
 
     def _find_sound_buffer(self, exporter, so, wavHeader, dataSize, channel):
         # First, cleanup the file path to not have directories
-        filename = Path(self._sound.filepath).name
+        filename = bpy.path.basename(self._sound.filepath)
         if channel is None:
             key_name = filename
         else:
