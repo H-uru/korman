@@ -19,11 +19,12 @@ import cProfile
 from pathlib import Path
 from PyHSPlasma import *
 import pstats
+import subprocess
 
 from ..addon_prefs import game_versions
 from .. import exporter
 from ..helpers import UiHelper
-from .. import korlib
+from .. import korlib, plasma_launcher
 from ..properties.prop_world import PlasmaAge
 
 class ExportOperator:
@@ -54,10 +55,6 @@ class PlasmaAgeExportOperator(ExportOperator, bpy.types.Operator):
     # over on the PlasmaAge world properties. We've got a helper so we can access them like they're actually on us...
     # If you want a volatile property, register it directly on this operator!
     _properties = {
-        "profile_export": (BoolProperty, {"name": "Profile",
-                                          "description": "Profiles the exporter using cProfile",
-                                          "default": False}),
-
         "verbose": (BoolProperty, {"name": "Display Verbose Log",
                                    "description": "Shows the verbose export log in the console",
                                    "default": False}),
@@ -119,19 +116,49 @@ class PlasmaAgeExportOperator(ExportOperator, bpy.types.Operator):
                             default=True,
                             options={"HIDDEN"})
 
+    actions = EnumProperty(name="Actions",
+                           description="Actions for the exporter to perform",
+                           default={"EXPORT"},
+                           items=[("EXPORT", "Export", "Export the age data"),
+                                  ("PROFILE", "Profile", "Profile the exporter"),
+                                  ("LAUNCH", "Launch Age", "Launch the age in Plasma")],
+                           options={"ENUM_FLAG"})
+
+    ki = IntProperty(name="KI",
+                     description="KI Number of the player to use when launching the game",
+                     options=set())
+
+    player = StringProperty(name="Player",
+                            description="Name of the player to use when launching the game",
+                            options=set())
+
+    serverini = StringProperty(name="Server INI",
+                               description="Name of the server configuation to use when launching the game",
+                               options=set())
+
     def draw(self, context):
         layout = self.layout
         age = context.scene.world.plasma_age
 
         # The crazy mess we're doing with props on the fly means we have to explicitly draw them :(
+        layout.prop(self, "actions")
         layout.prop(self, "version")
+        if "LAUNCH" in self.actions:
+            if self.version == "pvMoul":
+                layout.alert = not self.ki
+                layout.prop(self, "ki")
+                layout.alert = False
+                layout.prop(self, "serverini")
+            else:
+                layout.alert = not self.player.strip()
+                layout.prop(self, "player")
+                layout.alert = False
         layout.prop(age, "texcache_method", text="")
         layout.prop(age, "lighting_method")
         row = layout.row()
         row.enabled = korlib.ConsoleToggler.is_platform_supported()
         row.prop(age, "show_console")
         layout.prop(age, "verbose")
-        layout.prop(age, "profile_export")
 
     def __getattr__(self, attr):
         if attr in self._properties:
@@ -146,6 +173,10 @@ class PlasmaAgeExportOperator(ExportOperator, bpy.types.Operator):
 
     def execute(self, context):
         # Before we begin, do some basic sanity checking...
+        if not self.actions:
+            self.report({"ERROR"}, "Nothing to do?")
+            return {"CANCELLED"}
+
         path = Path(self.filepath)
         if not self.filepath:
             self.error = "No file specified"
@@ -168,32 +199,48 @@ class PlasmaAgeExportOperator(ExportOperator, bpy.types.Operator):
             self.report({"ERROR"}, "The Age name conflicts with the Python keyword '{}'".format(ageName))
             return {"CANCELLED"}
 
-        # Separate blender operator and actual export logic for my sanity
-        with UiHelper(context) as _ui:
-            e = exporter.Exporter(self)
+        # This prevents us from finding out at the very end that very, very bad things happened...
+        if "LAUNCH" in self.actions:
             try:
-                self.export_active = True
-                if self.profile_export:
-                    profile_path = str(path.with_name("{}_cProfile".format(ageName)))
-                    profile = cProfile.runctx("e.run()", globals(), locals(), profile_path)
-                else:
-                    e.run()
+                self._sanity_check_run_plasma()
             except exporter.ExportError as error:
                 self.report({"ERROR"}, str(error))
                 return {"CANCELLED"}
-            except exporter.NonfatalExportError as error:
+
+        # Separate blender operator and actual export logic for my sanity
+        if "EXPORT" in self.actions:
+            with UiHelper(context) as _ui:
+                e = exporter.Exporter(self)
+                try:
+                    self.export_active = True
+                    if "PROFILE" in self.actions:
+                        profile_path = str(path.with_name("{}_cProfile".format(ageName)))
+                        profile = cProfile.runctx("e.run()", globals(), locals(), profile_path)
+                    else:
+                        e.run()
+                except exporter.ExportError as error:
+                    self.report({"ERROR"}, str(error))
+                    return {"CANCELLED"}
+                except exporter.NonfatalExportError as error:
+                    self.report({"ERROR"}, str(error))
+                else:
+                    if "PROFILE" in self.actions:
+                        stats_out = path.with_name("{}_profile.log".format(ageName))
+                        with open(str(stats_out), "w") as out:
+                            stats = pstats.Stats(profile_path, stream=out)
+                            stats = stats.sort_stats("time", "calls")
+                            stats.print_stats()
+                finally:
+                    self.export_active = False
+
+        if "LAUNCH" in self.actions:
+            try:
+                self._run_plasma(context)
+            except exporter.ExportError as error:
                 self.report({"ERROR"}, str(error))
-                return {"FINISHED"}
-            else:
-                if self.profile_export:
-                    stats_out = path.with_name("{}_profile.log".format(ageName))
-                    with open(str(stats_out), "w") as out:
-                        stats = pstats.Stats(profile_path, stream=out)
-                        stats = stats.sort_stats("time", "calls")
-                        stats.print_stats()
-                return {"FINISHED"}
-            finally:
-                self.export_active = False
+                return {"CANCELLED"}
+
+        return {"FINISHED"}
 
     def invoke(self, context, event):
         # Called when a user hits "export" from the menu
@@ -217,11 +264,52 @@ class PlasmaAgeExportOperator(ExportOperator, bpy.types.Operator):
             # Now do the majick
             setattr(PlasmaAge, name, prop(**age_options))
 
+    def _sanity_check_run_plasma(self):
+        if not bpy.app.binary_path_python:
+            raise exporter.PlasmaLaunchError("Can't Launch Plasma: No Python executable available")
+        if self.version == "pvMoul":
+            if not self.ki:
+                raise exporter.PlasmaLaunchError("Can't Launch Plasma: Player KI not set")
+        else:
+            if not self.player:
+                raise exporter.PlasmaLaunchError("Can't Launch Plasma: Player Name not set")
+
+    def _run_plasma(self, context):
+        path = Path(self.filepath)
+        client_dir = path.parent.parent
+
+        # It would be nice to launch URU right here. Unfortunately, for single player URUs, we will
+        # need to actually wait for the whole rigamaroll to finish. Therefore, we need to kick
+        # open a separate python exe to launch URU and wait.
+        args = [bpy.app.binary_path_python, plasma_launcher.__file__,
+                str(client_dir), path.stem, self.version]
+        if self.version == "pvMoul":
+            if self.serverini:
+                args.append("--serverini")
+                args.append(self.serverini)
+            args.append(str(self.ki))
+        else:
+            args.append(self.player)
+
+        with exporter.ExportVerboseLogger() as log:
+            proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                    cwd=str(client_dir), universal_newlines=True)
+            while True:
+                line = proc.stdout.readline().strip()
+                if line == "DIE":
+                    raise exporter.PlasmaLaunchError(proc.stderr.read().strip())
+                elif line in {"PLASMA_RUNNING", "DONE"}:
+                    break
+                elif proc.returncode is not None:
+                    break
+                elif line:
+                    log.msg(line)
+
 
 class PlasmaLocalizationExportOperator(ExportOperator, bpy.types.Operator):
     bl_idname = "export.plasma_loc"
     bl_label = "Export Localization"
-    bl_description = "Export Age Localization Data"
+    bl_description = "Export Age localization data"
 
     filepath = StringProperty(subtype="DIR_PATH")
     filter_glob = StringProperty(default="*.pak", options={'HIDDEN'})
@@ -268,8 +356,8 @@ class PlasmaLocalizationExportOperator(ExportOperator, bpy.types.Operator):
 
 class PlasmaPythonExportOperator(ExportOperator, bpy.types.Operator):
     bl_idname = "export.plasma_pak"
-    bl_label = "Package Scripts"
-    bl_description = "Package Age Python scripts"
+    bl_label = "Export Python Scripts"
+    bl_description = "Export Age python script package"
 
     filepath = StringProperty(subtype="FILE_PATH")
     filter_glob = StringProperty(default="*.pak", options={'HIDDEN'})
