@@ -29,6 +29,13 @@ _BL2PL = {
 
 _FAR_POWER = 15.0
 
+SHADOW_RESOLUTION = {
+    "ABYSMAL": 64,
+    "LOW": 128,
+    "NORMAL": 256,
+    "HIGH": 512,
+}
+
 class LightConverter:
     def __init__(self, exporter):
         self._exporter = weakref.ref(exporter)
@@ -235,6 +242,8 @@ class LightConverter:
         shadow.attenDist = rtlamp.shadow_falloff
         shadow.maxDist = rtlamp.shadow_distance
         shadow.minDist = rtlamp.shadow_distance * 0.75
+        shadow.maxSize = SHADOW_RESOLUTION[rtlamp.shadow_quality]
+        # NOTE: minSize appears to be unused.
         shadow.power = rtlamp.shadow_power / 100.0
         shadow.setProperty(plShadowMaster.kSelfShadow, rtlamp.shadow_self)
 

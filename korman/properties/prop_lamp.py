@@ -44,6 +44,14 @@ class PlasmaLamp(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
                                description="This light can cause objects to cast shadows on themselves",
                                default=False,
                                options=set())
+    shadow_quality = EnumProperty(name="Shadow Quality",
+                                  description="Maximum resolution the shadow is rendered",
+                                  items=[("ABYSMAL", "Abysmal Quality", "64x64 pixels"),
+                                         ("LOW", "Low Quality", "128x128 pixels"),
+                                         ("NORMAL", "Normal Quality", "256x256 pixels"),
+                                         ("HIGH", "High Quality", "512x512 pixels")],
+                                  default="NORMAL",
+                                  options=set())
 
     lamp_region = PointerProperty(name="Soft Volume",
                                   description="Soft region this light is active inside",

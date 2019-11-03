@@ -29,7 +29,7 @@ class LampButtonsPanel:
 class PlasmaLampPanel(LampButtonsPanel, bpy.types.Panel):
     bl_label = "Plasma RT Lamp"
 
-    def draw (self, context):
+    def draw(self, context):
         layout = self.layout
         rtlamp = context.lamp.plasma_lamp
 
@@ -41,19 +41,32 @@ class PlasmaLampPanel(LampButtonsPanel, bpy.types.Panel):
         row.prop(rtlamp, "affect_characters")
 
         col = split.column()
-        col.label("RT Shadow:")
-        col.prop(rtlamp, "cast_shadows")
+        col.label("Soft Volume:")
+        col.active = not context.object.plasma_modifiers.softvolume.enabled
+        col.prop(rtlamp, "lamp_region", text="")
 
-        col = col.column()
-        col.active = rtlamp.cast_shadows
+
+class PlasmaShadowPanel(LampButtonsPanel, bpy.types.Panel):
+    bl_label = "Plasma RT Shadow"
+
+    def draw_header(self, context):
+        self.layout.prop(context.lamp.plasma_lamp, "cast_shadows", text="")
+
+    def draw(self, context):
+        layout = self.layout
+        rtlamp = context.lamp.plasma_lamp
+        layout.active = rtlamp.cast_shadows
+
+        split = layout.split()
+        col = split.column()
+        col.prop(rtlamp, "shadow_quality", text="")
+        col.separator()
         col.prop(rtlamp, "shadow_self")
+
+        col = split.column()
         col.prop(rtlamp, "shadow_power")
         col.prop(rtlamp, "shadow_falloff")
         col.prop(rtlamp, "shadow_distance")
-
-        if not context.object.plasma_modifiers.softvolume.enabled:
-            layout.separator()
-            layout.prop(rtlamp, "lamp_region")
 
 
 def _draw_area_lamp(self, context):
