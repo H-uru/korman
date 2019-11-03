@@ -367,12 +367,12 @@ class MaterialConverter:
                 state.blendFlags |= hsGMatState.kBlendMult
 
         # Check if this layer uses diffuse/runtime lighting
-        if not slot.use_map_color_diffuse:
+        if (bm is not None and slot.use_map_color_diffuse) or slot.use_map_color:
             layer.preshade = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
             layer.runtime = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
 
         # Check if this layer uses specular lighting
-        if slot.use_map_color_spec:
+        if bm is not None and slot.use_map_color_spec:
             state.shadeFlags |= hsGMatState.kShadeSpecular
         else:
             layer.specular = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
@@ -381,7 +381,8 @@ class MaterialConverter:
         texture = slot.texture
 
         # Apply custom layer properties
-        if slot.use_map_normal:
+        wantBumpmap = bm is not None and slot.use_map_normal
+        if wantBumpmap:
             state.blendFlags = hsGMatState.kBlendDot3
             state.miscFlags = hsGMatState.kMiscBumpLayer
             strength = max(min(1.0, slot.normal_factor), 0.0)
@@ -408,7 +409,7 @@ class MaterialConverter:
 
         # Export any layer animations
         # NOTE: animated stencils and bumpmaps are nonsense.
-        if not slot.use_stencil and not slot.use_map_normal:
+        if not slot.use_stencil and not wantBumpmap:
             layer = self._export_layer_animations(bo, bm, slot, idx, layer)
         return layer
 
@@ -660,7 +661,7 @@ class MaterialConverter:
 
         # First, let's apply any relevant flags
         state = layer.state
-        if not slot.use_stencil and not slot.use_map_normal:
+        if not slot.use_stencil and not getattr(slot, "use_map_normal", False):
             # mutually exclusive blend flags
             if texture.use_alpha and has_alpha:
                 if slot.blend_type == "ADD":
@@ -974,10 +975,16 @@ class MaterialConverter:
         """Finds or creates the appropriate key for sending messages to an animated Texture"""
 
         tex_name = texture.name
-        if not tex_name in bm.texture_slots:
-            raise ExportError("Texture '{}' not used in Material '{}'".format(bm.name, tex_name))
+        if bo.type == "LAMP":
+            assert bm is None
+            bm_name = bo.name
+        else:
+            assert bm is not None
+            bm_name = bm.name
+            if not tex_name in bm.texture_slots:
+                raise ExportError("Texture '{}' not used in Material '{}'".format(bm_name, tex_name))
 
-        name = "{}_{}_LayerAnim".format(bm.name, tex_name)
+        name = "{}_{}_LayerAnim".format(bm_name, tex_name)
         layer = texture.plasma_layer
         pClass = plLayerSDLAnimation if layer.anim_sdl_var else plLayerAnimation
         return self._mgr.find_create_key(pClass, bl=bo, name=name)
