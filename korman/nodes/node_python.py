@@ -862,6 +862,7 @@ class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.typ
 _attrib_colors = {
     "ptAttribActivator": (0.188, 0.086, 0.349, 1.0),
     "ptAttribActivatorList": (0.188, 0.086, 0.349, 1.0),
+    "ptAttribBehavior": (0.348, 0.186, 0.349, 1.0),
     "ptAttribBoolean": (0.71, 0.706, 0.655, 1.0),
     "ptAttribExcludeRegion": (0.031, 0.110, 0.290, 1.0),
     "ptAttribDropDownList": (0.475, 0.459, 0.494, 1.0),
