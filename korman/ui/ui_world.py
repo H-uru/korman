@@ -45,7 +45,7 @@ class PlasmaGameHelper:
         if active_game is None:
             return ""
         age_name = bpy.context.world.plasma_age.age_name
-        return str((Path(active_game.path) / dirname / age_name).with_suffix(ext))
+        return Path(active_game.path, dirname, age_name).with_suffix(ext)
 
     @property
     def legal_game(self):
@@ -55,6 +55,7 @@ class PlasmaGameHelper:
 
 class PlasmaGameExportMenu(PlasmaGameHelper, bpy.types.Menu):
     bl_label = "Plasma Export Menu"
+    bl_description = "Additional export methods"
 
     def draw(self, context):
         layout = self.layout
@@ -62,7 +63,7 @@ class PlasmaGameExportMenu(PlasmaGameHelper, bpy.types.Menu):
         active_game = self.active_game
         legal_game = self.legal_game
 
-        # Localization
+        # Export Localization
         row = layout.row()
         row.operator_context = "EXEC_DEFAULT"
         row.enabled = legal_game
@@ -71,13 +72,39 @@ class PlasmaGameExportMenu(PlasmaGameHelper, bpy.types.Menu):
             op.filepath = active_game.path
             op.version = active_game.version
 
-        # Python
+        # Export Python
         row = layout.row()
         row.operator_context = "EXEC_DEFAULT"
         row.enabled = legal_game and active_game.version != "pvMoul"
         op = row.operator("export.plasma_pak", icon="FILE_SCRIPT")
-        op.filepath = self.format_path("Python", ".pak")
+        op.filepath = str(self.format_path("Python", ".pak"))
         if active_game is not None:
+            op.version = active_game.version
+
+        # Launch Age
+        row = layout.row()
+        row.operator_context = "EXEC_DEFAULT"
+        age_path = self.format_path()
+        row.active = legal_game and active_game.can_launch and age_path.exists()
+        op = row.operator("export.plasma_age", icon="RENDER_ANIMATION", text="Launch Age")
+        if active_game is not None:
+            op.actions = {"LAUNCH"}
+            op.dat_only = False
+            op.filepath = str(age_path)
+            op.version = active_game.version
+            op.player = active_game.player
+            op.ki = active_game.ki
+            op.serverini = active_game.serverini
+
+        # Package Age
+        row = layout.row()
+        row.operator_context = "INVOKE_DEFAULT"
+        row.enabled = legal_game
+        op = row.operator("export.plasma_age", icon="PACKAGE", text="Package Age")
+        if active_game is not None:
+            op.actions = {"EXPORT"}
+            op.dat_only = False
+            op.filepath = "{}.zip".format(age_name)
             op.version = active_game.version
 
 
@@ -106,22 +133,29 @@ class PlasmaGamePanel(AgeButtonsPanel, PlasmaGameHelper, bpy.types.Panel):
         row.enabled = legal_game
         op = row.operator("export.plasma_age", icon="EXPORT")
         if active_game is not None:
+            op.actions = {"EXPORT"}
             op.dat_only = False
-            op.filepath = self.format_path()
+            op.filepath = str(self.format_path())
             op.version = active_game.version
 
-        # Package Age
+        # Test Age (exports and tests the age)
         row = row.row(align=True)
+        row.operator_context = "EXEC_DEFAULT"
+        # Sadly, if we nuke this row, the menu is nuked as well...
         row.enabled = legal_game
-        row.operator_context = "INVOKE_DEFAULT"
-        op = row.operator("export.plasma_age", icon="PACKAGE", text="Package Age")
-        op.dat_only = False
-        op.filepath = "{}.zip".format(age.age_name)
+        op = row.operator("export.plasma_age", icon="RENDER_ANIMATION", text="Test Age")
         if active_game is not None:
+            op.actions = {"EXPORT", "LAUNCH"}
+            op.dat_only = False
+            op.filepath = str(self.format_path())
             op.version = active_game.version
+            op.player = active_game.player
+            op.ki = active_game.ki
+            op.serverini = active_game.serverini
 
         # Special Menu
         row = row.row(align=True)
+        row.enabled = True
         row.menu("PlasmaGameExportMenu", icon='DOWNARROW_HLT', text="")
 
 

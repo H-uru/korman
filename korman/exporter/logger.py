@@ -34,18 +34,18 @@ class _ExportLogger:
         self._time_start_overall = 0
 
     def __enter__(self):
-        assert self._age_path is not None
-
-        # Make the log file name from the age file path -- this ensures we're not trying to write
-        # the log file to the same directory Blender.exe is in, which might be a permission error
-        my_path = self._age_path.with_name("{}_export".format(self._age_path.stem)).with_suffix(".log")
-        self._file = open(str(my_path), "w")
+        if self._age_path is not None:
+            # Make the log file name from the age file path -- this ensures we're not trying to write
+            # the log file to the same directory Blender.exe is in, which might be a permission error
+            my_path = self._age_path.with_name("{}_export".format(self._age_path.stem)).with_suffix(".log")
+            self._file = open(str(my_path), "w")
         return self
 
     def __exit__(self, type, value, traceback):
         if value is not None:
             ConsoleToggler().keep_console = not isinstance(value, NonfatalExportError)
-        self._file.close()
+        if self._file is not None:
+            self._file.close()
         return False
 
     def error(self, *args, **kwargs):

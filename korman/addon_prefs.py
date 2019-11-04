@@ -33,6 +33,23 @@ class PlasmaGame(bpy.types.PropertyGroup):
                            items=game_versions,
                            options=set())
 
+    player = StringProperty(name="Player",
+                            description="Name of the player to use when launching the game",
+                            options=set())
+    ki = IntProperty(name="KI",
+                     description="KI Number of the player to use when launching the game",
+                     options=set(), min=0)
+    serverini = StringProperty(name="Server INI",
+                               description="Name of the server configuation to use when launching the game",
+                               options=set())
+
+    @property
+    def can_launch(self):
+        if self.version == "pvMoul":
+            return self.is_property_set("ki") and self.ki
+        else:
+            return self.is_property_set("player") and bool(self.player.strip())
+
 
 class KormanAddonPreferences(bpy.types.AddonPreferences):
     bl_idname = __package__
@@ -120,14 +137,23 @@ class KormanAddonPreferences(bpy.types.AddonPreferences):
             col.label("Game Configuration:")
             box = col.box().column()
 
-            box.prop(active_game, "path", emboss=False)
-            box.prop(active_game, "version")
-            box.separator()
-
             row = box.row(align=True)
-            op = row.operator("world.plasma_game_add", icon="FILE_FOLDER", text="Change Path")
+            row.prop(active_game, "path")
+            op = row.operator("world.plasma_game_add", icon="FILE_FOLDER", text="")
             op.filepath = active_game.path
             op.game_index = active_game_index
+            box.prop(active_game, "version")
+
+            box.separator()
+            box.separator()
+            if active_game.version == "pvMoul":
+                box.alert = not active_game.is_property_set("ki")
+                box.prop(active_game, "ki", slider=False)
+                box.alert = False
+                box.prop(active_game, "serverini")
+            else:
+                box.alert = not active_game.is_property_set("player")
+                box.prop(active_game, "player")
 
         # Python Installs
         assert self.python_validated

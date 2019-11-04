@@ -42,6 +42,16 @@ class ExportAssertionError(ExportError):
         super(ExportError, self).__init__("Assertion failed")
 
 
+class PlasmaLaunchError(ExportError):
+    def __init__(self, *args, **kwargs):
+        if not args:
+            super(Exception, self).__init__("Failed to start Plasma")
+        elif len(args) > 1:
+            super(Exception, self).__init__(args[0].format(*args[1:], **kwargs))
+        else:
+            super(Exception, self).__init__(args[0])
+
+
 class TooManyUVChannelsError(ExportError):
     def __init__(self, obj, mat, numUVTexs, maxUVTexCount=8):
         msg = "There are too many UV Textures on the material '{}' associated with object '{}'. You can have at most {} (there are {})".format(
