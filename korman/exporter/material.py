@@ -367,7 +367,7 @@ class MaterialConverter:
                 state.blendFlags |= hsGMatState.kBlendMult
 
         # Check if this layer uses diffuse/runtime lighting
-        if bm is not None and slot.use_map_color_diffuse:
+        if bm is not None and not slot.use_map_color_diffuse:
             layer.preshade = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
             layer.runtime = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
 
