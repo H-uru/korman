@@ -40,8 +40,25 @@ def build_plasma_menu(self, context):
     self.layout.separator()
     self.layout.menu("menu.plasma_add", icon="URL")
 
+
+class PlasmaHelpMenu(PlasmaMenu, bpy.types.Menu):
+    bl_idname = "menu.plasma_help"
+    bl_label = "Korman..."
+
+    def draw(self, context):
+        layout = self.layout
+        layout.operator("wm.url_open", text="About Korman", icon="URL").url = "https://guildofwriters.org/wiki/Korman"
+        layout.operator("wm.url_open", text="Getting Started", icon="URL").url = "https://guildofwriters.org/wiki/Korman:Getting_Started"
+        layout.operator("wm.url_open", text="Tutorials", icon="URL").url = "https://guildofwriters.org/wiki/Category:Korman_Tutorials"
+
+
+def build_plasma_help_menu(self, context):
+    self.layout.menu("menu.plasma_help", text="Korman", icon="URL")
+
 def register():
     bpy.types.INFO_MT_add.append(build_plasma_menu)
+    bpy.types.INFO_MT_help.prepend(build_plasma_help_menu)
 
 def unregister():
     bpy.types.INFO_MT_add.remove(build_plasma_menu)
+    bpy.types.INFO_MT_help.remove(build_plasma_help_menu)
