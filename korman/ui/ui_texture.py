@@ -93,14 +93,15 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
 
         split = layout.split()
         col = split.column()
-        col.active = texture.use_mipmap
+        detail_map_candidate = texture.type == "IMAGE" and texture.use_mipmap
+        col.active = detail_map_candidate
         col.prop(layer_props, "is_detail_map", text="Detail Blending")
         col = col.column(align=True)
-        col.active = texture.use_mipmap and layer_props.is_detail_map
+        col.active = detail_map_candidate and layer_props.is_detail_map
         col.prop(layer_props, "detail_fade_start")
         col.prop(layer_props, "detail_fade_stop")
         col = split.column(align=True)
-        col.active = texture.use_mipmap and layer_props.is_detail_map
+        col.active = detail_map_candidate and layer_props.is_detail_map
         col.label(text="")
         col.prop(layer_props, "detail_opacity_start")
         col.prop(layer_props, "detail_opacity_stop")

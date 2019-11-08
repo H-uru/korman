@@ -136,6 +136,7 @@ class MaterialConverter:
         self._pending = {}
         self._alphatest = {}
         self._tex_exporters = {
+            "BLEND": self._export_texture_type_blend,
             "ENVIRONMENT_MAP": self._export_texture_type_environment_map,
             "IMAGE": self._export_texture_type_image,
             "NONE": self._export_texture_type_none,
@@ -714,6 +715,112 @@ class MaterialConverter:
     def _export_texture_type_none(self, bo, layer, texture):
         # We'll allow this, just for sanity's sake...
         pass
+
+    def _export_texture_type_blend(self, bo, layer, slot):
+        # This has been separated out because other things may need alpha blend textures.
+        texture = slot.texture
+        self.export_alpha_blend(texture.progression, texture.use_flip_axis, layer)
+
+    def export_alpha_blend(self, progression, axis, owner, indent=2):
+        """This exports an alpha blend texture as exposed by bpy.types.BlendTexture.
+           The following arguments are expected:
+           - progression: (required)
+           - axis: (required)
+           - owner: (required) the Plasma object using this image
+           - indent: (optional) indentation level for log messages
+                     default: 2
+        """
+
+        # Certain blend types don't use an axis...
+        progression_axes = {"EASING", "LINEAR", "RADIAL", "QUADRATIC"}
+        if progression in progression_axes:
+            filename = "ALPHA_BLEND_{}_{}".format(progression, axis)
+        else:
+            filename = "ALPHA_BLEND_{}".format(progression)
+            axis = ""
+
+        image = bpy.data.images.get(filename)
+        if image is None:
+            def _calc_diagonal(x, y, width, height):
+                distance = math.sqrt(pow(x, 2) + pow(y, 2))
+                total = math.sqrt(pow(width, 2) + pow(height, 2))
+                return distance / total
+
+            def _calc_radial(x, y, width, height, horizontal=None):
+                if horizontal is True:
+                    relative = (y - height / 2, x - width / 2)
+                elif horizontal is False:
+                    relative = (x - width / 2, y - height / 2)
+                else:
+                    raise RuntimeError()
+                angle = math.atan2(*relative) + math.pi
+                # PyPRP had some weird code that looked like an infinite loop for clamping from
+                # zero through 2pi. atan2 is documented to return in the range of -pi through pi.
+                two_pi = math.pi * 2
+                if angle < 0.0:
+                    angle += two_pi
+                return max(0.0, angle / two_pi)
+
+            def _calc_lin_sphere(x, y, width, height):
+                half_width, half_height = width / 2, height / 2
+                distance = math.sqrt(pow(x - half_width, 2) + pow(y - half_height, 2))
+                value = math.cos(distance / half_width * 0.5 * math.pi)
+                if value < 0.0 or distance > half_width:
+                    return 0.0
+                else:
+                    return min(1.0, value)
+
+            def _calc_quad_sphere(x, y, width, height):
+                half_width, half_height = width / 2, height / 2
+                distance = math.sqrt(pow(x - half_width, 2) + pow(y - half_height, 2))
+                value = 0.5 + (0.5 * math.cos(distance / half_width * math.pi))
+                if value < 0.0 or distance > half_width:
+                    return 0.0
+                else:
+                    return min(1.0, value)
+
+            dimensions = {
+                ("EASING", "HORIZONTAL"): (64, 4),
+                ("EASING", "VERTICAL"): (4, 64),
+                ("LINEAR", "HORIZONTAL"): (64, 4),
+                ("LINEAR", "VERTICAL"): (4, 64),
+                ("QUADRATIC", "HORIZONTAL"): (64, 4),
+                ("QUADRATIC", "VERTICAL"): (4, 64),
+            }
+            funcs = {
+                ("DIAGONAL", ""):  _calc_diagonal,
+                ("EASING", "HORIZONTAL"): lambda x, y, width, height: 0.5 - math.cos(x / width * math.pi) * 0.5,
+                ("EASING", "VERTICAL"): lambda x, y, width, height: 0.5 - math.cos(y / height * math.pi) * 0.5,
+                ("LINEAR", "HORIZONTAL"): lambda x, y, width, height: x / width,
+                ("LINEAR", "VERTICAL"): lambda x, y, width, height: y / height,
+                ("QUADRATIC", "HORIZONTAL"): lambda x, y, width, height: pow(x / width, 2),
+                ("QUADRATIC", "VERTICAL"): lambda x, y, width, height: pow(y / height, 2),
+                ("QUADRATIC_SPHERE", ""): _calc_quad_sphere,
+                ("RADIAL", "HORIZONTAL"): functools.partial(_calc_radial, horizontal=True),
+                ("RADIAL", "VERTICAL"): functools.partial(_calc_radial, horizontal=False),
+                ("SPHERICAL", ""): _calc_lin_sphere,
+            }
+
+            blend_type = (progression, axis)
+            width, height = dimensions.get(blend_type, (64, 64))
+            pixels = [None] * (width * height * 4)
+            func = funcs.get(blend_type)
+            if func is None:
+                raise BlendNotSupported(progression, axis)
+
+            # This is slower than a custom writer for each blend texture, but that would be uglier
+            # and less maintainable. Running this function in the Blender console is nearly instant,
+            # so I think this is the best option, really.
+            for x in range(width):
+                for y in range(height):
+                    offset = (y * width * 4) + (x * 4)
+                    value = func(x, y, width, height)
+                    pixels[offset:offset+4] = (value,) * 4
+            image = bpy.data.images.new(filename, width=width, height=height, alpha=True)
+            image.pixels = pixels
+
+        self.export_prepared_image(image=image, owner=owner, allowed_formats={"BMP"},
+                                   alpha_type=TextureAlpha.full, indent=2, ephemeral=True)
 
     def export_prepared_image(self, **kwargs):
         """This exports an externally prepared image and an optional owning layer.
