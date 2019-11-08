@@ -32,6 +32,11 @@ class ExportError(Exception):
             super(Exception, self).__init__(args[0])
 
 
+class BlendNotSupported(ExportError):
+    def __init__(self, progression, axis):
+        super(ExportError, self).__init__("Alpha Blend not supported: {}, {}", progression, axis)
+
+
 class BlenderOptionNotSupportedError(ExportError):
     def __init__(self, opt):
         super(ExportError, self).__init__("Unsupported Blender Option: '{}'".format(opt))
