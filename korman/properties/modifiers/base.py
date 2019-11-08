@@ -92,6 +92,10 @@ class PlasmaModifierLogicWiz:
     def logicwiz(self, bo, tree):
         pass
 
+    def export_logic(self, exporter, bo, so, **kwargs):
+        with self.generate_logic(bo, **kwargs) as tree:
+            tree.export(exporter, bo, so)
+
 
 class PlasmaModifierUpgradable:
     @property
