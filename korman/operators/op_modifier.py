@@ -72,46 +72,7 @@ class ModifierAddOperator(ModifierOperator, bpy.types.Operator):
         return {"FINISHED"}
 
 
-class ModifierCopyOperator(ModifierOperator, bpy.types.Operator):
-    bl_idname = "object.plasma_modifier_copy"
-    bl_label = "Copy Modifiers"
-    bl_description = "Copy Modifiers from an Object"
-
-    active_modifier = IntProperty(name="Modifier Display Order",
-                                  default=-1,
-                                  options={"HIDDEN"})
-
-    def execute(self, context):
-        pl_scene = context.scene.plasma_scene
-        pl_scene.modifier_copy_object = context.object
-        pl_mod = self._get_modifier(context)
-        if pl_mod is None:
-            pl_scene.property_unset("modifier_copy_id")
-        else:
-            pl_scene.modifier_copy_id = pl_mod.pl_id
-        return {"FINISHED"}
-
-
-class ModifierPasteOperator(ModifierOperator, bpy.types.Operator):
-    bl_idname = "object.plasma_modifier_paste"
-    bl_label = "Paste Modifier"
-    bl_description = "Paste Modifier(s) to another Object"
-
-    def execute(self, context):
-        pl_scene = context.scene.plasma_scene
-        if not pl_scene.is_property_set("modifier_copy_object"):
-            raise RuntimeError()
-
-        dst_object, src_object = context.object, pl_scene.modifier_copy_object
-        pl_mod_id = pl_scene.modifier_copy_id
-
-        if pl_mod_id:
-            self._paste_modifier(src_object, dst_object, pl_mod_id)
-        else:
-            for mod_cls in modifiers.PlasmaModifierProperties.__subclasses__():
-                self._paste_modifier(src_object, dst_object, mod_cls.pl_id)
-        return {"FINISHED"}
-
+class ModifierClipboard:
     def _paste_modifier(self, src_object, dst_object, pl_mod_id):
         src_mod = getattr(src_object.plasma_modifiers, pl_mod_id)
         dst_mod = getattr(dst_object.plasma_modifiers, pl_mod_id)
@@ -154,6 +115,68 @@ class ModifierPasteOperator(ModifierOperator, bpy.types.Operator):
                     dst.property_unset(prop_name)
             except AttributeError:
                 pass
+
+
+class ModifierCopyOperator(ModifierOperator, bpy.types.Operator):
+    bl_idname = "object.plasma_modifier_copy"
+    bl_label = "Copy Modifiers"
+    bl_description = "Copy Modifiers from an Object"
+
+    active_modifier = IntProperty(name="Modifier Display Order",
+                                  default=-1,
+                                  options={"HIDDEN"})
+
+    def execute(self, context):
+        pl_scene = context.scene.plasma_scene
+        pl_scene.modifier_copy_object = context.object
+        pl_mod = self._get_modifier(context)
+        if pl_mod is None:
+            pl_scene.property_unset("modifier_copy_id")
+        else:
+            pl_scene.modifier_copy_id = pl_mod.pl_id
+        return {"FINISHED"}
+
+
+class ModifierCopyToOperator(ModifierClipboard, ModifierOperator, bpy.types.Operator):
+    bl_idname = "object.plasma_modifier_copy_to_selection"
+    bl_label = "Copy Modifiers to Selection"
+    bl_description = "Copy Modifiers from the active Object to all selected Objects"
+
+    def _iter_objects(self, context):
+        for i in context.selected_objects:
+            if i != context.active_object:
+                yield i
+
+    def execute(self, context):
+        if not any(self._iter_objects(context)):
+            self.report({"WARNING"}, "No objects are selected to copy to.")
+            return {"CANCELLED"}
+        for i in self._iter_objects(context):
+            for mod_cls in modifiers.PlasmaModifierProperties.__subclasses__():
+                self._paste_modifier(context.active_object, i, mod_cls.pl_id)
+        self.report({"INFO"}, "Copied Plasma Modifers to selection.")
+        return {"FINISHED"}
+
+
+class ModifierPasteOperator(ModifierClipboard, ModifierOperator, bpy.types.Operator):
+    bl_idname = "object.plasma_modifier_paste"
+    bl_label = "Paste Modifier"
+    bl_description = "Paste Modifier(s) to another Object"
+
+    def execute(self, context):
+        pl_scene = context.scene.plasma_scene
+        if not pl_scene.is_property_set("modifier_copy_object"):
+            raise RuntimeError()
+
+        dst_object, src_object = context.object, pl_scene.modifier_copy_object
+        pl_mod_id = pl_scene.modifier_copy_id
+
+        if pl_mod_id:
+            self._paste_modifier(src_object, dst_object, pl_mod_id)
+        else:
+            for mod_cls in modifiers.PlasmaModifierProperties.__subclasses__():
+                self._paste_modifier(src_object, dst_object, mod_cls.pl_id)
+        return {"FINISHED"}
 
     @classmethod
     def poll(cls, context):

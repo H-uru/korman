@@ -95,5 +95,7 @@ class PlasmaModifiersSpecialMenu(ModifierButtonsPanel, bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
 
+        layout.operator("object.plasma_modifier_copy_to_selection", icon="PASTEDOWN")
+        layout.separator()
         layout.operator("object.plasma_modifier_copy", icon="COPYDOWN", text="Copy Modifiers").active_modifier = -1
         layout.operator("object.plasma_modifier_paste", icon="PASTEDOWN", text="Paste Modifier(s)")
