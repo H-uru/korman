@@ -178,7 +178,7 @@ class LightBaker(_MeshManager):
             if mat_name not in self._lightgroups:
                 self._lightgroups[mat_name] = lg
 
-            if user_lg is None:
+            if not user_lg:
                 if not lg or bool(lg.objects) is False:
                     source = [i for i in bpy.context.scene.objects if i.type == "LAMP"]
                 else:
@@ -372,7 +372,7 @@ class LightBaker(_MeshManager):
 
         # Create a special light group for baking
         user_lg = modifier.lights if modifier.enabled else None
-        if not self._generate_lightgroup(bo):
+        if not self._generate_lightgroup(bo, user_lg):
             return False
 
         # I have heard tale of some moar "No valid image to bake to" boogs if there is a really
