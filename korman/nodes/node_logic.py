@@ -29,7 +29,7 @@ class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.typ
     bl_width_default = 195
 
     # ohey, this can be a Python attribute
-    pl_attribs = {"ptAttribExcludeRegion"}
+    pl_attrib = {"ptAttribExcludeRegion"}
 
     def _get_bounds(self):
         if self.region_object is not None:
