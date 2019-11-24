@@ -258,7 +258,10 @@ class MeshConverter(_MeshManager):
             inc_progress()
 
     def _export_geometry(self, bo, mesh, materials, geospans):
-        geodata = [_GeoData(len(mesh.vertices)) for i in materials]
+        # Recall that materials is a mapping of exported materials to blender material indices.
+        # Therefore, geodata maps blender material indices to working geometry data.
+        # Maybe the logic is a bit inverted, but it keeps the inner loop simple.
+        geodata = { idx: _GeoData(len(mesh.vertices)) for idx, _ in materials }
         bumpmap = self.material.get_bump_layer(bo)
 
         # Locate relevant vertex color layers now...
@@ -275,7 +278,10 @@ class MeshConverter(_MeshManager):
 
         # Convert Blender faces into things we can stuff into libHSPlasma
         for i, tessface in enumerate(mesh.tessfaces):
-            data = geodata[tessface.material_index]
+            data = geodata.get(tessface.material_index)
+            if data is None:
+                continue
+
             face_verts = []
             use_smooth = tessface.use_smooth
             dPosDu = hsVector3(0.0, 0.0, 0.0)
@@ -386,7 +392,7 @@ class MeshConverter(_MeshManager):
                 data.triangles += (face_verts[0], face_verts[2], face_verts[3])
 
         # Time to finish it up...
-        for i, data in enumerate(geodata):
+        for i, data in enumerate(geodata.values()):
             geospan = geospans[i][0]
             numVerts = len(data.vertices)
             numUVs = geospan.format & plGeometrySpan.kUVCountMask
@@ -452,6 +458,12 @@ class MeshConverter(_MeshManager):
 
         return v0Mv1 - v2Mv1 if v0uv > v2uv else v2Mv1 - v0Mv1
 
+    def _enumerate_materials(self, bo, mesh):
+        material_source = mesh.materials
+        valid_materials = set((tf.material_index for tf in mesh.tessfaces if material_source[tf.material_index] is not None))
+        # Sequence of tuples (material_index, material)
+        return sorted(((i, material_source[i]) for i in valid_materials), key=lambda x: x[0])
+
     def export_object(self, bo):
         # If this object has modifiers, then it's a unique mesh, and we don't need to try caching it
         # Otherwise, let's *try* to share meshes as best we can...
@@ -475,9 +487,11 @@ class MeshConverter(_MeshManager):
         mesh = bo.data
         mesh.calc_tessface()
 
-        # Step 0.8: Figure out which materials are attached to this object. Because Blender is backwards,
-        #           we can actually have materials that are None. gotdawgit!!!
-        materials = [i for i in mesh.materials if i is not None]
+        # Step 0.8: Determine materials needed for export... Three considerations here:
+        #           1) Some materials can be None, so that's junk.
+        #           2) Some materials are present but have no valid geometry (D'oh)
+        #           3) TODO: Materials may be attached to the object, not the mesh.
+        materials = self._enumerate_materials(bo, mesh)
         if not materials:
             return None
 
@@ -513,8 +527,8 @@ class MeshConverter(_MeshManager):
             if len(materials) > 1:
                 msg = "'{}' is a WaveSet -- only one material is supported".format(bo.name)
                 self._exporter().report.warn(msg, indent=1)
-            matKey = self.material.export_waveset_material(bo, materials[0])
-            geospan = self._create_geospan(bo, mesh, materials[0], matKey)
+            matKey = self.material.export_waveset_material(bo, materials[0][1])
+            geospan = self._create_geospan(bo, mesh, materials[0][1], matKey)
 
             # FIXME: Can some of this be generalized?
             geospan.props |= (plGeometrySpan.kWaterHeight | plGeometrySpan.kLiteVtxNonPreshaded |
@@ -523,7 +537,7 @@ class MeshConverter(_MeshManager):
             return [(geospan, 0)]
         else:
             geospans = [None] * len(materials)
-            for i, blmat in enumerate(materials):
+            for i, (_, blmat) in enumerate(materials):
                 matKey = self.material.export_material(bo, blmat)
                 geospans[i] = (self._create_geospan(bo, mesh, blmat, matKey), blmat.pass_index)
             return geospans
