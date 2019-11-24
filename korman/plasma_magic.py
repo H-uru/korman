@@ -18,7 +18,10 @@ from Plasma import *
 from PlasmaTypes import *
 
 class {age_name}(ptResponder):
-    pass
+    def __init__(self):
+        ptResponder.__init__(self)
+        self.id = -1
+        self.version = 0
 """
 
 very_very_special_sdl = """
