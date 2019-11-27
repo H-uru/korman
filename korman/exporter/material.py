@@ -617,12 +617,10 @@ class MaterialConverter:
                      bl_env.id_data.name, viewpt.name, indent=5)
 
             # DEMs can do just a position vector. We actually prefer this because the WaveSet exporter
-            # will probably want to steal it for diabolical purposes...
+            # will probably want to steal it for diabolical purposes... In MOUL, root objects are
+            # allowed, but that introduces a gotcha with regard to animated roots and PotS. Also,
+            # sharing root objects with a DCM seems to result in bad problems in game O.o
             pl_env.position = hsVector3(*viewpt.location)
-
-            # We'll also export it as a Root though, where supported (MOUL)
-            root = self._mgr.find_create_key(plSceneObject, bl=viewpt)
-            pl_env.rootNode = root
 
             if layer is not None:
                 layer.UVWSrc = plLayerInterface.kUVWReflect
