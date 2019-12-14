@@ -564,3 +564,15 @@ class PlasmaVisibilitySet(PlasmaModifierProperties):
             if not region.control_region:
                 raise ExportError("{}: Not all Visibility Controls are set up properly in Visibility Set".format(bo.name))
             addRegion(exporter.mgr.find_create_key(plVisRegion, bl=region.control_region))
+
+
+class PlasmaDecalMod(PlasmaModifierProperties):
+    pl_id = "decal_material"
+
+    bl_category = "Render"
+    bl_label = "Decal Object"
+    bl_description = "Exports this object as a decal to its parent"
+
+    def export(self, exporter, bo, so):
+        if not bo.parent:
+            raise ExportError("{}: Decal object must have a parent".format(bo.name))

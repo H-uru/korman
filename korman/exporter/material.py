@@ -405,6 +405,10 @@ class MaterialConverter:
             if layer_props.skip_depth_write:
                 state.ZFlags |= hsGMatState.kZNoZWrite
 
+            if bo.plasma_modifiers.decal_material.enabled:
+                hsgmat.compFlags |= hsGMaterial.kCompDecal
+                state.ZFlags |= hsGMatState.kZIncLayer | hsGMatState.kZNoZWrite
+
         # Export the specific texture type
         self._tex_exporters[texture.type](bo, layer, slot)
 
@@ -1137,6 +1141,8 @@ class MaterialConverter:
         if modifiers.lightmap.bake_lightmap:
             return True
         if modifiers.water_basic.enabled:
+            return True
+        if modifiers.decal_material.enabled:
             return True
         return False
 
