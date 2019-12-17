@@ -257,7 +257,7 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
         pfm = self.get_key(exporter, so).object
 
         # No need to continue if the PFM was already generated.
-        if self.previously_exported(exporter):
+        if pfm.filename:
             return
 
         py_name = Path(self.filename).stem
