@@ -15,11 +15,45 @@
 
 import bpy
 from bpy.props import *
+import pickle
 
 class ToolboxOperator:
     @classmethod
     def poll(cls, context):
         return context.scene.render.engine == "PLASMA_GAME"
+
+
+class PageSearchOperator(ToolboxOperator):
+    _pages_ref_hack = []
+
+    @property
+    def desired_page(self):
+        result = pickle.loads(self.page.encode())
+        PageSearchOperator._pages_ref_hack.clear()
+        return result
+
+    def _get_pages(self, context):
+        # WTF? Pickle, you ask??? Apparently Blender changes the output if we return an empty string,
+        # making it impossible to select the default page... Ugh.
+        page_defns = context.scene.world.plasma_age.pages
+        pages = [(pickle.dumps(i.name, 0).decode(), i.name, "") for i in page_defns]
+
+        # Ensure an entry exists for the default page
+        manual_default_page = next((i.name for i in page_defns if i.seq_suffix == 0), None)
+        if not manual_default_page:
+            pages.append((pickle.dumps("", 0).decode(), "Default", "Default Page"))
+
+        # Have to hold a reference to this numb-skullery so Blender won't crash.
+        PageSearchOperator._pages_ref_hack = pages
+        return pages
+
+    def invoke(self, context, event):
+        context.window_manager.invoke_search_popup(self)
+        return {"RUNNING_MODAL"}
+
+    @classmethod
+    def poll(cls, context):
+        return super().poll(context) and context.scene.world is not None
 
 
 class PlasmaConvertLayerOpacitiesOperator(ToolboxOperator, bpy.types.Operator):
@@ -89,6 +123,42 @@ class PlasmaEnableTexturesOperator(ToolboxOperator, bpy.types.Operator):
         return {"FINISHED"}
 
 
+class PlasmaMovePageObjectsOperator(PageSearchOperator, bpy.types.Operator):
+    bl_idname = "object.plasma_move_selection_to_page"
+    bl_label = "Move Selection to Page"
+    bl_description = "Moves all selected objects to a new page"
+    bl_property = "page"
+
+    page = EnumProperty(name="Page",
+                        description= "Page whose objects should be selected",
+                        items=PageSearchOperator._get_pages,
+                        options=set())
+
+    def execute(self, context):
+        desired_page = self.desired_page
+        for i in context.selected_objects:
+            i.plasma_object.page = desired_page
+        return {"FINISHED"}
+
+
+class PlasmaSelectPageObjectsOperator(PageSearchOperator, bpy.types.Operator):
+    bl_idname = "object.plasma_select_page_objects"
+    bl_label = "Select Objects in Page"
+    bl_description = "Selects all objects in a specific page"
+    bl_property = "page"
+
+    page = EnumProperty(name="Page",
+                        description= "Page whose objects should be selected",
+                        items=PageSearchOperator._get_pages,
+                        options=set())
+
+    def execute(self, context):
+        desired_page = self.desired_page
+        for i in context.scene.objects:
+            i.select = i.plasma_object.page == desired_page
+        return {"FINISHED"}
+
+
 class PlasmaToggleAllPlasmaObjectsOperator(ToolboxOperator, bpy.types.Operator):
     bl_idname = "object.plasma_toggle_all_objects"
     bl_label = "Toggle All Plasma Objects"
@@ -118,7 +188,6 @@ class PlasmaToggleEnvironmentMapsOperator(ToolboxOperator, bpy.types.Operator):
                 if slot.texture.type == "ENVIRONMENT_MAP":
                     slot.use = enable
         return {"FINISHED"}
-
 
 
 class PlasmaTogglePlasmaObjectsOperator(ToolboxOperator, bpy.types.Operator):

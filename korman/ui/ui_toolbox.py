@@ -41,6 +41,10 @@ class PlasmaToolboxPanel(ToolboxPanel, bpy.types.Panel):
         disable_all = col.operator("object.plasma_toggle_all_objects", icon="OBJECT_DATA", text="Disable All")
         disable_all.enable = False
 
+        col.label("Plasma Pages:")
+        col.operator("object.plasma_move_selection_to_page", icon="BOOKMARKS", text="Move to Page")
+        col.operator("object.plasma_select_page_objects", icon="RESTRICT_SELECT_OFF", text="Select Objects")
+
         col.label("Textures:")
         col.operator("texture.plasma_enable_all_textures", icon="TEXTURE", text="Enable All")
         col.operator("texture.plasma_toggle_environment_maps", icon="IMAGE_RGB", text="Enable All EnvMaps").enable = True
