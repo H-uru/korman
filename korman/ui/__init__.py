@@ -21,6 +21,7 @@ from .ui_menus import *
 from .ui_modifiers import *
 from .ui_object import *
 from .ui_render_layer import *
+from .ui_scene import *
 from .ui_text import *
 from .ui_texture import *
 from .ui_toolbox import *

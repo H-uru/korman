@@ -16,6 +16,7 @@
 
 import bpy
 from bpy.props import *
+import functools
 from PyHSPlasma import *
 
 from .base import PlasmaModifierProperties, PlasmaModifierUpgradable
@@ -23,6 +24,38 @@ from ...exporter.etlight import _NUM_RENDER_LAYERS
 from ...exporter import utils
 from ...exporter.explosions import ExportError
 from ... import idprops
+
+class PlasmaDecalManagerRef(bpy.types.PropertyGroup):
+    enabled = BoolProperty(name="Enabled",
+                           default=True,
+                           options=set())
+
+    name = StringProperty(name="Decal Name",
+                          options=set())
+
+
+class PlasmaDecalReceiveMod(PlasmaModifierProperties):
+    pl_id = "decal_receive"
+
+    bl_category = "Render"
+    bl_label = "Receive Decal"
+    bl_description = "Allows this object to receive dynamic decals"
+
+    managers = CollectionProperty(type=PlasmaDecalManagerRef)
+    active_manager_index = IntProperty(options={"HIDDEN"})
+
+    def _iter_decals(self, func):
+        for decal_ref in self.managers:
+            if decal_ref.enabled:
+                func(decal_ref.name)
+
+    def export(self, exporter, bo, so):
+        f = functools.partial(exporter.decal.generate_dynamic_decal, bo)
+        self._iter_decals(f)
+
+    def post_export(self, exporter, bo, so):
+        f = functools.partial(exporter.decal.add_dynamic_decal_receiver, so)
+        self._iter_decals(f)
 
 
 class PlasmaFadeMod(PlasmaModifierProperties):

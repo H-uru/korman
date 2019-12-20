@@ -21,6 +21,7 @@ import time
 
 from . import animation
 from . import camera
+from . import decal
 from . import explosions
 from . import etlight
 from . import image
@@ -54,6 +55,7 @@ class Exporter:
             self.camera = camera.CameraConverter(self)
             self.image = image.ImageCache(self)
             self.locman = locman.LocalizationConverter(self)
+            self.decal = decal.DecalConverter(self)
 
             # Step 0.8: Init the progress mgr
             self.mesh.add_progress_presteps(self.report)
