@@ -37,19 +37,19 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
         return self.id_data.name
 
     @property
+    def no_face_sort(self):
+        """Indicates that the geometry's faces should never be sorted by the engine"""
+        return False
+
+    @property
+    def no_span_sort(self):
+        """Indicates that the geometry's Spans should never be sorted with those from other
+           Drawables that will render in the same pass"""
+        return False
+
+    @property
     def requires_actor(self):
         """Indicates if this modifier requires the object to be a movable actor"""
-        return False
-
-    @property
-    def requires_face_sort(self):
-        """Indicates that the geometry's faces must be sorted by the engine"""
-        return False
-
-    @property
-    def requires_span_sort(self):
-        """Indicates that the geometry's Spans must be sorted with those from other Drawables that
-           will render in the same pass"""
         return False
 
     # Guess what?

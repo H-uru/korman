@@ -429,8 +429,6 @@ class MaterialConverter:
         if canStencil:
             hsgmat.compFlags |= hsGMaterial.kCompNeedsBlendChannel
             state.blendFlags |= hsGMatState.kBlendAlpha | hsGMatState.kBlendAlphaMult | hsGMatState.kBlendNoTexColor
-            if slot.texture.type == "BLEND":
-                state.clampFlags |= hsGMatState.kClampTexture
             state.ZFlags |= hsGMatState.kZNoZWrite
             layer.ambient = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
         elif blend_flags:
@@ -453,6 +451,8 @@ class MaterialConverter:
             layer.specularPower = 1.0
 
         texture = slot.texture
+        if texture.type == "BLEND":
+            hsgmat.compFlags |= hsGMaterial.kCompNeedsBlendChannel
 
         # Apply custom layer properties
         wantBumpmap = bm is not None and slot.use_map_normal
@@ -788,6 +788,11 @@ class MaterialConverter:
         pass
 
     def _export_texture_type_blend(self, bo, layer, slot):
+        state = layer.state
+        state.blendFlags |= hsGMatState.kBlendAlpha | hsGMatState.kBlendAlphaMult | hsGMatState.kBlendNoTexColor
+        state.clampFlags |= hsGMatState.kClampTexture
+        state.ZFlags |= hsGMatState.kZNoZWrite
+
         # This has been separated out because other things may need alpha blend textures.
         texture = slot.texture
         self.export_alpha_blend(texture.progression, texture.use_flip_axis, layer)
