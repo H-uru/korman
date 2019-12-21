@@ -61,6 +61,29 @@ class DecalConverter:
             if key.location == so_loc and getattr(decal_mgr, "waveSet", None) == waveset:
                 decal_mgr.addTarget(so_key)
 
+    def export_active_print_shape(self, print_shape, decal_name):
+        decal_mgrs = self._decal_managers.get(decal_name)
+        if decal_mgrs is None:
+            raise ExportError("'{}': Invalid decal manager '{}'", print_shape.key.name, decal_name)
+        for i in decal_mgrs:
+            print_shape.addDecalMgr(i)
+
+    def export_static_decal(self, bo):
+        mat_mgr = self._exporter().mesh.material
+        mat_keys = mat_mgr.get_materials(bo)
+        if not mat_keys:
+            raise ExportError("'{}': Cannot print decal onto object with no materials", bo.name)
+
+        zFlags = hsGMatState.kZIncLayer | hsGMatState.kZNoZWrite
+        for material in (i.object for i in mat_keys):
+            # Only useful in a debugging context
+            material.compFlags |= hsGMaterial.kCompDecal
+
+            # zFlags should only be applied to the material's base layer
+            # note: changing blend flags is unsafe here -- so don't even think about it!
+            layer = mat_mgr.get_base_layer(material)
+            layer.state.ZFlags |= zFlags
+
     def generate_dynamic_decal(self, bo, decal_name):
         decal = next((i for i in bpy.context.scene.plasma_scene.decal_managers if i.name == decal_name), None)
         if decal is None:

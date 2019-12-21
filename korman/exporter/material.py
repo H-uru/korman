@@ -180,9 +180,9 @@ class MaterialConverter:
         """Exports a Blender Material as an hsGMaterial"""
 
         # Sometimes, a material might need to be single-use. Right now, the most apparent example
-        # of that situation is when a lightmap image is baked. Wavesets are in the same boat, but
-        # that's a special case as of the writing of this code.
-        single_user = self._requires_single_user_material(bo, bm)
+        # of that situation is when a lightmap image is baked. There are others, but as of right now,
+        # it can all be determined by what mods are attached.
+        single_user = any((i.copy_material for i in bo.plasma_modifiers.modifiers))
         if single_user:
             mat_name = "{}_AutoSingle".format(bm.name) if bo.name == bm.name else "{}_{}".format(bo.name, bm.name)
             self._report.msg("Exporting Material '{}' as single user '{}'", bm.name, mat_name, indent=1)
@@ -1151,6 +1151,16 @@ class MaterialConverter:
     def get_materials(self, bo):
         return self._obj2mat.get(bo, [])
 
+    def get_base_layer(self, hsgmat):
+        try:
+            layer = hsgmat.layers[0].object
+        except IndexError:
+            return None
+        else:
+            while layer.underLay is not None:
+                layer = layer.underLay.object
+            return layer
+
     def get_bump_layer(self, bo):
         return self._bump_mats.get(bo, None)
 
@@ -1209,14 +1219,6 @@ class MaterialConverter:
     @property
     def _report(self):
         return self._exporter().report
-
-    def _requires_single_user_material(self, bo, bm):
-        modifiers = bo.plasma_modifiers
-        if modifiers.lightmap.bake_lightmap:
-            return True
-        if modifiers.water_basic.enabled:
-            return True
-        return False
 
     def _test_image_alpha(self, image):
         """Tests to see if this image has any alpha data"""

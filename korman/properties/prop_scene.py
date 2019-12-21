@@ -15,6 +15,7 @@
 
 import bpy
 from bpy.props import *
+import itertools
 
 from ..exporter.etlight import _NUM_RENDER_LAYERS
 
@@ -48,7 +49,8 @@ class PlasmaDecalManager(bpy.types.PropertyGroup):
         prev_value = self.name
         for i in bpy.data.objects:
             decal_receive = i.plasma_modifiers.decal_receive
-            for j in decal_receive.managers:
+            decal_print = i.plasma_modifiers.decal_print
+            for j in itertools.chain(decal_receive.managers, decal_print.managers):
                 if j.name == prev_value:
                     j.name = value
         self.name = value

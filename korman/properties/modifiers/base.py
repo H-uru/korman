@@ -19,6 +19,11 @@ from bpy.props import *
 from contextlib import contextmanager
 
 class PlasmaModifierProperties(bpy.types.PropertyGroup):
+    @property
+    def copy_material(self):
+        """Materials MUST be single-user"""
+        return False
+
     def created(self):
         pass
 

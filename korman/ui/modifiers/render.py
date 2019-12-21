@@ -27,6 +27,32 @@ class DecalMgrListUI(bpy.types.UIList):
             layout.label("[Empty]")
 
 
+def decal_print(modifier, layout, context):
+    layout.prop(modifier, "decal_type")
+
+    layout = layout.column()
+    layout.enabled = modifier.decal_type == "DYNAMIC"
+    layout.label("Dimensions:")
+    row = layout.row(align=True)
+    row.prop(modifier, "length")
+    row.prop(modifier, "width")
+    row.prop(modifier, "height")
+    layout.separator()
+
+    ui_list.draw_modifier_list(layout, "DecalMgrListUI", modifier, "managers",
+                               "active_manager_index", rows=2, maxrows=3)
+    try:
+        mgr_ref = modifier.managers[modifier.active_manager_index]
+    except:
+        pass
+    else:
+        scene = context.scene.plasma_scene
+        decal_mgr = next((i for i in scene.decal_managers if i.display_name == mgr_ref), None)
+
+        layout.alert = decal_mgr is None
+        layout.prop_search(mgr_ref, "name", scene, "decal_managers", icon="NONE")
+        layout.alert = False
+
 def decal_receive(modifier, layout, context):
     ui_list.draw_modifier_list(layout, "DecalMgrListUI", modifier, "managers",
                                "active_manager_index", rows=2, maxrows=3)
