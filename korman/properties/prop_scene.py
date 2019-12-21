@@ -42,6 +42,16 @@ class PlasmaBakePass(bpy.types.PropertyGroup):
                                        default=((True,) * _NUM_RENDER_LAYERS))
 
 
+class PlasmaWetDecalRef(bpy.types.PropertyGroup):
+    enabled = BoolProperty(name="Enabled",
+                           default=True,
+                           options=set())
+
+    name = StringProperty(name="Decal Name",
+                          description="Wet decal manager",
+                          options=set())
+
+
 class PlasmaDecalManager(bpy.types.PropertyGroup):
     def _get_display_name(self):
         return self.name
@@ -51,6 +61,10 @@ class PlasmaDecalManager(bpy.types.PropertyGroup):
             decal_receive = i.plasma_modifiers.decal_receive
             decal_print = i.plasma_modifiers.decal_print
             for j in itertools.chain(decal_receive.managers, decal_print.managers):
+                if j.name == prev_value:
+                    j.name = value
+        for i in bpy.context.scene.plasma_scene.decal_managers:
+            for j in i.wet_managers:
                 if j.name == prev_value:
                     j.name = value
         self.name = value
@@ -64,10 +78,11 @@ class PlasmaDecalManager(bpy.types.PropertyGroup):
 
     decal_type = EnumProperty(name="Decal Type",
                               description="",
-                              items=[("footprint", "Footprint", ""),
+                              items=[("footprint_dry", "Footprint (Dry)", ""),
+                                     ("footprint_wet", "Footprint (Wet)", ""),
                                      ("puddle", "Water Ripple (Shallow)", ""),
                                      ("ripple", "Water Ripple (Deep)", "")],
-                              default="footprint",
+                              default="footprint_dry",
                               options=set())
     image = PointerProperty(name="Image",
                             description="",
@@ -102,6 +117,15 @@ class PlasmaDecalManager(bpy.types.PropertyGroup):
                               subtype="TIME", unit="TIME",
                               min=0.0, soft_max=300.0, default=30.0,
                               options=set())
+    wet_time = FloatProperty(name="Wet Time",
+                             description="How long the decal print shapes stay wet after losing contact with this surface",
+                             subtype="TIME", unit="TIME",
+                             min=0.0, soft_max=300.0, default=10.0,
+                             options=set())
+
+    # Footprints to wet-ize
+    wet_managers = CollectionProperty(type=PlasmaWetDecalRef)
+    active_wet_index = IntProperty(options={"HIDDEN"})
 
 
 class PlasmaScene(bpy.types.PropertyGroup):

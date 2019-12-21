@@ -15,6 +15,7 @@
 
 import bpy
 from collections import defaultdict
+import itertools
 from PyHSPlasma import *
 import weakref
 
@@ -34,7 +35,8 @@ def _get_footprint_class(exporter, name, vs):
 
 class DecalConverter:
     _decal_lookup = {
-        "footprint": _get_footprint_class,
+        "footprint_dry": _get_footprint_class,
+        "footprint_wet": _get_footprint_class,
         "puddle": _get_puddle_class,
         "ripple": lambda e, name, vs: plDynaRippleVSMgr if vs else plDynaRippleMgr,
     }
@@ -42,6 +44,7 @@ class DecalConverter:
     def __init__(self, exporter):
         self._decal_managers = defaultdict(list)
         self._exporter = weakref.ref(exporter)
+        self._notifies = defaultdict(set)
 
     def add_dynamic_decal_receiver(self, so, decal_name):
         # One decal manager in Blender can map to many Plasma decal managers.
@@ -60,6 +63,15 @@ class DecalConverter:
         for key, decal_mgr in ((i, i.object) for i in decal_mgrs):
             if key.location == so_loc and getattr(decal_mgr, "waveSet", None) == waveset:
                 decal_mgr.addTarget(so_key)
+
+        # HACKAGE: Add the wet/dirty notifes now that we know about all the decal managers.
+        notify_names = self._notifies[decal_name]
+        notify_keys = itertools.chain.from_iterable((self._decal_managers[i] for i in notify_names))
+        for notify_key in notify_keys:
+            for i in (i.object for i in decal_mgrs):
+                i.addNotify(notify_key)
+        # Don't need to do that again.
+        del self._notifies[decal_name]
 
     def export_active_print_shape(self, print_shape, decal_name):
         decal_mgrs = self._decal_managers.get(decal_name)
@@ -106,7 +118,7 @@ class DecalConverter:
             self._decal_managers[decal_name].append(decal_mgr.key)
 
             # Certain decals are required to be squares
-            if decal_type in {"footprint", "wake"}:
+            if decal_type in {"footprint_dry", "footprint_wet", "wake"}:
                 length, width = decal.length / 100.0, decal.width / 100.0
             else:
                 length = max(decal.length, decal.width) / 100.0
@@ -129,7 +141,7 @@ class DecalConverter:
             decal_mgr.scale = hsVector3(length, width, 1.0)
 
             # Hardwired calculations from PlasmaMAX
-            if decal_type in {"footprint", "bullet"}:
+            if decal_type in {"footprint_dry", "footprint_wet", "bullet"}:
                 decal_mgr.rampEnd = 0.1
                 decal_mgr.decayStart = decal.life_span - (decal.life_span * 0.25)
                 decal_mgr.lifeSpan = decal.life_span
@@ -140,6 +152,15 @@ class DecalConverter:
                 decal_mgr.lifeSpan = life_span
             else:
                 raise RuntimeError()
+
+            # While any decal manager can be wet/dry, it really makes the most sense to only
+            # expose wet footprints. In the future, we could expose the plDynaDecalEnableMsg
+            # to nodes for advanced hacking.
+            decal_mgr.waitOnEnable = decal_type == "footprint_wet"
+            if decal_type in {"puddle", "ripple"}:
+                decal_mgr.wetLength = decal.wet_time
+                self._notifies[decal_name].update((i.name for i in decal.wet_managers
+                                                          if i.enabled and i.name != decal_name))
 
             # UV Animations are hardcoded in PlasmaMAX. Any reason why we should expose this?
             # I can't think of any presently... Note testing the final instance instead of the

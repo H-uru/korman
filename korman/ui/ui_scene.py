@@ -32,6 +32,15 @@ class DecalManagerListUI(bpy.types.UIList):
         layout.prop(item, "display_name", emboss=False, text="")
 
 
+class WetManagerListUI(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+        if item.name:
+            layout.label(item.name)
+            layout.prop(item, "enabled", text="")
+        else:
+            layout.label("[Empty]")
+
+
 class PlasmaDecalManagersPanel(SceneButtonsPanel, bpy.types.Panel):
     bl_label = "Plasma Decal Managers"
 
@@ -68,5 +77,24 @@ class PlasmaDecalManagersPanel(SceneButtonsPanel, bpy.types.Panel):
             col.label("Draw Settings:")
             col.prop(decal_mgr, "intensity")
             sub = col.row()
-            sub.active = decal_mgr.decal_type in {"footprint", "bullet", "torpedo"}
+            sub.active = decal_mgr.decal_type in {"footprint_dry", "footprint_wet", "bullet", "torpedo"}
             sub.prop(decal_mgr, "life_span")
+            sub = col.row()
+            sub.active = decal_mgr.decal_type in {"puddle", "ripple"}
+            sub.prop(decal_mgr, "wet_time")
+
+            if decal_mgr.decal_type in {"puddle", "ripple"}:
+                box.separator()
+                box.label("Wet Footprints:")
+                ui_list.draw_list(box, "WetManagerListUI", "scene", decal_mgr, "wet_managers",
+                                  "active_wet_index", rows=2, maxrows=3)
+                try:
+                    wet_ref = decal_mgr.wet_managers[decal_mgr.active_wet_index]
+                except:
+                    pass
+                else:
+                    wet_mgr = next((i for i in scene.decal_managers if i.name == wet_ref.name), None)
+                    box.alert = getattr(wet_mgr, "decal_type", None) == "footprint_wet"
+                    box.prop_search(wet_ref, "name", scene, "decal_managers", icon="NONE")
+                    if wet_ref.name == decal_mgr.name:
+                        box.label(text="Circular reference", icon="ERROR")
