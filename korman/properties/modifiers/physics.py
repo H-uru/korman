@@ -68,6 +68,8 @@ class PlasmaCollider(PlasmaModifierProperties):
 
         # Collision groups and such
         if self.dynamic:
+            if exporter.mgr.getVer() < pvMoul:
+                physical.collideGroup = (1 << plSimDefs.kGroupDynamic) | (1 << plSimDefs.kGroupStatic)
             physical.memberGroup = plSimDefs.kGroupDynamic
             physical.mass = self.mass
             _set_phys_prop(plSimulationInterface.kStartInactive, simIface, physical, value=self.start_asleep)
