@@ -143,12 +143,17 @@ class ImageCache:
             # the string "//". There isn't much we can do with that, unless the user
             # happens to have an unpacked copy lying around somewheres...
             path = Path(bl_image.filepath_from_user())
-            if path.is_file():
-                cached_image.modify_time = path.stat().st_mtime
-                if cached_image.export_time and cached_image.export_time < cached_image.modify_time:
-                    return None
-            else:
-                cached_image.modify_time = 0
+            try:
+                exists = path.is_file()
+            except OSError:
+                exists = False
+            finally:
+                if exists:
+                    cached_image.modify_time = path.stat().st_mtime
+                    if cached_image.export_time and cached_image.export_time < cached_image.modify_time:
+                        return None
+                else:
+                    cached_image.modify_time = 0
 
         # ensure the data has been loaded from the cache
         if cached_image.image_data is None:
