@@ -145,7 +145,7 @@ class ExportManager:
             self._pack_agesdl_hook(age)
             sdl = self.add_object(plSceneObject, name="AgeSDLHook", loc=builtin)
             pfm = self.add_object(plPythonFileMod, name="VeryVerySpecialPythonFileMod", so=sdl)
-            pfm.filename = age
+            pfm.filename = korlib.replace_python2_identifier(age)
 
         # Textures.prp
         # FIXME: unconditional creation will overwrite any existing textures PRP. This should
