@@ -28,6 +28,8 @@ class PlasmaSittingBehaviorNode(PlasmaNodeBase, bpy.types.Node):
     bl_label = "Sitting Behavior"
     bl_width_default = 120
 
+    pl_attrib = {"ptAttribActivator", "ptAttribActivatorList", "ptAttribNamedActivator"}
+
     approach = EnumProperty(name="Approach",
                             description="Directions an avatar can approach the seat from",
                             items=sitting_approach_flags,
@@ -45,6 +47,7 @@ class PlasmaSittingBehaviorNode(PlasmaNodeBase, bpy.types.Node):
         ("satisfies", {
             "text": "Satisfies",
             "type": "PlasmaConditionSocket",
+            "valid_link_sockets": {"PlasmaConditionSocket", "PlasmaPythonFileNodeSocket"},
         }),
     ])
 
