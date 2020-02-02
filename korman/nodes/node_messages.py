@@ -481,7 +481,29 @@ class PlasmaLinkToAgeMsg(PlasmaMessageNode, bpy.types.Node):
                 self.raise_error("Age Instance GUID is not a valid UUID")
         spi.title = self.spawn_title
         spi.spawnPt = self.spawn_point
+
+        link_oneshot = self._find_link_oneshot(self)
+        if link_oneshot is not None:
+            msg.linkEffects.linkInAnimName = link_oneshot.animation
+
         return msg
+
+    def _find_link_oneshot(self, node, state=None):
+        if state is None:
+            state = set()
+        state.add(node)
+
+        # Recursively search the responder tree for what avatar animation (OneShot) we are blocking
+        # on when linking. We'll continue playing that when the link-in completes.
+        for child_node in node.find_inputs("sender"):
+            if child_node in state:
+                continue
+            if isinstance(child_node, PlasmaOneShotMsgNode):
+                if child_node.has_callbacks:
+                    return child_node
+            elif isinstance(child_node, PlasmaMessageNode) and child_node:
+                return self._find_link_oneshot(child_node, state)
+        return None
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "rules")
