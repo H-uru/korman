@@ -18,6 +18,55 @@ import bpy
 from .. import ui_list
 from ...exporter.mesh import _VERTEX_COLOR_LAYERS
 
+class DecalMgrListUI(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+        if item.name:
+            layout.label(item.name, icon="BRUSH_DATA")
+            layout.prop(item, "enabled", text="")
+        else:
+            layout.label("[Empty]")
+
+
+def decal_print(modifier, layout, context):
+    layout.prop(modifier, "decal_type")
+
+    layout = layout.column()
+    layout.enabled = modifier.decal_type == "DYNAMIC"
+    layout.label("Dimensions:")
+    row = layout.row(align=True)
+    row.prop(modifier, "length")
+    row.prop(modifier, "width")
+    row.prop(modifier, "height")
+    layout.separator()
+
+    ui_list.draw_modifier_list(layout, "DecalMgrListUI", modifier, "managers",
+                               "active_manager_index", rows=2, maxrows=3)
+    try:
+        mgr_ref = modifier.managers[modifier.active_manager_index]
+    except:
+        pass
+    else:
+        scene = context.scene.plasma_scene
+        decal_mgr = next((i for i in scene.decal_managers if i.display_name == mgr_ref), None)
+
+        layout.alert = decal_mgr is None
+        layout.prop_search(mgr_ref, "name", scene, "decal_managers", icon="BRUSH_DATA")
+        layout.alert = False
+
+def decal_receive(modifier, layout, context):
+    ui_list.draw_modifier_list(layout, "DecalMgrListUI", modifier, "managers",
+                               "active_manager_index", rows=2, maxrows=3)
+    try:
+        mgr_ref = modifier.managers[modifier.active_manager_index]
+    except:
+        pass
+    else:
+        scene = context.scene.plasma_scene
+        decal_mgr = next((i for i in scene.decal_managers if i.display_name == mgr_ref), None)
+
+        layout.alert = decal_mgr is None
+        layout.prop_search(mgr_ref, "name", scene, "decal_managers", icon="BRUSH_DATA")
+
 def fademod(modifier, layout, context):
     layout.prop(modifier, "fader_type")
 

@@ -39,11 +39,13 @@ class _RenderLevel:
     _MAJOR_SHIFT = 28
     _MINOR_MASK = ((1 << _MAJOR_SHIFT) - 1)
 
-    def __init__(self, bo, hsgmat, pass_index, blendSpan=False):
+    def __init__(self, bo, hsgmat, pass_index, blend_span=False):
         self.level = 0
-
-        if blendSpan:
-            self.major = self.MAJOR_DEFAULT
+        if pass_index > 0:
+            self.major = self.MAJOR_FRAMEBUF
+            self.minor = pass_index * 4
+        else:
+            self.major = self.MAJOR_BLEND if blend_span else self.MAJOR_OPAQUE
 
         # We use the blender material's pass index (which we stashed in the hsGMaterial) to increment
         # the render pass, just like it says...
@@ -74,11 +76,10 @@ class _DrawableCriteria:
         self.criteria = 0
 
         if self.blend_span:
-            for mod in bo.plasma_modifiers.modifiers:
-                if mod.requires_face_sort:
-                    self.criteria |= plDrawable.kCritSortFaces
-                if mod.requires_span_sort:
-                    self.criteria |= plDrawable.kCritSortSpans
+            if self._face_sort_allowed(bo):
+                self.criteria |= plDrawable.kCritSortFaces
+            if self._span_sort_allowed(bo):
+                self.criteria |= plDrawable.kCritSortSpans
         self.render_level = _RenderLevel(bo, hsgmat, pass_index, self.blend_span)
 
     def __eq__(self, other):
@@ -91,6 +92,16 @@ class _DrawableCriteria:
 
     def __hash__(self):
         return hash(self.render_level) ^ hash(self.blend_span) ^ hash(self.criteria)
+
+    def _face_sort_allowed(self, bo):
+        # For now, only test the modifiers
+        # This will need to be tweaked further for GUIs...
+        return not any((i.no_face_sort for i in bo.plasma_modifiers.modifiers))
+
+    def _span_sort_allowed(self, bo):
+        # For now, only test the modifiers
+        # This will need to be tweaked further for GUIs...
+        return not any((i.no_face_sort for i in bo.plasma_modifiers.modifiers))
 
     @property
     def span_type(self):

@@ -90,6 +90,7 @@ class _Texture:
         self.ephemeral = kwargs.get("ephemeral", False)
         self.image = image
         self.tag = kwargs.get("tag", None)
+        self.name = kwargs.get("name", image.name)
 
     def __eq__(self, other):
         if not isinstance(other, _Texture):
@@ -106,17 +107,17 @@ class _Texture:
 
     def __str__(self):
         if self.extension is None:
-            name = self.image.name
+            name = self.name
         else:
-            name = str(Path(self.image.name).with_suffix(".{}".format(self.extension)))
+            name = str(Path(self.name).with_suffix(".{}".format(self.extension)))
         if self.calc_alpha:
-            name = "ALPHAGEN_{}".format(name)
+            name = "ALPHAGEN_{}".format(self.name)
 
         if self.is_detail_map:
             name = "DETAILGEN_{}-{}-{}-{}-{}_{}".format(self._DETAIL_BLEND[self.detail_blend],
                                                         self.detail_fade_start, self.detail_fade_stop,
                                                         self.detail_opacity_start, self.detail_opacity_stop,
-                                                        name)
+                                                        self.name)
         return name
 
     def _update(self, other):
@@ -179,9 +180,9 @@ class MaterialConverter:
         """Exports a Blender Material as an hsGMaterial"""
 
         # Sometimes, a material might need to be single-use. Right now, the most apparent example
-        # of that situation is when a lightmap image is baked. Wavesets are in the same boat, but
-        # that's a special case as of the writing of this code.
-        single_user = self._requires_single_user_material(bo, bm)
+        # of that situation is when a lightmap image is baked. There are others, but as of right now,
+        # it can all be determined by what mods are attached.
+        single_user = any((i.copy_material for i in bo.plasma_modifiers.modifiers))
         if single_user:
             mat_name = "{}_AutoSingle".format(bm.name) if bo.name == bm.name else "{}_{}".format(bo.name, bm.name)
             self._report.msg("Exporting Material '{}' as single user '{}'", bm.name, mat_name, indent=1)
@@ -259,6 +260,78 @@ class MaterialConverter:
 
         # Looks like we're done...
         return hsgmat.key
+
+    def export_print_materials(self, bo, image, name, blend):
+        """Exports dynamic decal print material(s)"""
+
+        def make_print_material(name):
+            layer = self._mgr.add_object(plLayer, bl=bo, name=name)
+            layer.state.blendFlags = blend
+            layer.state.clampFlags = hsGMatState.kClampTexture
+            layer.state.ZFlags = hsGMatState.kZNoZWrite | hsGMatState.kZIncLayer
+            layer.ambient = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+            layer.preshade = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+            layer.runtime = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
+            self.export_prepared_image(name=image_name, image=image, alpha_type=image_alpha,
+                                       owner=layer, allowed_formats={"DDS"}, indent=4)
+            material = self._mgr.add_object(hsGMaterial, bl=bo, name=name)
+            material.addLayer(layer.key)
+            return material, layer
+
+        want_preshade = blend == hsGMatState.kBlendAlpha
+
+        image_alpha = self._test_image_alpha(image)
+        if image_alpha == TextureAlpha.opaque and want_preshade:
+            self._report.warn("Using an opaque texture with alpha blending -- this may look bad")
+
+        # Non-alpha blendmodes absolutely cannot have an alpha channel. Period. Nada.
+        # You can't even filter it out with blend flags. We'll try to mitigate the damage by
+        # exporting a DXT1 version. As of right now, opaque vs on_off does nothing, so we still
+        # get some turd-alpha data.
+        if image_alpha == TextureAlpha.full and not want_preshade:
+            self._report.warn("Using an alpha texture with a non-alpha blend mode -- this may look bad", indent=3)
+            image_alpha = TextureAlpha.opaque
+            image_name = "DECALPRINT_{}".format(image.name)
+        else:
+            image_name = image.name
+
+        # Check to see if we have already processed this print material...
+        rtname = "DECALPRINT_{}".format(name)
+        rt_key = self._mgr.find_key(hsGMaterial, bl=bo, name=rtname)
+        if want_preshade:
+            prename = "DECALPRINT_{}_AH".format(name)
+            pre_key = self._mgr.find_key(hsGMaterial, bl=bo, name=prename)
+        else:
+            pre_key = None
+        if rt_key or pre_key:
+            return pre_key, rt_key
+
+        self._report.msg("Exporting Print Material '{}'", rtname, indent=3)
+        rt_material, rt_layer = make_print_material(rtname)
+        if blend == hsGMatState.kBlendMult:
+            rt_layer.state.blendFlags |= hsGMatState.kBlendInvertFinalColor
+        rt_key = rt_material.key
+
+        if want_preshade:
+            self._report.msg("Exporting Print Material '{}'", prename, indent=3)
+            pre_material, pre_layer = make_print_material(prename)
+            pre_material.compFlags |= hsGMaterial.kCompNeedsBlendChannel
+            pre_layer.state.miscFlags |= hsGMatState.kMiscBindNext | hsGMatState.kMiscRestartPassHere
+            pre_layer.preshade = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
+
+            blend_layer = self._mgr.add_object(plLayer, bl=bo, name="{}_AlphaBlend".format(rtname))
+            blend_layer.state.blendFlags = hsGMatState.kBlendAlpha | hsGMatState.kBlendNoTexColor | \
+                                           hsGMatState.kBlendAlphaMult
+            blend_layer.state.clampFlags = hsGMatState.kClampTexture
+            blend_layer.state.ZFlags = hsGMatState.kZNoZWrite
+            blend_layer.ambient = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
+            pre_material.addLayer(blend_layer.key)
+            self.export_alpha_blend("LINEAR", "HORIZONTAL", owner=blend_layer, indent=4)
+
+            pre_key = pre_material.key
+        else:
+            pre_key = None
+        return pre_key, rt_key
 
     def export_waveset_material(self, bo, bm):
         self._report.msg("Exporting WaveSet Material '{}'", bm.name, indent=1)
@@ -356,8 +429,6 @@ class MaterialConverter:
         if canStencil:
             hsgmat.compFlags |= hsGMaterial.kCompNeedsBlendChannel
             state.blendFlags |= hsGMatState.kBlendAlpha | hsGMatState.kBlendAlphaMult | hsGMatState.kBlendNoTexColor
-            if slot.texture.type == "BLEND":
-                state.clampFlags |= hsGMatState.kClampTexture
             state.ZFlags |= hsGMatState.kZNoZWrite
             layer.ambient = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
         elif blend_flags:
@@ -380,6 +451,8 @@ class MaterialConverter:
             layer.specularPower = 1.0
 
         texture = slot.texture
+        if texture.type == "BLEND":
+            hsgmat.compFlags |= hsGMaterial.kCompNeedsBlendChannel
 
         # Apply custom layer properties
         wantBumpmap = bm is not None and slot.use_map_normal
@@ -715,6 +788,11 @@ class MaterialConverter:
         pass
 
     def _export_texture_type_blend(self, bo, layer, slot):
+        state = layer.state
+        state.blendFlags |= hsGMatState.kBlendAlpha | hsGMatState.kBlendAlphaMult | hsGMatState.kBlendNoTexColor
+        state.clampFlags |= hsGMatState.kClampTexture
+        state.ZFlags |= hsGMatState.kZNoZWrite
+
         # This has been separated out because other things may need alpha blend textures.
         texture = slot.texture
         self.export_alpha_blend(texture.progression, texture.use_flip_axis, layer)
@@ -818,7 +896,7 @@ class MaterialConverter:
             image.pixels = pixels
 
         self.export_prepared_image(image=image, owner=owner, allowed_formats={"BMP"},
-                                   alpha_type=TextureAlpha.full, indent=2, ephemeral=True)
+                                   alpha_type=TextureAlpha.full, indent=indent, ephemeral=True)
 
     def export_prepared_image(self, **kwargs):
         """This exports an externally prepared image and an optional owning layer.
@@ -1073,6 +1151,16 @@ class MaterialConverter:
     def get_materials(self, bo):
         return self._obj2mat.get(bo, [])
 
+    def get_base_layer(self, hsgmat):
+        try:
+            layer = hsgmat.layers[0].object
+        except IndexError:
+            return None
+        else:
+            while layer.underLay is not None:
+                layer = layer.underLay.object
+            return layer
+
     def get_bump_layer(self, bo):
         return self._bump_mats.get(bo, None)
 
@@ -1131,14 +1219,6 @@ class MaterialConverter:
     @property
     def _report(self):
         return self._exporter().report
-
-    def _requires_single_user_material(self, bo, bm):
-        modifiers = bo.plasma_modifiers
-        if modifiers.lightmap.bake_lightmap:
-            return True
-        if modifiers.water_basic.enabled:
-            return True
-        return False
 
     def _test_image_alpha(self, image):
         """Tests to see if this image has any alpha data"""

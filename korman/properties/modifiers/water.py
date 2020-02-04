@@ -238,6 +238,10 @@ class PlasmaWaterModifier(idprops.IDPropMixin, PlasmaModifierProperties, bpy.typ
                               min=-10.0, max=10.0,
                               default=0.0)
 
+    @property
+    def copy_material(self):
+        return True
+
     def export(self, exporter, bo, so):
         waveset = exporter.mgr.find_create_object(plWaveSet7, name=bo.name, so=so)
         if self.wind_object:

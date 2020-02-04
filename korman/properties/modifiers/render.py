@@ -16,6 +16,7 @@
 
 import bpy
 from bpy.props import *
+import functools
 from PyHSPlasma import *
 
 from .base import PlasmaModifierProperties, PlasmaModifierUpgradable
@@ -23,6 +24,96 @@ from ...exporter.etlight import _NUM_RENDER_LAYERS
 from ...exporter import utils
 from ...exporter.explosions import ExportError
 from ... import idprops
+
+class PlasmaDecalManagerRef(bpy.types.PropertyGroup):
+    enabled = BoolProperty(name="Enabled",
+                           default=True,
+                           options=set())
+
+    name = StringProperty(name="Decal Name",
+                          options=set())
+
+
+class PlasmaDecalMod:
+    def _iter_decals(self, func):
+        for decal_ref in self.managers:
+            if decal_ref.enabled:
+                func(decal_ref.name)
+
+    @classmethod
+    def register(cls):
+        cls.managers = CollectionProperty(type=PlasmaDecalManagerRef)
+        cls.active_manager_index = IntProperty(options={"HIDDEN"})
+
+
+class PlasmaDecalPrintMod(PlasmaDecalMod, PlasmaModifierProperties):
+    pl_id = "decal_print"
+
+    bl_category = "Render"
+    bl_label = "Print Decal"
+    bl_description = "Prints a decal onto an object"
+
+    decal_type = EnumProperty(name="Decal Type",
+                              description="Type of decal to print onto another object",
+                              items=[("DYNAMIC", "Dynamic", "This object prints a decal onto dynamic decal surfaces"),
+                                     ("STATIC", "Static", "This object is a decal itself")],
+                              options=set())
+
+    # Dynamic Decals
+    length = FloatProperty(name="Length",
+                           min=0.1, soft_max=30.0, precision=2,
+                           default=0.45,
+                           options=set())
+    width = FloatProperty(name="Width",
+                          min=0.1, soft_max=30.0, precision=2,
+                          default=0.9,
+                          options=set())
+    height = FloatProperty(name="Height",
+                           min=0.1, soft_max=30.0, precision=2,
+                           default=1.0,
+                           options=set())
+
+    @property
+    def copy_material(self):
+        return self.decal_type == "STATIC"
+
+    def get_key(self, exporter, so):
+        if self.decal_type == "DYNAMIC":
+            pClass = plActivePrintShape if any((i.enabled for i in self.managers)) else plPrintShape
+            return exporter.mgr.find_create_key(pClass, so=so)
+
+    def export(self, exporter, bo, so):
+        if self.decal_type == "STATIC":
+            exporter.decal.export_static_decal(bo)
+        elif self.decal_type == "DYNAMIC":
+            print_shape = self.get_key(exporter, so).object
+            print_shape.length = self.length
+            print_shape.width = self.width
+            print_shape.height = self.height
+
+    def post_export(self, exporter, bo, so):
+        if self.decal_type == "DYNAMIC":
+            print_shape = self.get_key(exporter, so).object
+            f = functools.partial(exporter.decal.export_active_print_shape, print_shape)
+            self._iter_decals(f)
+
+class PlasmaDecalReceiveMod(PlasmaDecalMod, PlasmaModifierProperties):
+    pl_id = "decal_receive"
+
+    bl_category = "Render"
+    bl_label = "Receive Decal"
+    bl_description = "Allows this object to receive dynamic decals"
+
+    managers = CollectionProperty(type=PlasmaDecalManagerRef)
+    active_manager_index = IntProperty(options={"HIDDEN"})
+
+    def export(self, exporter, bo, so):
+        f = functools.partial(exporter.decal.generate_dynamic_decal, bo)
+        self._iter_decals(f)
+
+    def post_export(self, exporter, bo, so):
+        f = functools.partial(exporter.decal.add_dynamic_decal_receiver, so)
+        self._iter_decals(f)
 
 
 class PlasmaFadeMod(PlasmaModifierProperties):
@@ -80,10 +171,6 @@ class PlasmaFadeMod(PlasmaModifierProperties):
             mod.nearOpaq = 0.0
             mod.farOpaq = self.far_opaq
             mod.farTrans = self.far_trans
-
-    @property
-    def requires_span_sort(self):
-        return True
 
 
 class PlasmaFollowMod(idprops.IDPropObjectMixin, PlasmaModifierProperties):
@@ -201,6 +288,10 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
                 return False
         else:
             return self.bake_type == "lightmap"
+
+    @property
+    def copy_material(self):
+        return self.bake_lightmap
 
     def export(self, exporter, bo, so):
         # If we're exporting vertex colors, who gives a rat's behind?

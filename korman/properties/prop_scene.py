@@ -15,6 +15,7 @@
 
 import bpy
 from bpy.props import *
+import itertools
 
 from ..exporter.etlight import _NUM_RENDER_LAYERS
 
@@ -41,9 +42,98 @@ class PlasmaBakePass(bpy.types.PropertyGroup):
                                        default=((True,) * _NUM_RENDER_LAYERS))
 
 
+class PlasmaWetDecalRef(bpy.types.PropertyGroup):
+    enabled = BoolProperty(name="Enabled",
+                           default=True,
+                           options=set())
+
+    name = StringProperty(name="Decal Name",
+                          description="Wet decal manager",
+                          options=set())
+
+
+class PlasmaDecalManager(bpy.types.PropertyGroup):
+    def _get_display_name(self):
+        return self.name
+    def _set_display_name(self, value):
+        prev_value = self.name
+        for i in bpy.data.objects:
+            decal_receive = i.plasma_modifiers.decal_receive
+            decal_print = i.plasma_modifiers.decal_print
+            for j in itertools.chain(decal_receive.managers, decal_print.managers):
+                if j.name == prev_value:
+                    j.name = value
+        for i in bpy.context.scene.plasma_scene.decal_managers:
+            for j in i.wet_managers:
+                if j.name == prev_value:
+                    j.name = value
+        self.name = value
+
+    name = StringProperty(name="Decal Name",
+                          options=set())
+    display_name = StringProperty(name="Display Name",
+                                  get=_get_display_name,
+                                  set=_set_display_name,
+                                  options=set())
+
+    decal_type = EnumProperty(name="Decal Type",
+                              description="",
+                              items=[("footprint_dry", "Footprint (Dry)", ""),
+                                     ("footprint_wet", "Footprint (Wet)", ""),
+                                     ("puddle", "Water Ripple (Shallow)", ""),
+                                     ("ripple", "Water Ripple (Deep)", "")],
+                              default="footprint_dry",
+                              options=set())
+    image = PointerProperty(name="Image",
+                            description="",
+                            type=bpy.types.Image,
+                            options=set())
+    blend = EnumProperty(name="Blend Mode",
+                         description="",
+                         items=[("kBlendAdd", "Add", ""),
+                                ("kBlendAlpha", "Alpha", ""),
+                                ("kBlendMADD", "Brighten", ""),
+                                ("kBlendMult", "Multiply", "")],
+                         default="kBlendAlpha",
+                         options=set())
+
+    length = IntProperty(name="Length",
+                         description="",
+                         subtype="PERCENTAGE",
+                         min=0, soft_min=25, soft_max=400, default=100,
+                         options=set())
+    width = IntProperty(name="Width",
+                        description="",
+                        subtype="PERCENTAGE",
+                        min=0, soft_min=25, soft_max=400, default=100,
+                        options=set())
+    intensity = IntProperty(name="Intensity",
+                            description="",
+                            subtype="PERCENTAGE",
+                            min=0, soft_max=100, default=100,
+                            options=set())
+    life_span = FloatProperty(name="Life Span",
+                              description="",
+                              subtype="TIME", unit="TIME",
+                              min=0.0, soft_max=300.0, default=30.0,
+                              options=set())
+    wet_time = FloatProperty(name="Wet Time",
+                             description="How long the decal print shapes stay wet after losing contact with this surface",
+                             subtype="TIME", unit="TIME",
+                             min=0.0, soft_max=300.0, default=10.0,
+                             options=set())
+
+    # Footprints to wet-ize
+    wet_managers = CollectionProperty(type=PlasmaWetDecalRef)
+    active_wet_index = IntProperty(options={"HIDDEN"})
+
+
 class PlasmaScene(bpy.types.PropertyGroup):
     bake_passes = CollectionProperty(type=PlasmaBakePass)
     active_pass_index = IntProperty(options={"HIDDEN"})
+
+    decal_managers = CollectionProperty(type=PlasmaDecalManager)
+    active_decal_index = IntProperty(options={"HIDDEN"})
 
     modifier_copy_object = PointerProperty(name="INTERNAL: Object to copy modifiers from",
                                            options={"HIDDEN", "SKIP_SAVE"},
