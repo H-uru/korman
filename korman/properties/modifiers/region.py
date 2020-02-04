@@ -278,11 +278,19 @@ class PlasmaSoftVolume(idprops.IDPropMixin, PlasmaModifierProperties):
         # Initialize the plVolumeIsect. Currently, we only support convex isects. If you want parallel
         # isects from empties, be my guest...
         with TemporaryObject(bo.to_mesh(bpy.context.scene, True, "RENDER", calc_tessface=False), bpy.data.meshes.remove) as mesh:
-            mesh.transform(bo.matrix_world)
+            matrix = bo.matrix_world
+            #l2w = utils.matrix44(matrix)
+            xform = matrix.inverted()
+            xform.transpose()
 
             isect = plConvexIsect()
-            for i in mesh.vertices:
-                isect.addPlane(hsVector3(*i.normal), hsVector3(*i.co))
+            for ngon in mesh.polygons:
+                normal = xform * ngon.normal * -1
+                normal.normalize()
+                normal = hsVector3(*normal)
+                for vertex in (mesh.vertices[i] for i in ngon.vertices):
+                    pos = matrix * vertex.co
+                    isect.addPlane(normal, hsVector3(*pos))
             sv.volume = isect
 
     def _export_sv_nodes(self, exporter, bo, so):
