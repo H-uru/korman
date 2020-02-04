@@ -21,7 +21,7 @@ from ...exporter.mesh import _VERTEX_COLOR_LAYERS
 class DecalMgrListUI(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
         if item.name:
-            layout.label(item.name)
+            layout.label(item.name, icon="BRUSH_DATA")
             layout.prop(item, "enabled", text="")
         else:
             layout.label("[Empty]")
@@ -50,7 +50,7 @@ def decal_print(modifier, layout, context):
         decal_mgr = next((i for i in scene.decal_managers if i.display_name == mgr_ref), None)
 
         layout.alert = decal_mgr is None
-        layout.prop_search(mgr_ref, "name", scene, "decal_managers", icon="NONE")
+        layout.prop_search(mgr_ref, "name", scene, "decal_managers", icon="BRUSH_DATA")
         layout.alert = False
 
 def decal_receive(modifier, layout, context):
@@ -65,7 +65,7 @@ def decal_receive(modifier, layout, context):
         decal_mgr = next((i for i in scene.decal_managers if i.display_name == mgr_ref), None)
 
         layout.alert = decal_mgr is None
-        layout.prop_search(mgr_ref, "name", scene, "decal_managers", icon="NONE")
+        layout.prop_search(mgr_ref, "name", scene, "decal_managers", icon="BRUSH_DATA")
 
 def fademod(modifier, layout, context):
     layout.prop(modifier, "fader_type")

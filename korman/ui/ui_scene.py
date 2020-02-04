@@ -29,13 +29,13 @@ class SceneButtonsPanel:
 
 class DecalManagerListUI(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        layout.prop(item, "display_name", emboss=False, text="")
+        layout.prop(item, "display_name", emboss=False, text="", icon="BRUSH_DATA")
 
 
 class WetManagerListUI(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
         if item.name:
-            layout.label(item.name)
+            layout.label(item.name, icon="BRUSH_DATA")
             layout.prop(item, "enabled", text="")
         else:
             layout.label("[Empty]")
