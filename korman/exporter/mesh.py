@@ -363,10 +363,13 @@ class MeshConverter(_MeshManager):
 
                     # If this face has smoothing, use the vertex normal
                     # Otherwise, use the face normal
-                    if use_smooth:
-                        geoVertex.normal = hsVector3(*source.normal)
-                    else:
-                        geoVertex.normal = hsVector3(*tessface.normal)
+                    normal = source.normal if use_smooth else tessface.normal
+
+                    # MOUL/DX9 craps its pants if any element of the normal is exactly 0.0
+                    normal = map(lambda x: max(x, 0.01) if x >= 0.0 else min(x, -0.01), normal)
+                    normal = hsVector3(*normal)
+                    normal.normalize()
+                    geoVertex.normal = normal
 
                     geoVertex.color = hsColor32(*vertex_color)
                     uvs = [hsVector3(uv[0], 1.0 - uv[1], 0.0) for uv in uvws]
