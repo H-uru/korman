@@ -231,6 +231,8 @@ class MeshConverter(_MeshManager):
             geospan.props |= plGeometrySpan.kLiteVtxNonPreshaded
         if mods.lighting.rt_lights:
             geospan.props |= plGeometrySpan.kPropRunTimeLight
+        if not bm.use_shadows:
+            geospan.props |= plGeometrySpan.kPropNoShadow
 
         # Harvest lights
         permaLights, permaProjs = self._exporter().light.find_material_light_keys(bo, bm)
