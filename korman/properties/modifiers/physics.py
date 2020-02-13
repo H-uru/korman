@@ -32,6 +32,9 @@ bounds_types = (
 def bounds_type_index(key):
     return list(zip(*bounds_types))[0].index(key)
 
+def bounds_type_str(idx):
+    return bounds_types[idx][0]
+
 def _set_phys_prop(prop, sim, phys, value=True):
     """Sets properties on plGenericPhysical and plSimulationInterface (seeing as how they are duped)"""
     sim.setProperty(prop, value)

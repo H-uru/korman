@@ -19,7 +19,7 @@ from collections import OrderedDict
 from PyHSPlasma import *
 
 from .node_core import *
-from ..properties.modifiers.physics import bounds_types, bounds_type_index
+from ..properties.modifiers.physics import bounds_types, bounds_type_index, bounds_type_str
 from .. import idprops
 
 class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.Node):
@@ -37,7 +37,7 @@ class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.typ
         return bounds_type_index("hull")
     def _set_bounds(self, value):
         if self.region_object is not None:
-            self.region_object.plasma_modifiers.collision.bounds = value
+            self.region_object.plasma_modifiers.collision.bounds = bounds_type_str(value)
 
     region_object = PointerProperty(name="Region",
                                     description="Region object's name",
