@@ -375,26 +375,52 @@ class PlasmaEnableMsgNode(PlasmaMessageNode, bpy.types.Node):
                             default={"kAudible", "kDrawable", "kPhysical"})
 
     def convert_message(self, exporter, so):
-        msg = plEnableMsg()
+        receivers = []
         for i in self.find_outputs("receivers"):
             key = i.get_key(exporter, so)
             if isinstance(key, tuple):
                 for j in key:
-                    msg.addReceiver(j)
+                    receivers.append(j)
             else:
-                msg.addReceiver(key)
+                receivers.append(key)
+
+        # OK, so, bad news old bean... In versions of the game using Havok physics, plEnableMsg
+        # does not actually affect the physics. So we have to potentially generate a new message
+        # for that.
+        settings = set(self.settings)
+        if exporter.mgr.getVer() <= pvPots:
+            if "kPhysical" in settings:
+                settings.remove("kPhysical")
+
+                msg = plSimSuppressMsg()
+                for i in receivers:
+                    msg.addReceiver(i)
+                msg.suppress = self.cmd == "kDisable"
+                yield msg
+
+            # If this was only for a physical, don't generate an actual plEnableMsg
+            if not settings:
+                return
+
+        if not settings:
+            self.raise_error("Nothing set to enable/disable")
+
+        msg = plEnableMsg()
+        for i in receivers:
+            msg.addReceiver(i)
         msg.setCmd(getattr(plEnableMsg, self.cmd), True)
 
         # If we have a full house, let's send it to all the SO's generic modifiers as by compressing
         # to kAll :) -- And no, this is not a bug. We do put the named types in commands. The types
         # bit vector is for raw Plasma class IDs listing which modifier types we prop to if "kByType"
         # is a command. Nice flexibility--I have no idea where that's used in Uru though...
-        if len(self.settings) == 3:
+        # NOTE: kAll will never be set for PotS because enable/disable physicals seems to do nothing.
+        if len(settings) == 3:
             msg.setCmd(plEnableMsg.kAll, True)
         else:
-            for i in self.settings:
+            for i in settings:
                 msg.setCmd(getattr(plEnableMsg, i), True)
-        return msg
+        yield msg
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "cmd", text="Cmd")
