@@ -30,6 +30,22 @@ def _set_phys_prop(prop, sim, phys, value=True):
 class PhysicsConverter:
     def __init__(self, exporter):
         self._exporter = weakref.ref(exporter)
+        self._bounds_converters = {
+            "box": self._export_box,
+            "sphere": self._export_sphere,
+            "hull": self._export_hull,
+            "trimesh": self._export_trimesh,
+        }
+
+    def _apply_props(self, simIface, physical, props):
+        for i in props.get("properties", []):
+            _set_phys_prop(getattr(plSimulationInterface, i), simIface, physical)
+        for i in props.get("losdbs", []):
+            physical.LOSDBs |= getattr(plSimDefs, i)
+        for i in props.get("report_groups", []):
+            physical.reportGroup |= 1 << getattr(plSimDefs, i)
+        for i in props.get("collide_groups", []):
+            physical.collideGroup |= 1 << getattr(plSimDefs, i)
 
     def _convert_indices(self, mesh):
         indices = []
@@ -42,7 +58,7 @@ class PhysicsConverter:
                 indices += (v[0], v[2], v[3],)
         return indices
 
-    def _convert_mesh_data(self, bo, physical, indices=True, mesh_func=None):
+    def _convert_mesh_data(self, bo, physical, local_space, indices=True, mesh_func=None):
         try:
             mesh = bo.to_mesh(bpy.context.scene, True, "RENDER", calc_tessface=False)
         except:
@@ -54,8 +70,7 @@ class PhysicsConverter:
             if mesh_func is not None:
                 mesh_func(mesh)
 
-            # We can only use the plPhysical xforms if there is a CI...
-            if self._exporter().has_coordiface(bo):
+            if local_space:
                 mesh.update(calc_tessface=indices)
                 physical.pos = hsVector3(*mat.to_translation())
                 physical.rot = utils.quaternion(mat.to_quaternion())
@@ -79,12 +94,11 @@ class PhysicsConverter:
             else:
                 return vertices
 
-    def generate_flat_proxy(self, bo, so, z_coord=None, name=None):
+    def generate_flat_proxy(self, bo, so, **kwargs):
         """Generates a flat physical object"""
-        if so.sim is None:
-            if name is None:
-                name = bo.name
+        z_coord = kwargs.pop("z_coord", None)
 
+        if so.sim is None:
             simIface = self._mgr.add_object(pl=plSimulationInterface, bl=bo)
             physical = self._mgr.add_object(pl=plGenericPhysical, bl=bo, name=name)
 
@@ -94,7 +108,7 @@ class PhysicsConverter:
 
             mesh = bo.to_mesh(bpy.context.scene, True, "RENDER", calc_tessface=False)
             with TemporaryObject(mesh, bpy.data.meshes.remove):
-                # We will apply all xform, seeing as how this is a special case...
+                # No mass and no emedded xform, so we force worldspace collision.
                 mesh.transform(bo.matrix_world)
                 mesh.update(calc_tessface=True)
 
@@ -111,22 +125,26 @@ class PhysicsConverter:
                 physical.verts = vertices
                 physical.indices = self._convert_indices(mesh)
                 physical.boundsType = plSimDefs.kProxyBounds
+
+                group_name = kwargs.get("member_group")
+                if group_name:
+                    physical.memberGroup = getattr(plSimDefs, group_name)
         else:
             simIface = so.sim.object
             physical = simIface.physical.object
-            if name is not None:
-                physical.key.name = name
 
-        return (simIface, physical)
+            member_group = getattr(plSimDefs, kwargs.get("member_group", "kGroupLOSOnly"))
+            if physical.memberGroup != member_group and member_group != plSimDefs.kGroupLOSOnly:
+                self._report.warn("{}: Physical memberGroup overwritten!", bo.name)
+                physical.memberGroup = member_group
+        self._apply_props(simIface, physical, kwargs)
 
-    def generate_physical(self, bo, so, bounds, name=None):
+    def generate_physical(self, bo, so, **kwargs):
         """Generates a physical object for the given object pair"""
         if so.sim is None:
-            if name is None:
-                name = bo.name
-
             simIface = self._mgr.add_object(pl=plSimulationInterface, bl=bo)
-            physical = self._mgr.add_object(pl=plGenericPhysical, bl=bo, name=name)
+            physical = self._mgr.add_object(pl=plGenericPhysical, bl=bo)
+            ver = self._mgr.getVer()
 
             simIface.physical = physical.key
             physical.object = so.key
@@ -136,6 +154,37 @@ class PhysicsConverter:
             subworld = bo.plasma_object.subworld
             if self.is_dedicated_subworld(subworld, sanity_check=False):
                 physical.subWorld = self._mgr.find_create_key(plHKSubWorld, bl=subworld)
+
+            # Export the collision modifier here since we like stealing from it anyway.
+            mod = bo.plasma_modifiers.collision
+            bounds = kwargs.get("bounds", mod.bounds)
+            if mod.enabled:
+                physical.friction = mod.friction
+                physical.restitution = mod.restitution
+
+                if mod.dynamic:
+                    if ver <= pvPots:
+                        physical.collideGroup = (1 << plSimDefs.kGroupDynamic) | \
+                                                (1 << plSimDefs.kGroupStatic)
+                    physical.memberGroup = plSimDefs.kGroupDynamic
+                    physical.mass = mod.mass
+                    _set_phys_prop(plSimulationInterface.kStartInactive, simIface, physical,
+                                   value=mod.start_asleep)
+                elif not mod.avatar_blocker:
+                    physical.memberGroup = plSimDefs.kGroupLOSOnly
+                else:
+                    physical.memberGroup = plSimDefs.kGroupStatic
+
+                # Line of Sight DB
+                if mod.camera_blocker:
+                    physical.LOSDBs |= plSimDefs.kLOSDBCameraBlockers
+                    _set_phys_prop(plSimulationInterface.kCameraAvoidObject, simIface, physical)
+                if mod.terrain:
+                    physical.LOSDBs |= plSimDefs.kLOSDBAvatarWalkable
+            else:
+                group_name = kwargs.get("member_group")
+                if group_name:
+                    physical.memberGroup = getattr(plSimDefs, group_name)
 
             # Ensure this thing is set up properly for animations.
             # This was previously the collision modifier's postexport method, but that
@@ -147,7 +196,6 @@ class PhysicsConverter:
                     yield bo
                     bo = bo.parent
 
-            ver = self._mgr.getVer()
             for i in _iter_object_tree(bo, ver == pvMoul):
                 if i.plasma_object.has_transform_animation:
                     tree_xformed = True
@@ -176,23 +224,30 @@ class PhysicsConverter:
                 if physical.mass == 0.0:
                     physical.mass = 1.0
 
-            getattr(self, "_export_{}".format(bounds))(bo, physical)
+            if ver <= pvPots:
+                local_space = physical.mass > 0.0
+            else:
+                local_space = self._exporter().has_coordiface(bo)
+            self._bounds_converters[bounds](bo, physical, local_space)
         else:
             simIface = so.sim.object
             physical = simIface.physical.object
-            if name is not None:
-                physical.key.name = name
 
-        return (simIface, physical)
+            member_group = getattr(plSimDefs, kwargs.get("member_group", "kGroupLOSOnly"))
+            if physical.memberGroup != member_group and member_group != plSimDefs.kGroupLOSOnly:
+                self._report.warn("{}: Physical memberGroup overwritten!", bo.name, indent=2)
+                physical.memberGroup = member_group
 
-    def _export_box(self, bo, physical):
+        self._apply_props(simIface, physical, kwargs)
+
+    def _export_box(self, bo, physical, local_space):
         """Exports box bounds based on the object"""
         physical.boundsType = plSimDefs.kBoxBounds
 
-        vertices = self._convert_mesh_data(bo, physical, indices=False)
+        vertices = self._convert_mesh_data(bo, physical, local_space, indices=False)
         physical.calcBoxBounds(vertices)
 
-    def _export_hull(self, bo, physical):
+    def _export_hull(self, bo, physical, local_space):
         """Exports convex hull bounds based on the object"""
         physical.boundsType = plSimDefs.kHullBounds
 
@@ -212,20 +267,21 @@ class PhysicsConverter:
                 bpy.ops.mesh.convex_hull(use_existing_faces=False)
                 bpy.ops.object.mode_set(mode="OBJECT")
 
-        physical.verts = self._convert_mesh_data(bo, physical, indices=False, mesh_func=_bake_hull)
+        physical.verts = self._convert_mesh_data(bo, physical, local_space, indices=False,
+                                                 mesh_func=_bake_hull)
 
-    def _export_sphere(self, bo, physical):
+    def _export_sphere(self, bo, physical, local_space):
         """Exports sphere bounds based on the object"""
         physical.boundsType = plSimDefs.kSphereBounds
 
-        vertices = self._convert_mesh_data(bo, physical, indices=False)
+        vertices = self._convert_mesh_data(bo, physical, local_space, indices=False)
         physical.calcSphereBounds(vertices)
 
-    def _export_trimesh(self, bo, physical):
+    def _export_trimesh(self, bo, physical, local_space):
         """Exports an object's mesh as exact physical bounds"""
         physical.boundsType = plSimDefs.kExplicitBounds
 
-        vertices, indices = self._convert_mesh_data(bo, physical)
+        vertices, indices = self._convert_mesh_data(bo, physical, local_space)
         physical.verts = vertices
         physical.indices = indices
 
@@ -244,3 +300,7 @@ class PhysicsConverter:
     @property
     def _mgr(self):
         return self._exporter().mgr
+
+    @property
+    def _report(self):
+        return self._exporter().report

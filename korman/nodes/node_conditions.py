@@ -91,17 +91,10 @@ class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.N
         bounds = phys_mod.bounds if phys_mod.enabled else self.bounds
 
         # The actual physical object that does the cursor LOS
-        made_the_phys = (clickable_so.sim is None)
-        phys_name = "{}_ClickableLOS".format(clickable_bo.name)
-        simIface, physical = exporter.physics.generate_physical(clickable_bo, clickable_so, bounds, phys_name)
-        simIface.setProperty(plSimulationInterface.kPinned, True)
-        physical.setProperty(plSimulationInterface.kPinned, True)
-        if made_the_phys:
-            # we assume that the collision modifier will do this if they want it to be intangible
-            physical.memberGroup = plSimDefs.kGroupLOSOnly
-        if physical.mass == 0.0:
-            physical.mass = 1.0
-        physical.LOSDBs |= plSimDefs.kLOSDBUIItems
+        exporter.physics.generate_physical(clickable_bo, clickable_so, bounds=bounds,
+                                           member_group="kGroupLOSOnly",
+                                           properties=["kPinned"],
+                                           losdbs=["kLOSDBUIItems"])
 
         # Picking Detector -- detect when the physical is clicked
         detector = self._find_create_object(plPickingDetector, exporter, bl=clickable_bo, so=clickable_so)
@@ -195,10 +188,9 @@ class PlasmaClickableRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.t
         bounds = phys_mod.bounds if phys_mod.enabled else self.bounds
 
         # Our physical is a detector and it only detects avatars...
-        phys_name = "{}_ClickableAvRegion".format(region_bo.name)
-        simIface, physical = exporter.physics.generate_physical(region_bo, region_so, bounds, phys_name)
-        physical.memberGroup = plSimDefs.kGroupDetector
-        physical.reportGroup |= 1 << plSimDefs.kGroupAvatar
+        exporter.physics.generate_physical(region_bo, region_so, bounds=bounds,
+                                           member_group="kGroupDetector",
+                                           report_groups=["kGroupAvatar"])
 
         # I'm glad this crazy mess made sense to someone at Cyan...
         # ObjectInVolumeDetector can notify multiple logic mods. This implies we could share this
@@ -436,14 +428,14 @@ class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.type
             interface.addIntfKey(key)
 
         # Don't forget to export the physical object itself!
-        # [trollface.jpg]
-        simIface, physical = exporter.physics.generate_physical(region_bo, region_so, self.bounds, "{}_VolumeSensor".format(region_bo.name))
-
-        physical.memberGroup = plSimDefs.kGroupDetector
+        report_groups = []
         if "avatar" in self.report_on:
-            physical.reportGroup |= 1 << plSimDefs.kGroupAvatar
+            report_groups.append("kGroupAvatar")
         if "dynamics" in self.report_on:
-            physical.reportGroup |= 1 << plSimDefs.kGroupDynamic
+            report_groups.append("kGroupDynamics")
+        exporter.physics.generate_physical(region_bo, region_so, bounds=self.bounds,
+                                           member_group="kGroupDetector",
+                                           report_groups=report_groups)
 
     def _export_volume_event(self, exporter, bo, so, event, settings):
         if event == plVolumeSensorConditionalObject.kTypeEnter:

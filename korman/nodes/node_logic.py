@@ -99,14 +99,17 @@ class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.typ
                 excludergn.addSafePoint(exporter.mgr.find_create_key(plSceneObject, bl=safept))
 
         # Ensure the region is exported
-        phys_name = "{}_XRgn".format(self.region_object.name)
-        simIface, physical = exporter.physics.generate_physical(self.region_object, region_so, self.bounds, phys_name)
-        simIface.setProperty(plSimulationInterface.kPinned, True)
-        physical.setProperty(plSimulationInterface.kPinned, True)
-        physical.LOSDBs |= plSimDefs.kLOSDBUIBlockers
-        if exporter.mgr.getVer() < pvMoul:
-            physical.memberGroup = plSimDefs.kGroupDetector
-            physical.collideGroup |= 1 << plSimDefs.kGroupDynamic
+        if exporter.mgr.getVer() <= pvPots:
+            member_group = "kGroupDetector"
+            collide_groups = ["kGroupDynamic"]
+        else:
+            member_group = "kGroupStatic"
+            collide_groups = []
+        exporter.physics.generate_physical(self.region_object, region_so, bounds=self.bounds,
+                                           properties=["kPinned"],
+                                           losdbs=["kLOSDBUIBlockers"],
+                                           member_group=member_group,
+                                           collide_groups=collide_groups)
 
     @property
     def export_once(self):
