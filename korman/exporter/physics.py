@@ -140,7 +140,17 @@ class PhysicsConverter:
         self._apply_props(simIface, physical, kwargs)
 
     def generate_physical(self, bo, so, **kwargs):
-        """Generates a physical object for the given object pair"""
+        """Generates a physical object for the given object pair.
+           The following optional arguments are allowed:
+           - bounds: (defaults to collision modifier setting)
+           - member_group: str attribute of plSimDefs, defaults to kGroupStatic
+                           NOTE that kGroupLOSOnly generation will only succeed if no one else
+                           has generated this physical in another group
+           - properties: sequence of str bit names from plSimulationInterface
+           - losdbs: sequence of str bit names from plSimDefs
+           - report_groups: sequence of str bit names from plSimDefs
+           - collide_groups: sequence of str bit names from plSimDefs
+        """
         if so.sim is None:
             simIface = self._mgr.add_object(pl=plSimulationInterface, bl=bo)
             physical = self._mgr.add_object(pl=plGenericPhysical, bl=bo)
