@@ -13,8 +13,21 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+import bmesh
 import bpy
+from contextlib import contextmanager
 import math
+
+@contextmanager
+def bmesh_from_object(bl):
+    """Converts a Blender Object to a BMesh with modifiers applied."""
+    mesh = bmesh.new()
+    try:
+        # Empirical evidence indicates that this applies Blender Modifiers
+        mesh.from_object(bl, bpy.context.scene)
+        yield mesh
+    finally:
+        mesh.free()
 
 class GoodNeighbor:
     """Leave Things the Way You Found Them! (TM)"""
