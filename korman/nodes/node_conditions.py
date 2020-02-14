@@ -344,9 +344,9 @@ class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.type
     report_on = EnumProperty(name="Triggerers",
                              description="What triggers this region?",
                              options={"ANIMATABLE", "ENUM_FLAG"},
-                             items=[("avatar", "Avatars", "Avatars trigger this region"),
-                                    ("dynamics", "Dynamics", "Any non-avatar dynamic physical object (eg kickables)")],
-                             default={"avatar"})
+                             items=[("kGroupAvatar", "Avatars", "Avatars trigger this region"),
+                                    ("kGroupDynamic", "Dynamics", "Any non-avatar dynamic physical object (eg kickables)")],
+                             default={"kGroupAvatar"})
 
     input_sockets = OrderedDict([
         ("enter", {
@@ -428,14 +428,9 @@ class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.type
             interface.addIntfKey(key)
 
         # Don't forget to export the physical object itself!
-        report_groups = []
-        if "avatar" in self.report_on:
-            report_groups.append("kGroupAvatar")
-        if "dynamics" in self.report_on:
-            report_groups.append("kGroupDynamics")
         exporter.physics.generate_physical(region_bo, region_so, bounds=self.bounds,
                                            member_group="kGroupDetector",
-                                           report_groups=report_groups)
+                                           report_groups=self.report_on)
 
     def _export_volume_event(self, exporter, bo, so, event, settings):
         if event == plVolumeSensorConditionalObject.kTypeEnter:
