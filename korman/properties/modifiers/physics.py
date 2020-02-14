@@ -32,6 +32,9 @@ bounds_types = (
 def bounds_type_index(key):
     return list(zip(*bounds_types))[0].index(key)
 
+def bounds_type_str(idx):
+    return bounds_types[idx][0]
+
 def _set_phys_prop(prop, sim, phys, value=True):
     """Sets properties on plGenericPhysical and plSimulationInterface (seeing as how they are duped)"""
     sim.setProperty(prop, value)
@@ -60,36 +63,8 @@ class PlasmaCollider(PlasmaModifierProperties):
     start_asleep = BoolProperty(name="Start Asleep", description="Object is not active until influenced by another object", default=False)
 
     def export(self, exporter, bo, so):
-        simIface, physical = exporter.physics.generate_physical(bo, so, self.bounds, self.key_name)
-
-        # Common props
-        physical.friction = self.friction
-        physical.restitution = self.restitution
-
-        # Collision groups and such
-        if self.dynamic:
-            if exporter.mgr.getVer() < pvMoul:
-                physical.collideGroup = (1 << plSimDefs.kGroupDynamic) | (1 << plSimDefs.kGroupStatic)
-            physical.memberGroup = plSimDefs.kGroupDynamic
-            physical.mass = self.mass
-            _set_phys_prop(plSimulationInterface.kStartInactive, simIface, physical, value=self.start_asleep)
-        elif not self.avatar_blocker:
-            # the UI is kind of misleading on this count. oh well.
-            physical.memberGroup = plSimDefs.kGroupLOSOnly
-        else:
-            physical.memberGroup = plSimDefs.kGroupStatic
-
-        # Line of Sight DB
-        if self.camera_blocker:
-            physical.LOSDBs |= plSimDefs.kLOSDBCameraBlockers
-            # This appears to be dead in CWE, but we'll set it anyway
-            _set_phys_prop(plSimulationInterface.kCameraAvoidObject, simIface, physical)
-        if self.terrain:
-            physical.LOSDBs |= plSimDefs.kLOSDBAvatarWalkable
-
-    @property
-    def key_name(self):
-        return "{}_Collision".format(self.id_data.name)
+        # All modifier properties are examined by this little stinker...
+        exporter.physics.generate_physical(bo, so)
 
     @property
     def requires_actor(self):

@@ -111,28 +111,26 @@ class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.
         #       the surface of the water BUT wave sets are supposed to conform to the bottom of the
         #       pool. Therefore, we need to flatten out a temporary mesh in that case.
         # Ohey! CWE doesn't let you swim at all if the surface isn't flat...
-        swim_phys_name = "{}_SwimSurfaceLOS".format(bo.name)
+        losdbs = ["kLOSDBSwimRegion"]
+        member_group = "kGroupLOSOnly" if exporter.mgr.getVer() != pvMoul else "kGroupStatic"
         if bo.plasma_modifiers.water_basic.enabled:
-            simIface, physical = exporter.physics.generate_flat_proxy(bo, so, bo.location[2], swim_phys_name)
+            exporter.physics.generate_flat_proxy(bo, so, z_coord=bo.location[2],
+                                                 member_group=member_group,
+                                                 losdbs=losdbs)
         else:
-            simIface, physical = exporter.physics.generate_physical(bo, so, "trimesh", swim_phys_name)
-        physical.LOSDBs |= plSimDefs.kLOSDBSwimRegion
-        if exporter.mgr.getVer() != pvMoul:
-            physical.memberGroup = plSimDefs.kGroupLOSOnly
+            exporter.physics.generate_physical(bo, so, bounds="trimesh",
+                                               member_group=member_group,
+                                               losdbs=losdbs)
 
         # Detector region bounds
         if self.region is not None:
             region_so = exporter.mgr.find_create_object(plSceneObject, bl=self.region)
     
             # Good news: if this phys has already been exported, this is basically a noop
-            det_name = "{}_SwimDetector".format(self.region.name)
-            bounds = self.region.plasma_modifiers.collision.bounds
-            simIface, physical = exporter.physics.generate_physical(self.region, region_so, bounds, det_name)
-            if exporter.mgr.getVer() == pvMoul:
-                physical.memberGroup = plSimDefs.kGroupDetector
-            else:
-                physical.memberGroup = plSimDefs.kGroupLOSOnly
-            physical.reportGroup |= 1 << plSimDefs.kGroupAvatar
+            member_group = "kGroupDetector" if exporter.mgr.getVer() == "pvMoul" else "kGroupLOSOnly"
+            exporter.physics.generate_physical(self.region, region_so,
+                                               member_group=member_group,
+                                               report_groups=["kGroupAvatar"])
 
             # I am a little concerned if we already have a plSwimDetector... I am not certain how
             # well Plasma would tolerate having a plSwimMsg with multiple regions referenced.
@@ -140,7 +138,7 @@ class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.
             # What? Me test it?
             # I are chicken.
             # Mmmmm chicken ***drool***
-            if exporter.mgr.find_key(plSwimDetector, name=det_name, so=region_so) is None:
+            if exporter.mgr.find_key(plSwimDetector, so=region_so) is None:
                 enter_msg, exit_msg = plSwimMsg(), plSwimMsg()
                 for i in (enter_msg, exit_msg):
                     i.BCastFlags = plMessage.kLocalPropagate | plMessage.kPropagateToModifiers
@@ -149,7 +147,7 @@ class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.
                 enter_msg.isEntering = True
                 exit_msg.isEntering = False
 
-                detector = exporter.mgr.add_object(plSwimDetector, name=det_name, so=region_so)
+                detector = exporter.mgr.add_object(plSwimDetector, so=region_so)
                 detector.enterMsg = enter_msg
                 detector.exitMsg = exit_msg
         else:

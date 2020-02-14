@@ -72,15 +72,9 @@ class PlasmaLadderModifier(PlasmaModifierProperties):
         mod.ladderView.normalize()
 
         # Generate the detector's physical bounds
-        det_name = "{}_LadderDetector".format(self.id_data.name)
         bounds = "hull" if not bo.plasma_modifiers.collision.enabled else bo.plasma_modifiers.collision.bounds
-        simIface, physical = exporter.physics.generate_physical(bo, so, bounds, det_name)
-        physical.memberGroup = plSimDefs.kGroupDetector
-        physical.reportGroup |= 1 << plSimDefs.kGroupAvatar
-        physical.setProperty(plSimulationInterface.kPinned, True)
-        simIface.setProperty(plSimulationInterface.kPinned, True)
-        if physical.mass == 0.0:
-            physical.mass = 1.0
+        exporter.physics.generate_physical(bo, so, bounds=bounds, member_group="kGroupDetector",
+                                           report_groups=["kGroupAvatar"], properties=["kPinned"])
 
     @property
     def requires_actor(self):

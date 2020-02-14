@@ -19,7 +19,7 @@ from collections import OrderedDict
 from PyHSPlasma import *
 
 from .node_core import *
-from ..properties.modifiers.physics import bounds_types, bounds_type_index
+from ..properties.modifiers.physics import bounds_types, bounds_type_index, bounds_type_str
 from .. import idprops
 
 class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.Node):
@@ -37,7 +37,7 @@ class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.typ
         return bounds_type_index("hull")
     def _set_bounds(self, value):
         if self.region_object is not None:
-            self.region_object.plasma_modifiers.collision.bounds = value
+            self.region_object.plasma_modifiers.collision.bounds = bounds_type_str(value)
 
     region_object = PointerProperty(name="Region",
                                     description="Region object's name",
@@ -99,14 +99,17 @@ class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.typ
                 excludergn.addSafePoint(exporter.mgr.find_create_key(plSceneObject, bl=safept))
 
         # Ensure the region is exported
-        phys_name = "{}_XRgn".format(self.region_object.name)
-        simIface, physical = exporter.physics.generate_physical(self.region_object, region_so, self.bounds, phys_name)
-        simIface.setProperty(plSimulationInterface.kPinned, True)
-        physical.setProperty(plSimulationInterface.kPinned, True)
-        physical.LOSDBs |= plSimDefs.kLOSDBUIBlockers
-        if exporter.mgr.getVer() < pvMoul:
-            physical.memberGroup = plSimDefs.kGroupDetector
-            physical.collideGroup |= 1 << plSimDefs.kGroupDynamic
+        if exporter.mgr.getVer() <= pvPots:
+            member_group = "kGroupDetector"
+            collide_groups = ["kGroupDynamic"]
+        else:
+            member_group = "kGroupStatic"
+            collide_groups = []
+        exporter.physics.generate_physical(self.region_object, region_so, bounds=self.bounds,
+                                           properties=["kPinned"],
+                                           losdbs=["kLOSDBUIBlockers"],
+                                           member_group=member_group,
+                                           collide_groups=collide_groups)
 
     @property
     def export_once(self):

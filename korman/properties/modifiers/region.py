@@ -97,11 +97,9 @@ class PlasmaCameraRegion(PlasmaModifierProperties):
 
         # Setup physical stuff
         phys_mod = bo.plasma_modifiers.collision
-        simIface, physical = exporter.physics.generate_physical(bo, so, phys_mod.bounds, self.key_name)
-        physical.memberGroup = plSimDefs.kGroupDetector
-        physical.reportGroup = 1 << plSimDefs.kGroupAvatar
-        simIface.setProperty(plSimulationInterface.kPinned, True)
-        physical.setProperty(plSimulationInterface.kPinned, True)
+        exporter.physics.generate_physical(bo, so, member_group="kGroupDetector",
+                                           report_groups=["kGroupAvatar"],
+                                           properties=["kPinned"])
 
         # I don't feel evil enough to make this generate a logic tree...
         msg = plCameraMsg()
@@ -188,12 +186,8 @@ class PlasmaPanicLinkRegion(PlasmaModifierProperties):
                              default=True)
 
     def export(self, exporter, bo, so):
-        phys_mod = bo.plasma_modifiers.collision
-        simIface, physical = exporter.physics.generate_physical(bo, so, phys_mod.bounds, self.key_name)
-
-        # Now setup the region detector properties
-        physical.memberGroup = plSimDefs.kGroupDetector
-        physical.reportGroup = 1 << plSimDefs.kGroupAvatar
+        exporter.physics.generate_physical(bo, so, member_group="kGroupDetector",
+                                           report_groups=["kGroupAvatar"])
 
         # Finally, the panic link region proper
         reg = exporter.mgr.add_object(plPanicLinkRegion, name=self.key_name, so=so)
@@ -375,6 +369,5 @@ class PlasmaSubworldRegion(PlasmaModifierProperties):
                 raise ExportAssertionError()
 
         # Fancy pants region collider type shit
-        simIface, physical = exporter.physics.generate_physical(bo, so, self.id_data.plasma_modifiers.collision.bounds, self.key_name)
-        physical.memberGroup = plSimDefs.kGroupDetector
-        physical.reportGroup |= 1 << plSimDefs.kGroupAvatar
+        exporter.physics.generate_physical(bo, so, member_group="kGroupDetector",
+                                           report_groups=["kGroupAvatar"])
