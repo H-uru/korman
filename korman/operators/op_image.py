@@ -33,13 +33,82 @@ _CUBE_FACES = {
     "frontFace": "FR",
 }
 
-class ImageOperator:
+class PlasmaBakeImageAlphaOperator(bpy.types.Operator):
+    bl_idname = "image.plasma_bake_image_alpha"
+    bl_label = "Bake Image Alpha"
+    bl_description = "Bake an image's calculated alpha to another image's alpha channel"
+
+    filepath = StringProperty(name="Alpha Image",
+                              subtype="FILE_PATH",
+                              options=set())
+
+    def execute(self, context):
+        with ConsoleToggler(True), ExportProgressLogger() as self._report:
+            try:
+                self._execute(context)
+            except ExportError as error:
+                self.report({"ERROR"}, str(error))
+                return {"CANCELLED"}
+            else:
+                return {"FINISHED"}
+
+    def _execute(self, context):
+        self._report.progress_add_step("Preparing Images")
+        self._report.progress_add_step("Baking Alpha")
+        self._report.progress_add_step("Creating Image")
+        self._report.progress_start("BAKING IMAGE ALPHA")
+        if not Path(self.filepath).is_file():
+            raise ExportError("No image found at '{}'".format(self.filepath))
+
+        self._report.progress_advance()
+        images, im_diffuse = bpy.data.images, context.space_data.image
+        with TemporaryObject(images.load(self.filepath), images.remove) as im_alpha:
+            width, height = self._check_image_scale(im_diffuse, im_alpha)
+
+            self._report.progress_advance()
+            pixels = self._calc_alpha(im_diffuse, im_alpha, width, height)
+
+            self._report.progress_advance()
+            self._make_image(im_diffuse.name, self.filepath, width, height, pixels, context)
+        self._report.progress_end()
+
+    def _check_image_scale(self, im_diffuse, im_alpha):
+        sz_diffuse, sz_alpha = tuple(im_diffuse.size), tuple(im_alpha.size)
+        if tuple(im_diffuse.size) != tuple(im_alpha.size):
+            self._report.warn("Image sizes do not match, rescaling alpha image")
+            im_alpha.scale(*sz_diffuse)
+        return sz_diffuse
+
+    def _calc_alpha(self, im_diffuse, im_alpha, width, height):
+        # DO NOT REMOVE this copying... Trying to operate directly on the bpy_prop_collection
+        # is slower than molasses running uphill in Siberia!
+        pixels_diffuse, pixels_alpha = list(im_diffuse.pixels), tuple(im_alpha.pixels)
+        for i in range(width * height):
+            alpha_idx = i * 4
+            pixels_diffuse[alpha_idx + 3] = sum(pixels_alpha[alpha_idx:alpha_idx+2]) / 3.0
+        return pixels_diffuse
+
+    def _make_image(self, name_diffuse, name_alpha, width, height, pixels, context=None):
+        name = "{}_ALPHAGEN_{}.png".format(Path(name_diffuse).stem, Path(name_alpha).stem)
+        im_dest = bpy.data.images.new(name, width, height, True)
+        im_dest.pixels = pixels
+        im_dest.update()
+        im_dest.pack(as_png=True)
+        if context and context.space_data:
+            context.space_data.image = im_dest
+        return im_dest
+
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {"RUNNING_MODAL"}
+
     @classmethod
     def poll(cls, context):
-        return context.scene.render.engine == "PLASMA_GAME"
+        space = context.space_data
+        return context.scene.render.engine == "PLASMA_GAME" and space and space.image
 
 
-class PlasmaBuildCubeMapOperator(ImageOperator, bpy.types.Operator):
+class PlasmaBuildCubeMapOperator(bpy.types.Operator):
     bl_idname = "image.plasma_build_cube_map"
     bl_label = "Build Cubemap"
     bl_description = "Builds a Blender cubemap from six images"
@@ -206,6 +275,10 @@ class PlasmaBuildCubeMapOperator(ImageOperator, bpy.types.Operator):
         with TemporaryObject(images.load(filepath), images.remove) as blimage:
             with GLTexture(image=blimage, fast=True) as glimage:
                 return glimage.image_data
+
+    @classmethod
+    def poll(cls, context):
+        return context.scene.render.engine == "PLASMA_GAME"
 
     def _scale_images(self, face_widths, face_heights, face_data):
         self._report.progress_advance()

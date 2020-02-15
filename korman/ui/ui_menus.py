@@ -13,7 +13,8 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
-from ..operators.op_mesh import *
+import bpy
+import functools
 
 class PlasmaMenu:
     @classmethod
@@ -32,14 +33,30 @@ class PlasmaAddMenu(PlasmaMenu, bpy.types.Menu):
         layout.operator("mesh.plasma_ladder_add", text="Ladder", icon="COLLAPSEMENU")
 
 
-def build_plasma_menu(self, context):
+class PlasmaImageMenu(PlasmaMenu, bpy.types.Menu):
+    bl_idname = "menu.plasma_image"
+    bl_label = "Plasma"
+    bl_description = "Plasma Image Operators"
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.operator("image.plasma_bake_image_alpha", icon="IMAGE_RGB_ALPHA")
+
+
+def _build_plasma_menu(menu_operator, self, context):
     if context.scene.render.engine != "PLASMA_GAME":
         return
     self.layout.separator()
-    self.layout.menu("menu.plasma_add", icon="URL")
+    self.layout.menu(menu_operator, icon="URL")
+
+build_plasma_add_menu = functools.partial(_build_plasma_menu, "menu.plasma_add")
+build_plasma_image_menu = functools.partial(_build_plasma_menu, "menu.plasma_image")
 
 def register():
-    bpy.types.INFO_MT_add.append(build_plasma_menu)
+    bpy.types.INFO_MT_add.append(build_plasma_add_menu)
+    bpy.types.IMAGE_MT_image.append(build_plasma_image_menu)
 
 def unregister():
-    bpy.types.INFO_MT_add.remove(build_plasma_menu)
+    bpy.types.INFO_MT_add.remove(build_plasma_add_menu)
+    bpy.types.IMAGE_MT_image.remove(build_plasma_image_menu)
