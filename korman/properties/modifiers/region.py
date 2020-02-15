@@ -13,12 +13,13 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+import bmesh
 import bpy
 from bpy.props import *
 from PyHSPlasma import *
 
 from ...exporter import ExportError, ExportAssertionError
-from ...helpers import TemporaryObject
+from ...helpers import bmesh_from_object
 from ... import idprops
 
 from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz
@@ -271,18 +272,23 @@ class PlasmaSoftVolume(idprops.IDPropMixin, PlasmaModifierProperties):
 
         # Initialize the plVolumeIsect. Currently, we only support convex isects. If you want parallel
         # isects from empties, be my guest...
-        with TemporaryObject(bo.to_mesh(bpy.context.scene, True, "RENDER", calc_tessface=False), bpy.data.meshes.remove) as mesh:
+        with bmesh_from_object(bo) as mesh:
             matrix = bo.matrix_world
-            #l2w = utils.matrix44(matrix)
             xform = matrix.inverted()
             xform.transpose()
 
+            # Ensure the normals always point inward. This is the same thing that
+            # bpy.ops.normals_make_consistent(inside=True) does, just no need to change
+            # into the edit mode context (EXPENSIVE!)
+            bmesh.ops.recalc_face_normals(mesh, faces=mesh.faces)
+            bmesh.ops.reverse_faces(mesh, faces=mesh.faces, flip_multires=True)
+
             isect = plConvexIsect()
-            for ngon in mesh.polygons:
+            for ngon in mesh.faces:
                 normal = xform * ngon.normal * -1
                 normal.normalize()
                 normal = hsVector3(*normal)
-                for vertex in (mesh.vertices[i] for i in ngon.vertices):
+                for vertex in ngon.verts:
                     pos = matrix * vertex.co
                     isect.addPlane(normal, hsVector3(*pos))
             sv.volume = isect
