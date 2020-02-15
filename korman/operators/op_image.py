@@ -127,15 +127,8 @@ class PlasmaBuildCubeMapOperator(bpy.types.Operator):
                                   default="",
                                   options={"HIDDEN"})
 
-    def __init__(self):
-        self._report = ExportProgressLogger()
-        self._report.progress_add_step("Finding Face Images")
-        self._report.progress_add_step("Loading Face Images")
-        self._report.progress_add_step("Scaling Face Images")
-        self._report.progress_add_step("Generating Cube Map")
-
     def execute(self, context):
-        with ConsoleToggler(True) as _:
+        with ConsoleToggler(True), ExportProgressLogger() as self._report:
             try:
                 self._execute()
             except ExportError as error:
@@ -145,6 +138,10 @@ class PlasmaBuildCubeMapOperator(bpy.types.Operator):
                 return {"FINISHED"}
 
     def _execute(self):
+        self._report.progress_add_step("Finding Face Images")
+        self._report.progress_add_step("Loading Face Images")
+        self._report.progress_add_step("Scaling Face Images")
+        self._report.progress_add_step("Generating Cube Map")
         self._report.progress_start("BUILDING CUBE MAP")
         if not Path(self.filepath).is_file():
             raise ExportError("No cube image found at '{}'".format(self.filepath))

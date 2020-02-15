@@ -42,6 +42,7 @@ class PlasmaImageMenu(PlasmaMenu, bpy.types.Menu):
         layout = self.layout
 
         layout.operator("image.plasma_bake_image_alpha", icon="IMAGE_RGB_ALPHA")
+        layout.operator("image.plasma_build_cube_map", icon="MATCUBE")
 
 
 def _build_plasma_menu(menu_operator, self, context):
