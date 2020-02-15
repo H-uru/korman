@@ -370,11 +370,20 @@ class PlasmaEnableMsgNode(PlasmaMessageNode, bpy.types.Node):
                             description="Which attributes should we change",
                             items=[("kAudible", "Audio", "Sounds played by this object"),
                                    ("kPhysical", "Physics", "Physical simulation of the object"),
-                                   ("kDrawable", "Visibility", "Visibility of the object")],
+                                   ("kDrawable", "Visibility", "Visible geometry/light of the object"),
+                                   ("kModifiers", "Modifiers", "Modifiers attached to the object")],
                             options={"ENUM_FLAG"},
-                            default={"kAudible", "kDrawable", "kPhysical"})
+                            default={"kAudible", "kDrawable", "kPhysical", "kModifiers"})
+    bcast_to_children = BoolProperty(name="Send to Children",
+                                     description="Send the message to objects parented to the object",
+                                     default=False,
+                                     options=set())
 
     def convert_message(self, exporter, so):
+        settings = self.settings
+        if not settings:
+            self.raise_error("Nothing set to enable/disable")
+
         receivers = []
         for i in self.find_outputs("receivers"):
             key = i.get_key(exporter, so)
@@ -387,23 +396,15 @@ class PlasmaEnableMsgNode(PlasmaMessageNode, bpy.types.Node):
         # OK, so, bad news old bean... In versions of the game using Havok physics, plEnableMsg
         # does not actually affect the physics. So we have to potentially generate a new message
         # for that.
-        settings = set(self.settings)
         if exporter.mgr.getVer() <= pvPots:
             if "kPhysical" in settings:
-                settings.remove("kPhysical")
-
                 msg = plSimSuppressMsg()
                 for i in receivers:
                     msg.addReceiver(i)
+                if self.bcast_to_children:
+                    msg.BCastFlags |= plMessage.kPropagateToChildren
                 msg.suppress = self.cmd == "kDisable"
                 yield msg
-
-            # If this was only for a physical, don't generate an actual plEnableMsg
-            if not settings:
-                return
-
-        if not settings:
-            self.raise_error("Nothing set to enable/disable")
 
         msg = plEnableMsg()
         for i in receivers:
@@ -415,16 +416,27 @@ class PlasmaEnableMsgNode(PlasmaMessageNode, bpy.types.Node):
         # bit vector is for raw Plasma class IDs listing which modifier types we prop to if "kByType"
         # is a command. Nice flexibility--I have no idea where that's used in Uru though...
         # NOTE: kAll will never be set for PotS because enable/disable physicals seems to do nothing.
-        if len(settings) == 3:
+        if settings >= {"kAudible", "kPhysical", "kDrawable"}:
             msg.setCmd(plEnableMsg.kAll, True)
         else:
             for i in settings:
-                msg.setCmd(getattr(plEnableMsg, i), True)
+                bit = getattr(plEnableMsg, i, None)
+                if bit is not None:
+                    msg.setCmd(bit, True)
+
+        # Propagation to modifiers for, for exmple, ladders
+        if "kModifiers" in settings:
+            msg.BCastFlags |= plMessage.kPropagateToModifiers
+        if self.bcast_to_children:
+            msg.BCastFlags |= plMessage.kPropagateToChildren
         yield msg
 
     def draw_buttons(self, context, layout):
-        layout.prop(self, "cmd", text="Cmd")
-        layout.prop(self, "settings")
+        layout.row(align=True).prop(self, "cmd", expand=True)
+        layout.prop(self, "bcast_to_children")
+        layout.separator()
+        layout.label("Affects:")
+        layout.column(align=True).prop(self, "settings")
 
 
 class PlasmaEnableMessageSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
