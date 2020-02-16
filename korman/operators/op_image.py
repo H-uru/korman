@@ -33,15 +33,7 @@ _CUBE_FACES = {
     "frontFace": "FR",
 }
 
-class PlasmaBakeImageAlphaOperator(bpy.types.Operator):
-    bl_idname = "image.plasma_bake_image_alpha"
-    bl_label = "Bake Image Alpha"
-    bl_description = "Bake an image's calculated alpha to another image's alpha channel"
-
-    filepath = StringProperty(name="Alpha Image",
-                              subtype="FILE_PATH",
-                              options=set())
-
+class ImageOperator:
     def execute(self, context):
         with ConsoleToggler(True), ExportProgressLogger() as self._report:
             try:
@@ -51,6 +43,23 @@ class PlasmaBakeImageAlphaOperator(bpy.types.Operator):
                 return {"CANCELLED"}
             else:
                 return {"FINISHED"}
+
+    def _execute(self, context):
+        raise NotImplementedError()
+
+    @classmethod
+    def poll(cls, context):
+        return context.scene.render.engine == "PLASMA_GAME"
+
+
+class PlasmaBakeImageAlphaOperator(ImageOperator, bpy.types.Operator):
+    bl_idname = "image.plasma_bake_image_alpha"
+    bl_label = "Bake Image Alpha"
+    bl_description = "Bake an image's calculated alpha to another image's alpha channel"
+
+    filepath = StringProperty(name="Alpha Image",
+                              subtype="FILE_PATH",
+                              options=set())
 
     def _execute(self, context):
         self._report.progress_add_step("Preparing Images")
@@ -105,10 +114,10 @@ class PlasmaBakeImageAlphaOperator(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         space = context.space_data
-        return context.scene.render.engine == "PLASMA_GAME" and space and space.image
+        return super().poll(context) and space and space.image
 
 
-class PlasmaBuildCubeMapOperator(bpy.types.Operator):
+class PlasmaBuildCubeMapOperator(ImageOperator, bpy.types.Operator):
     bl_idname = "image.plasma_build_cube_map"
     bl_label = "Build Cubemap"
     bl_description = "Builds a Blender cubemap from six images"
@@ -127,17 +136,7 @@ class PlasmaBuildCubeMapOperator(bpy.types.Operator):
                                   default="",
                                   options={"HIDDEN"})
 
-    def execute(self, context):
-        with ConsoleToggler(True), ExportProgressLogger() as self._report:
-            try:
-                self._execute()
-            except ExportError as error:
-                self.report({"ERROR"}, str(error))
-                return {"CANCELLED"}
-            else:
-                return {"FINISHED"}
-
-    def _execute(self):
+    def _execute(self, context):
         self._report.progress_add_step("Finding Face Images")
         self._report.progress_add_step("Loading Face Images")
         self._report.progress_add_step("Scaling Face Images")
@@ -273,10 +272,6 @@ class PlasmaBuildCubeMapOperator(bpy.types.Operator):
             with GLTexture(image=blimage, fast=True) as glimage:
                 return glimage.image_data
 
-    @classmethod
-    def poll(cls, context):
-        return context.scene.render.engine == "PLASMA_GAME"
-
     def _scale_images(self, face_widths, face_heights, face_data):
         self._report.progress_advance()
         self._report.progress_range = len(BLENDER_CUBE_MAP)
@@ -305,3 +300,29 @@ class PlasmaBuildCubeMapOperator(bpy.types.Operator):
                                                          min_width, min_height)
             self._report.progress_increment()
         return min_width, min_height, tuple(result_data)
+
+
+class PlasmaClampAlphaOperator(ImageOperator, bpy.types.Operator):
+    bl_idname = "image.plasma_clamp_image_alpha"
+    bl_label = "Clamp Image Alpha"
+    bl_description = "Clamp an image's alpha to fully opaque or transparent"
+    bl_options = {"UNDO"}
+
+    def _execute(self, context):
+        self._report.progress_add_step("Clamping Alpha")
+        self._report.progress_start("CLAMPING ALPHA")
+        self._report.progress_advance()
+
+        image = context.space_data.image
+        pixels = list(image.pixels)
+        width, height = image.size
+        # significant figures: round up the even
+        for i in range(3, (width * height * 4), 4):
+            pixels[i] = 1.0 if pixels[i] >= 0.5 else 0.0
+        image.pixels = pixels
+        self._report.progress_end()
+
+    @classmethod
+    def poll(cls, context):
+        space = context.space_data
+        return super().poll(context) and space and space.image
