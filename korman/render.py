@@ -37,6 +37,7 @@ properties_material.MATERIAL_PT_shadow.COMPAT_ENGINES.add("PLASMA_GAME")
 del properties_material
 
 from bl_ui import properties_data_mesh
+properties_data_mesh.DATA_PT_normals.COMPAT_ENGINES.add("PLASMA_GAME")
 properties_data_mesh.DATA_PT_uv_texture.COMPAT_ENGINES.add("PLASMA_GAME")
 properties_data_mesh.DATA_PT_vertex_colors.COMPAT_ENGINES.add("PLASMA_GAME")
 del properties_data_mesh

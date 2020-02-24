@@ -179,10 +179,9 @@ class MaterialConverter:
     def export_material(self, bo, bm):
         """Exports a Blender Material as an hsGMaterial"""
 
-        # Sometimes, a material might need to be single-use. Right now, the most apparent example
-        # of that situation is when a lightmap image is baked. There are others, but as of right now,
-        # it can all be determined by what mods are attached.
-        single_user = any((i.copy_material for i in bo.plasma_modifiers.modifiers))
+        # Sometimes, a material might need to be single-use due to settings like baked lighting,
+        # being a waveset, doublesided, etc.
+        single_user = self._requires_single_user(bo, bm)
         if single_user:
             mat_name = "{}_AutoSingle".format(bm.name) if bo.name == bm.name else "{}_{}".format(bo.name, bm.name)
             self._report.msg("Exporting Material '{}' as single user '{}'", bm.name, mat_name, indent=1)
@@ -251,7 +250,7 @@ class MaterialConverter:
         # material had no Textures, we will need to initialize a default layer
         if not hsgmat.layers:
             layer = self._mgr.find_create_object(plLayer, name="{}_AutoLayer".format(bm.name), bl=bo)
-            self._propagate_material_settings(bm, layer)
+            self._propagate_material_settings(bo, bm, layer)
             hsgmat.addLayer(layer.key)
 
         # Cache this material for later
@@ -342,7 +341,7 @@ class MaterialConverter:
 
         # Materials MUST have one layer. Wavesets need alpha blending...
         layer = self._mgr.add_object(plLayer, name=unique_name, bl=bo)
-        self._propagate_material_settings(bm, layer)
+        self._propagate_material_settings(bo, bm, layer)
         layer.state.blendFlags |= hsGMatState.kBlendAlpha
         hsgmat.addLayer(layer.key)
 
@@ -403,7 +402,7 @@ class MaterialConverter:
         self._report.msg("Exporting Plasma Layer '{}'", name, indent=2)
         layer = self._mgr.find_create_object(plLayer, name=name, bl=bo)
         if bm is not None and not slot.use_map_normal:
-            self._propagate_material_settings(bm, layer)
+            self._propagate_material_settings(bo, bm, layer)
 
         # UVW Channel
         if slot.texture_coords == "UV":
@@ -1186,9 +1185,16 @@ class MaterialConverter:
     def _mgr(self):
         return self._exporter().mgr
 
-    def _propagate_material_settings(self, bm, layer):
+    def _propagate_material_settings(self, bo, bm, layer):
         """Converts settings from the Blender Material to corresponding plLayer settings"""
         state = layer.state
+
+        is_waveset = bo.plasma_modifiers.water_basic.enabled
+        if bo.data.show_double_sided:
+            if is_waveset:
+                self._report.warn("FORCING single sided--this is a waveset (are you insane?)")
+            else:
+                state.miscFlags |= hsGMatState.kMiscTwoSided
 
         # Shade Flags
         if not bm.use_mist:
@@ -1215,6 +1221,11 @@ class MaterialConverter:
                                         bm.diffuse_color.g * emit_scale,
                                         bm.diffuse_color.b * emit_scale,
                                         1.0)
+
+    def _requires_single_user(self, bo, bm):
+        if bo.data.show_double_sided:
+            return True
+        return any((i.copy_material for i in bo.plasma_modifiers.modifiers))
 
     @property
     def _report(self):
