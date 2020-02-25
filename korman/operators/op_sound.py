@@ -44,9 +44,8 @@ class PlasmaSoundOpenOperator(SoundOperator, bpy.types.Operator):
             sound = bpy.data.sounds.load(self.filepath)
 
         # Now do the stanky leg^H^H^H^H^H^H^H^H^H^H deed and put the sound on the mod
-        # NOTE: must use the name so that the mod can receive update callbacks
         dest = eval(self.data_path)
-        setattr(dest, self.sound_property, sound.name)
+        setattr(dest, self.sound_property, sound)
         return {"FINISHED"}
 
     def invoke(self, context, event):

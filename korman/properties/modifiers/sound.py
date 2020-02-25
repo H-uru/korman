@@ -39,16 +39,8 @@ class PlasmaSfxFade(bpy.types.PropertyGroup):
 
 
 class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
-    def _get_name_proxy(self):
-        if self.sound is not None:
-            return self.sound.name
-        return ""
-
-    def _set_name_proxy(self, value):
-        self.sound = bpy.data.sounds.get(value, None)
-
-        # This is the actual pointer update callback
-        if not self.sound:
+    def _update_sound(self, value):
+        if not value:
             self.name = "[Empty]"
             return
 
@@ -73,14 +65,8 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
     enabled = BoolProperty(name="Enabled", default=True, options=set())
     sound = PointerProperty(name="Sound",
                             description="Sound Datablock",
-                            type=bpy.types.Sound)
-
-    # This is needed because pointer properties do not seem to allow update CBs... Bug?
-    sound_data_proxy = StringProperty(name="Sound",
-                                      description="Name of sound datablock",
-                                      get=_get_name_proxy,
-                                      set=_set_name_proxy,
-                                      options=set())
+                            type=bpy.types.Sound,
+                            update=_update_sound)
 
     is_stereo = BoolProperty(default=True, options={"HIDDEN"})
     is_valid = BoolProperty(default=False, options={"HIDDEN"})

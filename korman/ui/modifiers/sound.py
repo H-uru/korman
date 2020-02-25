@@ -45,10 +45,10 @@ def soundemit(modifier, layout, context):
 
         # Sound datablock picker
         row = col.row(align=True)
-        row.prop_search(sound, "sound_data_proxy", bpy.data, "sounds", text="")
+        row.prop(sound, "sound", text="")
         open_op = row.operator("sound.plasma_open", icon="FILESEL", text="")
         open_op.data_path = repr(sound)
-        open_op.sound_property = "sound_data_proxy"
+        open_op.sound_property = "sound"
 
         # Pack/Unpack
         data = sound.sound
