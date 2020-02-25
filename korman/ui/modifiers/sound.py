@@ -40,8 +40,11 @@ def soundemit(modifier, layout, context):
     except:
         pass
     else:
+        split = layout.split(percentage=0.75)
+        col = split.column()
+
         # Sound datablock picker
-        row = layout.row(align=True)
+        row = col.row(align=True)
         row.prop_search(sound, "sound_data_proxy", bpy.data, "sounds", text="")
         open_op = row.operator("sound.plasma_open", icon="FILESEL", text="")
         open_op.data_path = repr(sound)
@@ -54,6 +57,10 @@ def soundemit(modifier, layout, context):
                 row.operator("sound.plasma_pack", icon="UGLYPACKAGE", text="")
             else:
                 row.operator_menu_enum("sound.plasma_unpack", "method", icon="PACKAGE", text="")
+
+        col = split.column()
+        col.enabled = data is not None
+        col.prop(sound, "package", text="Export")
 
         # If an invalid sound data block is spec'd, let them know about it.
         if data and not sound.is_valid:

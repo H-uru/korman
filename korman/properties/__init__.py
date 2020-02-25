@@ -21,6 +21,7 @@ from .prop_lamp import *
 from . import modifiers
 from .prop_object import *
 from .prop_scene import *
+from .prop_sound import *
 from .prop_text import *
 from .prop_texture import *
 from .prop_world import *
@@ -33,6 +34,7 @@ def register():
     bpy.types.Object.plasma_net = bpy.props.PointerProperty(type=PlasmaNet)
     bpy.types.Object.plasma_object = bpy.props.PointerProperty(type=PlasmaObject)
     bpy.types.Scene.plasma_scene = bpy.props.PointerProperty(type=PlasmaScene)
+    bpy.types.Sound.plasma_sound = bpy.props.PointerProperty(type=PlasmaSound)
     bpy.types.Text.plasma_text = bpy.props.PointerProperty(type=PlasmaText)
     bpy.types.Texture.plasma_layer = bpy.props.PointerProperty(type=PlasmaLayer)
     bpy.types.World.plasma_age = bpy.props.PointerProperty(type=PlasmaAge)
