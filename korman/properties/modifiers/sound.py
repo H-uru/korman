@@ -39,16 +39,8 @@ class PlasmaSfxFade(bpy.types.PropertyGroup):
 
 
 class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
-    def _get_name_proxy(self):
-        if self.sound is not None:
-            return self.sound.name
-        return ""
-
-    def _set_name_proxy(self, value):
-        self.sound = bpy.data.sounds.get(value, None)
-
-        # This is the actual pointer update callback
-        if not self.sound:
+    def _update_sound(self, value):
+        if not value:
             self.name = "[Empty]"
             return
 
@@ -73,14 +65,8 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
     enabled = BoolProperty(name="Enabled", default=True, options=set())
     sound = PointerProperty(name="Sound",
                             description="Sound Datablock",
-                            type=bpy.types.Sound)
-
-    # This is needed because pointer properties do not seem to allow update CBs... Bug?
-    sound_data_proxy = StringProperty(name="Sound",
-                                      description="Name of sound datablock",
-                                      get=_get_name_proxy,
-                                      set=_set_name_proxy,
-                                      options=set())
+                            type=bpy.types.Sound,
+                            update=_update_sound)
 
     is_stereo = BoolProperty(default=True, options={"HIDDEN"})
     is_valid = BoolProperty(default=False, options={"HIDDEN"})
@@ -154,6 +140,24 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
     fade_in = PointerProperty(type=PlasmaSfxFade, options=set())
     fade_out = PointerProperty(type=PlasmaSfxFade, options=set())
 
+    def _get_package_value(self):
+        if self.sound is not None:
+            self.package_value = self.sound.plasma_sound.package
+        return self.package_value
+
+    def _set_package_value(self, value):
+        if self.sound is not None:
+            self.sound.plasma_sound.package = value
+
+    # This is really a property of the sound itself, not of this particular emitter instance.
+    # However, to prevent weird UI inconsistencies where the button might be missing or change
+    # states when clearing the sound pointer, we'll cache the actual value here.
+    package = BoolProperty(name="Export",
+                           description="Package this file in the age export",
+                           get=_get_package_value, set=_set_package_value,
+                           options=set())
+    package_value = BoolProperty(options={"HIDDEN", "SKIP_SAVE"})
+
     @property
     def channel_override(self):
         if self.is_stereo and len(self.channel) == 1:
@@ -166,7 +170,8 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
         length = dataSize / header.avgBytesPerSec
 
         # HAX: Ensure that the sound file is copied to game, if applicable.
-        exporter.output.add_sfx(self._sound)
+        if self._sound.plasma_sound.package:
+            exporter.output.add_sfx(self._sound)
 
         # There is some bug in the MOUL code that causes a crash if this does not match the expected
         # result. There's no sense in debugging that though--the user should never specify
