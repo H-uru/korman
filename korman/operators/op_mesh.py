@@ -18,10 +18,12 @@ import bmesh
 import math
 import mathutils
 
+from ..exporter import utils
+
 class PlasmaMeshOperator:
     @classmethod
     def poll(cls, context):
-        return context.scene.render.engine == "PLASMA_GAME"
+        return context.scene.render.engine == "PLASMA_GAME" and context.mode == "OBJECT"
 
 
 class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
@@ -385,6 +387,112 @@ def origin_to_bottom(obj):
 
     bm.to_mesh(obj.data)
     mw.translation = global_origin
+
+
+class PlasmaAddLinkingBookMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
+    bl_idname = "mesh.plasma_linkingbook_add"
+    bl_label = "Add Linking Book"
+    bl_category = "Plasma"
+    bl_description = "Adds a new Plasma Linking Book"
+    bl_options = {"REGISTER", "UNDO"}
+
+    anim_offsets = {
+        "LinkOut": (0.07, 2.0, -3.6),
+        "FishBookLinkOut": (0.8, 2.7, -1.84),
+    }
+
+    # Allows user to specify their own name stem
+    panel_name = bpy.props.StringProperty(name="Name",
+                                         description="Linking Book name stem",
+                                         default="LinkingBook",
+                                         options=set())
+    link_anim_type = bpy.props.EnumProperty(name="Link Animation",
+                                            description="Type of Linking Animation to use",
+                                            items=[("LinkOut", "Standing", "The avatar steps up to the book and places their hand on the panel"),
+                                                   ("FishBookLinkOut", "Kneeling", "The avatar kneels in front of the book and places their hand on the panel"),],
+                                            default="LinkOut",
+                                            options=set())
+
+    def draw(self, context):
+        layout = self.layout
+        space = bpy.context.space_data
+
+        if not space.local_view:
+            box = layout.box()
+            box.label("Linking Book Name:")
+            row = box.row()
+            row.alert = not self.panel_name
+            row.prop(self, "panel_name", text="")
+            box.label("Options:")
+            row = box.row()
+            row.prop(self, "link_anim_type", text="Type")
+        else:
+            row = layout.row()
+            row.label("Warning: Operator does not work in local view mode", icon="ERROR")
+
+    def execute(self, context):
+        if context.mode == "OBJECT":
+            self.create_linkingbook_objects()
+        else:
+            self.report({"WARNING"}, "Linking Book creation only valid in Object mode")
+            return {"CANCELLED"}
+        return {"FINISHED"}
+
+
+    def create_linkingbook_objects(self):
+        bpyscene = bpy.context.scene
+        cursor_shift = mathutils.Matrix.Translation(bpy.context.scene.cursor_location)
+
+        for obj in bpy.data.objects:
+            obj.select = False
+
+        # Create Linking Panel empty
+        panel_root = bpy.data.objects.new("{}".format(self.name_stem), None)
+        bpy.context.scene.objects.link(panel_root)
+        panel_root.empty_draw_type = "IMAGE"
+        panel_root.empty_draw_size = 0.5
+        panel_root.empty_image_offset = (-0.5, -0.5)
+        panel_root.matrix_world = cursor_shift
+        panel_root.plasma_object.enabled = True
+
+        # Create SeekPoint
+        seek_point = bpy.data.objects.new("{}_SeekPoint".format(self.name_stem), None)
+        bpy.context.scene.objects.link(seek_point)
+        seek_point.show_name = True
+        seek_point.empty_draw_type = "ARROWS"
+        link_anim_offset = mathutils.Matrix.Translation(self.anim_offsets[self.link_anim_type])
+        seek_point.matrix_local = link_anim_offset
+        seek_point.plasma_object.enabled = True
+
+        # Create Clickable Region
+        clk_rgn_name = "{}_ClkRegion".format(self.name_stem)
+        clk_rgn_size = 6.0
+        with utils.bmesh_object(clk_rgn_name) as (clk_rgn, bm):
+            bmesh.ops.create_cube(bm, size=(1.0), matrix=(mathutils.Matrix.Scale(clk_rgn_size, 4)))
+
+        clk_rgn.hide_render = True
+        clk_rgn.plasma_object.enabled = True
+
+        # Set the region back two feet, and align the bottom with the seek point
+        z_off = clk_rgn_size / 2 + self.anim_offsets[self.link_anim_type][2]
+        clk_rgn.matrix_local = mathutils.Matrix.Translation((0.0, 2.0, z_off))
+
+        # Parent Region and SeekPoint to Panel
+        seek_point.parent = panel_root
+        clk_rgn.parent = panel_root
+
+        # Add Linking Book modifier
+        bpyscene.objects.active = panel_root
+        panel_root.select = True
+        bpy.ops.object.plasma_modifier_add(types="linkingbookmod")
+        lbmod = panel_root.plasma_modifiers.linkingbookmod
+        lbmod.clickable_region = clk_rgn
+        lbmod.seek_point = seek_point
+        lbmod.anim_type = self.link_anim_type
+
+    @property
+    def name_stem(self):
+        return self.panel_name if self.panel_name else "LinkingBook"
 
 
 def register():
