@@ -16,6 +16,7 @@
 import bpy
 from bpy.props import *
 from bpy.app.handlers import persistent
+from contextlib import contextmanager
 import math
 from PyHSPlasma import *
 
@@ -39,22 +40,34 @@ class PlasmaSfxFade(bpy.types.PropertyGroup):
 
 
 class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
-    def _update_sound(self, value):
-        if not value:
-            self.name = "[Empty]"
-            return
-
+    @contextmanager
+    def _lock_sound(self):
+        exclusive = not self.updating_sound
+        self.updating_sound = True
         try:
-            header, size = self._get_sound_info()
-        except Exception as e:
-            self.is_valid = False
-            # this might be perfectly acceptable... who knows?
-            # user consumable error report to be handled by the UI code
-            print("---Invalid SFX selection---\n{}\n------".format(str(e)))
-        else:
-            self.is_valid = True
-            self.is_stereo = header.numChannels == 2
-        self._update_name()
+            yield exclusive
+        finally:
+            if exclusive:
+                self.updating_sound = False
+
+    def _update_sound(self, value):
+        with self._lock_sound() as exclusive:
+            if exclusive:
+                if not value:
+                    self.name = "[Empty]"
+                    return
+
+                try:
+                    header, size = self._get_sound_info()
+                except Exception as e:
+                    self.is_valid = False
+                    # this might be perfectly acceptable... who knows?
+                    # user consumable error report to be handled by the UI code
+                    print("---Invalid SFX selection---\n{}\n------".format(str(e)))
+                else:
+                    self.is_valid = True
+                    self.is_stereo = header.numChannels == 2
+                self._update_name()
 
     def _update_name(self, context=None):
         if self.is_stereo and self.channel != {"L", "R"}:
@@ -67,6 +80,8 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
                             description="Sound Datablock",
                             type=bpy.types.Sound,
                             update=_update_sound)
+    updating_sound = BoolProperty(default=False,
+                                  options={"HIDDEN", "SKIP_SAVE"})
 
     is_stereo = BoolProperty(default=True, options={"HIDDEN"})
     is_valid = BoolProperty(default=False, options={"HIDDEN"})
