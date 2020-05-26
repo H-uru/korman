@@ -335,7 +335,7 @@ class PlasmaMultiStageBehaviorNode(PlasmaNodeBase, bpy.types.Node):
             if seek_target is not None:
                 seek_object = exporter.mgr.find_create_object(plSceneObject, bl=seek_target)
             else:
-                raise ExportError("'{}': MultiStage Behavior's seek point object is invalid".format(self._find_create_key(plMultistageBehMod, exporter, so=so).name))
+                self.raise_error("MultiStage Behavior's seek point object is invalid")
         else:
             seek_object = so
 
