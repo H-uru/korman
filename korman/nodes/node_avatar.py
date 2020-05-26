@@ -303,6 +303,11 @@ class PlasmaMultiStageBehaviorNode(PlasmaNodeBase, bpy.types.Node):
             "link_limit": 1,
             "spawn_empty": True,
         }),
+        ("condition", {
+            "text": "Triggered By",
+            "type": "PlasmaConditionSocket",
+            "spawn_empty": True,
+        }),
     ])
 
     output_sockets = OrderedDict([
@@ -311,6 +316,10 @@ class PlasmaMultiStageBehaviorNode(PlasmaNodeBase, bpy.types.Node):
             "type": "PlasmaBehaviorSocket",
             "valid_link_nodes": {"PlasmaPythonFileNode"},
             "spawn_empty": True,
+        }),
+        ("satisfies", {
+            "text": "Trigger",
+            "type": "PlasmaConditionSocket",
         })
     ])
 
@@ -381,6 +390,14 @@ class PlasmaMultiStageBehaviorNode(PlasmaNodeBase, bpy.types.Node):
                     animstage.regressTo = -1
 
             msbmod.addStage(animstage)
+
+        receivers = ((i, i.get_key(exporter, so)) for i in self.find_outputs("satisfies"))
+        for node, key in receivers:
+            if key is not None:
+                msbmod.addReceiver(key)
+            else:
+                exporter.report.warn("'{}' Node '{}' doesn't expose a key. It won't be triggered by '{}'!",
+                                     node.bl_idname, node.name, self.name, indent=3)
 
     @property
     def requires_actor(self):
