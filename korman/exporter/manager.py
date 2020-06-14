@@ -308,13 +308,15 @@ class ExportManager:
         with output.generate_dat_file(f, enc=self._encryption) as stream:
             fni = bpy.context.scene.world.plasma_fni
             stream.writeLine("Graphics.Renderer.SetClearColor {} {} {}".format(*fni.clear_color))
-            if fni.fog_method != "none":
-                stream.writeLine("Graphics.Renderer.Fog.SetDefColor {} {} {}".format(*fni.fog_color))
-            if fni.fog_method == "linear":
-                stream.writeLine("Graphics.Renderer.Fog.SetDefLinear {} {} {}".format(fni.fog_start, fni.fog_end, fni.fog_density))
-            elif fni.fog_method == "exp2":
-                stream.writeLine("Graphics.Renderer.Fog.SetDefExp2 {} {}".format(fni.fog_end, fni.fog_density))
             stream.writeLine("Graphics.Renderer.SetYon {}".format(fni.yon))
+            if fni.fog_method == "none":
+                stream.writeLine("Graphics.Renderer.Fog.SetDefLinear 0 0 0")
+            else:
+                stream.writeLine("Graphics.Renderer.Fog.SetDefColor {} {} {}".format(*fni.fog_color))
+                if fni.fog_method == "linear":
+                    stream.writeLine("Graphics.Renderer.Fog.SetDefLinear {} {} {}".format(fni.fog_start, fni.fog_end, fni.fog_density))
+                elif fni.fog_method == "exp2":
+                    stream.writeLine("Graphics.Renderer.Fog.SetDefExp2 {} {}".format(fni.fog_end, fni.fog_density))
 
     def _write_pages(self):
         age_name = self._age_info.name
