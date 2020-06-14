@@ -239,9 +239,11 @@ class OutputFiles:
             stream = hsRAMStream(self._version)
         else:
             if dat_only:
-                file_path = str(self._export_file.parent / filename)
+                file_path = self._export_file.parent.joinpath(filename)
             else:
-                file_path = str(self._export_path / dirname / filename)
+                file_path = self._export_path.joinpath(dirname, filename)
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path = str(file_path) # FIXME when we bump to Python 3.6+
             stream = hsFileStream(self._version)
             stream.open(file_path, fmCreate)
         backing_stream = stream
