@@ -33,6 +33,7 @@ pip-log.txt
 *.pydevproject
 *.sublime-*
 .vs
+.vscode
 
 # Installer Stuff
 installer/Files
