@@ -13,6 +13,11 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+import bmesh
+import bpy
+from typing import Callable
+from contextlib import contextmanager
+
 from PyHSPlasma import *
 
 def affine_parts(xform):
@@ -45,3 +50,24 @@ def matrix44(blmat):
 def quaternion(blquat):
     """Converts a mathutils.Quaternion to an hsQuat"""
     return hsQuat(blquat.x, blquat.y, blquat.z, blquat.w)
+
+
+@contextmanager
+def bmesh_temporary_object(name : str, factory : Callable, page_name : str=None):
+    """Creates a temporary object and mesh that exists only for the duration of
+       the context"""
+    mesh = bpy.data.meshes.new(name)
+    obj = bpy.data.objects.new(name, mesh)
+    obj.draw_type = "WIRE"
+    if page_name is not None:
+        obj.plasma_object.page = page_name
+    bpy.context.scene.objects.link(obj)
+
+    bm = bmesh.new()
+    try:
+        factory(bm)
+        bm.to_mesh(mesh)
+        yield obj
+    finally:
+        bm.free()
+        bpy.context.scene.objects.unlink(obj)
