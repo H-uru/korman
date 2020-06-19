@@ -352,6 +352,7 @@ linking_pfms = {
             { 'id':  9, 'type': "ptAttribFloat",     "name": "bookWidth" },
             { 'id': 10, 'type': "ptAttribFloat",     "name": "BookHeight" },
             { 'id': 11, 'type': "ptAttribBehavior",  "name": "msbSeekBeforeUI" },
+            { 'id': 12, 'type': "ptAttribResponder", "name": "respOneShot" },
         )
     },
     pvMoul : {
@@ -583,6 +584,19 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         msb.link_input(seek, "seekers", "seek_target")
         msb.link_input(anim_stage, "stage", "stage_refs")
         msb.link_output(linkingnode, "hosts", "msbSeekBeforeUI")
+
+        # Responder
+        one_shot = nodes.new("PlasmaOneShotMsgNode")
+        one_shot.animation = self.anim_type
+        one_shot.marker = "touch"
+        one_shot.pos_object = self.seek_point
+
+        responder_state = nodes.new("PlasmaResponderStateNode")
+        responder_state.link_output(one_shot, "msgs", "sender")
+
+        responder = nodes.new("PlasmaResponderNode")
+        responder.link_output(responder_state, "state_refs", "resp")
+        responder.link_output(linkingnode, "keyref", "respOneShot")
 
     def _create_moul_nodes(self, clickable_object, nodes, linkingnode, age_name, clk_region):
         # Clickable
