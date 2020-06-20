@@ -140,11 +140,9 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
             row.label("Warning: Operator does not work in local view mode", icon="ERROR")
 
     def execute(self, context):
-        if context.mode == "OBJECT":
-            self.create_ladder_objects()
-        else:
-            self.report({"WARNING"}, "Ladder creation only valid in Object mode")
-            return {"CANCELLED"}
+        if context.space_data.local_view:
+            bpy.ops.view3d.localview()
+        self.create_ladder_objects()
         return {"FINISHED"}
 
     def create_guide_rungs(self):
@@ -431,13 +429,10 @@ class PlasmaAddLinkingBookMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
             row.label("Warning: Operator does not work in local view mode", icon="ERROR")
 
     def execute(self, context):
-        if context.mode == "OBJECT":
-            self.create_linkingbook_objects()
-        else:
-            self.report({"WARNING"}, "Linking Book creation only valid in Object mode")
-            return {"CANCELLED"}
+        if context.space_data.local_view:
+            bpy.ops.view3d.localview()
+        self.create_linkingbook_objects()
         return {"FINISHED"}
-
 
     def create_linkingbook_objects(self):
         bpyscene = bpy.context.scene
