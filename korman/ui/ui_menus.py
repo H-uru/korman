@@ -30,6 +30,7 @@ class PlasmaAddMenu(PlasmaMenu, bpy.types.Menu):
         layout = self.layout
 
         layout.operator("mesh.plasma_ladder_add", text="Ladder", icon="COLLAPSEMENU")
+        layout.operator("mesh.plasma_linkingbook_add", text="Linking Book", icon="FILE_IMAGE")
 
 
 def build_plasma_menu(self, context):

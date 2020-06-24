@@ -71,3 +71,24 @@ def bmesh_temporary_object(name : str, factory : Callable, page_name : str=None)
     finally:
         bm.free()
         bpy.context.scene.objects.unlink(obj)
+
+@contextmanager
+def bmesh_object(name : str):
+    """Creates an object and mesh that will be removed if the context is exited
+       due to an error"""
+    mesh = bpy.data.meshes.new(name)
+    obj = bpy.data.objects.new(name, mesh)
+    obj.draw_type = "WIRE"
+    bpy.context.scene.objects.link(obj)
+
+    bm = bmesh.new()
+    try:
+        yield obj, bm
+    except:
+        bpy.context.scene.objects.unlink(obj)
+        bpy.data.meshes.remove(mesh)
+        raise
+    else:
+        bm.to_mesh(mesh)
+    finally:
+        bm.free()
