@@ -67,3 +67,48 @@ def journalbookmod(modifier, layout, context):
 
     main_col.label("Clickable Region:")
     main_col.prop(modifier, "clickable_region", text="")
+
+def linkingbookmod(modifier, layout, context):
+    def row_alert(prop_name, **kwargs):
+        row = layout.row()
+        row.alert = not getattr(modifier, prop_name)
+        row.prop(modifier, prop_name, **kwargs)
+
+    layout.prop_menu_enum(modifier, "versions")
+    layout.separator()
+
+    row = layout.row()
+    row.alert = modifier.clickable is None
+    row.prop(modifier, "clickable")
+    layout.prop(modifier, "clickable_region")
+
+    if "pvMoul" in modifier.versions:
+        row_alert("seek_point")
+        layout.prop(modifier, "anim_type")
+
+        layout.separator()
+        layout.prop(modifier, "link_type")
+        row_alert("age_instance")
+        if modifier.link_type == "kChildAgeBook":
+            row_alert("age_parent")
+        if modifier.link_type == "kBasicLink":
+            row_alert("age_uuid")
+
+    row_alert("age_name")
+
+    if "pvMoul" in modifier.versions:
+        layout.separator()
+        layout.prop(modifier, "link_destination")
+        layout.prop(modifier, "spawn_title")
+    layout.prop(modifier, "spawn_point")
+
+    if "pvPots" in modifier.versions:
+        layout.separator()
+        layout.prop(modifier, "link_panel_image")
+        layout.prop(modifier, "book_cover_image")
+        layout.prop(modifier, "stamp_image")
+        if modifier.stamp_image:
+            row = layout.row(align=True)
+            row.label("Stamp Position:")
+            row.prop(modifier, "stamp_x", text="X")
+            row.prop(modifier, "stamp_y", text="Y")
