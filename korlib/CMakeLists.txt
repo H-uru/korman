@@ -1,5 +1,5 @@
-project(korlib)
 cmake_minimum_required(VERSION 3.0)
+project(korlib)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
@@ -12,7 +12,7 @@ find_package(OpenGL REQUIRED)
 find_package(string_theory REQUIRED)
 find_package(Vorbis REQUIRED)
 
-if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" MATCHES ".*Clang")
+if(CMAKE_COMPILER_IS_GNUCXX OR ${CMAKE_CXX_COMPILER_ID} MATCHES ".*Clang")
     set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-unused-parameter ${CMAKE_CXX_FLAGS}")
 endif()
 
@@ -49,3 +49,9 @@ endif()
 target_link_libraries(_korlib HSPlasma ${Ogg_LIBRARIES} ${OPENGL_LIBRARIES}
                                        ${PYTHON_LIBRARIES} ${STRING_THEORY_LIBRARIES}
                                        ${Vorbis_LIBRARIES})
+
+install(TARGETS _korlib
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+)
