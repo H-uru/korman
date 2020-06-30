@@ -115,13 +115,17 @@ class PlasmaAnimStageOrderSocketOut(PlasmaNodeSocketBase, bpy.types.NodeSocket):
     bl_color = (0.412, 0.2, 0.055, 1.0)
 
 
-anim_play_flags = [("kPlayNone", "None", ""),
-                   ("kPlayKey", "Keyboard", ""),
-                   ("kPlayAuto", "Automatic", "")]
-anim_stage_flags = [("kAdvanceNone", "None", ""),
-                    ("kAdvanceOnMove", "Movement", ""),
-                    ("kAdvanceAuto", "Automatic", ""),
-                    ("kAdvanceOnAnyKey", "Any Keypress", "")]
+anim_play_flags = [("kPlayNone", "None", "Play stage only when directed by a message"),
+                   ("kPlayKey", "Keyboard", "Play stage when the user presses the forward/backward key"),
+                   ("kPlayAuto", "Automatic", "Play stage automatically")]
+anim_stage_adv_flags = [("kAdvanceNone", "None", "Advance to the next stage only when directed by a message"),
+                        ("kAdvanceOnMove", "Movement", "Advance to the next stage when the user presses a movement key"),
+                        ("kAdvanceAuto", "Automatic", "Advance to the next stage automatically when this one completes"),
+                        ("kAdvanceOnAnyKey", "Any Keypress", "Advance to the next stage when the user presses any key")]
+anim_stage_rgr_flags = [("kAdvanceNone", "None", "Regress to the previous stage only when directed by a message"),
+                        ("kAdvanceOnMove", "Movement", "Regress to the previous stage when the user presses a movement key"),
+                        ("kAdvanceAuto", "Automatic", "Regress to the previous stage automatically when this one completes"),
+                        ("kAdvanceOnAnyKey", "Any Keypress", "Regress to the previous stage when the user presses any key")]
 
 
 class PlasmaAnimStageSettingsSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
@@ -135,20 +139,20 @@ class PlasmaAnimStageSettingsNode(PlasmaNodeBase, bpy.types.Node):
     bl_width_default = 325
 
     forward = EnumProperty(name="Forward",
-                           description="",
+                           description="Selects which events cause this stage to play forward",
                            items=anim_play_flags,
                            default="kPlayNone")
     backward = EnumProperty(name="Backward",
-                           description="",
+                           description="Selects which events cause this stage to play backward",
                            items=anim_play_flags,
                            default="kPlayNone")
     stage_advance = EnumProperty(name="Stage Advance",
-                                 description="",
-                                 items=anim_stage_flags,
+                                 description="Selects which events cause this stage to advance to the next stage",
+                                 items=anim_stage_adv_flags,
                                  default="kAdvanceNone")
     stage_regress = EnumProperty(name="Stage Regress",
-                                 description="",
-                                 items=anim_stage_flags,
+                                 description="Selects which events cause this stage to regress to the previous stage",
+                                 items=anim_stage_rgr_flags,
                                  default="kAdvanceNone")
 
     notify_on = EnumProperty(name="Notify",
