@@ -19,7 +19,7 @@ from PyHSPlasma import *
 import weakref
 
 from . import explosions
-from .. import korlib
+from ..korlib import replace_python2_identifier
 from ..plasma_magic import *
 
 # These objects have to be in the plSceneNode pool in order to be loaded...
@@ -93,7 +93,7 @@ class ExportManager:
                 else:
                     name = so.key.name
             assert issubclass(pl, hsKeyedObject)
-            pl = pl(name)
+            pl = pl(self._fixup_key_name(pl, name))
 
         self.AddObject(location, pl)
         node = self._nodes[location]
@@ -145,7 +145,7 @@ class ExportManager:
             self._pack_agesdl_hook(age)
             sdl = self.add_object(plSceneObject, name="AgeSDLHook", loc=builtin)
             pfm = self.add_object(plPythonFileMod, name="VeryVerySpecialPythonFileMod", so=sdl)
-            pfm.filename = korlib.replace_python2_identifier(age)
+            pfm.filename = replace_python2_identifier(age)
 
         # Textures.prp
         # FIXME: unconditional creation will overwrite any existing textures PRP. This should
@@ -212,6 +212,7 @@ class ExportManager:
                 name = bl.name
             else:
                 name = so.key.name
+        name = self._fixup_key_name(pClass, name)
 
         key = self._keys.get((location, pClass, name), None)
         if key is not None and so is not None:
@@ -238,6 +239,11 @@ class ExportManager:
         if key is not None:
             return key.object
         return None
+
+    def _fixup_key_name(self, pClass, name):
+        if pClass in {plSceneObject, plPythonFileMod}:
+            return replace_python2_identifier(name)
+        return name
 
     def get_location(self, bl):
         """Returns the Page Location of a given Blender Object"""
@@ -271,7 +277,7 @@ class ExportManager:
             return result
 
         # AgeSDL Hook Python
-        fixed_agename = korlib.replace_python2_identifier(age)
+        fixed_agename = replace_python2_identifier(age)
         py_filename = "{}.py".format(fixed_agename)
         age_py = get_text(py_filename)
         if output.want_py_text(age_py):

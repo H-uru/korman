@@ -20,7 +20,6 @@ from PyHSPlasma import *
 import time
 
 from ..exporter import ExportError
-from ..korlib import replace_python2_identifier
 
 class PlasmaNodeBase:
     def generate_notify_msg(self, exporter, so, socket_id, idname=None):
@@ -53,7 +52,7 @@ class PlasmaNodeBase:
                 working_name = "{}_{}_{}".format(self.id_data.name, self.name, suffix)
             else:
                 working_name = "{}_{}".format(self.id_data.name, self.name)
-        return replace_python2_identifier(working_name)
+        return working_name
 
     def draw_label(self):
         if hasattr(self, "pl_label_attr") and self.hide:
