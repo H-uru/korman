@@ -26,6 +26,143 @@ class PlasmaMeshOperator:
         return context.scene.render.engine == "PLASMA_GAME" and context.mode == "OBJECT"
 
 
+FLARE_MATERIAL_BASE_NAME = "FLAREGEN"
+
+def store_material_selection(self, value):
+    if bpy.data.materials.get(value, None):
+        bpy.context.scene.plasma_scene.last_flare_material = value
+
+
+class PlasmaAddFlareOperator(PlasmaMeshOperator, bpy.types.Operator):
+    bl_idname = "mesh.plasma_flare_add"
+    bl_label = "Add Lamp Flare"
+    bl_category = "Plasma"
+    bl_description = "Adds a new Plasma Lamp Flare"
+    bl_options = {"REGISTER", "UNDO"}
+
+    # Allows user to specify their own name stem
+    flare_name = bpy.props.StringProperty(name="Name",
+                                         description="Flare name stem",
+                                         default="Flare",
+                                         options=set())
+    flare_distance = bpy.props.FloatProperty(name="Distance",
+                                             description="Flare's distance from the illuminating object",
+                                             min=0.1, max=2.0, step=10, precision=1, default=1.0,
+                                             options=set())
+    flare_material_name = bpy.props.StringProperty(name="Material",
+                                                   description="A specially-crafted material to use for this flare",
+                                                   default=FLARE_MATERIAL_BASE_NAME,
+                                                   update=store_material_selection,
+                                                   options=set())
+
+    @classmethod
+    def poll(cls, context):
+        return super().poll(context) and context.mode == "OBJECT"
+
+    def draw(self, context):
+        layout = self.layout
+        box = layout.box()
+        box.label("Flare Name:")
+        row = box.row()
+        row.alert = not self.flare_name
+        row.prop(self, "flare_name", text="")
+
+        box = layout.box()
+        box.label("Geometry:")
+        row = box.row()
+        row.prop(self, "flare_distance")
+
+        box = layout.box()
+        box.label("Material:")
+        row = box.row()
+        row.prop_search(self, "flare_material_name", bpy.data, "materials", text="")
+
+    def execute(self, context):
+        if context.space_data.local_view:
+            bpy.ops.view3d.localview()
+        self.create_flare_objects()
+        return {"FINISHED"}
+
+    def create_flare_objects(self):
+        bpyscene = bpy.context.scene
+        cursor_shift = mathutils.Matrix.Translation(bpy.context.scene.cursor_location)
+
+        for obj in bpy.data.objects:
+            obj.select = False
+
+        # Create Empty, rotated to horizontal
+        flare_root = bpy.data.objects.new("{}".format(self.name_stem), None)
+        flare_root.empty_draw_type = "SINGLE_ARROW"
+        flare_root.matrix_world = cursor_shift
+        flare_root.rotation_euler[0] = math.radians(90)
+        flare_root.plasma_object.enabled = True
+        flare_root.select = True
+        bpy.context.scene.objects.link(flare_root)
+        bpyscene.objects.active = flare_root
+
+        # Enable VFM on Empty
+        bpy.ops.object.plasma_modifier_add(types="viewfacemod")
+        flare_root.plasma_modifiers.viewfacemod.preset_options = "Sprite"
+
+        # Create a textured Plane
+        with utils.bmesh_object("{}_Visible".format(self.name_stem)) as (flare_plane, bm):
+            flare_plane.hide_render = True
+            flare_plane.plasma_object.enabled = True
+            bpyscene.objects.active = flare_plane
+
+            # Make the actual plane mesh, facing away from the empty
+            bmesh.ops.create_grid(bm, size=(0.5 + self.flare_distance * 0.5), matrix=mathutils.Matrix.Rotation(math.radians(180.0), 4, 'X'))
+            bmesh.ops.transform(bm, matrix=mathutils.Matrix.Translation((0.0, 0.0, -self.flare_distance)), space=flare_plane.matrix_world, verts=bm.verts)
+            bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY")
+
+        # Give the plane a basic UV unwrap, so that it's texture-ready
+        bpy.ops.object.editmode_toggle()
+        bpy.ops.uv.smart_project()
+        bpy.ops.object.editmode_toggle()
+
+        # Create AUTOGEN_FLARE material and texture, setting No-Z-Write
+        auto_mat = self.find_create_material()
+        flare_plane.data.materials.append(auto_mat)
+
+        # Parent Plane to Empty
+        flare_plane.parent = flare_root
+
+        # Enable Opacity Fader
+        bpy.ops.object.plasma_modifier_add(types="fademod")
+        flare_plane.plasma_modifiers.fademod.fader_type = "FadeOpacity"
+        flare_plane.plasma_modifiers.fademod.fade_in_time = 0.25
+        flare_plane.plasma_modifiers.fademod.fade_out_time = 0.25
+        flare_plane.plasma_modifiers.fademod.bounds_center = True
+
+    def find_create_material(self):
+        # If the selected flare material exists, use it
+        auto_mat = bpy.data.materials.get(self.flare_material_name, None)
+
+        if auto_mat is None:
+            # Generate a new flare material and texture
+            auto_mat = bpy.data.materials.new(name=FLARE_MATERIAL_BASE_NAME)
+            auto_mat.use_shadeless = True
+            auto_mat.use_shadows = False
+            auto_mat.use_cast_shadows = False
+            self.flare_material_name = auto_mat.name
+
+            auto_tex = bpy.data.textures.new(name=FLARE_MATERIAL_BASE_NAME, type="IMAGE")
+            auto_tex.use_alpha = True
+            auto_tex.plasma_layer.skip_depth_write = True
+            auto_tex.plasma_layer.skip_depth_test = True
+            auto_tex.plasma_layer.z_bias = True
+
+            new_slot = auto_mat.texture_slots.add()
+            new_slot.texture = auto_tex
+            new_slot.blend_type = "ADD"
+
+        return auto_mat
+
+    @property
+    def name_stem(self):
+        return self.flare_name if self.flare_name else "Flare"
+
+
 class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
     bl_idname = "mesh.plasma_ladder_add"
     bl_label = "Add Ladder"
