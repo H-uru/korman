@@ -175,17 +175,17 @@ class PlasmaAnimationGroupModifier(ActionModifier, PlasmaModifierProperties):
         for i in self.children:
             child_bo = i.child_anim
             if child_bo is None:
-                msg = "Animation Group '{}' specifies an invalid object '{}'. Ignoring..."
-                exporter.report.warn(msg.format(self.key_name, i.object_name), ident=2)
+                msg = "Animation Group '{}' specifies an invalid object. Ignoring..."
+                exporter.report.warn(msg, self.key_name, ident=2)
                 continue
             if child_bo.animation_data is None or child_bo.animation_data.action is None:
                 msg = "Animation Group '{}' specifies an object '{}' with no valid animation data. Ignoring..."
-                exporter.report.warn(msg.format(self.key_name, i.object_name), indent=2)
+                exporter.report.warn(msg, self.key_name, child_bo.name, indent=2)
                 continue
             child_animation = child_bo.plasma_modifiers.animation
             if not child_animation.enabled:
                 msg = "Animation Group '{}' specifies an object '{}' with no Plasma Animation modifier. Ignoring..."
-                exporter.report.warn(msg.format(self.key_name, i.object_name), indent=2)
+                exporter.report.warn(msg, self.key_name, child_bo.name, indent=2)
                 continue
             child_agmod, child_agmaster = exporter.animation.get_anigraph_objects(bo=child_bo)
             msgfwd.addForwardKey(child_agmaster.key)
