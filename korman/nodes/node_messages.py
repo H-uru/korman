@@ -20,7 +20,7 @@ from PyHSPlasma import *
 
 from .node_core import *
 from ..properties.modifiers.region import footstep_surfaces, footstep_surface_ids
-from ..exporter import ExportError
+from ..exporter import ExportError, utils
 from .. import idprops
 
 class PlasmaMessageSocketBase(PlasmaNodeSocketBase):
@@ -656,7 +656,7 @@ class PlasmaSceneObjectMsgRcvrNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bp
         ("message", {
             "text": "Message",
             "type": "PlasmaNodeSocketInputGeneral",
-            "valid_link_sockets": {"PlasmaEnableMessageSocket"},
+            "valid_link_sockets": {"PlasmaEnableMessageSocket", "PlasmaWarpMessageSocket"},
             "spawn_empty": True,
         }),
     ])
@@ -877,3 +877,35 @@ class PlasmaFootstepSoundMsgNode(PlasmaMessageNode, bpy.types.Node):
         msg.BCastFlags |= (plMessage.kPropagateToModifiers | plMessage.kNetPropagate)
         msg.surface = footstep_surface_ids[self.surface]
         return msg
+
+
+class PlasmaWarpMsgNode(PlasmaMessageNode, bpy.types.Node):
+    bl_category = "MSG"
+    bl_idname = "PlasmaWarpMsgNode"
+    bl_label = "Warp"
+
+    pos_object = PointerProperty(name="Position",
+                                 description="Object defining the target position",
+                                 type=bpy.types.Object)
+
+    output_sockets = OrderedDict([
+        ("receivers", {
+            "text": "Send To",
+            "type": "PlasmaWarpMessageSocket",
+            "valid_link_sockets": {"PlasmaWarpMessageSocket", "PlasmaNodeSocketInputGeneral"},
+        }),
+    ])
+
+    def draw_buttons(self, context, layout):
+        layout.prop(self, "pos_object")
+
+    def convert_message(self, exporter, so):
+        msg = plWarpMsg()
+        msg.BCastFlags |= plMessage.kNetPropagate
+        msg.warpFlags |= plWarpMsg.kFlushTransform
+        msg.transform = utils.matrix44(self.pos_object.matrix_local)
+        return msg
+
+
+class PlasmaWarpMessageSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
+    bl_color = (0.427, 0.196, 0.0, 1.0)
