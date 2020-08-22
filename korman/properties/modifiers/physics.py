@@ -61,6 +61,7 @@ class PlasmaCollider(PlasmaModifierProperties):
     dynamic = BoolProperty(name="Dynamic", description="Object can be influenced by other objects (ie is kickable)", default=False)
     mass = FloatProperty(name="Mass", description="Mass of object in pounds", min=0.0, default=1.0)
     start_asleep = BoolProperty(name="Start Asleep", description="Object is not active until influenced by another object", default=False)
+    pushable = BoolProperty(name="Pushable", description="Object can be pushed by the avatar (with pushing animation)", default=False)
 
     def export(self, exporter, bo, so):
         # All modifier properties are examined by this little stinker...

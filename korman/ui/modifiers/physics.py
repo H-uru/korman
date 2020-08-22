@@ -34,6 +34,9 @@ def collision(modifier, layout, context):
     row = col.row()
     row.active = modifier.dynamic
     row.prop(modifier, "start_asleep")
+    row = col.row()
+    row.active = modifier.dynamic
+    row.prop(modifier, "pushable")
 
     col = split.column()
     col.active = modifier.dynamic
