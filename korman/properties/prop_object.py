@@ -19,13 +19,11 @@ from PyHSPlasma import *
 
 class PlasmaObject(bpy.types.PropertyGroup):
     def _enabled(self, context):
-        # This makes me sad
-        if not self.is_inited:
+        if not self.is_property_set("page"):
             self._init(context)
-            self.is_inited = True
 
     def _init(self, context):
-        o = context.object
+        o = self.id_data
         age = context.scene.world.plasma_age
 
         # We want to encourage the pages = layers paradigm.
@@ -47,8 +45,8 @@ class PlasmaObject(bpy.types.PropertyGroup):
     page = StringProperty(name="Page",
                           description="Page this object will be exported to")
 
-    # Implementation Details
-    is_inited = BoolProperty(description="INTERNAL: Init proc complete",
+    # DEAD - leaving in just in case external code uses it
+    is_inited = BoolProperty(description="DEAD",
                              default=False,
                              options={"HIDDEN"})
 
