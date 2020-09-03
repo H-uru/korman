@@ -19,6 +19,7 @@ from PyHSPlasma import *
 
 from .base import PlasmaModifierProperties
 from ...exporter import ExportError
+from ... import idprops
 
 # These are the kinds of physical bounds Plasma can work with.
 # This sequence is acceptable in any EnumProperty
@@ -61,6 +62,11 @@ class PlasmaCollider(PlasmaModifierProperties):
     dynamic = BoolProperty(name="Dynamic", description="Object can be influenced by other objects (ie is kickable)", default=False)
     mass = FloatProperty(name="Mass", description="Mass of object in pounds", min=0.0, default=1.0)
     start_asleep = BoolProperty(name="Start Asleep", description="Object is not active until influenced by another object", default=False)
+
+    proxy_object = PointerProperty(name="Proxy",
+                                   description="Object used as the collision geometry",
+                                   type=bpy.types.Object,
+                                   poll=idprops.poll_mesh_objects)
 
     def export(self, exporter, bo, so):
         # All modifier properties are examined by this little stinker...

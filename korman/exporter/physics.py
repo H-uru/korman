@@ -282,9 +282,16 @@ class PhysicsConverter:
 
     def _export_trimesh(self, bo, physical, local_space):
         """Exports an object's mesh as exact physical bounds"""
-        physical.boundsType = plSimDefs.kExplicitBounds
 
-        vertices, indices = self._convert_mesh_data(bo, physical, local_space)
+        # Triangle meshes MAY optionally specify a proxy object to fetch the triangles from...
+        mod = bo.plasma_modifiers.collision
+        if mod.enabled and mod.proxy_object is not None:
+            physical.boundsType = plSimDefs.kProxyBounds
+            vertices, indices = self._convert_mesh_data(mod.proxy_object, physical, local_space)
+        else:
+            physical.boundsType = plSimDefs.kExplicitBounds
+            vertices, indices = self._convert_mesh_data(bo, physical, local_space)
+
         physical.verts = vertices
         physical.indices = indices
 
