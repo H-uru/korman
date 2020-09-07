@@ -92,3 +92,20 @@ def bmesh_object(name : str):
         bm.to_mesh(mesh)
     finally:
         bm.free()
+
+@contextmanager
+def temporary_mesh_object(source : bpy.types.Object) -> bpy.types.Object:
+    """Creates a temporary mesh object from a nonmesh object that will only exist for the duration
+       of the context."""
+    assert source.type != "MESH"
+
+    obj = bpy.data.objects.new(source.name, source.to_mesh(bpy.context.scene, True, "RENDER"))
+    obj.draw_type = "WIRE"
+    obj.matrix_basis, obj.matrix_world = source.matrix_basis, source.matrix_world
+    obj.parent = source.parent
+
+    bpy.context.scene.objects.link(obj)
+    try:
+        yield obj
+    finally:
+        bpy.data.objects.remove(obj)

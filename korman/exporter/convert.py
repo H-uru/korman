@@ -273,18 +273,9 @@ class Exporter:
             self.report.msg("No material(s) on the ObData, so no drawables", indent=1)
 
     def _export_font_blobj(self, so, bo):
-        self.report.msg("Converting font to mesh for export")
-        bpy.ops.object.select_all(action='DESELECT')
-        bpy.context.scene.objects.active = bo
-        bo.select = True
-        convertible = bpy.ops.object.convert.poll()
-        if convertible:
-            bpy.ops.object.convert(target='MESH', keep_original= True)
-            convertedFont = bpy.context.active_object
-            self._export_mesh_blobj(so, convertedFont)
-            bpy.ops.object.delete()
-        else:
-            self.report.msg("not convertible, skipping...")
+        self.animation.convert_object_animations(bo, so)
+        with utils.temporary_mesh_object(bo) as meshObj:
+            self._export_mesh_blobj(so, meshObj)
 
     def _export_referenced_node_trees(self):
         self.report.progress_advance()
