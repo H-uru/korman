@@ -270,6 +270,10 @@ class MeshConverter(_MeshManager):
                 dspan.composeGeometry(True, True)
             inc_progress()
 
+    def _is_shared_mesh(self, bo):
+        cm = bo.plasma_modifiers.clothing_mesh
+        return cm.enabled
+
     def _export_geometry(self, bo, mesh, materials, geospans):
         # Recall that materials is a mapping of exported materials to blender material indices.
         # Therefore, geodata maps blender material indices to working geometry data.
@@ -491,7 +495,7 @@ class MeshConverter(_MeshManager):
                 drawables = self._export_mesh(bo)
 
         # Create the DrawInterface
-        if drawables:
+        if drawables and not self._is_shared_mesh(bo):
             diface = self._mgr.find_create_object(plDrawInterface, bl=bo)
             for dspan_key, idx in drawables:
                 diface.addDrawable(dspan_key, idx)
@@ -517,24 +521,33 @@ class MeshConverter(_MeshManager):
         # Step 2: Export Blender mesh data to Plasma GeometrySpans
         self._export_geometry(bo, mesh, materials, geospans)
 
-        # Step 3: Add plGeometrySpans to the appropriate DSpan and create indices
-        _diindices = {}
-        for geospan, pass_index in geospans:
-            dspan = self._find_create_dspan(bo, geospan.material.object, pass_index)
-            self._report.msg("Exported hsGMaterial '{}' geometry into '{}'",
-                             geospan.material.name, dspan.key.name, indent=1)
-            idx = dspan.addSourceSpan(geospan)
-            diidx = _diindices.setdefault(dspan, [])
-            diidx.append(idx)
+        if self._is_shared_mesh(bo):
+            # Step 3: Add plGeometrySpans to a plSharedMesh object
+            shared = self._mgr.find_create_object(plSharedMesh, bl=bo)
+            shared.flags |= plSharedMesh.kDontSaveMorphState
+            for geospan, pass_index in geospans:
+                geospan.props |= (plGeometrySpan.kRequiresBlending | plGeometrySpan.kPropForceShadow)
+                shared.addSpan(geospan)
+            return shared
+        else:
+            # Step 3: Add plGeometrySpans to the appropriate DSpan and create indices
+            _diindices = {}
+            for geospan, pass_index in geospans:
+                dspan = self._find_create_dspan(bo, geospan.material.object, pass_index)
+                self._report.msg("Exported hsGMaterial '{}' geometry into '{}'",
+                                 geospan.material.name, dspan.key.name, indent=1)
+                idx = dspan.addSourceSpan(geospan)
+                diidx = _diindices.setdefault(dspan, [])
+                diidx.append(idx)
 
-        # Step 3.1: Harvest Span indices and create the DIIndices
-        drawables = []
-        for dspan, indices in _diindices.items():
-            dii = plDISpanIndex()
-            dii.indices = indices
-            idx = dspan.addDIIndex(dii)
-            drawables.append((dspan.key, idx))
-        return drawables
+            # Step 3.1: Harvest Span indices and create the DIIndices
+            drawables = []
+            for dspan, indices in _diindices.items():
+                dii = plDISpanIndex()
+                dii.indices = indices
+                idx = dspan.addDIIndex(dii)
+                drawables.append((dspan.key, idx))
+            return drawables
 
     def _export_material_spans(self, bo, mesh, materials):
         """Exports all Materials and creates plGeometrySpans"""
