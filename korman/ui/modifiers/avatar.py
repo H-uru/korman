@@ -17,6 +17,9 @@ import bpy
 
 from ...helpers import find_modifier
 
+def clothing_mesh(modifier, layout, context):
+    pass
+
 def laddermod(modifier, layout, context):
     layout.label(text="Avatar climbs facing negative Y.")
 

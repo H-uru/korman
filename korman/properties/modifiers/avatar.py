@@ -24,6 +24,19 @@ from ...helpers import find_modifier
 from ... import idprops
 
 
+class PlasmaClothingMeshModifier(PlasmaModifierProperties):
+    pl_id = "clothing_mesh"
+
+    bl_category = "Avatar"
+    bl_label = "Clothing Mesh"
+    bl_description = "Mesh for a Clothing Item"
+    bl_icon = "MOD_CLOTH"
+
+    def export(self, exporter, bo, so):
+        # This is handled in the mesh exporter code
+        pass
+
+
 class PlasmaLadderModifier(PlasmaModifierProperties):
     pl_id = "laddermod"
 
