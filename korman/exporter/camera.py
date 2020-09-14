@@ -206,6 +206,9 @@ class CameraConverter:
             f1, f2 = fcurve.evaluate(begin), fcurve.evaluate(end)
             if abs(f1 - f2) > 0.001:
                 break
+            # to avoid single/duplicate keyframe client crash (per Hoikas)
+            if any((len(i.keys) == 1 for i in (pos_ctrl.X, pos_ctrl.Y, pos_ctrl.Z) if i is not None)):
+                raise ExportError("'{}': Rail Camera must have more than one keyframe", bo.name)
         else:
             # The animation is a loop
             path.flags |= plAnimPath.kWrap
