@@ -39,7 +39,7 @@ class _RenderLevel:
     _MAJOR_SHIFT = 28
     _MINOR_MASK = ((1 << _MAJOR_SHIFT) - 1)
 
-    def __init__(self, bo, hsgmat, pass_index, blend_span=False):
+    def __init__(self, bo, pass_index, blend_span=False):
         self.level = 0
         if pass_index > 0:
             self.major = self.MAJOR_FRAMEBUF
@@ -71,8 +71,8 @@ class _RenderLevel:
 
 
 class _DrawableCriteria:
-    def __init__(self, bo, hsgmat, pass_index):
-        self.blend_span = bool(hsgmat.layers[0].object.state.blendFlags & hsGMatState.kBlendMask)
+    def __init__(self, bo, geospan, pass_index):
+        self.blend_span = bool(geospan.props & plGeometrySpan.kRequiresBlending)
         self.criteria = 0
 
         if self.blend_span:
@@ -80,7 +80,7 @@ class _DrawableCriteria:
                 self.criteria |= plDrawable.kCritSortFaces
             if self._span_sort_allowed(bo):
                 self.criteria |= plDrawable.kCritSortSpans
-        self.render_level = _RenderLevel(bo, hsgmat, pass_index, self.blend_span)
+        self.render_level = _RenderLevel(bo, pass_index, self.blend_span)
 
     def __eq__(self, other):
         if not isinstance(other, _DrawableCriteria):
@@ -218,6 +218,10 @@ class MeshConverter(_MeshManager):
         geospan = plGeometrySpan()
         geospan.material = hsgmatKey
 
+        # Mark us as needing a BlendSpan if the material require blending
+        if hsgmatKey.object.layers[0].object.state.blendFlags & hsGMatState.kBlendMask:
+            geospan.props |= plGeometrySpan.kRequiresBlending
+
         # GeometrySpan format
         # For now, we really only care about the number of UVW Channels
         user_uvws, total_uvws, max_user_uvws = self._calc_num_uvchans(bo, mesh)
@@ -279,6 +283,7 @@ class MeshConverter(_MeshManager):
 
         # Locate relevant vertex color layers now...
         lm = bo.plasma_modifiers.lightmap
+        has_vtx_alpha = False
         color, alpha = None, None
         for vcol_layer in mesh.tessface_vertex_colors:
             name = vcol_layer.name.lower()
@@ -353,6 +358,7 @@ class MeshConverter(_MeshManager):
                 # Grab VCols
                 vertex_color = (int(tessface_colors[j][0] * 255), int(tessface_colors[j][1] * 255),
                                 int(tessface_colors[j][2] * 255), int(tessface_alphas[j] * 255))
+                has_vtx_alpha |= bool(tessface_alphas[j] < 1.0)
 
                 # Now, we'll index into the vertex dict using the per-face elements :(
                 # We're using tuples because lists are not hashable. The many mathutils and PyHSPlasma
@@ -429,6 +435,10 @@ class MeshConverter(_MeshManager):
                     uvMap[numUVs - 2].normalize()
                     uvMap[numUVs - 1].normalize()
                     vtx.uvs = uvMap
+
+            # Mark us for blending if we have a alpha vertex paint layer
+            if has_vtx_alpha:
+                geospan.props |= plGeometrySpan.kRequiresBlending
 
             # If we're still here, let's add our data to the GeometrySpan
             geospan.indices = data.triangles
@@ -520,7 +530,7 @@ class MeshConverter(_MeshManager):
         # Step 3: Add plGeometrySpans to the appropriate DSpan and create indices
         _diindices = {}
         for geospan, pass_index in geospans:
-            dspan = self._find_create_dspan(bo, geospan.material.object, pass_index)
+            dspan = self._find_create_dspan(bo, geospan, pass_index)
             self._report.msg("Exported hsGMaterial '{}' geometry into '{}'",
                              geospan.material.name, dspan.key.name, indent=1)
             idx = dspan.addSourceSpan(geospan)
@@ -558,7 +568,7 @@ class MeshConverter(_MeshManager):
                 geospans[i] = (self._create_geospan(bo, mesh, blmat, matKey), blmat.pass_index)
             return geospans
 
-    def _find_create_dspan(self, bo, hsgmat, pass_index):
+    def _find_create_dspan(self, bo, geospan, pass_index):
         location = self._mgr.get_location(bo)
         if location not in self._dspans:
             self._dspans[location] = {}
@@ -569,7 +579,7 @@ class MeshConverter(_MeshManager):
         # SortFaces: means we should sort the faces in this span only
         # We're using pass index to do just what it was designed for. Cyan has a nicer "depends on"
         # draw component, but pass index is the Blender way, so that's what we're doing.
-        crit = _DrawableCriteria(bo, hsgmat, pass_index)
+        crit = _DrawableCriteria(bo, geospan, pass_index)
 
         if crit not in self._dspans[location]:
             # AgeName_[District_]_Page_RenderLevel_Crit[Blend]Spans
