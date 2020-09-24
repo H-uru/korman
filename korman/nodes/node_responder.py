@@ -291,7 +291,7 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
 
         # Convert the commands
         commands = CommandMgr(stateMgr.responder)
-        for i in self.find_outputs("msgs"):
+        for i in self._get_child_messages():
             # slight optimization--commands attached to states can't wait on other commands
             # namely because it's impossible to wait on a command that doesn't exist...
             self._generate_command(exporter, so, stateMgr.responder, commands, i)
@@ -340,15 +340,23 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
 
         if msgNode.has_callbacks:
             commandMgr.add_waitable_node(msgNode)
-            if msgNode.find_output("msgs"):
+            if msgNode.has_linked_callbacks:
                 childWaitOn = commandMgr.add_wait(idx)
                 msgNode.convert_callback_message(exporter, so, msg, responder.key, childWaitOn)
         else:
             childWaitOn = waitOn
 
         # Export any linked callback messages
-        for i in msgNode.find_outputs("msgs"):
+        for i in self._get_child_messages(msgNode):
             self._generate_command(exporter, so, responder, commandMgr, i, childWaitOn)
+
+    def _get_child_messages(self, node=None):
+        """Returns a list of the message nodes sent by `node`. The list is sorted such that any
+           messages with callbacks are last in the list, allowing proper wait generation.
+        """
+        if node is None:
+            node = self
+        return sorted(node.find_outputs("msgs"), key=lambda x: x.has_callbacks and x.has_linked_callbacks)
 
 
 class PlasmaRespStateSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
