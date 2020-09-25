@@ -13,24 +13,17 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
-from .ui_camera import *
-from .ui_image import *
-from .ui_lamp import *
-from .ui_list import *
-from .ui_material import *
-from .ui_menus import *
-from .ui_modifiers import *
-from .ui_object import *
-from .ui_render_layer import *
-from .ui_scene import *
-from .ui_text import *
-from .ui_texture import *
-from .ui_toolbox import *
-from .ui_world import *
+import bpy
+from bpy.props import *
 
+from .. import idprops
 
-def register():
-    ui_menus.register()
-
-def unregister():
-    ui_menus.unregister()
+class PlasmaMaterial(bpy.types.PropertyGroup):
+    bl_idname = "material.plasma_mat"
+    
+    runtime_color = FloatVectorProperty(name="Runtime Color:",
+                                        description="Sets the Runtime Color for Animated and Kickable Objects",
+                                        min=0.0,
+                                        max=1.0,
+                                        default=(0.0, 0.0, 0.0),
+                                        subtype="COLOR")

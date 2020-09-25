@@ -1207,7 +1207,7 @@ class MaterialConverter:
         # Colors
         layer.ambient = utils.color(bpy.context.scene.world.ambient_color)
         layer.preshade = utils.color(bm.diffuse_color)
-        layer.runtime = utils.color(bm.diffuse_color)
+        layer.runtime = utils.color(bm.plasma_mat.runtime_color)
         layer.specular = utils.color(bm.specular_color)
 
         layer.specularPower = min(100.0, float(bm.specular_hardness))
@@ -1221,6 +1221,8 @@ class MaterialConverter:
                                         bm.diffuse_color.g * emit_scale,
                                         bm.diffuse_color.b * emit_scale,
                                         1.0)
+            # fix runtime color for emit
+            layer.runtime = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
 
     def _requires_single_user(self, bo, bm):
         if bo.data.show_double_sided:
