@@ -67,7 +67,17 @@ class PlasmaShadowPanel(LampButtonsPanel, bpy.types.Panel):
         col.prop(rtlamp, "shadow_power")
         col.prop(rtlamp, "shadow_falloff")
         col.prop(rtlamp, "shadow_distance")
-
+        
+class PlasmaRuntimeLampPanel(LampButtonsPanel, bpy.types.Panel):
+    bl_label = "Runtime Lamp"
+    
+    def draw(self, context):
+        layout = self.layout
+        rtlamp = context.lamp.plasma_lamp
+        
+        split = layout.split()
+        col = split.column()
+        col.prop(rtlamp, "runtime_lamp")
 
 def _draw_area_lamp(self, context):
     """Draw dispatch function for DATA_PT_area"""

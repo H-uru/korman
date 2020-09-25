@@ -63,6 +63,11 @@ class PlasmaLamp(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
                                description="Size of the area for the Area Lamp in the Z direction",
                                min=0.0, default=200.0,
                                options=set())
+    # For Runtime Lights without animation
+    runtime_lamp = BoolProperty(name="Runtime Lamp",
+                                description="Allows the lamp to cast light in real time",
+                                default=False,
+                                options=set())
 
     def has_light_group(self, bo):
         return bool(bo.users_group)
