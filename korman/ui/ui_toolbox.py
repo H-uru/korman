@@ -50,6 +50,12 @@ class PlasmaToolboxPanel(ToolboxPanel, bpy.types.Panel):
         col.operator("texture.plasma_toggle_environment_maps", icon="IMAGE_RGB", text="Enable All EnvMaps").enable = True
         col.operator("texture.plasma_toggle_environment_maps", icon="IMAGE_RGB_ALPHA", text="Disable All EnvMaps").enable = False
 
+        # Double Sided Operators
+        col.label("Double Sided:")
+        col.operator("mesh.plasma_toggle_double_sided", icon="MESH_DATA", text="Disable All").enable = False
+        all_double_sided = all((i.data.show_double_sided for i in bpy.context.selected_objects if i.type == "MESH"))
+        col.operator("mesh.plasma_toggle_double_sided_selected", icon="BORDER_RECT", text="Disable Selection" if all_double_sided else "Enable Selection")
+
         col.label("Convert:")
         col.operator("object.plasma_convert_plasma_objects", icon="OBJECT_DATA", text="Plasma Objects")
         col.operator("texture.plasma_convert_layer_opacities", icon="IMAGE_RGB_ALPHA", text="Layer Opacities")

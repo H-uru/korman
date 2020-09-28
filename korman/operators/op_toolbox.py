@@ -171,6 +171,37 @@ class PlasmaToggleAllPlasmaObjectsOperator(ToolboxOperator, bpy.types.Operator):
             i.plasma_object.enabled = self.enable
         return {"FINISHED"}
 
+        
+class PlasmaToggleDoubleSidedOperator(ToolboxOperator, bpy.types.Operator):
+    bl_idname = "mesh.plasma_toggle_double_sided"
+    bl_label = "Toggle All Double Sided"
+    bl_description = "Toggles all meshes to be double sided"
+    
+    enable = BoolProperty(name="Enable", description="Enable Double Sided")
+    
+    def execute(self, context):
+        enable = self.enable
+        for mesh in bpy.data.meshes:
+            mesh.show_double_sided = enable
+        return {"FINISHED"}
+
+
+class PlasmaToggleDoubleSidedSelectOperator(ToolboxOperator, bpy.types.Operator):
+    bl_idname = "mesh.plasma_toggle_double_sided_selected"
+    bl_label = "Toggle Selected Double Sided"
+    bl_description = "Toggles selected meshes double sided value"
+    
+    @classmethod
+    def poll(cls, context):
+        return super().poll(context) and hasattr(bpy.context, "selected_objects")
+
+    def execute(self, context):
+        mesh_list = [i.data for i in context.selected_objects if i.type == "MESH"]
+        enable = not all((mesh.show_double_sided for mesh in mesh_list))
+        for mesh in mesh_list:
+            mesh.show_double_sided = enable
+        return {"FINISHED"}
+
 
 class PlasmaToggleEnvironmentMapsOperator(ToolboxOperator, bpy.types.Operator):
     bl_idname = "texture.plasma_toggle_environment_maps"
