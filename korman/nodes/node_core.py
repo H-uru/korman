@@ -181,6 +181,12 @@ class PlasmaNodeBase:
         """Generates valid node sockets that can be linked to a specific socket on this node."""
         from .node_deprecated import PlasmaDeprecatedNode
 
+        source_socket_props = getattr(self.__class__, "output_sockets", {}) if is_output else \
+                              getattr(self.__class__, "input_sockets", {})
+        source_socket_def = source_socket_props.get(socket.alias, {})
+        valid_dest_sockets = source_socket_def.get("valid_link_sockets")
+        valid_dest_nodes = source_socket_def.get("valid_link_nodes")
+
         for dest_node_cls in bpy.types.Node.__subclasses__():
             if not issubclass(dest_node_cls, PlasmaNodeBase) or issubclass(dest_node_cls, PlasmaDeprecatedNode):
                 continue
@@ -193,7 +199,14 @@ class PlasmaNodeBase:
                     continue
                 if socket_def.get("hidden") is True:
                     continue
-                
+
+                # Can this socket link to the socket_def on the destination node?
+                if valid_dest_nodes is not None and dest_node_cls.bl_idname not in valid_dest_nodes:
+                    continue
+                if valid_dest_sockets is not None and socket_def["type"] not in valid_dest_sockets:
+                    continue
+
+                # Can the socket_def on the destination node link to this socket?
                 valid_source_nodes = socket_def.get("valid_link_nodes")
                 valid_source_sockets = socket_def.get("valid_link_sockets")
                 if valid_source_nodes is not None and self.bl_idname not in valid_source_nodes:
