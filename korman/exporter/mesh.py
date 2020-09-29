@@ -40,16 +40,12 @@ class _RenderLevel:
     _MINOR_MASK = ((1 << _MAJOR_SHIFT) - 1)
 
     def __init__(self, bo, pass_index, blend_span=False):
-        self.level = 0
-        if pass_index > 0:
-            self.major = self.MAJOR_FRAMEBUF
-            self.minor = pass_index * 4
+        if blend_span:
+            self.level = self._determine_level(bo, blend_span)
         else:
-            self.major = self.MAJOR_BLEND if blend_span else self.MAJOR_OPAQUE
-
-        # We use the blender material's pass index (which we stashed in the hsGMaterial) to increment
-        # the render pass, just like it says...
-        self.level += pass_index
+            self.level = 0
+        # Gulp... Hope you know what you're doing...
+        self.minor += pass_index * 4
 
     def __eq__(self, other):
         return self.level == other.level
@@ -60,14 +56,37 @@ class _RenderLevel:
     def _get_major(self):
         return self.level >> self._MAJOR_SHIFT
     def _set_major(self, value):
-        self.level = ((value << self._MAJOR_SHIFT) & 0xFFFFFFFF) | self.minor
+        self.level = self._calc_level(value, self.minor)
     major = property(_get_major, _set_major)
 
     def _get_minor(self):
         return self.level & self._MINOR_MASK
     def _set_minor(self, value):
-        self.level = ((self.major << self._MAJOR_SHIFT) & 0xFFFFFFFF) | value
+        self.level = self._calc_level(self.major, value)
     minor = property(_get_minor, _set_minor)
+
+    def _calc_level(self, major : int, minor : int=0) -> int:
+        return ((major << self._MAJOR_SHIFT) & 0xFFFFFFFF) | minor
+
+    def _determine_level(self, bo : bpy.types.Object, blend_span : bool) -> int:
+        mods = bo.plasma_modifiers
+        if mods.test_property("draw_framebuf"):
+            return self._calc_level(self.MAJOR_FRAMEBUF)
+        elif mods.test_property("draw_opaque"):
+            return self._calc_level(self.MAJOR_OPAQUE)
+        elif mods.test_property("draw_no_defer"):
+            blend_span = False
+
+        blend_mod = mods.blend
+        if blend_mod.enabled and blend_mod.has_dependencies:
+            level = self._calc_level(self.MAJOR_FRAMEBUF)
+            for i in blend_mod.iter_dependencies():
+                level = max(level, self._determine_level(i, blend_span))
+            return level + 4
+        elif blend_span:
+            return self._calc_level(self.MAJOR_BLEND)
+        else:
+            return self._calc_level(self.MAJOR_DEFAULT)
 
 
 class _DrawableCriteria:
@@ -96,12 +115,12 @@ class _DrawableCriteria:
     def _face_sort_allowed(self, bo):
         # For now, only test the modifiers
         # This will need to be tweaked further for GUIs...
-        return not any((i.no_face_sort for i in bo.plasma_modifiers.modifiers))
+        return not bo.plasma_modifiers.test_property("no_face_sort")
 
     def _span_sort_allowed(self, bo):
         # For now, only test the modifiers
         # This will need to be tweaked further for GUIs...
-        return not any((i.no_face_sort for i in bo.plasma_modifiers.modifiers))
+        return not bo.plasma_modifiers.test_property("no_face_sort")
 
     @property
     def span_type(self):
@@ -116,7 +135,6 @@ class _GeoData:
         self.blender2gs = [{} for i in range(numVtxs)]
         self.triangles = []
         self.vertices = []
-
 
 
 class _MeshManager:

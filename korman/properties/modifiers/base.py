@@ -31,8 +31,28 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
         pass
 
     @property
+    def draw_opaque(self):
+        """Render geometry before the avatar"""
+        return False
+
+    @property
+    def draw_framebuf(self):
+        """Render geometry after the avatar but before other blended geometry"""
+        return False
+
+    @property
+    def draw_no_defer(self):
+        """Disallow geometry being sorted into a blending span"""
+        return False
+
+    @property
     def enabled(self):
         return self.display_order >= 0
+
+    @property
+    def face_sort(self):
+        """Indicates that the geometry's faces should be sorted by the engine"""
+        return False
 
     def harvest_actors(self):
         return ()
