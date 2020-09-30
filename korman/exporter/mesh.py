@@ -14,6 +14,7 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+import itertools
 from PyHSPlasma import *
 from math import fabs
 import weakref
@@ -28,6 +29,29 @@ _MAX_VERTS_PER_SPAN = 0xFFFF
 _WARN_VERTS_PER_SPAN = 0x8000
 
 _VERTEX_COLOR_LAYERS = {"col", "color", "colour"}
+
+class _GeoSpan:
+    def __init__(self, bo, bm, geospan, pass_index=None):
+        self.geospan = geospan
+        self.pass_index = pass_index if pass_index is not None else 0
+        self.mult_color = self._determine_mult_color(bo, bm)
+
+    def _determine_mult_color(self, bo, bm):
+        """Determines the color all vertex colors should be multipled by in this span."""
+        if self.geospan.props & plGeometrySpan.kDiffuseFoldedIn:
+            color = bm.diffuse_color
+            base_layer = self._find_bottom_of_stack()
+            return (color.r, color.b, color.g, base_layer.opacity)
+        if not bo.plasma_modifiers.lighting.preshade:
+            return (0.0, 0.0, 0.0, 0.0)
+        return (1.0, 1.0, 1.0, 1.0)
+
+    def _find_bottom_of_stack(self) -> plLayerInterface:
+        base_layer = self.geospan.material.object.layers[0].object
+        while base_layer.underLay is not None:
+            base_layer = base_layer.underLay.object
+        return base_layer
+
 
 class _RenderLevel:
     MAJOR_OPAQUE = 0
@@ -231,14 +255,47 @@ class MeshConverter(_MeshManager):
 
         return (num_user_texs, total_texs, max_user_texs)
 
-    def _create_geospan(self, bo, mesh, bm, hsgmatKey):
+    def _check_vtx_alpha(self, mesh, material_idx):
+        if material_idx is not None:
+            polygons = (i for i in mesh.polygons if i.material_index == material_idx)
+        else:
+            polygons = mesh.polygons
+        alpha_layer = self._find_vtx_alpha_layer(mesh.vertex_colors)
+        if alpha_layer is None:
+            return False
+        alpha_loops = (alpha_layer[i.loop_start:i.loop_start+i.loop_total] for i in polygons)
+        opaque = (sum(i.color) == len(i.color) for i in itertools.chain.from_iterable(alpha_loops))
+        has_alpha = not all(opaque)
+        return has_alpha
+
+    def _check_vtx_nonpreshaded(self, bo, mesh, material_idx, base_layer):
+        def check_layer_shading_animation(layer):
+            if isinstance(layer, plLayerAnimationBase):
+                return layer.opacityCtl is not None or layer.preshadeCtl is not None or layer.runtimeCtl is not None
+            if layer.underLay is not None:
+                return check_layer_shading_animation(layer.underLay.object)
+            return False
+
+        # TODO: if this is an avatar, we can't be non-preshaded.
+        if check_layer_shading_animation(base_layer):
+            return False
+        if base_layer.state.shadeFlags & hsGMatState.kShadeEmissive:
+            return False
+
+        mods = bo.plasma_modifiers
+        if mods.lighting.rt_lights:
+            return True
+        if mods.lightmap.bake_lightmap:
+            return True
+        if self._check_vtx_alpha(mesh, material_idx):
+            return True
+
+        return False
+
+    def _create_geospan(self, bo, mesh, material_idx, bm, hsgmatKey):
         """Initializes a plGeometrySpan from a Blender Object and an hsGMaterial"""
         geospan = plGeometrySpan()
         geospan.material = hsgmatKey
-
-        # Mark us as needing a BlendSpan if the material require blending
-        if hsgmatKey.object.layers[0].object.state.blendFlags & hsGMatState.kBlendMask:
-            geospan.props |= plGeometrySpan.kRequiresBlending
 
         # GeometrySpan format
         # For now, we really only care about the number of UVW Channels
@@ -247,10 +304,22 @@ class MeshConverter(_MeshManager):
             raise explosions.TooManyUVChannelsError(bo, bm, user_uvws, max_user_uvws)
         geospan.format = total_uvws
 
-        # Begin total guesswork WRT flags
-        mods = bo.plasma_modifiers
-        if mods.lightmap.enabled:
+        def is_alpha_blended(layer):
+            if layer.state.blendFlags & hsGMatState.kBlendMask:
+                return True
+            if layer.underLay is not None:
+                return is_alpha_blended(layer.underLay.object)
+            return False
+
+        base_layer = hsgmatKey.object.layers[0].object
+        if is_alpha_blended(base_layer) or self._check_vtx_alpha(mesh, material_idx):
+            geospan.props |= plGeometrySpan.kRequiresBlending
+        if self._check_vtx_nonpreshaded(bo, mesh, material_idx, base_layer):
             geospan.props |= plGeometrySpan.kLiteVtxNonPreshaded
+        if (geospan.props & plGeometrySpan.kLiteMask) != plGeometrySpan.kLiteMaterial:
+            geospan.props |= plGeometrySpan.kDiffuseFoldedIn
+
+        mods = bo.plasma_modifiers
         if mods.lighting.rt_lights:
             geospan.props |= plGeometrySpan.kPropRunTimeLight
         if not bm.use_shadows:
@@ -292,7 +361,7 @@ class MeshConverter(_MeshManager):
                 dspan.composeGeometry(True, True)
             inc_progress()
 
-    def _export_geometry(self, bo, mesh, materials, geospans):
+    def _export_geometry(self, bo, mesh, materials, geospans, mat2span_LUT):
         # Recall that materials is a mapping of exported materials to blender material indices.
         # Therefore, geodata maps blender material indices to working geometry data.
         # Maybe the logic is a bit inverted, but it keeps the inner loop simple.
@@ -301,16 +370,8 @@ class MeshConverter(_MeshManager):
 
         # Locate relevant vertex color layers now...
         lm = bo.plasma_modifiers.lightmap
-        has_vtx_alpha = False
-        color, alpha = None, None
-        for vcol_layer in mesh.tessface_vertex_colors:
-            name = vcol_layer.name.lower()
-            if name in _VERTEX_COLOR_LAYERS:
-                color = vcol_layer.data
-            elif name == "autocolor" and color is None and not lm.bake_lightmap:
-                color = vcol_layer.data
-            elif name == "alpha":
-                alpha = vcol_layer.data
+        color = None if lm.bake_lightmap else self._find_vtx_color_layer(mesh.tessface_vertex_colors)
+        alpha = self._find_vtx_alpha_layer(mesh.tessface_vertex_colors)
 
         # Convert Blender faces into things we can stuff into libHSPlasma
         for i, tessface in enumerate(mesh.tessfaces):
@@ -340,10 +401,8 @@ class MeshConverter(_MeshManager):
             else:
                 src = alpha[i]
                 # average color becomes the alpha value
-                tessface_alphas = (((src.color1[0] + src.color1[1] + src.color1[2]) / 3),
-                                   ((src.color2[0] + src.color2[1] + src.color2[2]) / 3),
-                                   ((src.color3[0] + src.color3[1] + src.color3[2]) / 3),
-                                   ((src.color4[0] + src.color4[1] + src.color4[2]) / 3))
+                tessface_alphas = ((sum(src.color1) / 3), (sum(src.color2) / 3),
+                                   (sum(src.color3) / 3), (sum(src.color4) / 3))
 
             if bumpmap is not None:
                 gradPass = []
@@ -373,10 +432,16 @@ class MeshConverter(_MeshManager):
             for j, vertex in enumerate(tessface.vertices):
                 uvws = tuple([uvw[j] for uvw in tessface_uvws])
 
-                # Grab VCols
-                vertex_color = (int(tessface_colors[j][0] * 255), int(tessface_colors[j][1] * 255),
-                                int(tessface_colors[j][2] * 255), int(tessface_alphas[j] * 255))
-                has_vtx_alpha |= bool(tessface_alphas[j] < 1.0)
+                # Calculate vertex colors.
+                if mat2span_LUT:
+                    mult_color = geospans[mat2span_LUT[tessface.material_index]].mult_color
+                else:
+                    mult_color = (1.0, 1.0, 1.0, 1.0)
+                tessface_color, tessface_alpha = tessface_colors[j], tessface_alphas[j]
+                vertex_color = (int(tessface_color[0] * mult_color[0] * 255),
+                                int(tessface_color[1] * mult_color[1] * 255),
+                                int(tessface_color[2] * mult_color[2] * 255),
+                                int(tessface_alpha    * mult_color[0] * 255))
 
                 # Now, we'll index into the vertex dict using the per-face elements :(
                 # We're using tuples because lists are not hashable. The many mathutils and PyHSPlasma
@@ -433,7 +498,7 @@ class MeshConverter(_MeshManager):
 
         # Time to finish it up...
         for i, data in enumerate(geodata.values()):
-            geospan = geospans[i][0]
+            geospan = geospans[i].geospan
             numVerts = len(data.vertices)
             numUVs = geospan.format & plGeometrySpan.kUVCountMask
 
@@ -453,10 +518,6 @@ class MeshConverter(_MeshManager):
                     uvMap[numUVs - 2].normalize()
                     uvMap[numUVs - 1].normalize()
                     vtx.uvs = uvMap
-
-            # Mark us for blending if we have a alpha vertex paint layer
-            if has_vtx_alpha:
-                geospan.props |= plGeometrySpan.kRequiresBlending
 
             # If we're still here, let's add our data to the GeometrySpan
             geospan.indices = data.triangles
@@ -540,18 +601,18 @@ class MeshConverter(_MeshManager):
             return None
 
         # Step 1: Export all of the doggone materials.
-        geospans = self._export_material_spans(bo, mesh, materials)
+        geospans, mat2span_LUT = self._export_material_spans(bo, mesh, materials)
 
         # Step 2: Export Blender mesh data to Plasma GeometrySpans
-        self._export_geometry(bo, mesh, materials, geospans)
+        self._export_geometry(bo, mesh, materials, geospans, mat2span_LUT)
 
         # Step 3: Add plGeometrySpans to the appropriate DSpan and create indices
         _diindices = {}
-        for geospan, pass_index in geospans:
-            dspan = self._find_create_dspan(bo, geospan, pass_index)
+        for i in geospans:
+            dspan = self._find_create_dspan(bo, i.geospan, i.pass_index)
             self._report.msg("Exported hsGMaterial '{}' geometry into '{}'",
-                             geospan.material.name, dspan.key.name, indent=1)
-            idx = dspan.addSourceSpan(geospan)
+                             i.geospan.material.name, dspan.key.name, indent=1)
+            idx = dspan.addSourceSpan(i.geospan)
             diidx = _diindices.setdefault(dspan, [])
             diidx.append(idx)
 
@@ -571,20 +632,25 @@ class MeshConverter(_MeshManager):
             if len(materials) > 1:
                 msg = "'{}' is a WaveSet -- only one material is supported".format(bo.name)
                 self._exporter().report.warn(msg, indent=1)
-            matKey = self.material.export_waveset_material(bo, materials[0][1])
-            geospan = self._create_geospan(bo, mesh, materials[0][1], matKey)
+            blmat = materials[0][1]
+            matKey = self.material.export_waveset_material(bo, blmat)
+            geospan = self._create_geospan(bo, mesh, None, blmat, matKey)
 
             # FIXME: Can some of this be generalized?
             geospan.props |= (plGeometrySpan.kWaterHeight | plGeometrySpan.kLiteVtxNonPreshaded |
                               plGeometrySpan.kPropReverseSort | plGeometrySpan.kPropNoShadow)
             geospan.waterHeight = bo.location[2]
-            return [(geospan, 0)]
+            return [_GeoSpan(bo, blmat, geospan)], None
         else:
             geospans = [None] * len(materials)
-            for i, (_, blmat) in enumerate(materials):
+            mat2span_LUT = {}
+            for i, (blmat_idx, blmat) in enumerate(materials):
                 matKey = self.material.export_material(bo, blmat)
-                geospans[i] = (self._create_geospan(bo, mesh, blmat, matKey), blmat.pass_index)
-            return geospans
+                geospans[i] = _GeoSpan(bo, blmat,
+                                       self._create_geospan(bo, mesh, blmat_idx, blmat, matKey),
+                                       blmat.pass_index)
+                mat2span_LUT[blmat_idx] = i
+            return geospans, mat2span_LUT
 
     def _find_create_dspan(self, bo, geospan, pass_index):
         location = self._mgr.get_location(bo)
@@ -619,6 +685,21 @@ class MeshConverter(_MeshManager):
             return dspan
         else:
             return self._dspans[location][crit]
+
+    def _find_vtx_alpha_layer(self, color_collection):
+        alpha_layer = next((i for i in color_collection if i.name.lower() == "alpha"), None)
+        if alpha_layer is not None:
+            return alpha_layer.data
+        return None
+
+    def _find_vtx_color_layer(self, color_collection):
+        manual_layer = next((i for i in color_collection if i.name.lower() in _VERTEX_COLOR_LAYERS), None)
+        if manual_layer is not None:
+            return manual_layer.data
+        baked_layer = color_collection.get("autocolor")
+        if baked_layer is not None:
+            return baked_layer.data
+        return None
 
     @property
     def _mgr(self):
