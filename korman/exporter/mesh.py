@@ -279,7 +279,7 @@ class MeshConverter(_MeshManager):
         # TODO: if this is an avatar, we can't be non-preshaded.
         if check_layer_shading_animation(base_layer):
             return False
-        if base_layer.state.shadeFlags & hsGMatState.kShadeEmissive:
+        if material_idx is not None and mesh.materials[material_idx].emit:
             return False
 
         mods = bo.plasma_modifiers
