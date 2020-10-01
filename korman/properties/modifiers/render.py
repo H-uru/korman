@@ -531,6 +531,8 @@ class PlasmaLightingMod(PlasmaModifierProperties):
             return True
         if self.id_data.plasma_object.has_transform_animation:
             return True
+        if mods.collision.enabled and mods.collision.dynamic:
+            return True
         return False
 
 
