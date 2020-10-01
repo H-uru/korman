@@ -155,6 +155,17 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
     fade_in = PointerProperty(type=PlasmaSfxFade, options=set())
     fade_out = PointerProperty(type=PlasmaSfxFade, options=set())
 
+
+    random = BoolProperty(name="Random", default=False, options=set())
+    min_delay = FloatProperty(name="Minimum Delay",
+                              description="Minimum number of seconds before playing",
+                              default=1.0, min=0.0,
+                              options=set(), subtype="TIME", unit="TIME")
+    max_delay = FloatProperty(name="Maximum Delay",
+                              description="Maximum number of seconds before playing",
+                              default=1.0, min=0.0,
+                              options=set(), subtype="TIME", unit="TIME")
+
     def _get_package_value(self):
         if self.sound is not None:
             self.package_value = self.sound.plasma_sound.package
@@ -285,6 +296,12 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
             sound.channel = plWin32Sound.kLeftChannel
         else:
             sound.channel = plWin32Sound.kRightChannel
+
+        # Add RandomSound modifier for this SO if requested
+        if self.random:
+            rsm = exporter.mgr.find_create_object(plRandomSoundMod, so=so, name=name)
+            rsm.minDelay = self.min_delay
+            rsm.maxDelay = self.max_delay
 
         # Whew, that was a lot of work!
         return sound.key

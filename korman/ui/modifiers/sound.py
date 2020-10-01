@@ -83,6 +83,11 @@ def soundemit(modifier, layout, context):
         col.separator()
         _draw_fade_ui(sound.fade_out, col, "Fade Out:")
 
+        col.separator()
+        col.prop(sound, "random")
+        col.prop(sound, "min_delay")
+        col.prop(sound, "max_delay")
+
         col = split.column()
         col.label("Cone Effect:")
         col.prop(sound, "inner_cone")
