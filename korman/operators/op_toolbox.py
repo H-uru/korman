@@ -16,6 +16,7 @@
 import bpy
 from bpy.props import *
 import pickle
+import itertools
 
 class ToolboxOperator:
     @classmethod
@@ -234,4 +235,40 @@ class PlasmaTogglePlasmaObjectsOperator(ToolboxOperator, bpy.types.Operator):
         enable = not all((i.plasma_object.enabled for i in bpy.context.selected_objects))
         for i in context.selected_objects:
             i.plasma_object.enabled = enable
+        return {"FINISHED"}
+
+
+class PlasmaToggleSoundExportOperator(ToolboxOperator, bpy.types.Operator):
+    bl_idname = "object.plasma_toggle_sound_export"
+    bl_label = "Toggle Sound Export"
+    bl_description = "Toggles the Export function of all sound emitters' files"
+    
+    enable = BoolProperty(name="Enable", description="Sound Export Enable")
+    
+    def execute(self, context):
+        enable = self.enable
+        for i in bpy.data.objects:
+            if i.plasma_modifiers.soundemit is None:
+                continue
+            for sound in i.plasma_modifiers.soundemit.sounds:
+                sound.package = enable
+        return {"FINISHED"}
+
+
+class PlasmaToggleSoundExportSelectedOperator(ToolboxOperator, bpy.types.Operator):
+    bl_idname = "object.plasma_toggle_sound_export_selected"
+    bl_label = "Toggle Selected Sound Export"
+    bl_description = "Toggles the Export function of selected sound emitters' files."
+    
+    @classmethod
+    def poll(cls, context):
+        return super().poll(context) and hasattr(bpy.context, "selected_objects")
+    
+    def execute(self, context):
+        enable = not all((i.package for i in itertools.chain.from_iterable(i.plasma_modifiers.soundemit.sounds for i in bpy.context.selected_objects)))
+        for i in context.selected_objects:
+            if i.plasma_modifiers.soundemit is None:
+                continue
+            for sound in i.plasma_modifiers.soundemit.sounds:
+                sound.package = enable
         return {"FINISHED"}
