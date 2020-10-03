@@ -513,6 +513,10 @@ class PlasmaViewFaceMod(idprops.IDPropObjectMixin, PlasmaModifierProperties):
                               description="Swivel only around the local Y axis",
                               default=False)
 
+    # TikiBear - add the two missing pivots
+    special_pivots = BoolProperty(name="Special Pivots",
+                              description="Default: 3-axis; With Pivot on local Y: 2-axis, local Y azimuth axis",
+                              default=False)
     offset = BoolProperty(name="Offset", description="Use offset vector", default=False)
     offset_local = BoolProperty(name="Local", description="Use local coordinates", default=False)
     offset_coord = FloatVectorProperty(name="", subtype="XYZ")
@@ -547,13 +551,22 @@ class PlasmaViewFaceMod(idprops.IDPropObjectMixin, PlasmaModifierProperties):
                 else:
                     raise ExportError("'{}': Swivel's target object must be selected".format(self.key_name))
 
-            if self.pivot_on_y:
-                vfm.setFlag(plViewFaceModifier.kPivotY, True)
+            if self.special_pivots:
+                # TikiBear - add missing pivots
+                if self.pivot_on_y: # 2-axis
+                    vfm.setFlag(plViewFaceModifier.kPivotFavorY, True)
+                else: # 3-axis
+                    vfm.setFlag(plViewFaceModifier.kPivotTumple, True)
             else:
-                vfm.setFlag(plViewFaceModifier.kPivotFace, True)
+                if self.pivot_on_y:
+                    vfm.setFlag(plViewFaceModifier.kPivotY, True)
+                else:
+                    vfm.setFlag(plViewFaceModifier.kPivotFace, True)
 
             if self.offset:
                 vfm.offset = hsVector3(*self.offset_coord)
+                # TikiBear - add missing flag
+                vfm.setFlag(plViewFaceModifier.kOffset, True)
                 if self.offset_local:
                     vfm.setFlag(plViewFaceModifier.kOffsetLocal, True)
 
