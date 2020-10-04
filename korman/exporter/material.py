@@ -535,8 +535,13 @@ class MaterialConverter:
             start, end = functools.reduce(lambda x, y: (min(x[0], y[0]), max(x[1], y[1])),
                                           (fcurve.range() for fcurve in fcurves))
 
-            atc.begin = start / fps
-            atc.end = end / fps
+            # TikiBear - propagate adjustment from AnimationConverter._process_fcurve
+            if fps == 30.0:
+                atc.begin = start / fps
+                atc.end = end / fps
+            else:
+                atc.begin = (start * 30) / (fps * fps)
+                atc.end = (end * 30) / (fps * fps)
 
             layer_props = tex_slot.texture.plasma_layer
             if not layer_props.anim_auto_start:
