@@ -162,6 +162,18 @@ class Exporter:
         error = explosions.UndefinedPageError()
         for obj in scene.objects:
             if obj.plasma_object.enabled:
+                if not obj.plasma_object.page:
+                    # this was initialized but overwritten
+                    # We want to encourage the pages = layers paradigm.
+                    # So, let's see which layers we're on and check for a page whose
+                    #    suffix matches our layers. We'll take the first match.
+                    num_layers = len(obj.layers)
+                    for opage in age.pages:
+                        if opage.seq_suffix > num_layers:
+                            continue
+                        if obj.layers[opage.seq_suffix - 1]:
+                            obj.plasma_object.page = opage.name
+                            break
                 page = obj.plasma_object.page
                 if not page and not default_inited:
                     self.mgr.create_page(self.age_name, "Default", 0)
