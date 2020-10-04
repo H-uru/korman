@@ -178,7 +178,7 @@ class _MeshManager:
             for cached_mod in override["modifiers"]:
                 mod = bo.modifiers.new(cached_mod["name"], cached_mod["type"])
                 for key, value in cached_mod.items():
-                    if key in {"name", "type"}:
+                    if key in {"name", "type"} or (cached_mod["type"] == "DECIMATE" and key=="face_count"): # Decimate attribute face_count is read-only
                         continue
                     setattr(mod, key, value)
 
