@@ -174,11 +174,12 @@ class _MeshManager:
             trash_mesh, bo.data = bo.data, data_meshes.get(override["mesh"])
             data_meshes.remove(trash_mesh)
 
-            # If modifiers were removed, reapply them now.
+            # If modifiers were removed, reapply them now unless they're read-only.
+            readonly_attributes = {("DECIMATE", "face_count"),}
             for cached_mod in override["modifiers"]:
                 mod = bo.modifiers.new(cached_mod["name"], cached_mod["type"])
                 for key, value in cached_mod.items():
-                    if key in {"name", "type"} or (cached_mod["type"] == "DECIMATE" and key=="face_count"): # Decimate attribute face_count is read-only
+                    if key in {"name", "type"} or (cached_mod["type"], key) in readonly_attributes:
                         continue
                     setattr(mod, key, value)
 
