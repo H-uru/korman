@@ -279,8 +279,13 @@ class MeshConverter(_MeshManager):
         # TODO: if this is an avatar, we can't be non-preshaded.
         if check_layer_shading_animation(base_layer):
             return False
-        if material_idx is not None and mesh.materials[material_idx].emit:
-            return False
+
+        # Reject emissive and shadeless because the kLiteMaterial equation has lots of options
+        # that are taken away by VtxNonPreshaded that are useful here.
+        if material_idx is not None:
+            bm = mesh.materials[material_idx]
+            if bm.emit or bm.use_shadeless:
+                return False
 
         mods = bo.plasma_modifiers
         if mods.lighting.rt_lights:

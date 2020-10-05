@@ -147,16 +147,6 @@ class MaterialConverter:
             "transformCtl": self._export_layer_transform_animation,
         }
 
-    def calc_material_ambient(self, bo, bm) -> hsColorRGBA:
-        emit_scale = bm.emit * 0.5
-        if emit_scale > 0.0:
-            return hsColorRGBA(bm.diffuse_color.r * emit_scale,
-                               bm.diffuse_color.g * emit_scale,
-                               bm.diffuse_color.b * emit_scale,
-                               1.0)
-        else:
-            return utils.color(bpy.context.scene.world.ambient_color)
-
     def _can_export_texslot(self, slot):
         if slot is None or not slot.use:
             return False
@@ -1176,15 +1166,25 @@ class MaterialConverter:
     def get_bump_layer(self, bo):
         return self._bump_mats.get(bo, None)
 
+    def get_material_ambient(self, bo, bm) -> hsColorRGBA:
+        emit_scale = bm.emit * 0.5
+        if emit_scale > 0.0:
+            return hsColorRGBA(bm.diffuse_color.r * emit_scale,
+                               bm.diffuse_color.g * emit_scale,
+                               bm.diffuse_color.b * emit_scale,
+                               1.0)
+        else:
+            return utils.color(bpy.context.scene.world.ambient_color)
+
     def get_material_preshade(self, bo, bm, color=None) -> hsColorRGBA:
-        if bo.plasma_modifiers.lighting.rt_lights or bm.emit:
+        if bo.plasma_modifiers.lighting.rt_lights:
             return hsColorRGBA.kBlack
         if color is None:
             color = bm.diffuse_color
         return utils.color(color)
 
     def get_material_runtime(self, bo, bm, color=None) -> hsColorRGBA:
-        if bm.emit:
+        if not bo.plasma_modifiers.lighting.rt_lights:
             return hsColorRGBA.kBlack
         if color is None:
             color = bm.diffuse_color
@@ -1235,7 +1235,7 @@ class MaterialConverter:
             state.shadeFlags |= hsGMatState.kShadeEmissive
 
         # Colors
-        layer.ambient = self.calc_material_ambient(bo, bm)
+        layer.ambient = self.get_material_ambient(bo, bm)
         layer.preshade = self.get_material_preshade(bo, bm)
         layer.runtime = self.get_material_runtime(bo, bm)
         layer.specular = utils.color(bm.specular_color)
