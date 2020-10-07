@@ -127,6 +127,9 @@ def poll_animated_objects(self, value):
 def poll_camera_objects(self, value):
     return value.type == "CAMERA"
 
+def poll_drawable_objects(self, value):
+    return value.type == "MESH" and any(value.data.materials)
+
 def poll_empty_objects(self, value):
     return value.type == "EMPTY"
 

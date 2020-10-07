@@ -66,6 +66,10 @@ class PlasmaModifiers(bpy.types.PropertyGroup):
             setattr(cls, i.pl_id, bpy.props.PointerProperty(type=i))
         bpy.types.Object.plasma_modifiers = bpy.props.PointerProperty(type=cls)
 
+    def test_property(self, property : str) -> bool:
+        """Tests a property on all enabled Plasma modifiers"""
+        return any((getattr(i, property) for i in self.modifiers))
+
 
 class PlasmaModifierSpec(bpy.types.PropertyGroup):
     pass

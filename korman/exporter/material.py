@@ -187,7 +187,9 @@ class MaterialConverter:
             self._report.msg("Exporting Material '{}' as single user '{}'", bm.name, mat_name, indent=1)
             hgmat = None
         else:
-            mat_name = bm.name
+            # Ensure that RT-lit objects don't infect the static-lit objects.
+            mat_prefix = "RTLit_" if bo.plasma_modifiers.lighting.rt_lights else ""
+            mat_name = "".join((mat_prefix, bm.name))
             self._report.msg("Exporting Material '{}'", mat_name, indent=1)
             hsgmat = self._mgr.find_key(hsGMaterial, name=mat_name, bl=bo)
             if hsgmat is not None:
@@ -222,7 +224,8 @@ class MaterialConverter:
             if slot.use_stencil:
                 stencils.append((idx, slot))
             else:
-                tex_layer = self.export_texture_slot(bo, bm, hsgmat, slot, idx)
+                tex_name = "{}_{}".format(mat_name, slot.name)
+                tex_layer = self.export_texture_slot(bo, bm, hsgmat, slot, idx, name=tex_name)
                 if restart_pass_next:
                     tex_layer.state.miscFlags |= hsGMatState.kMiscRestartPassHere
                     restart_pass_next = False
@@ -249,7 +252,7 @@ class MaterialConverter:
         # Plasma makes several assumptions that every hsGMaterial has at least one layer. If this
         # material had no Textures, we will need to initialize a default layer
         if not hsgmat.layers:
-            layer = self._mgr.find_create_object(plLayer, name="{}_AutoLayer".format(bm.name), bl=bo)
+            layer = self._mgr.find_create_object(plLayer, name="{}_AutoLayer".format(mat_name), bl=bo)
             self._propagate_material_settings(bo, bm, layer)
             hsgmat.addLayer(layer.key)
 
@@ -349,7 +352,7 @@ class MaterialConverter:
         return hsgmat.key
 
     def export_bumpmap_slot(self, bo, bm, hsgmat, slot, idx):
-        name = "{}_{}".format(bm.name if bm is not None else bo.name, slot.name)
+        name = "{}_{}".format(hsgmat.key.name, slot.name)
         self._report.msg("Exporting Plasma Bumpmap Layers for '{}'", name, indent=2)
 
         # Okay, now we need to make 3 layers for the Du, Dw, and Dv
@@ -1163,6 +1166,30 @@ class MaterialConverter:
     def get_bump_layer(self, bo):
         return self._bump_mats.get(bo, None)
 
+    def get_material_ambient(self, bo, bm) -> hsColorRGBA:
+        emit_scale = bm.emit * 0.5
+        if emit_scale > 0.0:
+            return hsColorRGBA(bm.diffuse_color.r * emit_scale,
+                               bm.diffuse_color.g * emit_scale,
+                               bm.diffuse_color.b * emit_scale,
+                               1.0)
+        else:
+            return utils.color(bpy.context.scene.world.ambient_color)
+
+    def get_material_preshade(self, bo, bm, color=None) -> hsColorRGBA:
+        if bo.plasma_modifiers.lighting.rt_lights:
+            return hsColorRGBA.kBlack
+        if color is None:
+            color = bm.diffuse_color
+        return utils.color(color)
+
+    def get_material_runtime(self, bo, bm, color=None) -> hsColorRGBA:
+        if not bo.plasma_modifiers.lighting.rt_lights:
+            return hsColorRGBA.kBlack
+        if color is None:
+            color = bm.diffuse_color
+        return utils.color(color)
+
     def get_texture_animation_key(self, bo, bm, texture):
         """Finds or creates the appropriate key for sending messages to an animated Texture"""
 
@@ -1204,23 +1231,17 @@ class MaterialConverter:
         if bm.use_shadeless:
             state.shadeFlags |= hsGMatState.kShadeWhite
 
+        if bm.emit:
+            state.shadeFlags |= hsGMatState.kShadeEmissive
+
         # Colors
-        layer.ambient = utils.color(bpy.context.scene.world.ambient_color)
-        layer.preshade = utils.color(bm.diffuse_color)
-        layer.runtime = utils.color(bm.diffuse_color)
+        layer.ambient = self.get_material_ambient(bo, bm)
+        layer.preshade = self.get_material_preshade(bo, bm)
+        layer.runtime = self.get_material_runtime(bo, bm)
         layer.specular = utils.color(bm.specular_color)
 
         layer.specularPower = min(100.0, float(bm.specular_hardness))
-        layer.LODBias = -1.0 # Seems to be the Plasma default
-
-        if bm.emit > 0.0:
-            # Use the diffuse colour as the emit, scaled by the emit amount
-            # (maximum 2.0, so we'll also scale that by 0.5)
-            emit_scale = bm.emit * 0.5
-            layer.ambient = hsColorRGBA(bm.diffuse_color.r * emit_scale,
-                                        bm.diffuse_color.g * emit_scale,
-                                        bm.diffuse_color.b * emit_scale,
-                                        1.0)
+        layer.LODBias = -1.0
 
     def _requires_single_user(self, bo, bm):
         if bo.data.show_double_sided:

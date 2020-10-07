@@ -18,6 +18,36 @@ import bpy
 from .. import ui_list
 from ...exporter.mesh import _VERTEX_COLOR_LAYERS
 
+class BlendOntoListUI(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+        if item.blend_onto is None:
+            layout.label("[No Object Specified]", icon="ERROR")
+        else:
+            layout.label(item.blend_onto.name, icon="OBJECT_DATA")
+        layout.prop(item, "enabled", text="")
+
+
+def blend(modifier, layout, context):
+    # Warn if there are render dependencies and a manual render level specification -- this
+    # could lead to unpredictable results.
+    layout.alert = modifier.render_level != "AUTO" and bool(modifier.dependencies)
+    layout.prop(modifier, "render_level")
+    layout.alert = False
+    layout.prop(modifier, "sort_faces")
+
+    layout.separator()
+    layout.label("Render Dependencies:")
+    ui_list.draw_modifier_list(layout, "BlendOntoListUI", modifier, "dependencies",
+                              "active_dependency_index", rows=2, maxrows=4)
+    try:
+        dependency_ref = modifier.dependencies[modifier.active_dependency_index]
+    except:
+        pass
+    else:
+        layout.alert = dependency_ref.blend_onto is None
+        layout.prop(dependency_ref, "blend_onto")
+
+
 class DecalMgrListUI(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
         if item.name:
