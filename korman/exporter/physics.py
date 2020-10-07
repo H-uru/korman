@@ -157,7 +157,7 @@ class PhysicsConverter:
 
             # Got subworlds?
             subworld = bo.plasma_object.subworld
-            if self.is_dedicated_subworld(subworld, sanity_check=False):
+            if subworld is not None and self.is_dedicated_subworld(subworld, sanity_check=False):
                 physical.subWorld = self._mgr.find_create_key(plHKSubWorld, bl=subworld)
 
             # Export the collision modifier here since we like stealing from it anyway.
@@ -212,11 +212,11 @@ class PhysicsConverter:
                 bo_xformed = bo.plasma_object.has_transform_animation
 
                 # MOUL: only objects that have animation data are kPhysAnim
-                if ver != pvMoul or bo_xformed:
+                if mod.enabled and (ver != pvMoul or bo_xformed):
                     _set_phys_prop(plSimulationInterface.kPhysAnim, simIface, physical)
                 # PotS: objects inheriting parent animation only are not pinned
                 # MOUL: animated objects in subworlds are not pinned
-                if bo_xformed and (ver != pvMoul or subworld is None):
+                if (bo_xformed and (ver != pvMoul or subworld is None)) or ((ver != pvMoul) and subworld is not None and (not bo_xformed)):
                      _set_phys_prop(plSimulationInterface.kPinned, simIface, physical)
                 # MOUL: child objects are kPassive
                 if ver == pvMoul and bo.parent is not None:
