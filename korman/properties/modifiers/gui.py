@@ -578,6 +578,8 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         anim_stage = nodes.new("PlasmaAnimStageNode")
         anim_stage.anim_name = "LinkOut"
         anim_settings = nodes.new("PlasmaAnimStageSettingsNode")
+        anim_settings.forward = "kPlayAuto"
+        anim_settings.stage_advance = "kAdvanceAuto"
         anim_stage.link_input(anim_settings, "stage", "stage_settings")
 
         msb = nodes.new("PlasmaMultiStageBehaviorNode")
@@ -616,6 +618,8 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         anim_stage = nodes.new("PlasmaAnimStageNode")
         anim_stage.anim_name = "LinkOut"
         anim_settings = nodes.new("PlasmaAnimStageSettingsNode")
+        anim_settings.forward = "kPlayAuto"
+        anim_settings.stage_advance = "kAdvanceAuto"
         anim_stage.link_input(anim_settings, "stage", "stage_settings")
 
         msb = nodes.new("PlasmaMultiStageBehaviorNode")
