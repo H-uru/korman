@@ -43,6 +43,9 @@ def animation(modifier, layout, context):
         col.enabled = modifier.loop
         col.prop_search(modifier, "loop_start", action, "pose_markers", icon="PMARKER")
         col.prop_search(modifier, "loop_end", action, "pose_markers", icon="PMARKER")
+    
+    col.label("SDL Animation:")
+    col.prop(modifier, "obj_sdl_anim", text="")
 
 def animation_filter(modifier, layout, context):
     split = layout.split()

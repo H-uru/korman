@@ -60,6 +60,9 @@ class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
                                 description="Marker indicating where the default loop begins")
     loop_end = StringProperty(name="Loop End",
                               description="Marker indicating where the default loop ends")
+    obj_sdl_anim = StringProperty(name="SDL Animation",
+                                  description="Name of the SDL variable to use for this animation",
+                                  options=set())
 
     def export(self, exporter, bo, so):
         action = self.blender_action
