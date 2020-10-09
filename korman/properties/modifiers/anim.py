@@ -64,11 +64,15 @@ class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
                                   description="Name of the SDL variable to use for this animation",
                                   options=set())
 
+    @property
+    def anim_type(self):
+        return plAgeGlobalAnim if self.obj_sdl_anim else plATCAnim
+
     def export(self, exporter, bo, so):
         action = self.blender_action
-
-        anim_data = bo.plasma_modifiers.animation
-        if anim_data.obj_sdl_anim:
+        anim_mod = bo.plasma_modifiers.animation
+        anim = exporter.mgr.find_create_object(anim_mod.anim_type, so=so)
+        if isinstance(anim, plAgeGlobalAnim):
             atcanim = exporter.mgr.find_create_object(plAgeGlobalAnim, so=so)
         else:
             atcanim = exporter.mgr.find_create_object(plATCAnim, so=so)
