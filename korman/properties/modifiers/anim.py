@@ -71,10 +71,8 @@ class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
     def export(self, exporter, bo, so):
         action = self.blender_action
         anim_mod = bo.plasma_modifiers.animation
-        anim = exporter.mgr.find_create_object(anim_mod.anim_type, so=so)
-        if isinstance(anim, plAgeGlobalAnim):
-            atcanim = exporter.mgr.find_create_object(plAgeGlobalAnim, so=so)
-        else:
+        atcanim = exporter.mgr.find_create_object(anim_mod.anim_type, so=so)
+        if not isinstance(atcanim, plAgeGlobalAnim):
             atcanim = exporter.mgr.find_create_object(plATCAnim, so=so)
             atcanim.autoStart = self.auto_start
             atcanim.loop = self.loop

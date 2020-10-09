@@ -73,10 +73,7 @@ class AnimationConverter:
         # to be listed on the SceneObject in a specific order. D'OH! So, always use these funcs.
         agmod, agmaster = self.get_anigraph_objects(bo, so)
         anim_mod = bo.plasma_modifiers.animation
-        if anim_mod.obj_sdl_anim:
-            atcanim = self._mgr.find_create_object(plAgeGlobalAnim, so=so)
-        else:
-            atcanim = self._mgr.find_create_object(plATCAnim, so=so)
+        atcanim = self._mgr.find_create_object(anim_mod.anim_type, so=so)
 
         # Add the animation data to the ATC
         for i in applicators:
@@ -93,26 +90,23 @@ class AnimationConverter:
                 if i is not None:
                     yield i.frame_range[index]
         atcanim.name = "(Entire Animation)"
-        def anim_range_type(plAGAnim):
-            if anim_mod.obj_sdl_anim:
-                atcanim.start = self._convert_frame_time(min(get_ranges(obj_action, data_action, index=0)))
-                atcanim.end = self._convert_frame_time(max(get_ranges(obj_action, data_action, index=1)))
-                atcanim.globalVarName = anim_mod.obj_sdl_anim
-            else:
-                atcanim.start = self._convert_frame_time(min(get_ranges(obj_action, data_action, index=0)))
-                atcanim.end = self._convert_frame_time(max(get_ranges(obj_action, data_action, index=1)))
-                # Fixme? Not sure if we really need to expose this...
-                atcanim.easeInMin = 1.0
-                atcanim.easeInMax = 1.0
-                atcanim.easeInLength = 1.0
-                atcanim.easeOutMin = 1.0
-                atcanim.easeOutMax = 1.0
-                atcanim.easeOutLength = 1.0
-
+        sdl_name = bo.plasma_modifiers.animation.obj_sdl_anim
+        atcanim.start = self._convert_frame_time(min(get_ranges(obj_action, data_action, index=0)))
+        atcanim.end = self._convert_frame_time(max(get_ranges(obj_action, data_action, index=1)))
+        if isinstance(atcanim, plAgeGlobalAnim):
+            atcanim.globalVarName = anim_mod.obj_sdl_anim
+        if isinstance(atcanim, plATCAnim):
         # Marker points
-        if obj_action is not None and anim_mod is None:
-            for marker in obj_action.pose_markers:
-                atcanim.setMarker(marker.name, self._convert_frame_time(marker.frame))
+            if obj_action is not None and not anim_data.obj_sdl_anim:
+                for marker in obj_action.pose_markers:
+                    atcanim.setMarker(marker.name, self._convert_frame_time(marker.frame))
+            # Fixme? Not sure if we really need to expose this...
+            atcanim.easeInMin = 1.0
+            atcanim.easeInMax = 1.0
+            atcanim.easeInLength = 1.0
+            atcanim.easeOutMin = 1.0
+            atcanim.easeOutMax = 1.0
+            atcanim.easeOutLength = 1.0
 
     def _convert_camera_animation(self, bo, so, obj_fcurves, data_fcurves):
         if data_fcurves:
