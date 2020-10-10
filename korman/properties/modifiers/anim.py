@@ -73,7 +73,6 @@ class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
         anim_mod = bo.plasma_modifiers.animation
         atcanim = exporter.mgr.find_create_object(anim_mod.anim_type, so=so)
         if not isinstance(atcanim, plAgeGlobalAnim):
-            atcanim = exporter.mgr.find_create_object(plATCAnim, so=so)
             atcanim.autoStart = self.auto_start
             atcanim.loop = self.loop
 

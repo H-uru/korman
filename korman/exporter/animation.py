@@ -90,14 +90,14 @@ class AnimationConverter:
                 if i is not None:
                     yield i.frame_range[index]
         atcanim.name = "(Entire Animation)"
-        sdl_name = bo.plasma_modifiers.animation.obj_sdl_anim
+        sdl_name = anim_mod.obj_sdl_anim
         atcanim.start = self._convert_frame_time(min(get_ranges(obj_action, data_action, index=0)))
         atcanim.end = self._convert_frame_time(max(get_ranges(obj_action, data_action, index=1)))
         if isinstance(atcanim, plAgeGlobalAnim):
             atcanim.globalVarName = anim_mod.obj_sdl_anim
         if isinstance(atcanim, plATCAnim):
-        # Marker points
-            if obj_action is not None and not anim_data.obj_sdl_anim:
+            # Marker points
+            if obj_action is not None:
                 for marker in obj_action.pose_markers:
                     atcanim.setMarker(marker.name, self._convert_frame_time(marker.frame))
             # Fixme? Not sure if we really need to expose this...
