@@ -63,6 +63,14 @@ class PlasmaAgeExportOperator(ExportOperator, bpy.types.Operator):
                                         "description": "Forces the Blender System Console open during the export",
                                         "default": True}),
 
+        "transform_offsets": (BoolProperty, {"name": "Transform Texture Offsets",
+                                        "description": "Transforms Blender Texture Offsets to Plasma during the export",
+                                        "default": False}),
+
+        "bad_beziers": (BoolProperty, {"name": "Hobble Bezier Animation",
+                                        "description": "Forces Worst-Case Beziers during the export",
+                                        "default": False}),
+
         "texcache_path": (StringProperty, {"name": "Texture Cache Path",
                                            "description": "Texture Cache Filepath"}),
 
