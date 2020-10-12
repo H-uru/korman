@@ -406,6 +406,7 @@ class MaterialConverter:
         layer = self._mgr.find_create_object(plLayer, name=name, bl=bo)
         if bm is not None and not slot.use_map_normal:
             self._propagate_material_settings(bo, bm, layer)
+        age = bpy.context.scene.world.plasma_age
 
         # UVW Channel
         if slot.texture_coords == "UV":
@@ -419,7 +420,11 @@ class MaterialConverter:
 
         # Transform
         xform = hsMatrix44()
-        xform.setTranslate(hsVector3(*slot.offset))
+        if age.transform_offsets and slot.texture_coords == "UV":
+            PlasmaOffset = (slot.offset[0] + 0.5 - 0.5 * slot.scale[0], -slot.offset[1] + 0.5 - 0.5 * slot.scale[1], 0.0)
+            xform.setTranslate(hsVector3(*PlasmaOffset))
+        else:
+            xform.setTranslate(hsVector3(*slot.offset))
         xform.setScale(hsVector3(*slot.scale))
         layer.transform = xform
 
@@ -492,6 +497,7 @@ class MaterialConverter:
     def _export_layer_animations(self, bo, bm, tex_slot, idx, base_layer):
         """Exports animations on this texture and chains the Plasma layers as needed"""
 
+        age = bpy.context.scene.world.plasma_age
         def harvest_fcurves(bl_id, collection, data_path=None):
             if bl_id is None:
                 return None
@@ -511,7 +517,52 @@ class MaterialConverter:
         texture = tex_slot.texture
         mat_action = harvest_fcurves(bm, fcurves, "texture_slots[{}]".format(idx))
         tex_action = harvest_fcurves(texture, fcurves)
-        if not fcurves:
+        # Map offsets. The restriction is that if there are offsets and scales then there is a scale keyframe for every offset keyframe
+        # and vice versa. The algorithm will fake it if the restriction isn't met.
+        fscaly = [0, 0, 0]
+        if fcurves:
+            if age.transform_offsets:
+                # find fcurve scales, if any
+                fscales = [fcurves[0], fcurves[0], fcurves[0]]
+                for fcu in fcurves:
+                    if -1 < fcu.data_path.find("scale"):
+                        fscaly[fcu.array_index] = len(fcu.keyframe_points)
+                        fscales[fcu.array_index] = fcu
+                # process offsets with slot or fcurve scales
+                for fcu in fcurves:
+                    if -1 < fcu.data_path.find("offset"):
+                        # X coordinate
+                        if 0 == fcu.array_index:
+                            default_offset = 0.5 - 0.5 * tex_slot.scale[0]
+                            if 0 == fscaly[0]:
+                                for kp in fcu.keyframe_points:
+                                    kp.co.y = kp.co.y + default_offset
+                            else:
+                                fskp = fscales[0].keyframe_points
+                                for j, kp in enumerate(fcu.keyframe_points):
+                                    if j < fscaly[0] and kp.co.x == fskp[j].co.x:
+                                        that_offset = 0.5 - 0.5 * fskp[j].co.y
+                                    else:
+                                        self._report.warn("Unmatched texture offset/scale: '{}'".format(tex_slot.name), indent=3)
+                                        that_offset = default_offset
+                                    kp.co.y = kp.co.y + that_offset
+                        # Y coordinate
+                        elif 1 == fcu.array_index:
+                            default_offset = 0.5 - 0.5 * tex_slot.scale[1]
+                            if 0 == fscaly[1]:
+                                for kp in fcu.keyframe_points:
+                                    kp.co.y = -kp.co.y + default_offset
+                            else:
+                                fskp = fscales[1].keyframe_points
+                                for j, kp in enumerate(fcu.keyframe_points):
+                                    if j < fscaly[1] and kp.co.x == fskp[j].co.x:
+                                        that_offset = 0.5 - 0.5 * fskp[j].co.y
+                                    else:
+                                        self._report.warn("Unmatched texture offset/scale: '{}'".format(tex_slot.name), indent=3)
+                                        that_offset = default_offset
+                                    kp.co.y = -kp.co.y + that_offset
+            # end map of curves
+        else:
             return base_layer
 
         # Okay, so we have some FCurves. We'll loop through our known layer animation converters
@@ -524,6 +575,39 @@ class MaterialConverter:
                     name = "{}_LayerAnim".format(base_layer.key.name)
                     layer_animation = self.get_texture_animation_key(bo, bm, texture).object
                 setattr(layer_animation, attr, ctrl)
+
+        if age.transform_offsets:
+            # Revert fcurves.
+            for fcu in fcurves:
+                if -1 < fcu.data_path.find("offset"):
+                    # X coordinate
+                    if 0 == fcu.array_index:
+                        default_offset = 0.5 - 0.5 * tex_slot.scale[0]
+                        if 0 == fscaly[0]:
+                            for kp in fcu.keyframe_points:
+                                kp.co.y = kp.co.y - default_offset
+                        else:
+                            fskp = fscales[0].keyframe_points
+                            for j, kp in enumerate(fcu.keyframe_points):
+                                if j < fscaly[0] and kp.co.x == fskp[j].co.x:
+                                    that_offset = 0.5 - 0.5 * fskp[j].co.y
+                                else:
+                                    that_offset = default_offset
+                                kp.co.y = kp.co.y - that_offset
+                    # Y coordinate (note that the operation is its own inverse)
+                    elif 1 == fcu.array_index:
+                        default_offset = 0.5 - 0.5 * tex_slot.scale[1]
+                        if 0 == fscaly[1]:
+                            for kp in fcu.keyframe_points:
+                                kp.co.y = -kp.co.y + default_offset
+                        else:
+                            fskp = fscales[1].keyframe_points
+                            for j, kp in enumerate(fcu.keyframe_points):
+                                if j < fscaly[1] and kp.co.x == fskp[j].co.x:
+                                    that_offset = 0.5 - 0.5 * fskp[j].co.y
+                                else:
+                                    that_offset = default_offset
+                                kp.co.y = -kp.co.y + that_offset
 
         # Alrighty, if we exported any controllers, layer_animation is a plLayerAnimation. We need to do
         # the common schtuff now.
@@ -538,8 +622,13 @@ class MaterialConverter:
             start, end = functools.reduce(lambda x, y: (min(x[0], y[0]), max(x[1], y[1])),
                                           (fcurve.range() for fcurve in fcurves))
 
-            atc.begin = start / fps
-            atc.end = end / fps
+            # Propagate adjustment from AnimationConverter._process_fcurve
+            if fps == 30.0:
+                atc.begin = start / fps
+                atc.end = end / fps
+            else:
+                atc.begin = (start * 30) / (fps * fps)
+                atc.end = (end * 30) / (fps * fps)
 
             layer_props = tex_slot.texture.plasma_layer
             if not layer_props.anim_auto_start:
