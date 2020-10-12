@@ -653,6 +653,7 @@ class AnimationConverter:
 
     def _process_fcurve(self, fcurve, convert=None):
         """Like _process_keyframes, but for one fcurve"""
+        age = bpy.context.scene.world.plasma_age
         keyframe_data = type("KeyFrameData", (), {})
         fps = self._bl_fps
         pi = math.pi
@@ -669,8 +670,13 @@ class AnimationConverter:
                 keyframe.frame_num = int(frame_num * (30.0 / fps))
             keyframe.frame_time = frame_num / fps
             if fkey.interpolation == "BEZIER":
-                keyframe.in_tan = -(value - fkey.handle_left[1])  / (frame_num - fkey.handle_left[0])  / fps / (2 * pi)
-                keyframe.out_tan = (value - fkey.handle_right[1]) / (frame_num - fkey.handle_right[0]) / fps / (2 * pi)
+                # beziers don't work properly so they are made to work consistently
+                if age.bad_beziers:
+                    keyframe.in_tan = 0.0
+                    keyframe.out_tan = 0.0
+                else:
+                    keyframe.in_tan = -(value - fkey.handle_left[1])  / (frame_num - fkey.handle_left[0])  / fps / (2 * pi)
+                    keyframe.out_tan = (value - fkey.handle_right[1]) / (frame_num - fkey.handle_right[0]) / fps / (2 * pi)
                 bezier = True
             else:
                 keyframe.in_tan = 0.0
@@ -795,6 +801,7 @@ class AnimationConverter:
 
     def _process_keyframes(self, fcurves, convert=None):
         """Groups all FCurves for the same frame together"""
+        age = bpy.context.scene.world.plasma_age
         keyframe_data = type("KeyFrameData", (), {})
         fps = self._bl_fps
         pi = math.pi
@@ -824,8 +831,13 @@ class AnimationConverter:
 
                 # Calculate the bezier interpolation nonsense
                 if fkey.interpolation == "BEZIER":
-                    keyframe.in_tans[idx] = -(value - fkey.handle_left[1])  / (frame_num - fkey.handle_left[0])  / fps / (2 * pi)
-                    keyframe.out_tans[idx] = (value - fkey.handle_right[1]) / (frame_num - fkey.handle_right[0]) / fps / (2 * pi)
+                   # beziers don't work properly so they are made to work consistently.
+                    if age.bad_beziers:
+                        keyframe.in_tans[idx] = 0.0
+                        keyframe.out_tans[idx] = 0.0
+                    else:
+                        keyframe.in_tans[idx] = -(value - fkey.handle_left[1])  / (frame_num - fkey.handle_left[0])  / fps / (2 * pi)
+                        keyframe.out_tans[idx] = (value - fkey.handle_right[1]) / (frame_num - fkey.handle_right[0]) / fps / (2 * pi)
                     bez_chans.add(idx)
                 else:
                     keyframe.in_tans[idx] = 0.0
