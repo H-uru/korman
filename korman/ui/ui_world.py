@@ -242,6 +242,8 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
         col.enabled = korlib.ConsoleToggler.is_platform_supported()
         col.prop(age, "verbose")
         col.prop(age, "show_console")
+        col.prop(age, "transform_offsets")
+        col.prop(age, "bad_beziers")
 
         col = split.column()
         col.label("Plasma Settings:")
