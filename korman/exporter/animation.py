@@ -293,11 +293,7 @@ class AnimationConverter:
         if not fcurves:
             return None
 
-        def convert_volume(value):
-            if value == 0.0:
-                return 0.0
-            else:
-                return math.log10(value) * 20.0
+        convert_volume = lambda x: math.log10(max(.01, x / 100.0)) * 20.0
 
         for sound in soundemit.sounds:
             path = "{}.volume".format(sound.path_from_id())
