@@ -289,7 +289,7 @@ class MeshConverter(_MeshManager):
                 return False
 
         mods = bo.plasma_modifiers
-        if mods.lighting.rt_lights:
+        if mods.lighting.force_rt_lights:
             return True
         if mods.lightmap.bake_lightmap:
             return True
@@ -326,7 +326,7 @@ class MeshConverter(_MeshManager):
             geospan.props |= plGeometrySpan.kDiffuseFoldedIn
 
         mods = bo.plasma_modifiers
-        if mods.lighting.rt_lights:
+        if mods.lighting.force_rt_lights:
             geospan.props |= plGeometrySpan.kPropRunTimeLight
         if not bm.use_shadows:
             geospan.props |= plGeometrySpan.kPropNoShadow

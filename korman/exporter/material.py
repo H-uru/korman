@@ -188,7 +188,7 @@ class MaterialConverter:
             hgmat = None
         else:
             # Ensure that RT-lit objects don't infect the static-lit objects.
-            mat_prefix = "RTLit_" if bo.plasma_modifiers.lighting.rt_lights else ""
+            mat_prefix = "RTLit_" if bo.plasma_modifiers.lighting.force_rt_lights and not bm.use_shadeless else ""
             mat_name = "".join((mat_prefix, bm.name))
             self._report.msg("Exporting Material '{}'", mat_name, indent=1)
             hsgmat = self._mgr.find_key(hsGMaterial, name=mat_name, bl=bo)
@@ -1177,14 +1177,17 @@ class MaterialConverter:
             return utils.color(bpy.context.scene.world.ambient_color)
 
     def get_material_preshade(self, bo, bm, color=None) -> hsColorRGBA:
-        if bo.plasma_modifiers.lighting.rt_lights:
+        if bo.plasma_modifiers.lighting.enabled and bo.plasma_modifiers.lighting.force_rt_lights and not bm.use_shadeless:
             return hsColorRGBA.kBlack
         if color is None:
             color = bm.diffuse_color
         return utils.color(color)
 
     def get_material_runtime(self, bo, bm, color=None) -> hsColorRGBA:
-        if not bo.plasma_modifiers.lighting.rt_lights:
+        if bo.plasma_modifiers.lighting.enabled:
+            if not bo.plasma_modifiers.lighting.force_rt_lights and bm.use_shadeless:
+                return hsColorRGBA.kBlack
+        if bo.plasma_modifiers.water_basic.enabled:
             return hsColorRGBA.kBlack
         if color is None:
             color = bm.diffuse_color
