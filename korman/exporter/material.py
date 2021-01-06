@@ -1184,7 +1184,7 @@ class MaterialConverter:
         return utils.color(color)
 
     def get_material_runtime(self, bo, bm, color=None) -> hsColorRGBA:
-        if not bo.plasma_modifiers.lighting.rt_lights:
+        if not bo.plasma_modifiers.lighting.preshade:
             return hsColorRGBA.kBlack
         if color is None:
             color = bm.diffuse_color
