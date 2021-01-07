@@ -16,6 +16,7 @@
 import bpy
 from pathlib import Path
 from PyHSPlasma import *
+from typing import Iterable
 import weakref
 
 from . import explosions
@@ -189,6 +190,13 @@ class ExportManager:
             return plEncryptedStream.kEncAes
         else:
             return plEncryptedStream.kEncXtea
+
+    def find_interfaces(self, pClass, so : plSceneObject) -> Iterable[plObjInterface]:
+        assert issubclass(pClass, plObjInterface)
+
+        for i in (i.object for i in so.interfaces):
+            if isinstance(i, pClass):
+                yield i
 
     def find_create_key(self, pClass, bl=None, name=None, so=None):
         key = self.find_key(pClass, bl, name, so)

@@ -256,6 +256,10 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
     def export(self, exporter, bo, so):
         pfm = self.get_key(exporter, so).object
 
+        # Special PFM-SO handling ahoy - be sure to do it for all objects this PFM is attached to.
+        # Otherwise, you get non-determinant behavior.
+        self._export_ancillary_sceneobject(exporter, so)
+
         # No need to continue if the PFM was already generated.
         if pfm.filename:
             return
@@ -276,7 +280,6 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
         # Handle exporting the Python Parameters
         attrib_sockets = (i for i in self.inputs if i.is_linked)
         for socket in attrib_sockets:
-            attrib = socket.attribute_type
             from_node = socket.links[0].from_node
 
             value = from_node.value if socket.is_simple_value else from_node.get_key(exporter, so)
@@ -285,26 +288,41 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
             for i in value:
                 param = plPythonParameter()
                 param.id = socket.attribute_id
-                param.valueType = _attrib2param[attrib]
+                param.valueType = _attrib2param[socket.attribute_type]
                 param.value = i
 
-                # Key type sanity checking... Because I trust no user.
                 if not socket.is_simple_value:
-                    if i is None:
-                        msg = "'{}' Node '{}' didn't return a key and therefore will be unavailable to Python".format(
-                            self.id_data.name, from_node.name)
-                        exporter.report.warn(msg, indent=3)
-                    else:
-                        key_type = _attrib_key_types[attrib]
-                        if isinstance(key_type, tuple):
-                            good_key = i.type in key_type
-                        else:
-                            good_key = i.type == key_type
-                        if not good_key:
-                            msg = "'{}' Node '{}' returned an unexpected key type '{}'".format(
-                                self.id_data.name, from_node.name, plFactory.ClassName(i.type))
-                            exporter.report.warn(msg, indent=3)
+                    self._export_key_attrib(exporter, bo, so, i, socket)
                 pfm.addParameter(param)
+
+    def _export_ancillary_sceneobject(self, exporter, so : plSceneObject) -> None:
+        # Danger: Special case evil ahoy...
+        # If the key is an object that represents a lamp, we have to assume that the reason it's
+        # being passed to Python is so it can be turned on/off at will. That means it's technically
+        # an animated lamp.
+        for light in exporter.mgr.find_interfaces(plLightInfo, so):
+            exporter.report.msg("Marking RT light '{}' as animated due to usage in a Python File node",
+                                 so.key.name, indent=3)
+            light.setProperty(plLightInfo.kLPMovable, True)
+
+    def _export_key_attrib(self, exporter, bo, so : plSceneObject, key : plKey, socket) -> None:
+        if key is None:
+            exporter.report.warn("Attribute '{}' didn't return a key and therefore will be unavailable to Python",
+                                 self.id_data.name, socket.links[0].name, indent=3)
+            return
+
+        key_type = _attrib_key_types[socket.attribute_type]
+        if isinstance(key_type, tuple):
+            good_key = key.type in key_type
+        else:
+            good_key = key.type == key_type
+        if not good_key:
+            exporter.report.warn("'{}' Node '{}' returned an unexpected key type '{}'",
+                                 self.id_data.name, socket.links[0].from_node.name,
+                                 plFactory.ClassName(key.type), indent=3)
+
+        if isinstance(key.object, plSceneObject):
+            self._export_ancillary_sceneobject(exporter, key.object)
 
     def _get_attrib_sockets(self, idx):
         for i in self.inputs:
