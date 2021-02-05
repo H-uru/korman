@@ -249,7 +249,7 @@ class PlasmaWaterModifier(idprops.IDPropMixin, PlasmaModifierProperties, bpy.typ
 
             # This is much like what happened in PyPRP
             speed = self.wind_speed
-            matrix = wind_obj.matrix_world
+            matrix = self.wind_object.matrix_world
             wind_dir = hsVector3(matrix[1][0] * speed, matrix[1][1] * speed, matrix[1][2] * speed)
         else:
             # Stolen shamelessly from PyPRP
