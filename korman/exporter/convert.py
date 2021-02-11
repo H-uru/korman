@@ -431,7 +431,7 @@ class Exporter:
         if not valid_path:
             filepath = bpy.context.blend_data.filepath
             if not filepath:
-                filepath = self.filepath
+                filepath = self._op.filepath
             filepath = str(Path(filepath).with_suffix(".ktc"))
             age.texcache_path = filepath
         return filepath
