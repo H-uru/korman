@@ -262,6 +262,10 @@ class PlasmaEnvironmentPanel(AgeButtonsPanel, bpy.types.Panel):
         layout = self.layout
         fni = context.world.plasma_fni
 
+        # warn about reversed linear fog values
+        if fni.fog_method == "linear" and fni.fog_start >= fni.fog_end and (fni.fog_start + fni.fog_end) != 0:
+            layout.label(text="Fog Start Value should be less than the End Value", icon="ERROR")
+
         # basic colors
         split = layout.split()
         col = split.column()
