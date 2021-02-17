@@ -148,6 +148,14 @@ class PlasmaPage(bpy.types.PropertyGroup):
 
 class PlasmaAge(bpy.types.PropertyGroup):
     def export(self, exporter):
+        if exporter.mgr.getVer() == pvMoul:
+            log_func = exporter.report.warn
+        else:
+            log_func = exporter.report.port
+        if self.seq_prefix <= self.MOUL_PREFIX_RANGE[0] or self.seq_prefix >= self.MOUL_PREFIX_RANGE[1]:
+            log_func("Age Sequence Prefix {} is potentially out of range (should be between {} and {})",
+                     self.seq_prefix, *self.MOUL_PREFIX_RANGE)
+
         _age_info = plAgeInfo()
         _age_info.dayLength = self.day_length
         _age_info.lingerTime = 180 # this is fairly standard
@@ -156,6 +164,10 @@ class PlasmaAge(bpy.types.PropertyGroup):
         _age_info.seqPrefix = self.seq_prefix
         _age_info.startDateTime = self.start_time
         return _age_info
+
+    # Sequence prefix helpers
+    MOUL_PREFIX_RANGE = ((pow(2, 16) - pow(2, 15)) * -1, pow(2, 15) - 1)
+    SP_PRFIX_RANGE = ((pow(2, 24) - pow(2, 23)) * -1, pow(2, 23) - 1)
 
     day_length = FloatProperty(name="Day Length",
                                description="Length of a day (in hours) on this age",
@@ -169,7 +181,10 @@ class PlasmaAge(bpy.types.PropertyGroup):
                              min=0)
     seq_prefix = IntProperty(name="Sequence Prefix",
                              description="A unique numerical ID for this age",
+                             min=SP_PRFIX_RANGE[0],
                              soft_min=0,  # Negative indicates global--advanced users only
+                             soft_max=MOUL_PREFIX_RANGE[1],
+                             max=SP_PRFIX_RANGE[1],
                              default=100)
     pages = CollectionProperty(name="Pages",
                                description="Registry pages for this age",
