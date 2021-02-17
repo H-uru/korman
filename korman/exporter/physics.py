@@ -210,7 +210,9 @@ class PhysicsConverter:
                 bo_xformed = bo.plasma_object.has_transform_animation
 
                 # Always pin these objects - otherwise they may start falling through the floor.
-                _set_phys_prop(plSimulationInterface.kPinned, simIface, physical)
+                # Unless you've marked it kickable...
+                if not mod.dynamic:
+                    _set_phys_prop(plSimulationInterface.kPinned, simIface, physical)
 
                 # MOUL: only objects that have animation data are kPhysAnim
                 if ver != pvMoul or bo_xformed:
