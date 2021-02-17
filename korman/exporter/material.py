@@ -534,12 +534,10 @@ class MaterialConverter:
             atc = layer_animation.timeConvert
 
             # Since we are harvesting from the material action but are exporting to a layer, the
-            # action's range is relatively useless. We'll figure our own.
-            start, end = functools.reduce(lambda x, y: (min(x[0], y[0]), max(x[1], y[1])),
-                                          (fcurve.range() for fcurve in fcurves))
-
-            atc.begin = start / fps
-            atc.end = end / fps
+            # action's range is relatively useless. We'll figure our own. Reminder: the blender
+            # documentation is wrong -- FCurve.range() returns a sequence of frame numbers, not times.
+            atc.begin = min((fcurve.range()[0] for fcurve in fcurves)) * (30.0 / fps) / fps
+            atc.end = max((fcurve.range()[1] for fcurve in fcurves)) * (30.0 / fps) / fps
 
             layer_props = tex_slot.texture.plasma_layer
             if not layer_props.anim_auto_start:
