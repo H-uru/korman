@@ -249,7 +249,8 @@ class OutputFiles:
         backing_stream = stream
 
         # No sense in wasting time encrypting data that isn't going to be used in the export
-        if not bogus:
+        # Also, don't encrypt any MOUL files at all.
+        if not bogus and self._version != pvMoul:
             enc = kwargs.get("enc", None)
             if enc is not None:
                 stream = plEncryptedStream(self._version)
