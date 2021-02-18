@@ -60,9 +60,7 @@ class PhysicsConverter:
                 indices += (v[0], v[2], v[3],)
         return indices
 
-    def _convert_mesh_data(self, bo, physical, local_space, indices=True):
-        mat = bo.matrix_world
-
+    def _convert_mesh_data(self, bo, physical, local_space, mat, indices=True):
         mesh = bo.to_mesh(bpy.context.scene, True, "RENDER", calc_tessface=False)
         with TemporaryObject(mesh, bpy.data.meshes.remove):
             if local_space:
@@ -211,29 +209,41 @@ class PhysicsConverter:
             if tree_xformed:
                 bo_xformed = bo.plasma_object.has_transform_animation
 
+                # Always pin these objects - otherwise they may start falling through the floor.
+                # Unless you've marked it kickable...
+                if not mod.dynamic:
+                    _set_phys_prop(plSimulationInterface.kPinned, simIface, physical)
+
                 # MOUL: only objects that have animation data are kPhysAnim
                 if ver != pvMoul or bo_xformed:
                     _set_phys_prop(plSimulationInterface.kPhysAnim, simIface, physical)
-                # PotS: objects inheriting parent animation only are not pinned
-                # MOUL: animated objects in subworlds are not pinned
-                if bo_xformed and (ver != pvMoul or subworld is None):
-                     _set_phys_prop(plSimulationInterface.kPinned, simIface, physical)
-                # MOUL: child objects are kPassive
-                if ver == pvMoul and bo.parent is not None:
-                    _set_phys_prop(plSimulationInterface.kPassive, simIface, physical)
-                # FilterCoordinateInterfaces are kPassive
-                if bo.plasma_object.ci_type == plFilterCoordInterface:
+
+                # Any physical that is parented by not kickable (dynamic) is passive -
+                # meaning we don't need to report back any changes from physics. Same for
+                # plFilterCoordInterface, which filters out some axes.
+                if (bo.parent is not None and not mod.dynamic) or bo.plasma_object.ci_type == plFilterCoordInterface:
                     _set_phys_prop(plSimulationInterface.kPassive, simIface, physical)
 
                 # If the mass is zero, then we will fail to animate. Fix that.
                 if physical.mass == 0.0:
                     physical.mass = 1.0
 
+            # Different Plasma versions have different ways they expect to get physical transforms.
+            # With Havok, massless objects are in absolute worldspace while massed (movable) objects
+            # are in object-local space.
+            # In PhysX, objects with a coordinate interface are in local to SUBWORLD space, otherwise
+            # they are in absolute worldspace.
             if ver <= pvPots:
-                local_space = physical.mass > 0.0
+                local_space, mat = physical.mass > 0.0, bo.matrix_world
+            elif ver == pvMoul:
+                if self._exporter().has_coordiface(bo):
+                    local_space = True
+                    mat = subworld.matrix_world.inverted() * bo.matrix_world if subworld else bo.matrix_world
+                else:
+                    local_space, mat = False, bo.matrix_world
             else:
-                local_space = self._exporter().has_coordiface(bo)
-            self._bounds_converters[bounds](bo, physical, local_space)
+                raise NotImplementedError("ODE physical transform")
+            self._bounds_converters[bounds](bo, physical, local_space, mat)
         else:
             simIface = so.sim.object
             physical = simIface.physical.object
@@ -245,14 +255,14 @@ class PhysicsConverter:
 
         self._apply_props(simIface, physical, kwargs)
 
-    def _export_box(self, bo, physical, local_space):
+    def _export_box(self, bo, physical, local_space, mat):
         """Exports box bounds based on the object"""
         physical.boundsType = plSimDefs.kBoxBounds
 
-        vertices = self._convert_mesh_data(bo, physical, local_space, indices=False)
+        vertices = self._convert_mesh_data(bo, physical, local_space, mat, indices=False)
         physical.calcBoxBounds(vertices)
 
-    def _export_hull(self, bo, physical, local_space):
+    def _export_hull(self, bo, physical, local_space, mat):
         """Exports convex hull bounds based on the object"""
         physical.boundsType = plSimDefs.kHullBounds
 
@@ -260,7 +270,6 @@ class PhysicsConverter:
         # bake them to convex hulls. Specifically, Windows 32-bit w/PhysX 2.6. Everything else just
         # needs to have us provide some friendlier data...
         with bmesh_from_object(bo) as mesh:
-            mat = bo.matrix_world
             if local_space:
                 physical.pos = hsVector3(*mat.to_translation())
                 physical.rot = utils.quaternion(mat.to_quaternion())
@@ -273,24 +282,24 @@ class PhysicsConverter:
             verts = itertools.takewhile(lambda x: isinstance(x, BMVert), result["geom"])
             physical.verts = [hsVector3(*i.co) for i in verts]
 
-    def _export_sphere(self, bo, physical, local_space):
+    def _export_sphere(self, bo, physical, local_space, mat):
         """Exports sphere bounds based on the object"""
         physical.boundsType = plSimDefs.kSphereBounds
 
-        vertices = self._convert_mesh_data(bo, physical, local_space, indices=False)
+        vertices = self._convert_mesh_data(bo, physical, local_space, mat, indices=False)
         physical.calcSphereBounds(vertices)
 
-    def _export_trimesh(self, bo, physical, local_space):
+    def _export_trimesh(self, bo, physical, local_space, mat):
         """Exports an object's mesh as exact physical bounds"""
 
         # Triangle meshes MAY optionally specify a proxy object to fetch the triangles from...
         mod = bo.plasma_modifiers.collision
         if mod.enabled and mod.proxy_object is not None:
             physical.boundsType = plSimDefs.kProxyBounds
-            vertices, indices = self._convert_mesh_data(mod.proxy_object, physical, local_space)
+            vertices, indices = self._convert_mesh_data(mod.proxy_object, physical, local_space, mat)
         else:
             physical.boundsType = plSimDefs.kExplicitBounds
-            vertices, indices = self._convert_mesh_data(bo, physical, local_space)
+            vertices, indices = self._convert_mesh_data(bo, physical, local_space, mat)
 
         physical.verts = vertices
         physical.indices = indices

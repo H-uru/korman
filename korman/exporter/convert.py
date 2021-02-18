@@ -287,14 +287,17 @@ class Exporter:
     def _export_mesh_blobj(self, so, bo):
         self.animation.convert_object_animations(bo, so)
         if bo.data.materials:
-            self.mesh.export_object(bo)
+            self.mesh.export_object(bo, so)
         else:
             self.report.msg("No material(s) on the ObData, so no drawables", indent=1)
 
     def _export_font_blobj(self, so, bo):
         self.animation.convert_object_animations(bo, so)
         with utils.temporary_mesh_object(bo) as meshObj:
-            self._export_mesh_blobj(so, meshObj)
+            if bo.data.materials:
+                self.mesh.export_object(meshObj, so)
+            else:
+                self.report.msg("No material(s) on the ObData, so no drawables", indent=1)
 
     def _export_referenced_node_trees(self):
         self.report.progress_advance()

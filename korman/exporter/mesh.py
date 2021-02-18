@@ -575,7 +575,7 @@ class MeshConverter(_MeshManager):
         # Sequence of tuples (material_index, material)
         return sorted(((i, material_source[i]) for i in valid_materials), key=lambda x: x[0])
 
-    def export_object(self, bo):
+    def export_object(self, bo, so : plSceneObject):
         # If this object has modifiers, then it's a unique mesh, and we don't need to try caching it
         # Otherwise, let's *try* to share meshes as best we can...
         if bo.modifiers:
@@ -587,7 +587,7 @@ class MeshConverter(_MeshManager):
 
         # Create the DrawInterface
         if drawables:
-            diface = self._mgr.find_create_object(plDrawInterface, bl=bo)
+            diface = self._mgr.find_create_object(plDrawInterface, bl=bo, so=so)
             for dspan_key, idx in drawables:
                 diface.addDrawable(dspan_key, idx)
 
