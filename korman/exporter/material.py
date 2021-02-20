@@ -16,8 +16,10 @@
 import bpy
 import functools
 import math
+import mathutils
 from pathlib import Path
 from PyHSPlasma import *
+from typing import Union
 import weakref
 
 from .explosions import *
@@ -143,7 +145,10 @@ class MaterialConverter:
             "NONE": self._export_texture_type_none,
         }
         self._animation_exporters = {
+            "ambientCtl": functools.partial(self._export_layer_diffuse_animation, converter=self.get_material_ambient),
             "opacityCtl": self._export_layer_opacity_animation,
+            "preshadeCtl": functools.partial(self._export_layer_diffuse_animation, converter=self.get_material_preshade),
+            "runtimeCtl": functools.partial(self._export_layer_diffuse_animation, converter=self.get_material_runtime),
             "transformCtl": self._export_layer_transform_animation,
         }
 
@@ -254,6 +259,7 @@ class MaterialConverter:
         if not hsgmat.layers:
             layer = self._mgr.find_create_object(plLayer, name="{}_AutoLayer".format(mat_name), bl=bo)
             self._propagate_material_settings(bo, bm, layer)
+            layer = self._export_layer_animations(bo, bm, None, 0, layer)
             hsgmat.addLayer(layer.key)
 
         # Cache this material for later
@@ -489,7 +495,7 @@ class MaterialConverter:
             layer = self._export_layer_animations(bo, bm, slot, idx, layer)
         return layer
 
-    def _export_layer_animations(self, bo, bm, tex_slot, idx, base_layer):
+    def _export_layer_animations(self, bo, bm, tex_slot, idx, base_layer) -> plLayer:
         """Exports animations on this texture and chains the Plasma layers as needed"""
 
         def harvest_fcurves(bl_id, collection, data_path=None):
@@ -508,9 +514,16 @@ class MaterialConverter:
             return None
 
         fcurves = []
-        texture = tex_slot.texture
-        mat_action = harvest_fcurves(bm, fcurves, "texture_slots[{}]".format(idx))
-        tex_action = harvest_fcurves(texture, fcurves)
+
+        # Base layers get all of the fcurves for animating things like the diffuse color
+        texture = tex_slot.texture if tex_slot is not None else None
+        if idx == 0:
+            harvest_fcurves(bm, fcurves)
+            harvest_fcurves(texture, fcurves)
+        elif tex_slot is not None:
+            harvest_fcurves(bm, fcurves, tex_slot.path_from_id())
+            harvest_fcurves(texture, fcurves)
+
         if not fcurves:
             return base_layer
 
@@ -518,7 +531,7 @@ class MaterialConverter:
         # and chain this biotch up as best we can.
         layer_animation = None
         for attr, converter in self._animation_exporters.items():
-            ctrl = converter(tex_slot, base_layer, fcurves)
+            ctrl = converter(bo, bm, tex_slot, base_layer, fcurves)
             if ctrl is not None:
                 if layer_animation is None:
                     name = "{}_LayerAnim".format(base_layer.key.name)
@@ -539,21 +552,39 @@ class MaterialConverter:
             atc.begin = min((fcurve.range()[0] for fcurve in fcurves)) * (30.0 / fps) / fps
             atc.end = max((fcurve.range()[1] for fcurve in fcurves)) * (30.0 / fps) / fps
 
-            layer_props = tex_slot.texture.plasma_layer
-            if not layer_props.anim_auto_start:
-                atc.flags |= plAnimTimeConvert.kStopped
-            if layer_props.anim_loop:
+            if tex_slot is not None:
+                layer_props = tex_slot.texture.plasma_layer
+                if not layer_props.anim_auto_start:
+                    atc.flags |= plAnimTimeConvert.kStopped
+                if layer_props.anim_loop:
+                    atc.flags |= plAnimTimeConvert.kLoop
+                    atc.loopBegin = atc.begin
+                    atc.loopEnd = atc.end
+                if layer_props.anim_sdl_var:
+                    layer_animation.varName = layer_props.anim_sdl_var
+            else:
+                # Hmm... I wonder what we should do here? A reasonable default might be to just
+                # run the stupid thing in a loop.
                 atc.flags |= plAnimTimeConvert.kLoop
                 atc.loopBegin = atc.begin
                 atc.loopEnd = atc.end
-            if layer_props.anim_sdl_var:
-                layer_animation.varName = layer_props.anim_sdl_var
             return layer_animation
 
         # Well, we had some FCurves but they were garbage... Too bad.
         return base_layer
 
-    def _export_layer_opacity_animation(self, tex_slot, base_layer, fcurves):
+    def _export_layer_diffuse_animation(self, bo, bm, tex_slot, base_layer, fcurves, converter):
+        assert converter is not None
+
+        def translate_color(color_sequence):
+            # See things like get_material_preshade
+            result = converter(bo, bm, mathutils.Color(color_sequence))
+            return result.red, result.green, result.blue
+
+        ctrl = self._exporter().animation.make_pos_controller(fcurves, "diffuse_color", bm.diffuse_color, translate_color)
+        return ctrl
+
+    def _export_layer_opacity_animation(self, bo, bm, tex_slot, base_layer, fcurves):
         for i in fcurves:
             if i.data_path == "plasma_layer.opacity":
                 base_layer.state.blendFlags |= hsGMatState.kBlendAlpha
@@ -561,14 +592,16 @@ class MaterialConverter:
                 return ctrl
         return None
 
-    def _export_layer_transform_animation(self, tex_slot, base_layer, fcurves):
-        path = tex_slot.path_from_id()
-        pos_path = "{}.offset".format(path)
-        scale_path = "{}.scale".format(path)
+    def _export_layer_transform_animation(self, bo, bm, tex_slot, base_layer, fcurves):
+        if tex_slot is not None:
+            path = tex_slot.path_from_id()
+            pos_path = "{}.offset".format(path)
+            scale_path = "{}.scale".format(path)
 
-        # Plasma uses the controller to generate a matrix44... so we have to produce a leaf controller
-        ctrl = self._exporter().animation.make_matrix44_controller(fcurves, pos_path, scale_path, tex_slot.offset, tex_slot.scale)
-        return ctrl
+            # Plasma uses the controller to generate a matrix44... so we have to produce a leaf controller
+            ctrl = self._exporter().animation.make_matrix44_controller(fcurves, pos_path, scale_path, tex_slot.offset, tex_slot.scale)
+            return ctrl
+        return None
 
     def _export_texture_type_environment_map(self, bo, layer, slot):
         """Exports a Blender EnvironmentMapTexture to a plLayer"""
@@ -1164,24 +1197,26 @@ class MaterialConverter:
     def get_bump_layer(self, bo):
         return self._bump_mats.get(bo, None)
 
-    def get_material_ambient(self, bo, bm) -> hsColorRGBA:
+    def get_material_ambient(self, bo, bm, color : Union[None, mathutils.Color]=None) -> hsColorRGBA:
         emit_scale = bm.emit * 0.5
         if emit_scale > 0.0:
-            return hsColorRGBA(bm.diffuse_color.r * emit_scale,
-                               bm.diffuse_color.g * emit_scale,
-                               bm.diffuse_color.b * emit_scale,
+            if color is None:
+                color = bm.diffuse_color
+            return hsColorRGBA(color.r * emit_scale,
+                               color.g * emit_scale,
+                               color.b * emit_scale,
                                1.0)
         else:
             return utils.color(bpy.context.scene.world.ambient_color)
 
-    def get_material_preshade(self, bo, bm, color=None) -> hsColorRGBA:
+    def get_material_preshade(self, bo, bm, color : Union[None, mathutils.Color]=None) -> hsColorRGBA:
         if bo.plasma_modifiers.lighting.rt_lights:
             return hsColorRGBA.kBlack
         if color is None:
             color = bm.diffuse_color
         return utils.color(color)
 
-    def get_material_runtime(self, bo, bm, color=None) -> hsColorRGBA:
+    def get_material_runtime(self, bo, bm, color : Union[None, mathutils.Color]=None) -> hsColorRGBA:
         if not bo.plasma_modifiers.lighting.preshade:
             return hsColorRGBA.kBlack
         if color is None:
@@ -1191,19 +1226,18 @@ class MaterialConverter:
     def get_texture_animation_key(self, bo, bm, texture):
         """Finds or creates the appropriate key for sending messages to an animated Texture"""
 
-        tex_name = texture.name
+        tex_name = texture.name if texture is not None else "AutoLayer"
         if bo.type == "LAMP":
             assert bm is None
             bm_name = bo.name
         else:
             assert bm is not None
             bm_name = bm.name
-            if not tex_name in bm.texture_slots:
+            if texture is not None and not tex_name in bm.texture_slots:
                 raise ExportError("Texture '{}' not used in Material '{}'".format(bm_name, tex_name))
 
         name = "{}_{}_LayerAnim".format(bm_name, tex_name)
-        layer = texture.plasma_layer
-        pClass = plLayerSDLAnimation if layer.anim_sdl_var else plLayerAnimation
+        pClass = plLayerSDLAnimation if texture is not None and texture.plasma_layer.anim_sdl_var else plLayerAnimation
         return self._mgr.find_create_key(pClass, bl=bo, name=name)
 
     @property
