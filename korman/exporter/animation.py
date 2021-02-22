@@ -614,7 +614,6 @@ class AnimationConverter:
     def _process_fcurve(self, fcurve, convert=None) -> Tuple[Sequence, AbstractSet]:
         """Like _process_keyframes, but for one fcurve"""
 
-        self._exporter().report.msg("_process_fcurve")
         # Adapt from incoming single item sequence to a single argument.
         if convert is not None:
             single_convert = lambda x: convert(x[0])
