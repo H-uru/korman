@@ -66,12 +66,19 @@ class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
 
     @property
     def anim_type(self):
-        return plAgeGlobalAnim if self.obj_sdl_anim else plATCAnim
+        return plAgeGlobalAnim if self.enabled and self.obj_sdl_anim else plATCAnim
 
     def export(self, exporter, bo, so):
         action = self.blender_action
         anim_mod = bo.plasma_modifiers.animation
-        atcanim = exporter.mgr.find_create_object(anim_mod.anim_type, so=so)
+
+        # Do not create the private animation here. The animation converter itself does this
+        # before we reach this point. If it does not create an animation, then we might create an
+        # empty animation that crashes Uru.
+        atcanim = exporter.mgr.find_object(anim_mod.anim_type, so=so)
+        if atcanim is None:
+            return
+
         if not isinstance(atcanim, plAgeGlobalAnim):
             atcanim.autoStart = self.auto_start
             atcanim.loop = self.loop
