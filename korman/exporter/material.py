@@ -534,7 +534,6 @@ class MaterialConverter:
             ctrl = converter(bo, bm, tex_slot, base_layer, fcurves)
             if ctrl is not None:
                 if layer_animation is None:
-                    name = "{}_LayerAnim".format(base_layer.key.name)
                     layer_animation = self.get_texture_animation_key(bo, bm, texture).object
                 setattr(layer_animation, attr, ctrl)
 
