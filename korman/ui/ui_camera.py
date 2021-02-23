@@ -92,7 +92,7 @@ def draw_camera_poa_props(layout, cam_type, props):
     col.prop(trans, "poa_deceleration", text="Deceleration")
     col.prop(trans, "poa_velocity", text="Maximum Velocity")
     col = col.column()
-    col.active = cam_type == "follow"
+    col.active = cam_type == "follow" or cam_type == "firstperson"
     col.prop(trans, "poa_cut", text="Cut Animation")
 
     # PoA Offset
@@ -118,12 +118,12 @@ def draw_camera_pos_props(layout, cam_type, props):
     _draw_alert_prop(col, trans, "pos_velocity", cam_type,
                      alert_cam="rail", max=10.0, text="Maximum Velocity")
     col = col.column()
-    col.active = cam_type == "follow"
+    col.active = cam_type == "follow" or cam_type == "firstperson"
     col.prop(trans, "pos_cut", text="Cut Animation")
 
     # Position Offsets
     col = split.column()
-    col.active = cam_type == "follow"
+    col.active = cam_type == "follow" or cam_type == "firstperson"
     col.label("Position Offset:")
     col.prop(props, "pos_offset", text="")
     col.prop(props, "pos_worldspace")
