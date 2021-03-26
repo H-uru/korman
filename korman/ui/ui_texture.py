@@ -43,6 +43,7 @@ class PlasmaEnvMapPanel(TextureButtonsPanel, bpy.types.Panel):
 
         if envmap.source in {"ANIMATED", "STATIC"}:
             layout.prop(layer_props, "envmap_color")
+            layout.prop(layer_props, "envmap_addavatar")
             layout.separator()
 
             layout.label("Visibility Sets:")

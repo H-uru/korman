@@ -48,6 +48,10 @@ class PlasmaLayer(bpy.types.PropertyGroup):
                                        default=(1.0, 1.0, 1.0),
                                        subtype="COLOR")
 
+    envmap_addavatar = BoolProperty(name="Render Avatars",
+                                    description="Toggle the rendering of avatars in the environment map",
+                                    default=True)
+
     vis_regions = CollectionProperty(name="Visibility Regions",
                                      type=EnvMapVisRegion)
     active_region_index = IntProperty(options={"HIDDEN"})
