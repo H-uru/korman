@@ -666,7 +666,7 @@ class MaterialConverter:
         pl_env.hither = bl_env.clip_start
         pl_env.yon = bl_env.clip_end
         pl_env.refreshRate = 0.01 if bl_env.source == "ANIMATED" else 0.0
-        pl_env.incCharacters = True
+        pl_env.incCharacters = True if texture.plasma_layer.envmap_addavatar else False
 
         # Perhaps the DEM/DCM fog should be separately configurable at some point?
         pl_fog = bpy.context.scene.world.plasma_fni
