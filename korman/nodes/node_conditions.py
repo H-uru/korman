@@ -432,21 +432,21 @@ class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.type
                                            member_group="kGroupDetector",
                                            report_groups=self.report_on)
 
-    def _export_volume_event(self, exporter, bo, so, parent_so, event, settings):
+    def _export_volume_event(self, exporter, region_bo, region_so, parent_so, event, settings):
         if event == plVolumeSensorConditionalObject.kTypeEnter:
             suffix = "Enter"
         else:
             suffix = "Exit"
 
-        logicKey = self._find_create_key(plLogicModifier, exporter, suffix=suffix, bl=bo, so=so)
+        logicKey = self._find_create_key(plLogicModifier, exporter, suffix=suffix, bl=region_bo, so=region_so)
         logicmod = logicKey.object
         logicmod.setLogicFlag(plLogicModifier.kMultiTrigger, True)
         logicmod.notify = self.generate_notify_msg(exporter, parent_so, "satisfies")
 
         # Now, the detector objects
-        det = self._find_create_object(plObjectInVolumeDetector, exporter, suffix=suffix, bl=bo, so=so)
+        det = self._find_create_object(plObjectInVolumeDetector, exporter, suffix=suffix, bl=region_bo, so=region_so)
 
-        volKey = self._find_create_key(plVolumeSensorConditionalObject, exporter, suffix=suffix, bl=bo, so=so)
+        volKey = self._find_create_key(plVolumeSensorConditionalObject, exporter, suffix=suffix, bl=region_bo, so=region_so)
         volsens = volKey.object
 
         volsens.type = event
