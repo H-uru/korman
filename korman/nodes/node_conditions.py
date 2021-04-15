@@ -417,14 +417,14 @@ class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.type
         enter_simple = self.find_input_socket("enter").allow
         enter_settings = self.find_input("enter", "PlasmaVolumeReportNode")
         if enter_simple or enter_settings is not None:
-            key = self._export_volume_event(exporter, region_bo, region_so, plVolumeSensorConditionalObject.kTypeEnter, enter_settings)
+            key = self._export_volume_event(exporter, region_bo, region_so, parent_so, plVolumeSensorConditionalObject.kTypeEnter, enter_settings)
             interface.addIntfKey(key)
 
         # Region Exits
         exit_simple = self.find_input_socket("exit").allow
         exit_settings = self.find_input("exit", "PlasmaVolumeReportNode")
         if exit_simple or exit_settings is not None:
-            key = self._export_volume_event(exporter, region_bo, region_so, plVolumeSensorConditionalObject.kTypeExit, exit_settings)
+            key = self._export_volume_event(exporter, region_bo, region_so, parent_so, plVolumeSensorConditionalObject.kTypeExit, exit_settings)
             interface.addIntfKey(key)
 
         # Don't forget to export the physical object itself!
@@ -432,7 +432,7 @@ class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.type
                                            member_group="kGroupDetector",
                                            report_groups=self.report_on)
 
-    def _export_volume_event(self, exporter, bo, so, event, settings):
+    def _export_volume_event(self, exporter, bo, so, parent_so, event, settings):
         if event == plVolumeSensorConditionalObject.kTypeEnter:
             suffix = "Enter"
         else:
@@ -441,7 +441,7 @@ class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.type
         logicKey = self._find_create_key(plLogicModifier, exporter, suffix=suffix, bl=bo, so=so)
         logicmod = logicKey.object
         logicmod.setLogicFlag(plLogicModifier.kMultiTrigger, True)
-        logicmod.notify = self.generate_notify_msg(exporter, so, "satisfies")
+        logicmod.notify = self.generate_notify_msg(exporter, parent_so, "satisfies")
 
         # Now, the detector objects
         det = self._find_create_object(plObjectInVolumeDetector, exporter, suffix=suffix, bl=bo, so=so)
