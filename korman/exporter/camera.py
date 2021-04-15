@@ -162,6 +162,14 @@ class CameraConverter:
         # Done already?
         return brain
 
+    def _export_firstperson_camera(self, so, bo, props):
+        brain = self._mgr.find_create_object(plCameraBrain1_FirstPerson, so=so)
+        self._convert_brain(so, bo, props, brain)
+
+        # Copy pasta the follow values for FP cam
+        brain.offset = hsVector3(*props.pos_offset)
+        return brain
+
     def _export_fixed_camera(self, so, bo, props):
         if props.anim_enabled:
             self._exporter().animation.convert_object_animations(bo, so)
