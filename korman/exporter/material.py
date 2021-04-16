@@ -425,7 +425,10 @@ class MaterialConverter:
 
         # Transform
         xform = hsMatrix44()
-        xform.setTranslate(hsVector3(*slot.offset))
+        translation = hsVector3(slot.offset.x - (slot.scale.x - 1.0) / 2.0,
+                                1.0 - slot.offset.y - (slot.scale.y - 1.0) / 2.0,
+                                slot.offset.z - (slot.scale.z - 1.0) / 2.0)
+        xform.setTranslate(translation)
         xform.setScale(hsVector3(*slot.scale))
         layer.transform = xform
 
