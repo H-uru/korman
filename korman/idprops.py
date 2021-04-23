@@ -122,6 +122,9 @@ def poll_animated_objects(self, value):
     if value.animation_data is not None:
         if value.animation_data.action is not None:
             return True
+    if value.data is not None and value.data.animation_data is not None:
+        if value.data.animation_data.action is not None:
+            return True
     return False
 
 def poll_camera_objects(self, value):
