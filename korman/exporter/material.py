@@ -1263,7 +1263,12 @@ class MaterialConverter:
             state.shadeFlags |= hsGMatState.kShadeWhite
 
         if bm.emit:
-            state.shadeFlags |= hsGMatState.kShadeEmissive
+            # Lightmapped emissive layers seem to cause cascading render issues. Skip flagging it
+            # and just hope that the ambient color bump is good enough.
+            if bo.plasma_modifiers.lightmap.bake_lightmap:
+                self._report.warn("A lightmapped and emissive material??? You like living dangerously...", indent=3)
+            else:
+                state.shadeFlags |= hsGMatState.kShadeEmissive
 
         # Colors
         layer.ambient = self.get_material_ambient(bo, bm)
