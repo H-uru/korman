@@ -119,13 +119,7 @@ class IDPropObjectMixin(IDPropMixin):
 
 
 def poll_animated_objects(self, value):
-    if value.animation_data is not None:
-        if value.animation_data.action is not None:
-            return True
-    if value.data is not None and value.data.animation_data is not None:
-        if value.data.animation_data.action is not None:
-            return True
-    return False
+    return value.plasma_object.has_animation_data
 
 def poll_camera_objects(self, value):
     return value.type == "CAMERA"
