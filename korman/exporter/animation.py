@@ -318,10 +318,18 @@ class AnimationConverter:
 
                 # libHSPlasma assumes a channel is not shared among applicators...
                 # so yes, we must convert the same animation data again and again.
-                channel = plScalarControllerChannel()
-                channel.controller = self.make_scalar_leaf_controller(fcurve, convert=convert_volume)
-                applicator.channel = channel
-                yield applicator
+                # To make matters worse, the way that these keyframes are stored can cause
+                # the animation to evaluate to a no-op. Be ready for that.
+                controller = self.make_scalar_leaf_controller(fcurve, convert=convert_volume)
+                if controller is not None:
+                    channel = plScalarControllerChannel()
+                    channel.controller = controller
+                    applicator.channel = channel
+                    yield applicator
+                else:
+                    self._exporter().report.warn("[{}]: Volume animation evaluated to zero keyframes!",
+                                                 sound.sound.name, indent=2)
+                    break
 
     def _convert_spot_lamp_animation(self, name, fcurves, lamp):
         if not fcurves:
