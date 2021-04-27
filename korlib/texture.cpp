@@ -283,6 +283,9 @@ static PyObject* pyGLTexture__enter__(pyGLTexture* self) {
     // Load image into GL
     if (ownit) {
         PyObjectRef new_bind = PyObject_CallMethod(self->m_blenderImage, "gl_load", NULL);
+        if (!new_bind)
+            return NULL;
+
         if (!PyLong_Check(new_bind)) {
             PyErr_SetString(PyExc_TypeError, "gl_load() did not return a long");
             return NULL;
