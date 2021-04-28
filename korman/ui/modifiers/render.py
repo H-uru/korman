@@ -127,6 +127,21 @@ def followmod(modifier, layout, context):
     if modifier.leader_type == "kFollowObject":
         layout.prop(modifier, "leader", icon="OUTLINER_OB_MESH")
 
+def grass_shader(modifier, layout, context):
+    layout.prop(modifier, "wave_selector", icon="SMOOTHCURVE")
+    layout.separator()
+
+    wave = getattr(modifier, modifier.wave_selector)
+    box = layout.box()
+    split = box.split()
+    col = split.column()
+    col.label("Distortion:")
+    col.prop(wave, "distance", text="")
+    col = split.column()
+    col.label("Direction:")
+    col.prop(wave, "direction", text="")
+    box.prop(wave, "speed")
+
 def lighting(modifier, layout, context):
     split = layout.split()
     col = split.column()

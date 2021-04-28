@@ -321,6 +321,75 @@ class PlasmaFollowMod(idprops.IDPropObjectMixin, PlasmaModifierProperties):
         return True
 
 
+class PlasmaGrassWave(bpy.types.PropertyGroup):
+    distance = FloatVectorProperty(name="Distance",
+                                   size=3,
+                                   default=(0.2, 0.2, 0.1),
+                                   subtype="XYZ",
+                                   unit="LENGTH",
+                                   options=set())
+    direction = FloatVectorProperty(name="Direction",
+                                    size=2,
+                                    default=(0.2, 0.05),
+                                    soft_min=0.0, soft_max=1.0,
+                                    unit="LENGTH",
+                                    subtype="XYZ",
+                                    options=set())
+    speed = FloatProperty(name="Speed",
+                          default=0.1,
+                          unit="VELOCITY",
+                          options=set())
+
+
+class PlasmaGrassShaderMod(PlasmaModifierProperties):
+    pl_id = "grass_shader"
+
+    bl_category = "Render"
+    bl_label = "Grass Shader"
+    bl_description = "Applies waving grass effect at run-time"
+
+    wave1 = PointerProperty(type=PlasmaGrassWave)
+    wave2 = PointerProperty(type=PlasmaGrassWave)
+    wave3 = PointerProperty(type=PlasmaGrassWave)
+    wave4 = PointerProperty(type=PlasmaGrassWave)
+
+    # UI Accessor
+    wave_selector = EnumProperty(items=[("wave1", "Wave 1", ""),
+                                        ("wave2", "Wave 2", ""),
+                                        ("wave3", "Wave 3", ""),
+                                        ("wave4", "Wave 4", "")],
+                                 name="Waves",
+                                 options=set())
+
+    @property
+    def copy_material(self):
+        return True
+
+    def export(self, exporter, bo, so):
+        if exporter.mgr.getVer() <= pvPots:
+            exporter.report.warning("Not supported on this version of Plasma", indent=3)
+            return
+        else:
+            exporter.report.port("This will only function on MOUL and EOA", indent=3)
+
+        materials = exporter.mesh.material.get_materials(bo)
+        if not materials:
+            exporter.report.warning("No materials are associated with this object, no grass shader exported!",
+                                    indent=3)
+            return
+        elif len(materials) > 1:
+            exporter.report.warning("Ah, a multiple material grass shader, eh. You like living dangerously...",
+                                    indent=3)
+
+        for material in materials:
+            mod = exporter.mgr.find_create_object(plGrassShaderMod, so=so, name=material.name)
+            mod.material = material
+            for mod_wave, settings in zip(mod.waves, (self.wave1, self.wave2, self.wave3, self.wave4)):
+                mod_wave.dist = hsVector3(*settings.distance)
+                mod_wave.dirX, mod_wave.dirY = settings.direction
+                mod_wave.speed = settings.speed
+
+
 class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaModifierUpgradable):
     pl_id = "lightmap"
 

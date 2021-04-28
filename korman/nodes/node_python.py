@@ -283,7 +283,7 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
             from_node = socket.links[0].from_node
 
             value = from_node.value if socket.is_simple_value else from_node.get_key(exporter, so)
-            if not isinstance(value, tuple):
+            if not isinstance(value, (tuple, list)):
                 value = (value,)
             for i in value:
                 param = plPythonParameter()
@@ -723,7 +723,7 @@ class PlasmaAttribObjectNode(idprops.IDPropObjectMixin, PlasmaAttribNodeBase, bp
     bl_label = "Object Attribute"
 
     pl_attrib = ("ptAttribSceneobject", "ptAttribSceneobjectList", "ptAttribAnimation",
-                 "ptAttribSwimCurrent", "ptAttribWaveSet")
+                 "ptAttribSwimCurrent", "ptAttribWaveSet", "ptAttribGrassShader")
 
     target_object = PointerProperty(name="Object",
                                     description="Object containing the required data",
@@ -765,6 +765,15 @@ class PlasmaAttribObjectNode(idprops.IDPropObjectMixin, PlasmaAttribNodeBase, bp
             if not waveset.enabled:
                 self.raise_error("water modifier not enabled on '{}'".format(self.object_name))
             return exporter.mgr.find_create_key(plWaveSet7, so=ref_so, bl=bo)
+        elif attrib == "ptAttribGrassShader":
+            grass_shader = bo.plasma_modifiers.grass_shader
+            if not grass_shader.enabled:
+                self.raise_error("grass shader modifier not enabled on '{}'".format(self.object_name))
+            if exporter.mgr.getVer() <= pvPots:
+                return None
+            return [exporter.mgr.find_create_key(plGrassShaderMod, so=ref_so, name=i.name)
+                    for i in exporter.mesh.material.get_materials(bo)]
+
 
     @classmethod
     def _idprop_mapping(cls):
