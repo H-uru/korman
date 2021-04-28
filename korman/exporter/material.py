@@ -19,7 +19,7 @@ import math
 import mathutils
 from pathlib import Path
 from PyHSPlasma import *
-from typing import Union
+from typing import Sequence, Union
 import weakref
 
 from .explosions import *
@@ -1183,7 +1183,7 @@ class MaterialConverter:
                 data[i] = level_data
         return numLevels, eWidth, eHeight, [data,]
 
-    def get_materials(self, bo):
+    def get_materials(self, bo) -> Sequence[plKey]:
         return self._obj2mat.get(bo, [])
 
     def get_base_layer(self, hsgmat):
