@@ -26,6 +26,50 @@ static uint32_t MakeUInt32Color(float r, float g, float b, float a) {
             (uint32_t(b * 255.9f) << 0);
 }
 
+PyObject* create_funky_ramp(PyObject*, PyObject* args) {
+    static const int kLUTHeight = 16;
+    static const int kLUTWidth = 16;
+    static const int kBufSz = kLUTWidth * kLUTHeight * sizeof(uint32_t);
+
+    pyMipmap* pymipmap;
+    int additive = 0;
+    if (!PyArg_ParseTuple(args, "O|i", &pymipmap, &additive)) {
+        PyErr_SetString(PyExc_TypeError, "create_funky_ramp expects a plMipmap and an optional boolean");
+        return NULL;
+    }
+
+    plMipmap* texture = plMipmap::Convert(pymipmap->fThis, false);
+    if (!texture) {
+        PyErr_SetString(PyExc_TypeError, "create_funky_ramp expects a plMipmap");
+        return NULL;
+    }
+
+    texture->Create(kLUTWidth, kLUTHeight, 1, plBitmap::kUncompressed, plBitmap::kRGB8888);
+
+    uint8_t data[kBufSz];
+    uint32_t* pix = (uint32_t*)data;
+
+    for (int i = 0; i < kLUTHeight; ++i) {
+        for (int j = 0; j < kLUTWidth; ++j) {
+            float x = float(j) / (kLUTWidth - 1);
+            float y = float(i) / (kLUTHeight - 1);
+
+            if (additive) {
+                if (x < y)
+                    x = y;
+
+                *pix++ = MakeUInt32Color(1.0f, 1.0f, 1.0f, x);
+            } else {
+                *pix++ = MakeUInt32Color(1.0f, 1.0f, 1.0f, x*y);
+            }
+        }
+    }
+
+    texture->setImageData(data, kBufSz);
+
+    Py_RETURN_NONE;
+}
+
 PyObject* create_bump_LUT(PyObject*, PyObject* args) {
     static const int kLUTHeight = 16;
     static const int kLUTWidth = 16;

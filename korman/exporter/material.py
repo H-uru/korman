@@ -253,6 +253,11 @@ class MaterialConverter:
                         if i+1 < curr_stencils:
                             stencil_layer.state.miscFlags |= hsGMatState.kMiscBindNext
                         hsgmat.addLayer(stencil_layer.key)
+                if slot.texture.plasma_layer.funky_type != "FunkyNone":
+                    funky_ramp = self.export_funky_slot(bo, bm, hsgmat, slot, idx)
+                    if funky_ramp:
+                        tex_layer.state.miscFlags |= hsGMatState.kMiscBindNext
+                        hsgmat.addLayer(funky_ramp.key)
 
         # Plasma makes several assumptions that every hsGMaterial has at least one layer. If this
         # material had no Textures, we will need to initialize a default layer
@@ -356,6 +361,93 @@ class MaterialConverter:
 
         # Wasn't that easy?
         return hsgmat.key
+
+    def export_funky_slot(self, bo, bm, hsgmat, slot, idx):
+        name = "{}_{}_funkRamp".format(hsgmat.key.name, slot.name)
+        self._report.msg("Exporting Plasma Funky Ramp Layer '{}'", name, indent=2)
+
+        texture = slot.texture
+        layer_props = texture.plasma_layer
+        funky_type = layer_props.funky_type
+
+        tr0 = layer_props.funky_near_trans
+        op0 = layer_props.funky_near_opaq
+        tr1 = layer_props.funky_far_trans
+        op1 = layer_props.funky_far_opaq
+
+        if funky_type != "FunkyDist":
+            tr0 = max(min(tr0, 180.0), 0.0)
+            op0 = max(min(op0, 180.0), 0.0)
+            tr1 = max(min(tr1, 180.0), 0.0)
+            op1 = max(min(op1, 180.0), 0.0)
+
+        if tr0 > tr1:
+            tr0, tr1 = tr1, tr0
+            op0, op1 = op1, op0
+
+        if tr0 == op0 or op1 == tr1:
+            return None
+
+        additive = tr0 > op0 and op1 > tr1
+
+        if funky_type != "FunkyDist":
+            tr0 = math.cos(tr0 * (math.pi / 180.0))
+            op0 = math.cos(op0 * (math.pi / 180.0))
+            op1 = math.cos(op1 * (math.pi / 180.0))
+            tr1 = math.cos(tr1 * (math.pi / 180.0))
+
+        uvwXfm = hsMatrix44()
+        uvwXfm[0,0] = uvwXfm[1,1] = uvwXfm[2,2] = 0.0
+
+        if op0 != tr0:
+            uvwXfm[0,2] = -1.0 / (tr0 - op0)
+            uvwXfm[0,3] = uvwXfm[0,2] * -tr0
+        else:
+            uvwXfm[0,3] = 1.0
+
+        if op1 != tr1:
+            uvwXfm[1,2] = -1.0 / (tr1 - op1)
+            uvwXfm[1,3] = uvwXfm[1,2] * -tr1
+        else:
+            uvwXfm[1,3] = 1.0
+
+        ramp_layer = self._mgr.find_create_object(plLayer, name=name, bl=bo)
+
+        rampName = "FunkyRampAdd" if additive else "FunkyRampMult"
+        page = self._mgr.get_textures_page(ramp_layer.key)
+        ramp_key = self._mgr.find_key(plMipmap, loc=page, name=rampName)
+
+        if ramp_key is None:
+            funkRamp = plMipmap(rampName, 16, 16, 1, plBitmap.kUncompressed, plBitmap.kRGB8888)
+            create_funky_ramp(funkRamp, additive)
+            self._mgr.AddObject(page, funkRamp)
+            ramp_key = funkRamp.key
+
+        ramp_layer.texture = ramp_key
+        ramp_layer.ambient = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
+        ramp_layer.preshade = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+        ramp_layer.runtime = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+        ramp_layer.specular = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+
+        ramp_layer.state.ZFlags = hsGMatState.kZNoZWrite
+        ramp_layer.state.clampFlags = hsGMatState.kClampTexture
+        ramp_layer.state.blendFlags = hsGMatState.kBlendAlpha | hsGMatState.kBlendNoTexColor | hsGMatState.kBlendAlphaMult
+
+        ramp_layer.transform = uvwXfm
+
+        if funky_type == "FunkyDist":
+            ramp_layer.UVWSrc = plLayerInterface.kUVWPosition
+            ramp_layer.state.miscFlags  |= hsGMatState.kMiscNoShadowAlpha
+        elif funky_type == "FunkyNormal":
+            ramp_layer.UVWSrc = plLayerInterface.kUVWNormal
+        elif funky_type == "FunkyUp":
+            ramp_layer.UVWSrc = plLayerInterface.kUVWNormal
+            ramp_layer.state.miscFlags |= hsGMatState.kMiscOrthoProjection
+        elif funky_type == "FunkyReflect":
+            ramp_layer.UVWSrc = plLayerInterface.kUVWReflect
+
+        return ramp_layer
+
 
     def export_bumpmap_slot(self, bo, bm, hsgmat, slot, idx):
         name = "{}_{}".format(hsgmat.key.name, slot.name)
