@@ -119,3 +119,25 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
                 return True
 
         return False
+
+class PlasmaFunkyLayerPanel(TextureButtonsPanel, bpy.types.Panel):
+    bl_label = "Plasma Funky Layer"
+
+    def draw(self, context):
+        texture, slot = context.texture, getattr(context, "texture_slot", None)
+        use_stencil = slot.use_stencil if slot is not None else False
+        layer_props = texture.plasma_layer
+        layout = self.layout
+
+        layout.prop(layer_props, "funky_type")
+
+        if layer_props.funky_type != "FunkyNone":
+            col = layout.column(align=True)
+            col.prop(layer_props, "funky_near_trans")
+            col.prop(layer_props, "funky_near_opaq")
+            col.prop(layer_props, "funky_far_opaq")
+            col.prop(layer_props, "funky_far_trans")
+
+            if layer_props.funky_type != "FunkyDist":
+                # Mention that values are angles
+                layout.label("Values should be viewing angles in degrees between 0 and 180.", icon="RESTRICT_VIEW_OFF")

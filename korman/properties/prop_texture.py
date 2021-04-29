@@ -99,3 +99,24 @@ class PlasmaLayer(bpy.types.PropertyGroup):
                                     description="Don't save the depth information, allowing rendering of layers behind this one",
                                     default=False,
                                     options=set())
+
+    funky_type = EnumProperty(name="Funky Blending Type",
+                              description="Type of special funky layer blending",
+                              items=[("FunkyNone", "None", "No funky layer blending"),
+                                     ("FunkyDist", "Distance", "Distance-based funky layer blending"),
+                                     ("FunkyNormal", "Normal", "Normal angle-based funky layer blending"),
+                                     ("FunkyReflect", "Reflect", "Reflection angle-based funky layer blending"),
+                                     ("FunkyUp", "Up", "Upwards angle-based funky layer blending")],
+                              default="FunkyNone")
+    funky_near_trans = FloatProperty(name="Near Transparent",
+                                     description="Nearest distance at which the layer is fully transparent",
+                                     min=0.0, default=0.0, subtype="DISTANCE", unit="LENGTH")
+    funky_near_opaq = FloatProperty(name="Near Opaque",
+                                    description="Nearest distance at which the layer is fully opaque",
+                                    min=0.0, default=0.0, subtype="DISTANCE", unit="LENGTH")
+    funky_far_opaq = FloatProperty(name="Far Opaque",
+                                   description="Farthest distance at which the layer is fully opaque",
+                                   min=0.0, default=15.0, subtype="DISTANCE", unit="LENGTH")
+    funky_far_trans = FloatProperty(name="Far Transparent",
+                                    description="Farthest distance at which the layer is fully transparent",
+                                    min=0.0, default=20.0, subtype="DISTANCE", unit="LENGTH")
