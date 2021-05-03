@@ -15,6 +15,7 @@
 
 def collision(modifier, layout, context):
     layout.prop(modifier, "bounds")
+    layout.prop(modifier, "surface")
     layout.separator()
 
     split = layout.split()

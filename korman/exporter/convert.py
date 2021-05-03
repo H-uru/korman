@@ -376,6 +376,7 @@ class Exporter:
             for mod in bl_obj.plasma_modifiers.modifiers:
                 proc = getattr(mod, "post_export", None)
                 if proc is not None:
+                    self.report.msg("Post processing '{}' modifier '{}'", bl_obj.name, mod.bl_label, indent=1)
                     proc(self, bl_obj, sceneobject)
             inc_progress()
 
