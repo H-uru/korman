@@ -733,6 +733,7 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
                              subtype="PERCENTAGE")
 
     def convert_callback_message(self, exporter, so, msg, target, wait):
+        assert not self.is_random_sound, "Callbacks are not available for random sounds"
         cb = plEventCallbackMsg()
         cb.addReceiver(target)
         cb.event = kEnd
@@ -746,6 +747,33 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
         soundemit = self.emitter_object.plasma_modifiers.soundemit
         if not soundemit.enabled:
             self.raise_error("'{}' is not a valid Sound Emitter".format(self.emitter_object.name))
+
+        if self.is_random_sound:
+            yield from self._convert_random_sound_msg(exporter, so)
+        else:
+            yield from self._convert_sound_emitter_msg(exporter, so)
+
+    def _convert_random_sound_msg(self, exporter, so):
+        # Yas, plAnimCmdMsg
+        msg = plAnimCmdMsg()
+        msg.addReceiver(exporter.mgr.find_key(plRandomSoundMod, bl=self.emitter_object))
+
+        if self.action == "kPlay":
+            msg.setCmd(plAnimCmdMsg.kContinue, True)
+        elif self.action == "kStop":
+            msg.setCmd(plAnimCmdMsg.kStop, True)
+        elif self.action == "kToggleState":
+            msg.setCmd(plAnimCmdMsg.kToggleState, True)
+
+        if self.volume != "CURRENT":
+            # No, you are not imagining things...
+            msg.setCmd(plAnimCmdMsg.kSetSpeed, True)
+        msg.speed = self.volume_pct / 100.0 if self.volume == "CUSTOM" else 0.0
+
+        yield msg
+
+    def _convert_sound_emitter_msg(self, exporter, so):
+        soundemit = self.emitter_object.plasma_modifiers.soundemit
 
         # Always test the specified audible for validity
         if self.sound_name and soundemit.sounds.get(self.sound_name, None) is None:
@@ -787,25 +815,42 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "emitter_object")
-        if self.emitter_object is not None:
-            soundemit = self.emitter_object.plasma_modifiers.soundemit
-            if soundemit.enabled:
-                layout.prop_search(self, "sound_name", soundemit, "sounds", icon="SOUND")
-            else:
-                layout.label("Not a Sound Emitter", icon="ERROR")
 
-        layout.prop(self, "go_to")
-        if self.go_to == "TIME":
-            layout.prop(self, "time")
+        # Random Sound emitters can only control the entire emitter object, not the
+        # individual sounds.
+        random = self.is_random_sound
+        if not random:
+            if self.emitter_object is not None:
+                soundemit = self.emitter_object.plasma_modifiers.soundemit
+                if soundemit.enabled:
+                    layout.prop_search(self, "sound_name", soundemit, "sounds", icon="SOUND")
+                else:
+                    layout.label("Not a Sound Emitter", icon="ERROR")
+
+            layout.prop(self, "go_to")
+            if self.go_to == "TIME":
+                layout.prop(self, "time")
+
         layout.prop(self, "action")
         if self.volume == "CUSTOM":
             layout.prop(self, "volume_pct")
-        layout.prop(self, "looping")
+        if not random:
+            layout.prop(self, "looping")
         layout.prop(self, "volume")
+
+    @property
+    def has_callbacks(self):
+        return not self.is_random_sound
 
     @classmethod
     def _idprop_mapping(cls):
         return {"emitter_object": "object_name"}
+
+    @property
+    def is_random_sound(self):
+        if self.emitter_object is not None:
+            return self.emitter_object.plasma_modifiers.random_sound.enabled
+        return False
 
 
 class PlasmaTimerCallbackMsgNode(PlasmaMessageWithCallbacksNode, bpy.types.Node):
