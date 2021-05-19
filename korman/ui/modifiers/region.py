@@ -45,7 +45,9 @@ def paniclink(modifier, layout, context):
 
 def reverb(modifier, layout, context):
     layout.prop(modifier, "preset")
-    if modifier.preset == "custom":
+    if modifier.preset == "MORE":
+        layout.prop(modifier, "preset_more")
+    elif modifier.preset == "CUSTOM":
         split = layout.split()
         colA = split.column()
         colB = split.column()

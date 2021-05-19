@@ -203,14 +203,14 @@ class PlasmaPanicLinkRegion(PlasmaModifierProperties):
         return True
 
 
-reverb_flags = [("kDecayTimeScale", "Decay Time Scale", "Reverberation decay time"),
-                ("kReflectionsScale", "Reflections Scale", "Reflection level"),
-                ("kReflectionsDelayScale", "Reflections Delay Scale", "Initial reflection delay time"),
-                ("kReverbScale", "Reverb Scale", "Reverberation level"),
-                ("kReverbDelayScale", "Reverb Delay Scale", "Late reverberation delay time"),
-                ("kEchoTimeScale", "Echo Time Scale", "Echo time"),
-                ("kModulationTimeScale", "Modulation Time Scale", "Modulation time"),
-                ("kDecayHFLimit", "Decay HF Limit", "Limits high-frequency decay time according to air absorption")]
+reverb_flags = [("kFlagDecayTimeScale", "Decay Time Scale", "Reverberation decay time"),
+                ("kFlagReflectionsScale", "Reflections Scale", "Reflection level"),
+                ("kFlagReflectionsDelayScale", "Reflections Delay Scale", "Initial reflection delay time"),
+                ("kFlagReverbScale", "Reverb Scale", "Reverberation level"),
+                ("kFlagReverbDelayScale", "Reverb Delay Scale", "Late reverberation delay time"),
+                ("kFlagEchoTimeScale", "Echo Time Scale", "Echo time"),
+                ("kFlagModulationTimeScale", "Modulation Time Scale", "Modulation time"),
+                ("kFlagDecayHFLimit", "Decay HF Limit", "Limit unnaturally long decay times of high-frequency sounds by forcing a limit to the decay time to be calculated from the Air Absorption HF value")]
 
 class PlasmaReverbRegion(PlasmaModifierProperties):
     pl_id = "reverb"
@@ -223,13 +223,130 @@ class PlasmaReverbRegion(PlasmaModifierProperties):
 
     preset = EnumProperty(name="Environment Preset",
                           description="The type of audio environment to simulate",
-                          items=[("generic", "Generic", "A generic-sounding environment with light reverberation"),
-                                 ("stoneroom", "Stone Room", ""),
-                                 ("custom", "Custom", "Your own environment")],
-                          default="generic",
+                          items=[("GENERIC", "Generic", "A generic-sounding environment with light reverberation"),
+                                 ("PADDEDCELL", "Padded cell", ""),
+                                 ("ROOM", "Room", ""),
+                                 ("BATHROOM", "Bathroom", ""),
+                                 ("LIVINGROOM", "Living room", ""),
+                                 ("STONEROOM", "Stone room", ""),
+                                 ("AUDITORIUM", "Auditorium", ""),
+                                 ("CONCERTHALL", "Concert Hall", ""),
+                                 ("CAVE", "Cave", ""),
+                                 ("ARENA", "Arena", ""),
+                                 ("HANGAR", "Hangar", ""),
+                                 ("CARPETTEDHALLWAY", "Carpetted hallway", ""),
+                                 ("HALLWAY", "Hallway", ""),
+                                 ("STONECORRIDOR", "Stone corridor", ""),
+                                 ("ALLEY", "Alley", ""),
+                                 ("FOREST", "Forest", ""),
+                                 ("CITY", "City", ""),
+                                 ("MOUNTAINS", "Mountains", ""),
+                                 ("QUARRY", "Quarry", ""),
+                                 ("PLAIN", "Plain", ""),
+                                 ("PARKINGLOT", "Parking lot", ""),
+                                 ("SEWERPIPE", "Sewer pipe", ""),
+                                 ("UNDERWATER", "Underwater", ""),
+                                 ("DRUGGED", "Drugged", ""),
+                                 ("DIZZY", "Drizzy", ""),
+                                 ("PSYCHOTIC", "Psychotic", ""),
+                                 ("MORE", "More choices...", ""),
+                                 ("CUSTOM", "Custom", "Setup your own environment")],
+                          default="GENERIC",
                           options=set())
 
-    # TODO - min/max/percentages
+    # Thikk list for annoying users.
+    preset_more = EnumProperty(name="More Environment Preset",
+                               description="Some more environment presets for your convenience",
+                               items=[("CASTLE_SMALLROOM", "Castle - Small room", ""),
+                                      ("CASTLE_SHORTPASSAGE", "Castle - Short passage", ""),
+                                      ("CASTLE_MEDIUMROOM", "Castle - Medium room", ""),
+                                      ("CASTLE_LONGPASSAGE", "Castle - Long passage", ""),
+                                      ("CASTLE_LARGEROOM", "Castle - Large room", ""),
+                                      ("CASTLE_HALL", "Castle - Hall", ""),
+                                      ("CASTLE_CUPBOARD", "Castle - Cupboard", ""),
+                                      ("CASTLE_COURTYARD", "Castle - Courtyard", ""),
+                                      ("CASTLE_ALCOVE", "Castle - Alcove", ""),
+                                      ("FACTORY_ALCOVE", "Factory - Alcove", ""),
+                                      ("FACTORY_SHORTPASSAGE", "Factory - Short passage", ""),
+                                      ("FACTORY_MEDIUMROOM", "Factory - Medium room", ""),
+                                      ("FACTORY_LONGPASSAGE", "Factory - Long passage", ""),
+                                      ("FACTORY_LARGEROOM", "Factory - Large room", ""),
+                                      ("FACTORY_HALL", "Factory - Hall", ""),
+                                      ("FACTORY_CUPBOARD", "Factory - Cupboard", ""),
+                                      ("FACTORY_COURTYARD", "Factory - Courtyard", ""),
+                                      ("FACTORY_SMALLROOM", "Factory - Small room", ""),
+                                      ("ICEPALACE_ALCOVE", "Ice palace - Alcove", ""),
+                                      ("ICEPALACE_SHORTPASSAGE", "Ice palace - Short passage", ""),
+                                      ("ICEPALACE_MEDIUMROOM", "Ice palace - Medium room", ""),
+                                      ("ICEPALACE_LONGPASSAGE", "Ice palace - Long passage", ""),
+                                      ("ICEPALACE_LARGEROOM", "Ice palace - Large room", ""),
+                                      ("ICEPALACE_HALL", "Ice palace - Hall", ""),
+                                      ("ICEPALACE_CUPBOARD", "Ice palace - Cupboard", ""),
+                                      ("ICEPALACE_COURTYARD", "Ice palace - Courtyard", ""),
+                                      ("ICEPALACE_SMALLROOM", "Ice palace - Small room", ""),
+                                      ("SPACESTATION_ALCOVE", "Space station - Alcove", ""),
+                                      ("SPACESTATION_MEDIUMROOM", "Space station - Medium room", ""),
+                                      ("SPACESTATION_SHORTPASSAGE", "Space station - Short passage", ""),
+                                      ("SPACESTATION_LONGPASSAGE", "Space station - Long passage", ""),
+                                      ("SPACESTATION_LARGEROOM", "Space station - Large room", ""),
+                                      ("SPACESTATION_HALL", "Space station - Hall", ""),
+                                      ("SPACESTATION_CUPBOARD", "Space station - Cupboard", ""),
+                                      ("SPACESTATION_SMALLROOM", "Space station - Small room", ""),
+                                      ("WOODEN_ALCOVE", "Wooden alcove", ""),
+                                      ("WOODEN_SHORTPASSAGE", "Wooden short passage", ""),
+                                      ("WOODEN_MEDIUMROOM", "Wooden medium room", ""),
+                                      ("WOODEN_LONGPASSAGE", "Wooden long passage", ""),
+                                      ("WOODEN_LARGEROOM", "Wooden large room", ""),
+                                      ("WOODEN_HALL", "Wooden hall", ""),
+                                      ("WOODEN_CUPBOARD", "Wooden cupboard", ""),
+                                      ("WOODEN_SMALLROOM", "Wooden small room", ""),
+                                      ("WOODEN_COURTYARD", "Wooden courtyard", ""),
+                                      ("SPORT_EMPTYSTADIUM", "Sport - Empty stadium", ""),
+                                      ("SPORT_SQUASHCOURT", "Sport - Squash court", ""),
+                                      ("SPORT_SMALLSWIMMINGPOOL", "Sport - Small swimming pool", ""),
+                                      ("SPORT_LARGESWIMMINGPOOL", "Sport - Large swimming pool", ""),
+                                      ("SPORT_GYMNASIUM", "Sport - Gymnasium", ""),
+                                      ("SPORT_FULLSTADIUM", "Sport - Full stadium", ""),
+                                      ("SPORT_STADIUMTANNOY", "Sport - Stadium tannoy", ""),
+                                      ("PREFAB_WORKSHOP", "Prefab - Workshop", ""),
+                                      ("PREFAB_SCHOOLROOM", "Prefab - Schoolroom", ""),
+                                      ("PREFAB_PRACTISEROOM", "Prefab - Practise room", ""),
+                                      ("PREFAB_OUTHOUSE", "Prefab - Outhouse", ""),
+                                      ("PREFAB_CARAVAN", "Prefab - Zandi's Trailer", ""),
+                                      ("DOME_TOMB", "Tomb dome", ""),
+                                      ("DOME_SAINTPAULS", "St Paul's Dome", ""),
+                                      ("PIPE_SMALL", "Pipe - small", ""),
+                                      ("PIPE_LONGTHIN", "Pipe - long & thin", ""),
+                                      ("PIPE_LARGE", "Pipe - large", ""),
+                                      ("PIPE_RESONANT", "Pipe - resonant", ""),
+                                      ("OUTDOORS_BACKYARD", "Outdoors - Backyard", ""),
+                                      ("OUTDOORS_ROLLINGPLAINS", "Outdoors - Rolling plains", ""),
+                                      ("OUTDOORS_DEEPCANYON", "Outdoors - Deep canyon", ""),
+                                      ("OUTDOORS_CREEK", "Outdoors - Creek", ""),
+                                      ("OUTDOORS_VALLEY", "Outdoors - Valley", ""),
+                                      ("MOOD_HEAVEN", "Mood - Heaven", ""),
+                                      ("MOOD_HELL", "Mood - Hell", ""),
+                                      ("MOOD_MEMORY", "Mood - Memory", ""),
+                                      ("DRIVING_COMMENTATOR", "Driving - Commentator", ""),
+                                      ("DRIVING_PITGARAGE", "Driving - In pit garage", ""),
+                                      ("DRIVING_INCAR_RACER", "Driving - In racer car", ""),
+                                      ("DRIVING_INCAR_SPORTS", "Driving - In sports car", ""),
+                                      ("DRIVING_INCAR_LUXURY", "Driving - In luxury car", ""),
+                                      ("DRIVING_FULLGRANDSTAND", "Driving - Full grand stand", ""),
+                                      ("DRIVING_EMPTYGRANDSTAND", "Driving - Empty grand stand", ""),
+                                      ("DRIVING_TUNNEL", "Driving - Tunnel", ""),
+                                      ("CITY_STREETS", "City - Streets", ""),
+                                      ("CITY_SUBWAY", "City - Subway", ""),
+                                      ("CITY_MUSEUM", "City - Museum", ""),
+                                      ("CITY_LIBRARY", "City - Library", ""),
+                                      ("CITY_UNDERPASS", "City - Underpass", ""),
+                                      ("CITY_ABANDONED", "City - Abandoned", ""),
+                                      ("DUSTYROOM", "Dusty room", ""),
+                                      ("CHAPEL", "Chapel", ""),
+                                      ("SMALLWATERROOM", "Small water room", "")],
+                          default="OUTDOORS_ROLLINGPLAINS",
+                          options=set())
+
     environment_size = FloatProperty(name="Environment Size", description="Environment Size",
                                      default=7.5, min=1.0, max=100.0)
     environment_diffusion = FloatProperty(name="Environment Diffusion", description="Environment Diffusion",
@@ -268,40 +385,53 @@ class PlasmaReverbRegion(PlasmaModifierProperties):
                                  default=5000.0, min=1000.0, max=20000.0)
     lf_reference = FloatProperty(name="LF reference", description="Low Frequency Reference",
                                  default=250.0, min=20.0, max=1000.0)
+
+    # Room rolloff - always at 0 in all presets, so screw it.
     # room_rolloff_factor = FloatProperty(name="Room Rolloff Factor", description="Room Rolloff Factor",
                                         # default=0.0, min=0.0, max=1.0)
 
     flags = EnumProperty(name="Flags",
                          description="Reverb flags",
                          items=reverb_flags,
-                         default={ "kDecayTimeScale", "kReflectionsScale", "kReflectionsDelayScale",
-                                   "kReverbScale", "kReverbDelayScale", "kEchoTimeScale"},
+                         default={ "kFlagDecayTimeScale", "kFlagReflectionsScale", "kFlagReflectionsDelayScale",
+                                   "kFlagReverbScale", "kFlagReverbDelayScale", "kFlagEchoTimeScale" },
                          options={"ENUM_FLAG"})
 
     def export(self, exporter, bo, so):
         eax_listener = exporter.mgr.find_create_object(plEAXListenerMod, so=so)
-        # TODO - auto-set environment to 26 if using custom values.
-        """
-        if self.preset == "generic":
-            camera_so_key = exporter.mgr.find_create_key(plSceneObject, bl=self.camera_object)
-            camera_props = self.camera_object.data.plasma_camera.settings
-
-        # Setup physical stuff
-        phys_mod = bo.plasma_modifiers.collision
-        exporter.physics.generate_physical(bo, so, member_group="kGroupDetector",
-                                           report_groups=["kGroupAvatar"],
-                                           properties=["kPinned"])
-
-        # I don't feel evil enough to make this generate a logic tree...
-        msg = plCameraMsg()
-        msg.BCastFlags |= plMessage.kLocalPropagate | plMessage.kBCastByType
-        msg.setCmd(plCameraMsg.kRegionPushCamera)
-        msg.setCmd(plCameraMsg.kSetAsPrimary, camera_props.primary_camera)
-        msg.newCam = camera_so_key
-
-        region = exporter.mgr.find_create_object(plCameraRegionDetector, so=so)
-        region.addMessage(msg)
-        """
+        eax_listener.softRegion = bo.plasma_modifiers.softvolume.get_key(exporter, so)
+        if self.preset == "CUSTOM":
+            # Someone's feeling exceedingly confident today...
+            props = EaxReverbProperties()
+            props.environment = 26
+            props.environmentSize = self.environment_size
+            props.environmentDiffusion = self.environment_diffusion
+            props.room = self.room
+            props.roomHF = self.room_hf
+            props.roomLF = self.room_lf
+            props.decayTime = self.decay_time
+            props.decayHFRatio = self.decay_hf_ratio
+            props.decayLFRatio = self.decay_lf_ratio
+            props.reflections = self.reflections
+            props.reflectionsDelay = self.reflections_delay
+            props.reverb = self.reverb
+            props.reverbDelay = self.reverb_delay
+            props.echoTime = self.echo_time
+            props.echoDepth = self.echo_depth
+            props.modulationTime = self.modulation_time
+            props.modulationDepth = self.modulation_depth
+            props.airAbsorptionHF = self.air_absorption_hf
+            props.hfReference = self.hf_reference
+            props.lfReference = self.lf_reference
+            flags = 0
+            for flag in self.flags:
+                flags |= getattr(EaxReverbProperties, flag)
+            props.flags = flags
+            eax_listener.listenerProps = props
+        elif self.preset == "MORE":
+            eax_listener.listenerProps = getattr(EaxReverbProperties, "REVERB_PRESET_" + self.preset_more)
+        else:
+            eax_listener.listenerProps = getattr(EaxReverbProperties, "REVERB_PRESET_" + self.preset)
 
 
 class PlasmaSoftVolume(idprops.IDPropMixin, PlasmaModifierProperties):
