@@ -203,6 +203,107 @@ class PlasmaPanicLinkRegion(PlasmaModifierProperties):
         return True
 
 
+reverb_flags = [("kDecayTimeScale", "Decay Time Scale", "Reverberation decay time"),
+                ("kReflectionsScale", "Reflections Scale", "Reflection level"),
+                ("kReflectionsDelayScale", "Reflections Delay Scale", "Initial reflection delay time"),
+                ("kReverbScale", "Reverb Scale", "Reverberation level"),
+                ("kReverbDelayScale", "Reverb Delay Scale", "Late reverberation delay time"),
+                ("kEchoTimeScale", "Echo Time Scale", "Echo time"),
+                ("kModulationTimeScale", "Modulation Time Scale", "Modulation time"),
+                ("kDecayHFLimit", "Decay HF Limit", "Limits high-frequency decay time according to air absorption")]
+
+class PlasmaReverbRegion(PlasmaModifierProperties):
+    pl_id = "reverb"
+    pl_depends = {"softvolume"}
+
+    bl_category = "Region"
+    bl_label = "Sound Reverb Region"
+    bl_description = "Sound Reverberation (EAX) Region"
+    bl_icon = "IPO_ELASTIC"
+
+    preset = EnumProperty(name="Environment Preset",
+                          description="The type of audio environment to simulate",
+                          items=[("generic", "Generic", "A generic-sounding environment with light reverberation"),
+                                 ("stoneroom", "Stone Room", ""),
+                                 ("custom", "Custom", "Your own environment")],
+                          default="generic",
+                          options=set())
+
+    # TODO - min/max/percentages
+    environment_size = FloatProperty(name="Environment Size", description="Environment Size",
+                                     default=7.5, min=1.0, max=100.0)
+    environment_diffusion = FloatProperty(name="Environment Diffusion", description="Environment Diffusion",
+                                          default=1.0, min=0.0, max=1.0)
+    room = IntProperty(name="Room", description="Room",
+                       default=-1000, min=-10000, max=0)
+    room_hf = IntProperty(name="Room HF", description="Room High Frequency",
+                          default=-100, min=-10000, max=0)
+    room_lf = IntProperty(name="Room LF", description="Room Low Frequency",
+                          default=0, min=-10000, max=0)
+    decay_time = FloatProperty(name="Decay Time", description="Decay Time",
+                               default=1.49, min=0.1, max=20.0)
+    decay_hf_ratio = FloatProperty(name="Decay HF Ratio", description="Decay High Frequency Ratio",
+                                   default=0.83, min=0.1, max=2.0)
+    decay_lf_ratio = FloatProperty(name="Decay LF Ratio", description="Decay Low Frequency Ratio",
+                                   default=1.0, min=0.1, max=2.0)
+    reflections = IntProperty(name="Reflections", description="Reflections",
+                              default=-2602, min=-10000, max=1000)
+    reflections_delay = FloatProperty(name="Reflections Delay", description="Reflections Delay",
+                                      default=0.007, min=0.0, max=0.3)
+    reverb = IntProperty(name="Reverb", description="Reverb",
+                         default=200, min=-10000, max=2000)
+    reverb_delay = FloatProperty(name="Reverb Delay", description="Reverb Delay",
+                                 default=0.011, min=0.0, max=0.3)
+    echo_time = FloatProperty(name="Echo Time", description="Echo Time",
+                              default=0.25, min=0.1, max=0.5)
+    echo_depth = FloatProperty(name="Echo Depth", description="Echo Depth",
+                               default=0.0, min=0.0, max=1.0)
+    modulation_time = FloatProperty(name="Modulation Time", description="Modulation Time",
+                                    default=0.25, min=0.1, max=5.0)
+    modulation_depth = FloatProperty(name="Modulation Depth", description="Modulation Depth",
+                                     default=0.0, min=0.0, max=1.0)
+    air_absorption_hf = FloatProperty(name="Air Absorption HF", description="Air Absorption High Frequency",
+                                      default=-5.0, min=-10.0, max=0.0)
+    hf_reference = FloatProperty(name="HF reference", description="High Frequency Reference",
+                                 default=5000.0, min=1000.0, max=20000.0)
+    lf_reference = FloatProperty(name="LF reference", description="Low Frequency Reference",
+                                 default=250.0, min=20.0, max=1000.0)
+    # room_rolloff_factor = FloatProperty(name="Room Rolloff Factor", description="Room Rolloff Factor",
+                                        # default=0.0, min=0.0, max=1.0)
+
+    flags = EnumProperty(name="Flags",
+                         description="Reverb flags",
+                         items=reverb_flags,
+                         default={ "kDecayTimeScale", "kReflectionsScale", "kReflectionsDelayScale",
+                                   "kReverbScale", "kReverbDelayScale", "kEchoTimeScale"},
+                         options={"ENUM_FLAG"})
+
+    def export(self, exporter, bo, so):
+        eax_listener = exporter.mgr.find_create_object(plEAXListenerMod, so=so)
+        # TODO - auto-set environment to 26 if using custom values.
+        """
+        if self.preset == "generic":
+            camera_so_key = exporter.mgr.find_create_key(plSceneObject, bl=self.camera_object)
+            camera_props = self.camera_object.data.plasma_camera.settings
+
+        # Setup physical stuff
+        phys_mod = bo.plasma_modifiers.collision
+        exporter.physics.generate_physical(bo, so, member_group="kGroupDetector",
+                                           report_groups=["kGroupAvatar"],
+                                           properties=["kPinned"])
+
+        # I don't feel evil enough to make this generate a logic tree...
+        msg = plCameraMsg()
+        msg.BCastFlags |= plMessage.kLocalPropagate | plMessage.kBCastByType
+        msg.setCmd(plCameraMsg.kRegionPushCamera)
+        msg.setCmd(plCameraMsg.kSetAsPrimary, camera_props.primary_camera)
+        msg.newCam = camera_so_key
+
+        region = exporter.mgr.find_create_object(plCameraRegionDetector, so=so)
+        region.addMessage(msg)
+        """
+
+
 class PlasmaSoftVolume(idprops.IDPropMixin, PlasmaModifierProperties):
     pl_id = "softvolume"
 
