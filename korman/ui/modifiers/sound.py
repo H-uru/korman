@@ -101,3 +101,11 @@ def soundemit(modifier, layout, context):
             col.separator()
             col.label("Soft Region:")
             col.prop(sound, "sfx_region", text="")
+
+        layout.separator()
+        split = layout.split()
+        col = split.column()
+        col.prop(sound, "use_reverb")
+        if sound.use_reverb:
+            col = split.column()
+            col.prop(sound, "reverb_amount", text="Reverb Amount")

@@ -402,7 +402,7 @@ class PlasmaReverbRegion(PlasmaModifierProperties):
         eax_listener.softRegion = bo.plasma_modifiers.softvolume.get_key(exporter, so)
         if self.preset == "CUSTOM":
             # Someone's feeling exceedingly confident today...
-            props = EaxReverbProperties()
+            props = EAXReverbProperties()
             props.environment = 26
             props.environmentSize = self.environment_size
             props.environmentDiffusion = self.environment_diffusion
@@ -425,13 +425,13 @@ class PlasmaReverbRegion(PlasmaModifierProperties):
             props.lfReference = self.lf_reference
             flags = 0
             for flag in self.flags:
-                flags |= getattr(EaxReverbProperties, flag)
+                flags |= getattr(EAXReverbProperties, flag)
             props.flags = flags
             eax_listener.listenerProps = props
         elif self.preset == "MORE":
-            eax_listener.listenerProps = getattr(EaxReverbProperties, "REVERB_PRESET_" + self.preset_more)
+            eax_listener.listenerProps = getattr(EAXReverbProperties, "REVERB_PRESET_" + self.preset_more)
         else:
-            eax_listener.listenerProps = getattr(EaxReverbProperties, "REVERB_PRESET_" + self.preset)
+            eax_listener.listenerProps = getattr(EAXReverbProperties, "REVERB_PRESET_" + self.preset)
 
 
 class PlasmaSoftVolume(idprops.IDPropMixin, PlasmaModifierProperties):
@@ -562,7 +562,7 @@ class PlasmaSubworldRegion(PlasmaModifierProperties):
 
     def export(self, exporter, bo, so):
         # Due to the fact that our subworld modifier can produce both RidingAnimatedPhysical
-        # and [HK|PX]Subworlds depending on the situation, this could get hairy, fast. 
+        # and [HK|PX]Subworlds depending on the situation, this could get hairy, fast.
         # Start by surveying the lay of the land.
         from_sub, to_sub = bo.plasma_object.subworld, self.subworld
         from_isded = exporter.physics.is_dedicated_subworld(from_sub)
