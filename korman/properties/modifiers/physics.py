@@ -44,6 +44,9 @@ surface_types = (
     ("kStone", "Stone", ""),
     ("kWater", "Water", ""),
     ("kWood", "Wood", ""),
+    ("kUser1", "User 1", ""),
+    ("kUser2", "User 2", ""),
+    ("kUser3", "User 3", ""),
 )
 
 def bounds_type_index(key):
