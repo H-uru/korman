@@ -83,6 +83,10 @@ def soundemit(modifier, layout, context):
         col.separator()
         _draw_fade_ui(sound.fade_out, col, "Fade Out:")
 
+        if sound.sfx_type in ("kSoundFX", "kNPCVoices"):
+            col.separator()
+            col.prop(sound, "reverb_amount", text="Reverb Amount")
+
         col = split.column()
         col.label("Cone Effect:")
         col.prop(sound, "inner_cone")
@@ -101,11 +105,3 @@ def soundemit(modifier, layout, context):
             col.separator()
             col.label("Soft Region:")
             col.prop(sound, "sfx_region", text="")
-
-        layout.separator()
-        split = layout.split()
-        col = split.column()
-        col.prop(sound, "use_reverb")
-        if sound.use_reverb:
-            col = split.column()
-            col.prop(sound, "reverb_amount", text="Reverb Amount")

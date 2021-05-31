@@ -152,12 +152,8 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
                          options={"ANIMATABLE"},
                          subtype="PERCENTAGE")
 
-    use_reverb = BoolProperty(name="Reverberation",
-                              description="Allow the sound to be affected by reverberation regions",
-                              default=False,
-                              options=set())
     reverb_amount = IntProperty(name="Reverb amount",
-                                description="Amount of reverb to apply to this sound (at 0, reverb volume reduced by 100 dB)",
+                                description="Amount of reverb to apply to this sound (at 0%, reverb volume is reduced by 100 dB and thus disabled)",
                                 min=0, max=100, default=100,
                                 options=set(),
                                 subtype="PERCENTAGE")
@@ -301,7 +297,7 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
             sound.channel = plWin32Sound.kRightChannel
 
         # Reverb/EAX
-        if self.use_reverb:
+        if self.sfx_type in ("kSoundFX", "kNPCVoices") and self.reverb_amount > 0:
             eax = sound.eaxSettings
             eax.enable = True
             # Occlusion: the minimum is -100 dB (but the value is multiplied by 100 in EAX's API)

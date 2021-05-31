@@ -254,7 +254,7 @@ class PlasmaReverbRegion(PlasmaModifierProperties):
                           default="GENERIC",
                           options=set())
 
-    # Thikk list for annoying users.
+    # Thicc list for annoying users.
     preset_more = EnumProperty(name="More Environment Preset",
                                description="Some more environment presets for your convenience",
                                items=[("CASTLE_SMALLROOM", "Castle - Small room", ""),
@@ -348,43 +348,62 @@ class PlasmaReverbRegion(PlasmaModifierProperties):
                           options=set())
 
     environment_size = FloatProperty(name="Environment Size", description="Environment Size",
-                                     default=7.5, min=1.0, max=100.0)
+                                     default=7.5, min=1.0, max=100.0,
+                                     options=set())
     environment_diffusion = FloatProperty(name="Environment Diffusion", description="Environment Diffusion",
-                                          default=1.0, min=0.0, max=1.0)
+                                          default=1.0, min=0.0, max=1.0,
+                                          options=set())
     room = IntProperty(name="Room", description="Room",
-                       default=-1000, min=-10000, max=0)
+                       default=-1000, min=-10000, max=0,
+                       options=set())
     room_hf = IntProperty(name="Room HF", description="Room High Frequency",
-                          default=-100, min=-10000, max=0)
+                          default=-100, min=-10000, max=0,
+                          options=set())
     room_lf = IntProperty(name="Room LF", description="Room Low Frequency",
-                          default=0, min=-10000, max=0)
+                          default=0, min=-10000, max=0,
+                          options=set())
     decay_time = FloatProperty(name="Decay Time", description="Decay Time",
-                               default=1.49, min=0.1, max=20.0)
+                               default=1.49, min=0.1, max=20.0,
+                               options=set())
     decay_hf_ratio = FloatProperty(name="Decay HF Ratio", description="Decay High Frequency Ratio",
-                                   default=0.83, min=0.1, max=2.0)
+                                   default=0.83, min=0.1, max=2.0,
+                                   options=set())
     decay_lf_ratio = FloatProperty(name="Decay LF Ratio", description="Decay Low Frequency Ratio",
-                                   default=1.0, min=0.1, max=2.0)
+                                   default=1.0, min=0.1, max=2.0,
+                                   options=set())
     reflections = IntProperty(name="Reflections", description="Reflections",
-                              default=-2602, min=-10000, max=1000)
+                              default=-2602, min=-10000, max=1000,
+                              options=set())
     reflections_delay = FloatProperty(name="Reflections Delay", description="Reflections Delay",
-                                      default=0.007, min=0.0, max=0.3)
+                                      default=0.007, min=0.0, max=0.3,
+                                      options=set())
     reverb = IntProperty(name="Reverb", description="Reverb",
-                         default=200, min=-10000, max=2000)
+                         default=200, min=-10000, max=2000,
+                         options=set())
     reverb_delay = FloatProperty(name="Reverb Delay", description="Reverb Delay",
-                                 default=0.011, min=0.0, max=0.3)
+                                 default=0.011, min=0.0, max=0.3,
+                                 options=set())
     echo_time = FloatProperty(name="Echo Time", description="Echo Time",
-                              default=0.25, min=0.1, max=0.5)
+                              default=0.25, min=0.1, max=0.5,
+                              options=set())
     echo_depth = FloatProperty(name="Echo Depth", description="Echo Depth",
-                               default=0.0, min=0.0, max=1.0)
+                               default=0.0, min=0.0, max=1.0,
+                               options=set())
     modulation_time = FloatProperty(name="Modulation Time", description="Modulation Time",
-                                    default=0.25, min=0.1, max=5.0)
+                                    default=0.25, min=0.1, max=5.0,
+                                    options=set())
     modulation_depth = FloatProperty(name="Modulation Depth", description="Modulation Depth",
-                                     default=0.0, min=0.0, max=1.0)
+                                     default=0.0, min=0.0, max=1.0,
+                                     options=set())
     air_absorption_hf = FloatProperty(name="Air Absorption HF", description="Air Absorption High Frequency",
-                                      default=-5.0, min=-10.0, max=0.0)
+                                      default=-5.0, min=-10.0, max=0.0,
+                                      options=set())
     hf_reference = FloatProperty(name="HF reference", description="High Frequency Reference",
-                                 default=5000.0, min=1000.0, max=20000.0)
+                                 default=5000.0, min=1000.0, max=20000.0,
+                                 options=set())
     lf_reference = FloatProperty(name="LF reference", description="Low Frequency Reference",
-                                 default=250.0, min=20.0, max=1000.0)
+                                 default=250.0, min=20.0, max=1000.0,
+                                 options=set())
 
     # Room rolloff - always at 0 in all presets, so screw it.
     # room_rolloff_factor = FloatProperty(name="Room Rolloff Factor", description="Room Rolloff Factor",
@@ -423,10 +442,8 @@ class PlasmaReverbRegion(PlasmaModifierProperties):
             props.airAbsorptionHF = self.air_absorption_hf
             props.hfReference = self.hf_reference
             props.lfReference = self.lf_reference
-            flags = 0
             for flag in self.flags:
-                flags |= getattr(EAXReverbProperties, flag)
-            props.flags = flags
+                props.flags |= getattr(EAXReverbProperties, flag)
             eax_listener.listenerProps = props
         elif self.preset == "MORE":
             eax_listener.listenerProps = getattr(EAXReverbProperties, "REVERB_PRESET_" + self.preset_more)
