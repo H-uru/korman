@@ -388,10 +388,9 @@ class AnimationConverter:
         if not fcurves and not allow_empty:
             return None
         
-        rotation_quaternion = (i for i in fcurves if i.data_path == "rotation_quaternion")
+        rotation_quaternion = any((i.data_path == "rotation_quaternion" for i in fcurves))
         
         pos = self.make_pos_controller(fcurves, "location", xform.to_translation())
-        # TODO: support rotation_quaternion
         if rotation_quaternion:
             rot = self.make_rot_controller(fcurves, "rotation_quaternion", xform.to_quaternion(), 4)
         else:
@@ -475,7 +474,7 @@ class AnimationConverter:
         if bez_chans:
             ctrl = self._make_scalar_compound_controller(keyframes, bez_chans)
         else:
-            ctrl = self._make_quat_controller( keyframes, num_channels)
+            ctrl = self._make_quat_controller(keyframes, num_channels)
         return ctrl
 
     def make_scale_controller(self, fcurves, data_path : str, default_xform, convert=None) -> plLeafController:
