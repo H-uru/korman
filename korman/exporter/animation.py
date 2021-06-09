@@ -387,10 +387,15 @@ class AnimationConverter:
     def convert_transform_controller(self, fcurves, xform, allow_empty=False) -> Union[None, plCompoundController]:
         if not fcurves and not allow_empty:
             return None
-
+        
+        rotation_quaternion = (i for i in fcurves if i.data_path == "rotation_quaternion")
+        
         pos = self.make_pos_controller(fcurves, "location", xform.to_translation())
         # TODO: support rotation_quaternion
-        rot = self.make_rot_controller(fcurves, "rotation_euler", xform.to_euler())
+        if rotation_quaternion:
+            rot = self.make_rot_controller(fcurves, "rotation_quaternion", xform.to_quaternion(), 4)
+        else:
+            rot = self.make_rot_controller(fcurves, "rotation_euler", xform.to_euler(), 3)
         scale = self.make_scale_controller(fcurves, "scale", xform.to_scale())
         if pos is None and rot is None and scale is None:
             if not allow_empty:
@@ -459,9 +464,9 @@ class AnimationConverter:
         ctrl = self._make_point3_controller(keyframes, bez_chans)
         return ctrl
 
-    def make_rot_controller(self, fcurves, data_path : str, default_xform, convert=None) -> Union[None, plCompoundController, plLeafController]:
+    def make_rot_controller(self, fcurves, data_path : str, default_xform, num_channels, convert=None) -> Union[None, plCompoundController, plLeafController]:
         rot_curves = [i for i in fcurves if i.data_path == data_path and i.keyframe_points]
-        keyframes, bez_chans = self._process_keyframes(rot_curves, 3, default_xform, convert=None)
+        keyframes, bez_chans = self._process_keyframes(rot_curves, num_channels, default_xform, convert=None)
         if not keyframes:
             return None
 
@@ -470,7 +475,7 @@ class AnimationConverter:
         if bez_chans:
             ctrl = self._make_scalar_compound_controller(keyframes, bez_chans)
         else:
-            ctrl = self._make_quat_controller( keyframes)
+            ctrl = self._make_quat_controller( keyframes, num_channels)
         return ctrl
 
     def make_scale_controller(self, fcurves, data_path : str, default_xform, convert=None) -> plLeafController:
@@ -523,7 +528,7 @@ class AnimationConverter:
         ctrl.keys = (exported_frames, keyframe_type)
         return ctrl
 
-    def _make_quat_controller(self, keyframes) -> plLeafController:
+    def _make_quat_controller(self, keyframes, num_channels) -> plLeafController:
         ctrl = plLeafController()
         keyframe_type = hsKeyFrame.kQuatKeyFrame
         exported_frames = []
@@ -535,8 +540,12 @@ class AnimationConverter:
             exported.type = keyframe_type
             # NOTE: quat keyframes don't do bezier nonsense
 
-            value = mathutils.Euler(keyframe.values)
-            exported.value = utils.quaternion(value.to_quaternion())
+            if num_channels == 3:
+                value = mathutils.Euler(keyframe.values)
+                exported.value = utils.quaternion(value.to_quaternion())
+            else:
+                value = mathutils.Quaternion(keyframe.values)
+                exported.value = utils.quaternion(value)
             exported_frames.append(exported)
         ctrl.keys = (exported_frames, keyframe_type)
         return ctrl
