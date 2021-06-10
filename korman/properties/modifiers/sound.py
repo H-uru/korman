@@ -22,8 +22,132 @@ from PyHSPlasma import *
 
 from ... import korlib
 from .base import PlasmaModifierProperties
+from .physics import surface_types
 from ...exporter import ExportError
 from ... import idprops
+
+_randomsound_modes = {
+    "normal": plRandomSoundMod.kNormal,
+    "norepeat": plRandomSoundMod.kNoRepeats,
+    "coverall": plRandomSoundMod.kCoverall | plRandomSoundMod.kNoRepeats,
+    "sequential": plRandomSoundMod.kSequential
+}
+
+class PlasmaRandomSound(PlasmaModifierProperties):
+    pl_id = "random_sound"
+    pl_depends = {"soundemit"}
+
+    bl_category = "Logic"
+    bl_label = "Random Sound"
+    bl_description = ""
+
+    mode = EnumProperty(name="Mode",
+                        description="Playback Type",
+                        items=[("random", "Random Time", "Plays a random sound from the emitter at a random time"),
+                               ("collision", "Collision Surface", "Plays a random sound when the object's parent collides")],
+                        default="random",
+                        options=set())
+
+    # Physical (read: collision) sounds
+    play_on = EnumProperty(name="Play On",
+                           description="Play sounds on this collision event",
+                           items=[("slide", "Slide", "Plays a random sound on object slide"),
+                                  ("impact", "Impact", "Plays a random sound on object slide")],
+                           options=set())
+    surfaces = EnumProperty(name="Play Against",
+                            description="Sounds are played on collision against these surfaces",
+                            items=surface_types[1:],
+                            options={"ENUM_FLAG"})
+
+    # Timed random sounds
+    auto_start = BoolProperty(name="Auto Start",
+                              description="Start playing when the Age loads",
+                              default=True,
+                              options=set())
+    play_mode = EnumProperty(name="Play Mode",
+                             description="",
+                             items=[("normal", "Any", "Plays any attached sound"),
+                                    ("norepeat", "No Repeats", "Do not replay a sound immediately after itself"),
+                                    ("coverall", "Full Set", "Once a sound is played, do not replay it until after all sounds are played"),
+                                    ("sequential", "Sequential", "Play sounds in the order they appear in the emitter")],
+                             default="norepeat",
+                             options=set())
+    stop_after_set = BoolProperty(name="Stop After Set",
+                                  description="Stop playing after all sounds are played",
+                                  default=False,
+                                  options=set())
+    stop_after_play = BoolProperty(name="Stop After Play",
+                                   description="Stop playing after one sound is played",
+                                   default=False,
+                                   options=set())
+    min_delay = FloatProperty(name="Min Delay",
+                              description="Minimum delay length",
+                              min=0.0,
+                              subtype="TIME", unit="TIME",
+                              options=set())
+    max_delay = FloatProperty(name="Max Delay",
+                              description="Maximum delay length",
+                              min=0.0,
+                              subtype="TIME", unit="TIME",
+                              options=set())
+
+    def export(self, exporter, bo, so):
+        rndmod = exporter.mgr.find_create_object(plRandomSoundMod, bl=bo, so=so)
+        if self.mode == "random":
+            if not self.auto_start:
+                rndmod.state = plRandomSoundMod.kStopped
+            if self.stop_after_play:
+                rndmod.mode |= plRandomSoundMod.kOneCmd
+            else:
+                rndmod.minDelay = min(self.min_delay, self.max_delay)
+                rndmod.maxDelay = max(self.min_delay, self.max_delay)
+                # Delaying from the start makes ZERO sense. Screw that.
+                rndmod.mode |= plRandomSoundMod.kDelayFromEnd
+            rndmod.mode |= _randomsound_modes[self.play_mode]
+            if self.stop_after_set:
+                rndmod.mode |= plRandomSoundMod.kOneCycle
+        elif self.mode == "collision":
+            rndmod.mode = plRandomSoundMod.kNoRepeats | plRandomSoundMod.kOneCmd
+            rndmod.state = plRandomSoundMod.kStopped
+        else:
+            raise RuntimeError()
+
+    def post_export(self, exporter, bo, so):
+        if self.mode == "collision":
+            parent_bo = bo.parent
+            if parent_bo is None:
+                raise ExportError("[{}]: Collision sound objects MUST be parented directly to the collider object.", bo.name)
+            phys = exporter.mgr.find_object(plGenericPhysical, bl=parent_bo)
+            if phys is None:
+                raise ExportError("[{}]: Collision sound objects MUST be parented directly to the collider object.", bo.name)
+
+            # The soundGroup on the physical may or may not be the generic "this is my surface type"
+            # soundGroup with no actual sounds attached. So, we need to lookup the actual one.
+            sndgroup = exporter.mgr.find_create_object(plPhysicalSndGroup, bl=parent_bo)
+            sndgroup.group = getattr(plPhysicalSndGroup, parent_bo.plasma_modifiers.collision.surface)
+            phys.soundGroup = sndgroup.key
+
+            rndmod = exporter.mgr.find_key(plRandomSoundMod, bl=bo, so=so)
+            if self.play_on == "slide":
+                groupattr = "slideSounds"
+            elif self.play_on == "impact":
+                groupattr = "impactSounds"
+            else:
+                raise RuntimeError()
+
+            sounds = { i: sound for i, sound in enumerate(getattr(sndgroup, groupattr)) }
+            for surface_name in self.surfaces:
+                surface_id = getattr(plPhysicalSndGroup, surface_name)
+                if surface_id in sounds:
+                    exporter.report.warn("Overwriting physical {} surface '{}' ID:{}",
+                                         groupattr, surface_name, surface_id, indent=2)
+                else:
+                    exporter.report.msg("Got physical {} surface '{}' ID:{}",
+                                        groupattr, surface_name, surface_id, indent=2)
+                sounds[surface_id] = rndmod
+            # Keeps the LUT (or should that be lookup vector?) as small as possible
+            setattr(sndgroup, groupattr, [sounds.get(i) for i in range(max(sounds.keys()) + 1)])
+
 
 class PlasmaSfxFade(bpy.types.PropertyGroup):
     fade_type = EnumProperty(name="Type",

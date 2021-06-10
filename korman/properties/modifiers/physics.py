@@ -30,6 +30,25 @@ bounds_types = (
     ("trimesh", "Triangle Mesh", "Use the exact triangle mesh (SLOW!)")
 )
 
+# These are the collision sound surface types
+surface_types = (
+    # Danger: do not reorder this one.
+    ("kNone", "[None]", ""),
+    # Reorder away down here...
+    ("kBone", "Bone", ""),
+    ("kDirt", "Dirt", ""),
+    ("kGrass", "Grass", ""),
+    ("kMetal", "Metal", ""),
+    ("kCone", "Plastic", ""),
+    ("kRug", "Rug", ""),
+    ("kStone", "Stone", ""),
+    ("kWater", "Water", ""),
+    ("kWood", "Wood", ""),
+    ("kUser1", "User 1", ""),
+    ("kUser2", "User 2", ""),
+    ("kUser3", "User 3", ""),
+)
+
 def bounds_type_index(key):
     return list(zip(*bounds_types))[0].index(key)
 
@@ -67,6 +86,12 @@ class PlasmaCollider(PlasmaModifierProperties):
                                    description="Object used as the collision geometry",
                                    type=bpy.types.Object,
                                    poll=idprops.poll_mesh_objects)
+
+    surface = EnumProperty(name="Surface Type",
+                           description="Type of surface sound effect to play on collision",
+                           items=surface_types,
+                           default="kNone",
+                           options=set())
 
     def export(self, exporter, bo, so):
         # All modifier properties are examined by this little stinker...

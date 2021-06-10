@@ -17,6 +17,39 @@ import bpy
 
 from .. import ui_list
 
+def random_sound(modifier, layout, context):
+    parent_bo = modifier.id_data.parent
+    collision_bad = (modifier.mode == "collision" and (parent_bo is None or
+                                                       not parent_bo.plasma_modifiers.collision.enabled))
+    layout.alert = collision_bad
+    layout.prop(modifier, "mode")
+    if collision_bad:
+        layout.label(icon="ERROR", text="Sound emitter must be parented to a collider.")
+    layout.alert = False
+
+    layout.separator()
+    if modifier.mode == "random":
+        split = layout.split()
+        col = split.column()
+        col.prop(modifier, "play_mode", text="")
+        col.prop(modifier, "auto_start")
+        col = col.column()
+        col.active = not modifier.stop_after_play
+        col.prop(modifier, "stop_after_set")
+
+        col = split.column()
+        col.prop(modifier, "stop_after_play")
+        col = col.column(align=True)
+        col.active = not modifier.stop_after_play
+        col.alert = modifier.min_delay > modifier.max_delay
+        col.prop(modifier, "min_delay")
+        col.prop(modifier, "max_delay")
+    elif modifier.mode == "collision":
+        layout.prop(modifier, "play_on")
+        # Ugh, Blender...
+        layout.alert = len(modifier.surfaces) == 0
+        layout.prop_menu_enum(modifier, "surfaces")
+
 def _draw_fade_ui(modifier, layout, label):
     layout.label(label)
     layout.prop(modifier, "fade_type", text="")
