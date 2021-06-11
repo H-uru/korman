@@ -138,14 +138,14 @@ class LightConverter:
         shadow_only = bl_light.shadow_method != "NOSHADOW" and bl_light.use_only_shadow
 
         # Apply the colors
-        if bl_light.use_diffuse and not shadow_only:
+        if bl_light.use_diffuse:
             self._report.msg("Diffuse: {}", diff_str, indent=2)
             pl_light.diffuse = hsColorRGBA(*diff_color)
         else:
             self._report.msg("Diffuse: OFF", indent=2)
             pl_light.diffuse = hsColorRGBA(0.0, 0.0, 0.0, energy)
 
-        if bl_light.use_specular and not shadow_only:
+        if bl_light.use_specular:
             self._report.msg("Specular: {}", spec_str, indent=2)
             pl_light.setProperty(plLightInfo.kLPHasSpecular, True)
             pl_light.specular = hsColorRGBA(*spec_color)
