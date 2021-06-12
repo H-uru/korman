@@ -471,3 +471,36 @@ class PlasmaWaveTexState(PlasmaWaveState, PlasmaModifierProperties):
     def export(self, exporter, bo, so):
         waveset = exporter.mgr.find_create_object(plWaveSet7, name=bo.name, so=so)
         self.convert_wavestate(waveset.state.texState)
+
+
+class PlasmaBuoyObject(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
+    display_name = StringProperty(name="Display Name")
+    buoy_object = PointerProperty(name="Buoy Object",
+                                  description="Object that float on water",
+                                  type=bpy.types.Object,
+                                  poll=idprops.poll_mesh_objects)
+
+    @classmethod
+    def _idprop_mapping(cls):
+        return {"buoy_object": "object_name"}
+
+
+class PlasmaWaterBuoyModifier(PlasmaModifierProperties):
+    pl_depends = {"water_basic"}
+    pl_id = "water_buoy"
+
+    bl_category = "Water"
+    bl_label = "Water Buoys"
+    bl_description = ""
+
+    buoys = CollectionProperty(type=PlasmaBuoyObject)
+    active_buoy_index = IntProperty(options={"HIDDEN"})
+
+    def export(self, exporter, bo, so):
+        waveset = exporter.mgr.find_create_object(plWaveSet7, name=bo.name, so=so)
+        waveset.setFlag(plWaveSet7.kHasBuoys, True)
+
+        for i in self.buoys:
+            if i.buoy_object is None:
+                raise ExportError("'{}': Buoy Object for '{}' is invalid".format(self.key_name, i.display_name))
+            waveset.addBuoy(exporter.mgr.find_create_key(plSceneObject, bl=i.buoy_object))

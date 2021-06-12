@@ -135,3 +135,19 @@ def water_shore(modifier, layout, context):
     col.prop(modifier, "finger")
     col.prop(modifier, "edge_opacity")
     col.prop(modifier, "edge_radius")
+
+
+class BuoyListUI(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+        layout.prop(item, "display_name", emboss=False, text="", icon="MOD_CAST")
+
+
+def water_buoy(modifier, layout, context):
+    ui_list.draw_modifier_list(layout, "BuoyListUI", modifier, "buoys",
+                               "active_buoy_index", name_prefix="Buoy",
+                               name_prop="display_name", rows=2, maxrows=3)
+
+    # Display the active buoy
+    if modifier.buoys:
+        buoy = modifier.buoys[modifier.active_buoy_index]
+        layout.prop(buoy, "buoy_object", icon="MESH_DATA")
