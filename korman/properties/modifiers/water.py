@@ -125,7 +125,7 @@ class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.
         # Detector region bounds
         if self.region is not None:
             region_so = exporter.mgr.find_create_object(plSceneObject, bl=self.region)
-    
+
             # Good news: if this phys has already been exported, this is basically a noop
             member_group = "kGroupDetector" if exporter.mgr.getVer() == "pvMoul" else "kGroupLOSOnly"
             exporter.physics.generate_physical(self.region, region_so,
@@ -473,12 +473,12 @@ class PlasmaWaveTexState(PlasmaWaveState, PlasmaModifierProperties):
         self.convert_wavestate(waveset.state.texState)
 
 
-class PlasmaBuoyObject(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
-    display_name = StringProperty(name="Display Name")
+class PlasmaBuoyObject(bpy.types.PropertyGroup):
     buoy_object = PointerProperty(name="Buoy Object",
                                   description="Object that float on water",
+                                  options=set(),
                                   type=bpy.types.Object,
-                                  poll=idprops.poll_mesh_objects)
+                                  poll=idprops.poll_dynamic_objects)
 
 
 class PlasmaWaterBuoyModifier(PlasmaModifierProperties):
@@ -493,10 +493,16 @@ class PlasmaWaterBuoyModifier(PlasmaModifierProperties):
     active_buoy_index = IntProperty(options={"HIDDEN"})
 
     def export(self, exporter, bo, so):
+        if exporter.mgr.getVer() != pvMoul:
+            exporter.report.warning("Not supported on this version of Plasma", indent=3)
+            return
+        else:
+            exporter.report.port("This will only function on MOUL", indent=3)
+
         waveset = exporter.mgr.find_create_object(plWaveSet7, name=bo.name, so=so)
         waveset.setFlag(plWaveSet7.kHasBuoys, True)
 
         for i in self.buoys:
             if i.buoy_object is None:
-                raise ExportError("'{}': Buoy Object for '{}' is invalid", self.key_name, i.display_name)
+                raise ExportError("'{}': Buoy Object for '{}' is invalid", self.key_name, i.buoy_object.name)
             waveset.addBuoy(exporter.mgr.find_create_key(plSceneObject, bl=i.buoy_object))

@@ -139,7 +139,10 @@ def water_shore(modifier, layout, context):
 
 class BuoyListUI(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        layout.prop(item, "display_name", emboss=False, text="", icon="MOD_CAST")
+        if item.buoy_object is None:
+            layout.label("[No Object Specified]", icon="ERROR")
+        else:
+            layout.label(item.buoy_object.name, icon="MOD_CAST")
 
 
 def water_buoy(modifier, layout, context):
@@ -148,6 +151,10 @@ def water_buoy(modifier, layout, context):
                                name_prop="display_name", rows=2, maxrows=3)
 
     # Display the active buoy
-    if modifier.buoys:
-        buoy = modifier.buoys[modifier.active_buoy_index]
-        layout.prop(buoy, "buoy_object", icon="MESH_DATA")
+    try:
+        buoy_ref = modifier.buoys[modifier.active_buoy_index]
+    except:
+        pass
+    else:
+        layout.alert = buoy_ref.buoy_object is None
+        layout.prop(buoy_ref, "buoy_object")
