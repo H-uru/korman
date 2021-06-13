@@ -480,10 +480,6 @@ class PlasmaBuoyObject(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
                                   type=bpy.types.Object,
                                   poll=idprops.poll_mesh_objects)
 
-    @classmethod
-    def _idprop_mapping(cls):
-        return {"buoy_object": "object_name"}
-
 
 class PlasmaWaterBuoyModifier(PlasmaModifierProperties):
     pl_depends = {"water_basic"}
@@ -502,5 +498,5 @@ class PlasmaWaterBuoyModifier(PlasmaModifierProperties):
 
         for i in self.buoys:
             if i.buoy_object is None:
-                raise ExportError("'{}': Buoy Object for '{}' is invalid".format(self.key_name, i.display_name))
+                raise ExportError("'{}': Buoy Object for '{}' is invalid", self.key_name, i.display_name)
             waveset.addBuoy(exporter.mgr.find_create_key(plSceneObject, bl=i.buoy_object))
