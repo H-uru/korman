@@ -388,9 +388,9 @@ class AnimationConverter:
         if not fcurves and not allow_empty:
             return None
 
-        pos = self.make_pos_controller(fcurves, xform.to_translation())
+        pos = self.make_pos_controller(fcurves, "location", xform.to_translation())
         rot = self.make_rot_controller(fcurves, rotation_mode, xform)
-        scale = self.make_scale_controller(fcurves, xform.to_scale())
+        scale = self.make_scale_controller(fcurves, "scale", xform.to_scale())
         if pos is None and rot is None and scale is None:
             if not allow_empty:
                 return None
@@ -447,8 +447,8 @@ class AnimationConverter:
         # Now we make the controller
         return self._make_matrix44_controller(keyframes)
 
-    def make_pos_controller(self, fcurves, default_xform, convert=None) -> Union[None, plLeafController]:
-        pos_curves = [i for i in fcurves if i.data_path == "location" and i.keyframe_points]
+    def make_pos_controller(self, fcurves, data_path: str, default_xform, convert=None) -> Union[None, plLeafController]:
+        pos_curves = [i for i in fcurves if i.data_path == data_path and i.keyframe_points]
         keyframes, bez_chans = self._process_keyframes(pos_curves, 3, default_xform, convert)
         if not keyframes:
             return None
@@ -507,8 +507,8 @@ class AnimationConverter:
                 else:
                     return self._make_quat_controller(keyframes)
 
-    def make_scale_controller(self, fcurves, default_xform, convert=None) -> plLeafController:
-        scale_curves = [i for i in fcurves if i.data_path == "scale" and i.keyframe_points]
+    def make_scale_controller(self, fcurves, data_path: str, default_xform, convert=None) -> plLeafController:
+        scale_curves = [i for i in fcurves if i.data_path == data_path and i.keyframe_points]
         keyframes, bez_chans = self._process_keyframes(scale_curves, 3, default_xform, convert)
         if not keyframes:
             return None
