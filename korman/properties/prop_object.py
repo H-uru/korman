@@ -76,7 +76,7 @@ class PlasmaObject(bpy.types.PropertyGroup):
         if bo.animation_data is not None:
             if bo.animation_data.action is not None:
                 data_paths = frozenset((i.data_path for i in bo.animation_data.action.fcurves))
-                return {"location", "rotation_euler", "scale"} & data_paths
+                return {"location", "rotation_euler", "rotation_quaternion", "rotation_axis_angle", "scale"} & data_paths
         return False
 
     @property

@@ -57,7 +57,7 @@ class AnimationConverter:
         if isinstance(bo.data, bpy.types.Camera):
             applicators.append(self._convert_camera_animation(bo, so, obj_fcurves, data_fcurves))
         else:
-            applicators.append(self._convert_transform_animation(bo.name, obj_fcurves, bo.matrix_basis))
+            applicators.append(self._convert_transform_animation(bo, obj_fcurves, bo.matrix_basis))
         if bo.plasma_modifiers.soundemit.enabled:
             applicators.extend(self._convert_sound_volume_animation(bo.name, obj_fcurves, bo.plasma_modifiers.soundemit))
         if isinstance(bo.data, bpy.types.Lamp):
@@ -184,7 +184,7 @@ class AnimationConverter:
         # If we exported any FOV animation at all, then we need to ensure there is an applicator
         # returned from here... At bare minimum, we'll need the applicator with an empty
         # CompoundController. This should be sufficient to keep CWE from crashing...
-        applicator = self._convert_transform_animation(bo.name, obj_fcurves, bo.matrix_basis, allow_empty=has_fov_anim)
+        applicator = self._convert_transform_animation(bo, obj_fcurves, bo.matrix_basis, allow_empty=has_fov_anim)
         camera = locals().get("camera", self._mgr.find_create_object(plCameraModifier, so=so))
         camera.animated = applicator is not None
         return applicator
@@ -369,14 +369,14 @@ class AnimationConverter:
             applicator.channel = channel
             yield applicator
 
-    def _convert_transform_animation(self, name, fcurves, xform, allow_empty=False) -> Union[None, plMatrixChannelApplicator]:
-        tm = self.convert_transform_controller(fcurves, xform, allow_empty)
+    def _convert_transform_animation(self, bo, fcurves, xform, allow_empty=False) -> Union[None, plMatrixChannelApplicator]:
+        tm = self.convert_transform_controller(fcurves, bo.rotation_mode, xform, allow_empty)
         if tm is None and not allow_empty:
             return None
 
         applicator = plMatrixChannelApplicator()
         applicator.enabled = True
-        applicator.channelName = name
+        applicator.channelName = bo.name
         channel = plMatrixControllerChannel()
         channel.controller = tm
         applicator.channel = channel
@@ -384,13 +384,12 @@ class AnimationConverter:
 
         return applicator
 
-    def convert_transform_controller(self, fcurves, xform, allow_empty=False) -> Union[None, plCompoundController]:
+    def convert_transform_controller(self, fcurves, rotation_mode: str, xform, allow_empty=False) -> Union[None, plCompoundController]:
         if not fcurves and not allow_empty:
             return None
 
         pos = self.make_pos_controller(fcurves, "location", xform.to_translation())
-        # TODO: support rotation_quaternion
-        rot = self.make_rot_controller(fcurves, "rotation_euler", xform.to_euler())
+        rot = self.make_rot_controller(fcurves, rotation_mode, xform)
         scale = self.make_scale_controller(fcurves, "scale", xform.to_scale())
         if pos is None and rot is None and scale is None:
             if not allow_empty:
@@ -448,7 +447,7 @@ class AnimationConverter:
         # Now we make the controller
         return self._make_matrix44_controller(keyframes)
 
-    def make_pos_controller(self, fcurves, data_path : str, default_xform, convert=None) -> Union[None, plLeafController]:
+    def make_pos_controller(self, fcurves, data_path: str, default_xform, convert=None) -> Union[None, plLeafController]:
         pos_curves = [i for i in fcurves if i.data_path == data_path and i.keyframe_points]
         keyframes, bez_chans = self._process_keyframes(pos_curves, 3, default_xform, convert)
         if not keyframes:
@@ -459,21 +458,56 @@ class AnimationConverter:
         ctrl = self._make_point3_controller(keyframes, bez_chans)
         return ctrl
 
-    def make_rot_controller(self, fcurves, data_path : str, default_xform, convert=None) -> Union[None, plCompoundController, plLeafController]:
-        rot_curves = [i for i in fcurves if i.data_path == data_path and i.keyframe_points]
-        keyframes, bez_chans = self._process_keyframes(rot_curves, 3, default_xform, convert=None)
-        if not keyframes:
-            return None
+    def make_rot_controller(self, fcurves, rotation_mode: str, default_xform, convert=None) -> Union[None, plCompoundController, plLeafController]:
+        if rotation_mode in {"AXIS_ANGLE", "QUATERNION"}:
+            rot_curves = [i for i in fcurves if i.data_path == "rotation_{}".format(rotation_mode.lower()) and i.keyframe_points]
+            if not rot_curves:
+                return None
 
-        # Ugh. Unfortunately, it appears Blender's default interpolation is bezier. So who knows if
-        # many users will actually see the benefit here? Makes me sad.
-        if bez_chans:
-            ctrl = self._make_scalar_compound_controller(keyframes, bez_chans)
+            default_xform = default_xform.to_quaternion()
+            if rotation_mode == "AXIS_ANGLE":
+                default_xform = default_xform.to_axis_angle()
+                default_xform = (default_xform[1], default_xform[0].x, default_xform[0].y, default_xform[0].z)
+
+                if convert is not None:
+                    convert = lambda x: convert(mathutils.Quaternion(x[1:4], x[0]))[:]
+                else:
+                    convert = lambda x: mathutils.Quaternion(x[1:4], x[0])[:]
+
+            # Just dropping bezier stuff on the floor because Plasma does not support it, and
+            # I think that opting into quaternion keyframes is a good enough indication that
+            # you're OK with that.
+            keyframes, bez_chans = self._process_keyframes(rot_curves, 4, default_xform, convert)
+            if keyframes:
+                return self._make_quat_controller(keyframes)
         else:
-            ctrl = self._make_quat_controller( keyframes)
-        return ctrl
+            rot_curves = [i for i in fcurves if i.data_path == "rotation_euler" and i.keyframe_points]
+            if not rot_curves:
+                return None
 
-    def make_scale_controller(self, fcurves, data_path : str, default_xform, convert=None) -> plLeafController:
+            # OK, so life is complicated with Euler keyframes because apparently they can store
+            # different "orders" that really only become apparent when the engine converts them
+            # into a quaternion to use in an animation. Converting orders isn't as simple as swapping
+            # XYZ around, so we have to bus this through quaternion??? Ugh.
+            def convert_euler_keyframe(euler_array: Tuple[float, float, float]):
+                euler = mathutils.Euler(euler_array, rotation_mode)
+                result = euler.to_quaternion().to_euler("XYZ")
+                if convert is not None:
+                    result = convert(result)
+                return result[:]
+
+            euler_convert = convert_euler_keyframe if rotation_mode != "XYZ" else convert
+            keyframes, bez_chans = self._process_keyframes(rot_curves, 3, default_xform.to_euler(rotation_mode), euler_convert)
+            if keyframes:
+                # Once again, quaternion keyframes do not support bezier interpolation. Ideally,
+                # we would just drop support for rotation beziers entirely to simplify all this
+                # Euler crap, but some artists may require bezier interpolation...
+                if bez_chans:
+                    return self._make_scalar_compound_controller(keyframes, bez_chans)
+                else:
+                    return self._make_quat_controller(keyframes)
+
+    def make_scale_controller(self, fcurves, data_path: str, default_xform, convert=None) -> plLeafController:
         scale_curves = [i for i in fcurves if i.data_path == data_path and i.keyframe_points]
         keyframes, bez_chans = self._process_keyframes(scale_curves, 3, default_xform, convert)
         if not keyframes:
@@ -535,8 +569,19 @@ class AnimationConverter:
             exported.type = keyframe_type
             # NOTE: quat keyframes don't do bezier nonsense
 
-            value = mathutils.Euler(keyframe.values)
-            exported.value = utils.quaternion(value.to_quaternion())
+            values = keyframe.values
+            num_channels = len(values)
+            if num_channels == 3:
+                value = mathutils.Euler(values)
+                exported.value = utils.quaternion(value.to_quaternion())
+            elif num_channels == 4:
+                # Blender orders its quats WXYZ (nonstandard) but Plasma uses XYZW (standard)
+                # Also note that manual incoming quat data might be goofy, so renormalize
+                value = mathutils.Quaternion(values)
+                value.normalize()
+                exported.value = utils.quaternion(value)
+            else:
+                raise ValueError("Unexpected number of channels in quaternion keyframe {}".format(num_channels))
             exported_frames.append(exported)
         ctrl.keys = (exported_frames, keyframe_type)
         return ctrl

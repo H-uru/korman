@@ -203,7 +203,7 @@ class CameraConverter:
         # path object, but it makes more sense to me to just animate the camera with
         # the details of the path...
         pos_fcurves = tuple(i for i in helpers.fetch_fcurves(bo, False) if i.data_path == "location")
-        pos_ctrl = self._exporter().animation.convert_transform_controller(pos_fcurves, bo.matrix_basis)
+        pos_ctrl = self._exporter().animation.convert_transform_controller(pos_fcurves, bo.rotation_mode, bo.matrix_basis)
         if pos_ctrl is None:
             raise ExportError("'{}': Rail Camera lacks appropriate rail keyframes".format(bo.name))
         path = plAnimPath()
