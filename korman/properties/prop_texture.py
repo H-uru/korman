@@ -38,6 +38,9 @@ class PlasmaLayer(bpy.types.PropertyGroup):
                                   description="Opacity of the texture",
                                   default=100.0, min=0.0, max=100.0,
                                   precision=0, subtype="PERCENTAGE")
+    use_alpha_vcol = BoolProperty(name="Use Alpha VCol",
+                                  description="Texture uses the Alpha vertex color values",
+                                  default=False)
     alpha_halo = BoolProperty(name="High Alpha Test",
                               description="Fixes halos seen around semitransparent objects resulting from sorting errors",
                               default=False)
