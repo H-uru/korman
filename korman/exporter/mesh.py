@@ -30,6 +30,11 @@ _WARN_VERTS_PER_SPAN = 0x8000
 
 _VERTEX_COLOR_LAYERS = {"col", "color", "colour"}
 
+def _find_bottom_of_layer_stack(layer: plLayerInterface) -> plLayerInterface:
+    while layer.underLay is not None:
+        layer = layer.underLay.object
+    return layer
+
 class _GeoSpan:
     def __init__(self, bo, bm, geospan, pass_index=None):
         self.geospan = geospan
@@ -47,11 +52,7 @@ class _GeoSpan:
         return (1.0, 1.0, 1.0, 1.0)
 
     def _find_bottom_of_stack(self) -> plLayerInterface:
-        base_layer = self.geospan.material.object.layers[0].object
-        while base_layer.underLay is not None:
-            base_layer = base_layer.underLay.object
-        return base_layer
-
+        return _find_bottom_of_layer_stack(self.geospan.material.object.layers[0].object)
 
 class _RenderLevel:
     MAJOR_OPAQUE = 0
@@ -317,8 +318,13 @@ class MeshConverter(_MeshManager):
             return False
 
         base_layer = hsgmatKey.object.layers[0].object
-        if is_alpha_blended(base_layer) or self._check_vtx_alpha(mesh, material_idx):
+        layer_alpha, vtx_alpha = is_alpha_blended(base_layer), self._check_vtx_alpha(mesh, material_idx)
+
+        if layer_alpha or vtx_alpha:
             geospan.props |= plGeometrySpan.kRequiresBlending
+        elif vtx_alpha and not layer_alpha:
+            _find_bottom_of_layer_stack(base_layer).state.blendFlags |= hsGMatState.kBlendAlpha
+
         if self._check_vtx_nonpreshaded(bo, mesh, material_idx, base_layer):
             geospan.props |= plGeometrySpan.kLiteVtxNonPreshaded
         if (geospan.props & plGeometrySpan.kLiteMask) != plGeometrySpan.kLiteMaterial:
