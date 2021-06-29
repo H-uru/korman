@@ -427,7 +427,7 @@ class AnimationConverter:
             scale = kwargs[scale_path]
 
             translation = hsVector3(pos[0] - (scale[0] - 1.0) / 2.0,
-                                    -pos[1] - (scale[1] - 1.0) / 2.0,
+                                    pos[1] - (scale[1] - 1.0) / 2.0,
                                     pos[2] - (scale[2] - 1.0) / 2.0)
             matrix = hsMatrix44()
             matrix.setTranslate(translation)
