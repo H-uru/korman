@@ -45,7 +45,13 @@ class PlasmaToolboxPanel(ToolboxPanel, bpy.types.Panel):
         col.label("Plasma Pages:")
         col.operator("object.plasma_move_selection_to_page", icon="BOOKMARKS", text="Move to Page")
         col.operator("object.plasma_select_page_objects", icon="RESTRICT_SELECT_OFF", text="Select Objects")
-        
+
+        col.label("Lighting:")
+        col.operator("object.plasma_lightmap_bake", icon="RENDER_STILL", text="Bake All").bake_selection = False
+        col.operator("object.plasma_lightmap_bake", icon="RENDER_REGION", text="Bake Selection").bake_selection = True
+        col.operator("object.plasma_lightmap_clear", icon="X", text="Clear All").clear_selection = False
+        col.operator("object.plasma_lightmap_clear", icon="X", text="Clear Selection").clear_selection = True
+
         col.label("Package Sounds:")
         col.operator("object.plasma_toggle_sound_export", icon="MUTE_IPO_OFF", text="Enable All").enable = True
         all_sounds_export = all((i.package for i in itertools.chain.from_iterable(i.plasma_modifiers.soundemit.sounds for i in bpy.context.selected_objects if i.plasma_modifiers.soundemit.enabled)))

@@ -196,13 +196,17 @@ def lightmap(modifier, layout, context):
     col = layout.column()
     col.active = is_texture
     col.prop_search(modifier, "uv_map", context.active_object.data, "uv_textures")
+    col = layout.column()
+    col.active = is_texture
+    col.prop(modifier, "image", icon="IMAGE_RGB")
 
     # Lightmaps can only be applied to objects with opaque materials.
     if is_texture and any((i.use_transparency for i in modifier.id_data.data.materials if i is not None)):
         layout.label("Transparent objects cannot be lightmapped.", icon="ERROR")
     else:
-        col = layout.column()
-        col.operator("object.plasma_lightmap_preview", "Preview Lightmap" if is_texture else "Preview Vertex Colors", icon="RENDER_STILL")
+        row = layout.row(align=True)
+        row.operator("object.plasma_lightmap_preview", "Preview", icon="RENDER_STILL").final = False
+        row.operator("object.plasma_lightmap_preview", "Bake for Export", icon="RENDER_STILL").final = True
 
         # Kind of clever stuff to show the user a preview...
         # We can't show images, so we make a hidden ImageTexture called LIGHTMAPGEN_PREVIEW. We check
@@ -211,7 +215,7 @@ def lightmap(modifier, layout, context):
         if is_texture:
             tex = bpy.data.textures.get("LIGHTMAPGEN_PREVIEW")
             if tex is not None and tex.image is not None:
-                im_name = "{}_LIGHTMAPGEN.png".format(context.active_object.name)
+                im_name = "{}_LIGHTMAPGEN_PREVIEW.png".format(context.active_object.name)
                 if tex.image.name == im_name:
                     layout.template_preview(tex, show_buttons=False)
 

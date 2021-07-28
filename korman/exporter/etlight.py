@@ -14,10 +14,11 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
-from bpy.app.handlers import persistent
+
+import itertools
 
 from .explosions import *
-from .logger import ExportProgressLogger
+from .logger import ExportProgressLogger, ExportVerboseLogger
 from .mesh import _MeshManager, _VERTEX_COLOR_LAYERS
 from ..helpers import *
 
@@ -26,17 +27,22 @@ _NUM_RENDER_LAYERS = 20
 class LightBaker(_MeshManager):
     """ExportTime Lighting"""
 
-    def __init__(self, report=None):
+    def __init__(self, report=None, verbose=False):
         self._lightgroups = {}
         if report is None:
-            self._report = ExportProgressLogger()
+            self._report = ExportVerboseLogger() if verbose else ExportProgressLogger()
             self.add_progress_steps(self._report, True)
-            self._report.progress_start("PREVIEWING LIGHTING")
+            self._report.progress_start("BAKING LIGHTING")
             self._own_report = True
         else:
             self._report = report
             self._own_report = False
         super().__init__(self._report)
+        self.vcol_layer_name = "autocolor"
+        self.lightmap_name = "{}_LIGHTMAPGEN.png"
+        self.lightmap_uvtex_name = "LIGHTMAPGEN"
+        self.retain_lightmap_uvtex = True
+        self.force = False
         self._uvtexs = {}
 
     def __del__(self):
@@ -99,6 +105,10 @@ class LightBaker(_MeshManager):
                 # this stuff has been observed to be problematic with GoodNeighbor
                 self._pop_lightgroups()
                 self._restore_uvtexs()
+                if not self.retain_lightmap_uvtex:
+                    self._remove_stale_uvtexes(bake)
+                else:
+                    self._pack_lightmaps(bake)
             return result
 
     def _bake_static_lighting(self, bake, toggle):
@@ -203,11 +213,14 @@ class LightBaker(_MeshManager):
             material.light_group = dest
         return shouldibake
 
+    def get_lightmap_name(self, bo):
+        return self.lightmap_name.format(bo.name)
+
     def _get_lightmap_uvtex(self, mesh, modifier):
         if modifier.uv_map:
             return mesh.uv_textures[modifier.uv_map]
         for i in mesh.uv_textures:
-            if i.name != "LIGHTMAPGEN":
+            if i.name not in {"LIGHTMAPGEN", self.lightmap_uvtex_name}:
                 return i
         return None
 
@@ -224,12 +237,7 @@ class LightBaker(_MeshManager):
         bake, bake_passes = {}, bpy.context.scene.plasma_scene.bake_passes
         bake_vcol = bake.setdefault(("vcol",) + default_layers, [])
 
-        for i in objs:
-            if i.type != "MESH":
-                continue
-            if bool(i.data.materials) is False:
-                continue
-
+        for i in filter(lambda x: x.type == "MESH" and bool(x.data.materials), objs):
             mods = i.plasma_modifiers
             lightmap_mod = mods.lightmap
             if lightmap_mod.enabled:
@@ -249,14 +257,41 @@ class LightBaker(_MeshManager):
                 if not lm_active_layers & obj_active_layers:
                     raise ExportError("Bake Lighting '{}': At least one layer the object is on must be selected".format(i.name))
 
+                # OK, now that the sanity checking is done, we could opt-out if an image is already
+                # set and we're not being forced...
+                if not self.force:
+                    want_image = lightmap_mod.bake_lightmap
+                    if want_image and lightmap_mod.image is not None and self.lightmap_uvtex_name in i.data.uv_textures:
+                        self._report.msg("'{}': Skipping due to valid lightmap override", i.name, indent=1)
+                        continue
+                    elif not want_image and any((vcol_layer.name.lower() in _VERTEX_COLOR_LAYERS for vcol_layer in i.data.vertex_colors)):
+                        self._report.msg("'{}': Skipping due to valid vertex color layer", i.name, indent=1)
+                        continue
+
                 method = "lightmap" if lightmap_mod.bake_lightmap else "vcol"
                 key = (method,) + lm_layers
                 bake_pass = bake.setdefault(key, [])
                 bake_pass.append(i)
+                self._report.msg("'{}': Bake to {}", i.name, method, indent=1)
             elif mods.lighting.preshade:
-                if not any((vcol_layer.name.lower() in _VERTEX_COLOR_LAYERS for vcol_layer in i.data.vertex_colors)):
+                if self.force or not any((vcol_layer.name.lower() in _VERTEX_COLOR_LAYERS for vcol_layer in i.data.vertex_colors)):
+                    self._report.msg("'{}': Bake to vcol (crappy)", i.name, indent=1)
                     bake_vcol.append(i)
         return bake
+
+    def _pack_lightmaps(self, bake):
+        lightmap_iter = itertools.chain.from_iterable((value for key, value in bake.items() if key[0] == "lightmap"))
+        for bo in lightmap_iter:
+            im = bpy.data.images.get(self.get_lightmap_name(bo))
+            if im is not None and im.is_dirty:
+                im.pack(as_png=True)
+
+                # Blender bug? If there is no vertex color layer, some textured rendered objects
+                # seem to go KABLOOEY! So, make sure there is at least one dummy vcol layer.
+                vcols = bo.data.vertex_colors
+                if not bool(vcols):
+                    # So the user knows what's happening
+                    vcols.new("LIGHTMAPGEN_defeatcrash")
 
     def _pop_lightgroups(self):
         materials = bpy.data.materials
@@ -292,7 +327,7 @@ class LightBaker(_MeshManager):
 
         # We need to ensure that we bake onto the "BlahObject_LIGHTMAPGEN" image
         data_images = bpy.data.images
-        im_name = "{}_LIGHTMAPGEN.png".format(bo.name)
+        im_name = self.get_lightmap_name(bo)
         size = modifier.resolution
 
         im = data_images.get(im_name)
@@ -304,7 +339,7 @@ class LightBaker(_MeshManager):
             im = data_images.new(im_name, width=size, height=size)
 
         # If there is a cached LIGHTMAPGEN uvtexture, nuke it
-        uvtex = uv_textures.get("LIGHTMAPGEN", None)
+        uvtex = uv_textures.get(self.lightmap_uvtex_name, None)
         if uvtex is not None:
             uv_textures.remove(uvtex)
 
@@ -326,7 +361,7 @@ class LightBaker(_MeshManager):
             uv_textures.active = uv_base
 
             # this will copy the UVs to the new UV texture
-            uvtex = uv_textures.new("LIGHTMAPGEN")
+            uvtex = uv_textures.new(self.lightmap_uvtex_name)
             uv_textures.active = uvtex
 
             # if the artist hid any UVs, they will not be baked to... fix this now
@@ -343,7 +378,7 @@ class LightBaker(_MeshManager):
         else:
             # same thread, see Sirius's suggestion RE smart unwrap. this seems to yield good
             # results in my tests. it will be good enough for quick exports.
-            uvtex = uv_textures.new("LIGHTMAPGEN")
+            uvtex = uv_textures.new(self.lightmap_uvtex_name)
             self._associate_image_with_uvtex(uvtex, im)
             bpy.ops.object.mode_set(mode="EDIT")
             bpy.ops.mesh.select_all(action="SELECT")
@@ -354,7 +389,7 @@ class LightBaker(_MeshManager):
         # NOTE that this will need to be reset by us to what the user had previously
         # Not using toggle.track due to observed oddities
         for i in uv_textures:
-            value = i.name == "LIGHTMAPGEN"
+            value = i.name == self.lightmap_uvtex_name
             i.active = value
             i.active_render = value
 
@@ -371,20 +406,29 @@ class LightBaker(_MeshManager):
         if not self._generate_lightgroup(bo, user_lg):
             return False
 
-        autocolor = vcols.get("autocolor")
+        vcol_layer_name = self.vcol_layer_name
+        autocolor = vcols.get(vcol_layer_name)
         if autocolor is None:
-            autocolor = vcols.new("autocolor")
+            autocolor = vcols.new(vcol_layer_name)
         toggle.track(vcols, "active", autocolor)
 
         # Mark "autocolor" as our active render layer
         for vcol_layer in mesh.vertex_colors:
-            autocol = vcol_layer.name == "autocolor"
+            autocol = vcol_layer.name == vcol_layer_name
             toggle.track(vcol_layer, "active_render", autocol)
             toggle.track(vcol_layer, "active", autocol)
         mesh.update()
 
         # Indicate we should bake
         return True
+
+    def _remove_stale_uvtexes(self, bake):
+        lightmap_iter = itertools.chain.from_iterable((value for key, value in bake.items() if key[0] == "lightmap"))
+        for bo in lightmap_iter:
+            uv_textures = bo.data.uv_textures
+            uvtex = uv_textures.get(self.lightmap_uvtex_name, None)
+            if uvtex is not None:
+                uv_textures.remove(uvtex)
 
     def _restore_uvtexs(self):
         for mesh_name, uvtex_name in self._uvtexs.items():
@@ -418,20 +462,3 @@ class LightBaker(_MeshManager):
                 elif isinstance(i.data, bpy.types.Mesh) and not self._has_valid_material(i):
                     toggle.track(i, "hide_render", True)
                 i.select = value
-
-@persistent
-def _toss_garbage(scene):
-    """Removes all LIGHTMAPGEN and autocolor garbage before saving"""
-    for i in bpy.data.images:
-        if i.name.endswith("_LIGHTMAPGEN.png"):
-            bpy.data.images.remove(i)
-    for i in bpy.data.meshes:
-        for uv_tex in i.uv_textures:
-            if uv_tex.name == "LIGHTMAPGEN":
-                i.uv_textures.remove(uv_tex)
-        for vcol in i.vertex_colors:
-            if vcol.name == "autocolor":
-                i.vertex_colors.remove(vcol)
-
-# collects light baking garbage
-bpy.app.handlers.save_pre.append(_toss_garbage)

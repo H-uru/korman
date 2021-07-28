@@ -435,6 +435,10 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
     uv_map = StringProperty(name="UV Texture",
                             description="UV Texture used as the basis for the lightmap")
 
+    image = PointerProperty(name="Baked Image",
+                            description="Use this image instead of re-baking the lighting each export",
+                            type=bpy.types.Image)
+
     @property
     def bake_lightmap(self):
         if not self.enabled:
@@ -459,7 +463,11 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
         if not self.bake_lightmap:
             return
 
-        lightmap_im = bpy.data.images.get("{}_LIGHTMAPGEN.png".format(bo.name))
+        if self.image is not None:
+            lightmap_im = self.image
+        else:
+            # Gulp...
+            lightmap_im = bpy.data.images.get("{}_LIGHTMAPGEN.png".format(bo.name))
 
         # If no lightmap image is found, then either lightmap generation failed (error raised by oven)
         # or baking is turned off. Either way, bail out.
@@ -469,14 +477,10 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
         materials = mat_mgr.get_materials(bo)
 
         # Find the stupid UVTex
-        uvw_src = 0
-        for i, uvtex in enumerate(bo.data.tessface_uv_textures):
-            if uvtex.name == "LIGHTMAPGEN":
-                uvw_src = i
-                break
-        else:
-            # TODO: raise exception
-            pass
+        uvtex_name = "LIGHTMAPGEN"
+        uvw_src = next((i for i, uvtex in enumerate(bo.data.uv_textures) if uvtex.name == uvtex_name), None)
+        if uvw_src is None:
+            raise ExportError("'{}': Lightmap UV Texture '{}' seems to be missing. Did you delete it?", bo.name, uvtex_name)
 
         for matKey in materials:
             layer = exporter.mgr.add_object(plLayer, name="{}_LIGHTMAPGEN".format(matKey.name), so=so)
