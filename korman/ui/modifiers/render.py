@@ -202,18 +202,18 @@ def lightmap(modifier, layout, context):
         layout.label("Transparent objects cannot be lightmapped.", icon="ERROR")
     else:
         col = layout.column()
-        col.active = is_texture
-        operator = col.operator("object.plasma_lightmap_preview", "Preview Lightmap", icon="RENDER_STILL")
+        col.operator("object.plasma_lightmap_preview", "Preview Lightmap" if is_texture else "Preview Vertex Colors", icon="RENDER_STILL")
 
         # Kind of clever stuff to show the user a preview...
         # We can't show images, so we make a hidden ImageTexture called LIGHTMAPGEN_PREVIEW. We check
         # the backing image name to see if it's for this lightmap. If so, you have a preview. If not,
         # well... It was nice knowing you!
-        tex = bpy.data.textures.get("LIGHTMAPGEN_PREVIEW")
-        if tex is not None and tex.image is not None:
-            im_name = "{}_LIGHTMAPGEN.png".format(context.active_object.name)
-            if tex.image.name == im_name:
-                layout.template_preview(tex, show_buttons=False)
+        if is_texture:
+            tex = bpy.data.textures.get("LIGHTMAPGEN_PREVIEW")
+            if tex is not None and tex.image is not None:
+                im_name = "{}_LIGHTMAPGEN.png".format(context.active_object.name)
+                if tex.image.name == im_name:
+                    layout.template_preview(tex, show_buttons=False)
 
 def rtshadow(modifier, layout, context):
     split = layout.split()

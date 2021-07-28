@@ -44,10 +44,14 @@ class LightmapAutobakePreviewOperator(_LightingOperator, bpy.types.Operator):
                     self.report({"INFO"}, "No valid lights found to bake.")
                     return {"FINISHED"}
 
-        tex = bpy.data.textures.get("LIGHTMAPGEN_PREVIEW")
-        if tex is None:
-            tex = bpy.data.textures.new("LIGHTMAPGEN_PREVIEW", "IMAGE")
-        tex.extension = "CLIP"
-        tex.image = bpy.data.images["{}_LIGHTMAPGEN.png".format(context.active_object.name)]
+        if context.object.plasma_modifiers.lightmap.bake_type == "lightmap":
+            tex = bpy.data.textures.get("LIGHTMAPGEN_PREVIEW")
+            if tex is None:
+                tex = bpy.data.textures.new("LIGHTMAPGEN_PREVIEW", "IMAGE")
+            tex.extension = "CLIP"
+            tex.image = bpy.data.images["{}_LIGHTMAPGEN.png".format(context.active_object.name)]
+        else:
+            for i in context.object.data.vertex_colors:
+                i.active = i.name == "autocolor"
 
         return {"FINISHED"}
