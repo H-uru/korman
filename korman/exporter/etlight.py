@@ -254,11 +254,7 @@ class LightBaker(_MeshManager):
                 bake_pass = bake.setdefault(key, [])
                 bake_pass.append(i)
             elif mods.lighting.preshade:
-                vcols = i.data.vertex_colors
-                for j in _VERTEX_COLOR_LAYERS:
-                    if j in vcols:
-                        break
-                else:
+                if not any((vcol_layer.name.lower() in _VERTEX_COLOR_LAYERS for vcol_layer in i.data.vertex_colors)):
                     bake_vcol.append(i)
         return bake
 
