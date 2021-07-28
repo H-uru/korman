@@ -99,3 +99,6 @@ class PlasmaModifiersSpecialMenu(ModifierButtonsPanel, bpy.types.Menu):
         layout.separator()
         layout.operator("object.plasma_modifier_copy", icon="COPYDOWN", text="Copy Modifiers").active_modifier = -1
         layout.operator("object.plasma_modifier_paste", icon="PASTEDOWN", text="Paste Modifier(s)")
+        layout.separator()
+        layout.operator("object.plasma_modifier_reset", text="Reset Modifiers", icon="FILE_REFRESH").active_modifier = -1
+        layout.operator("object.plasma_modifier_remove", text="Remove Modifiers", icon="X").active_modifier = -1

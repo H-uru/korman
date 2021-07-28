@@ -220,12 +220,14 @@ class ModifierRemoveOperator(ModifierOperator, bpy.types.Operator):
         return {"FINISHED"}
 
     def invoke(self, context, event):
-        assert self.active_modifier >= -1
         mods = context.object.plasma_modifiers
         self.mods2delete.clear()
 
         want2delete = OrderedSet()
-        want2delete.add(self._get_modifier(context).pl_id)
+        if self.active_modifier == -1:
+            want2delete.update((i.pl_id for i in context.object.plasma_modifiers.modifiers))
+        else:
+            want2delete.add(self._get_modifier(context).pl_id)
 
         # Here's the rub
         # When we start, we should have just one modifier in want2delete
@@ -249,8 +251,8 @@ class ModifierRemoveOperator(ModifierOperator, bpy.types.Operator):
 
 class ModifierResetOperator(ModifierOperator, bpy.types.Operator):
     bl_idname = "object.plasma_modifier_reset"
-    bl_label = "Reset the modifier to its default state?"
-    bl_description = "Reset the modifier to its default state"
+    bl_label = "Reset the modifier(s) to the default state?"
+    bl_description = "Reset the modifier(s) to the default state"
 
     active_modifier = IntProperty(name="Modifier Display Order",
                                   default=-1,
@@ -260,12 +262,17 @@ class ModifierResetOperator(ModifierOperator, bpy.types.Operator):
         pass
 
     def execute(self, context):
-        assert self.active_modifier >= 0
-        mod = self._get_modifier(context)
-        props = set(mod.keys()) - {"display_order", "display_name"}
-        for i in props:
-            mod.property_unset(i)
+        if self.active_modifier == -1:
+            for i in context.object.plasma_modifiers.modifiers:
+                self._reset(i)
+        else:
+            self._reset(self._get_modifier(context))
         return {"FINISHED"}
+
+    def _reset(self, modifier):
+        props = set(modifier.keys()) - {"display_order", "display_name"}
+        for i in props:
+            modifier.property_unset(i)
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self)
