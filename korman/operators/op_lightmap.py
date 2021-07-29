@@ -81,7 +81,7 @@ class LightmapAutobakePreviewOperator(_LightingOperator, bpy.types.Operator):
             if tex is None:
                 tex = bpy.data.textures.new("LIGHTMAPGEN_PREVIEW", "IMAGE")
             tex.extension = "CLIP"
-            image = bpy.data.images[bake.get_lightmap_name(context.object)]
+            image = bake.get_lightmap(context.object)
             tex.image = image
             if self.final:
                 lightmap_mod.image = image
@@ -126,7 +126,7 @@ class LightmapBakeMultiOperator(_LightingOperator, bpy.types.Operator):
         for i in filtered_objects:
             lightmap_mod = i.plasma_modifiers.lightmap
             if lightmap_mod.bake_lightmap:
-                lightmap_mod.image = bpy.data.images[bake.get_lightmap_name(i)]
+                lightmap_mod.image = bake.get_lightmap(i)
 
         return {"FINISHED"}
 

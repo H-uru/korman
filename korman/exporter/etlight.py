@@ -43,6 +43,7 @@ class LightBaker(_MeshManager):
         self.lightmap_uvtex_name = "LIGHTMAPGEN"
         self.retain_lightmap_uvtex = True
         self.force = False
+        self._lightmap_images = {}
         self._uvtexs = {}
 
     def __del__(self):
@@ -213,6 +214,9 @@ class LightBaker(_MeshManager):
             material.light_group = dest
         return shouldibake
 
+    def get_lightmap(self, bo):
+        return self._lightmap_images.get(bo.name)
+
     def get_lightmap_name(self, bo):
         return self.lightmap_name.format(bo.name)
 
@@ -282,7 +286,7 @@ class LightBaker(_MeshManager):
     def _pack_lightmaps(self, bake):
         lightmap_iter = itertools.chain.from_iterable((value for key, value in bake.items() if key[0] == "lightmap"))
         for bo in lightmap_iter:
-            im = bpy.data.images.get(self.get_lightmap_name(bo))
+            im = self.get_lightmap(bo)
             if im is not None and im.is_dirty:
                 im.pack(as_png=True)
 
@@ -337,6 +341,7 @@ class LightBaker(_MeshManager):
             # Force delete and recreate the image because the size is out of date
             data_images.remove(im)
             im = data_images.new(im_name, width=size, height=size)
+        self._lightmap_images[bo.name] = im
 
         # If there is a cached LIGHTMAPGEN uvtexture, nuke it
         uvtex = uv_textures.get(self.lightmap_uvtex_name, None)

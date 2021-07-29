@@ -56,6 +56,7 @@ class Exporter:
             self.image = image.ImageCache(self)
             self.locman = locman.LocalizationConverter(self)
             self.decal = decal.DecalConverter(self)
+            self.oven = etlight.LightBaker(self.report)
 
             # Step 0.8: Init the progress mgr
             self.mesh.add_progress_presteps(self.report)
@@ -126,10 +127,8 @@ class Exporter:
                 self.report.raise_errors()
 
     def _bake_static_lighting(self):
-        lighting_method = self._op.lighting_method
-        if lighting_method != "skip":
-            oven = etlight.LightBaker(self.report)
-            oven.bake_static_lighting(self._objects)
+        if self._op.lighting_method != "skip":
+            self.oven.bake_static_lighting(self._objects)
 
     def _collect_objects(self):
         scene = bpy.context.scene

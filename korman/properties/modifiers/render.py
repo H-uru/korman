@@ -463,14 +463,9 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
         if not self.bake_lightmap:
             return
 
-        if self.image is not None:
-            lightmap_im = self.image
-        else:
-            # Gulp...
-            lightmap_im = bpy.data.images.get("{}_LIGHTMAPGEN.png".format(bo.name))
-
         # If no lightmap image is found, then either lightmap generation failed (error raised by oven)
         # or baking is turned off. Either way, bail out.
+        lightmap_im = self.image if self.image is not None else exporter.oven.get_lightmap(bo)
         if lightmap_im is None:
             return
         mat_mgr = exporter.mesh.material
