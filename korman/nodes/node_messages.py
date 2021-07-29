@@ -803,7 +803,7 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
                 msg.volume = 0.0
             elif self.volume == "CUSTOM":
                 msg.setCmd(plSoundMsg.kSetVolume)
-                msg.volume = self.volume_pct
+                msg.volume = self.volume_pct / 100.0
 
             if self.looping != "CURRENT":
                 msg.setCmd(getattr(plSoundMsg, self.looping))
