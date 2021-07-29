@@ -17,6 +17,7 @@ import bpy
 from bpy.props import *
 
 from contextlib import contextmanager
+import itertools
 
 from ..exporter.etlight import LightBaker
 from ..helpers import UiHelper
@@ -142,18 +143,50 @@ class LightmapClearMultiOperator(_LightingOperator, bpy.types.Operator):
     def __init__(self):
         super().__init__()
 
+    def _iter_lightmaps(self, objects):
+        yield from filter(lambda x: x.type == "MESH" and x.plasma_modifiers.lightmap.bake_lightmap, objects)
+
+    def _iter_vcols(self, objects):
+        yield from filter(lambda x: x.type == "MESH" and not x.plasma_modifiers.lightmap.bake_lightmap, objects)
+
+    def _iter_final_vcols(self, objects):
+        yield from filter(lambda x: x.data.vertex_colors.get(self._FINAL_VERTEX_COLOR_LAYER), self._iter_vcols(objects))
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.label("This will remove the vertex color layer '{}' on:".format(self._FINAL_VERTEX_COLOR_LAYER))
+        col = layout.column_flow()
+
+        _MAX_OBJECTS = 50
+        vcol_iter = enumerate(self._iter_final_vcols(self._get_objects(context)))
+        for _, bo in itertools.takewhile(lambda x: x[0] < _MAX_OBJECTS, vcol_iter):
+            col.label(bo.name, icon="OBJECT_DATA")
+        remainder = sum((1 for _, _ in vcol_iter))
+        if remainder:
+            layout.label("... and {} other objects.".format(remainder))
+
+    def _get_objects(self, context):
+        return context.selected_objects if self.clear_selection else context.scene.objects
+
     def execute(self, context):
-        all_objects = context.selected_objects if self.clear_selection else context.scene.objects
-        for i in filter(lambda x: x.type == "MESH", all_objects):
-            lightmap_mod = i.plasma_modifiers.lightmap
-            if lightmap_mod.bake_lightmap:
-                lightmap_mod.image = None
-            else:
-                vcols = i.data.vertex_colors
-                col_layer = vcols.get(self._FINAL_VERTEX_COLOR_LAYER)
-                if col_layer is not None:
-                    vcols.remove(col_layer)
+        all_objects = self._get_objects(context)
+
+        for i in self._iter_lightmaps(all_objects):
+            i.plasma_modifiers.lightmap.image = None
+
+        for i in self._iter_vcols(all_objects):
+            vcols = i.data.vertex_colors
+            col_layer = vcols.get(self._FINAL_VERTEX_COLOR_LAYER)
+            if col_layer is not None:
+                vcols.remove(col_layer)
         return {"FINISHED"}
+
+    def invoke(self, context, event):
+        all_objects = self._get_objects(context)
+        if any(self._iter_final_vcols(all_objects)):
+            return context.window_manager.invoke_props_dialog(self)
+        return self.execute(context)
 
 
 @bpy.app.handlers.persistent
