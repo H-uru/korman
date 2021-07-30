@@ -288,13 +288,6 @@ class LightBaker(_MeshManager):
             if im is not None and im.is_dirty:
                 im.pack(as_png=True)
 
-                # Blender bug? If there is no vertex color layer, some textured rendered objects
-                # seem to go KABLOOEY! So, make sure there is at least one dummy vcol layer.
-                vcols = bo.data.vertex_colors
-                if not bool(vcols):
-                    # So the user knows what's happening
-                    vcols.new("LIGHTMAPGEN_defeatcrash")
-
     def _pop_lightgroups(self):
         materials = bpy.data.materials
         for mat_name, lg in self._lightgroups.items():
