@@ -84,6 +84,7 @@ class LightBaker(_MeshManager):
             self._apply_render_settings(toggle, False)
             self._select_only(objs, toggle)
             bpy.ops.object.bake_image()
+            self._pack_lightmaps(objs)
 
     def _bake_vcols(self, objs, layers):
         with GoodNeighbor() as toggle:
@@ -108,8 +109,6 @@ class LightBaker(_MeshManager):
                 self._restore_uvtexs()
                 if not self.retain_lightmap_uvtex:
                     self._remove_stale_uvtexes(bake)
-                else:
-                    self._pack_lightmaps(bake)
             return result
 
     def _bake_static_lighting(self, bake, toggle):
@@ -283,9 +282,8 @@ class LightBaker(_MeshManager):
                     bake_vcol.append(i)
         return bake
 
-    def _pack_lightmaps(self, bake):
-        lightmap_iter = itertools.chain.from_iterable((value for key, value in bake.items() if key[0] == "lightmap"))
-        for bo in lightmap_iter:
+    def _pack_lightmaps(self, objs):
+        for bo in objs:
             im = self.get_lightmap(bo)
             if im is not None and im.is_dirty:
                 im.pack(as_png=True)
