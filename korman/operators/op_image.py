@@ -179,6 +179,7 @@ class PlasmaBuildCubeMapOperator(ImageOperator, bpy.types.Operator):
         image.pixels = pixels
         image.update()
         image.pack(True)
+        image.plasma_image.texcache_method = "rebuild"
         return image
 
 
