@@ -107,6 +107,18 @@ class PlasmaGameExportMenu(PlasmaGameHelper, bpy.types.Menu):
             op.filepath = "{}.zip".format(age_name)
             op.version = active_game.version
 
+        # Profile Export
+        row = layout.row()
+        row.operator_context = "EXEC_DEFAULT"
+        age_path = self.format_path()
+        row.active = legal_game and active_game.can_launch and age_path.exists()
+        op = row.operator("export.plasma_age", icon="RADIO", text="Profile Export")
+        if active_game is not None:
+            op.actions = {"EXPORT", "PROFILE"}
+            op.dat_only = False
+            op.filepath = str(age_path)
+            op.version = active_game.version
+
 
 class PlasmaGamePanel(AgeButtonsPanel, PlasmaGameHelper, bpy.types.Panel):
     bl_label = "Plasma Games"
