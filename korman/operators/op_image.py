@@ -131,6 +131,7 @@ class PlasmaBuildCubeMapOperator(ImageOperator, bpy.types.Operator):
                     files.append(None)
                 self._report.progress_increment()
             return tuple(files)
+        return [None] * 6
 
     def _generate_cube_map(self, req_name, face_width, face_height, face_data):
         self._report.progress_advance()
