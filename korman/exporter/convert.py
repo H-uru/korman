@@ -14,10 +14,13 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
-from ..korlib import ConsoleToggler
+
 from pathlib import Path
+from contextlib import ExitStack
+
+from ..korlib import ConsoleToggler
+
 from PyHSPlasma import *
-import time
 
 from . import animation
 from . import camera
@@ -44,7 +47,7 @@ class Exporter:
 
     def run(self):
         log = logger.ExportVerboseLogger if self._op.verbose else logger.ExportProgressLogger
-        with ConsoleToggler(self._op.show_console), log(self._op.filepath) as self.report:
+        with ConsoleToggler(self._op.show_console), log(self._op.filepath) as self.report, ExitStack() as self.context_stack:
             # Step 0: Init export resmgr and stuff
             self.mgr = manager.ExportManager(self)
             self.mesh = mesh.MeshConverter(self)
@@ -56,7 +59,7 @@ class Exporter:
             self.image = image.ImageCache(self)
             self.locman = locman.LocalizationConverter(self)
             self.decal = decal.DecalConverter(self)
-            self.oven = etlight.LightBaker(self.report)
+            self.oven = etlight.LightBaker(self.report, stack=self.context_stack)
 
             # Step 0.8: Init the progress mgr
             self.mesh.add_progress_presteps(self.report)

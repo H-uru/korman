@@ -15,6 +15,7 @@
 
 import bpy
 
+from contextlib import ExitStack
 import itertools
 
 from .explosions import *
@@ -27,7 +28,7 @@ _NUM_RENDER_LAYERS = 20
 class LightBaker(_MeshManager):
     """ExportTime Lighting"""
 
-    def __init__(self, report=None, verbose=False):
+    def __init__(self, report=None, stack=None, *, verbose=False):
         self._lightgroups = {}
         if report is None:
             self._report = ExportVerboseLogger() if verbose else ExportProgressLogger()
@@ -38,6 +39,8 @@ class LightBaker(_MeshManager):
             self._report = report
             self._own_report = False
         super().__init__(self._report)
+
+        self._context_stack = stack
         self.vcol_layer_name = "autocolor"
         self.lightmap_name = "{}_LIGHTMAPGEN.png"
         self.lightmap_uvtex_name = "LIGHTMAPGEN"
@@ -240,6 +243,36 @@ class LightBaker(_MeshManager):
         bake, bake_passes = {}, bpy.context.scene.plasma_scene.bake_passes
         bake_vcol = bake.setdefault(("vcol",) + default_layers, [])
 
+        def lightmap_bake_required(obj) -> bool:
+            mod = obj.plasma_modifiers.lightmap
+            if mod.bake_lightmap:
+                if self.force:
+                    return True
+                if mod.image is not None:
+                    uv_texture_names = frozenset((i.name for i in obj.data.uv_textures))
+                    if self.lightmap_uvtex_name in uv_texture_names:
+                        self._report.msg("'{}': Skipping due to valid lightmap override", obj.name, indent=1)
+                    else:
+                        self._report.msg("'{}': Have lightmap but UVs are missing???", obj.name, indent=1)
+                    return False
+                return True
+            return False
+
+        def vcol_bake_required(obj) -> bool:
+            if obj.plasma_modifiers.lightmap.bake_lightmap:
+                return False
+            vcol_layer_names = frozenset((vcol_layer.name.lower() for vcol_layer in obj.data.vertex_colors))
+            manual_layer_names = _VERTEX_COLOR_LAYERS & vcol_layer_names
+            if manual_layer_names:
+                self._report.msg("'{}': Skipping due to valid manual vertex color layer(s): '{}'", obj.name, manual_layer_names.pop(), indent=1)
+                return False
+            if self.force:
+                return True
+            if self.vcol_layer_name.lower() in vcol_layer_names:
+                self._report.msg("'{}': Skipping due to valid matching vertex color layer(s): '{}'", obj.name, self.vcol_layer_name, indent=1)
+                return False
+            return True
+
         for i in filter(lambda x: x.type == "MESH" and bool(x.data.materials), objs):
             mods = i.plasma_modifiers
             lightmap_mod = mods.lightmap
@@ -260,26 +293,17 @@ class LightBaker(_MeshManager):
                 if not lm_active_layers & obj_active_layers:
                     raise ExportError("Bake Lighting '{}': At least one layer the object is on must be selected".format(i.name))
 
-                # OK, now that the sanity checking is done, we could opt-out if an image is already
-                # set and we're not being forced...
-                if not self.force:
-                    want_image = lightmap_mod.bake_lightmap
-                    if want_image and lightmap_mod.image is not None and self.lightmap_uvtex_name in i.data.uv_textures:
-                        self._report.msg("'{}': Skipping due to valid lightmap override", i.name, indent=1)
-                        continue
-                    elif not want_image and any((vcol_layer.name.lower() in _VERTEX_COLOR_LAYERS for vcol_layer in i.data.vertex_colors)):
-                        self._report.msg("'{}': Skipping due to valid vertex color layer", i.name, indent=1)
-                        continue
+                if lightmap_bake_required(i) is False and vcol_bake_required(i) is False:
+                    continue
 
                 method = "lightmap" if lightmap_mod.bake_lightmap else "vcol"
                 key = (method,) + lm_layers
                 bake_pass = bake.setdefault(key, [])
                 bake_pass.append(i)
                 self._report.msg("'{}': Bake to {}", i.name, method, indent=1)
-            elif mods.lighting.preshade:
-                if self.force or not any((vcol_layer.name.lower() in _VERTEX_COLOR_LAYERS for vcol_layer in i.data.vertex_colors)):
-                    self._report.msg("'{}': Bake to vcol (crappy)", i.name, indent=1)
-                    bake_vcol.append(i)
+            elif mods.lighting.preshade and vcol_bake_required(i):
+                self._report.msg("'{}': Bake to vcol (crappy)", i.name, indent=1)
+                bake_vcol.append(i)
         return bake
 
     def _pack_lightmaps(self, objs):
@@ -404,7 +428,8 @@ class LightBaker(_MeshManager):
 
         vcol_layer_name = self.vcol_layer_name
         autocolor = vcols.get(vcol_layer_name)
-        if autocolor is None:
+        needs_vcol_layer = autocolor is None
+        if needs_vcol_layer:
             autocolor = vcols.new(vcol_layer_name)
         toggle.track(vcols, "active", autocolor)
 
@@ -414,6 +439,14 @@ class LightBaker(_MeshManager):
             toggle.track(vcol_layer, "active_render", autocol)
             toggle.track(vcol_layer, "active", autocol)
         mesh.update()
+
+        # Vertex colors are sort of ephemeral, so if we have an exit stack, we want to
+        # terminate this layer when the exporter is done. But, this is not an unconditional
+        # nukage. If we're in the lightmap operators, we clearly want this to persist for
+        # future exports as an optimization. We won't reach this point if there is already an
+        # autocolor layer (gulp).
+        if self._context_stack is not None and needs_vcol_layer:
+            self._context_stack.enter_context(TemporaryObject(vcol_layer, vcols.remove))
 
         # Indicate we should bake
         return True

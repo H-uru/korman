@@ -205,8 +205,11 @@ def lightmap(modifier, layout, context):
         layout.label("Transparent objects cannot be lightmapped.", icon="ERROR")
     else:
         row = layout.row(align=True)
-        row.operator("object.plasma_lightmap_preview", "Preview", icon="RENDER_STILL").final = False
-        row.operator("object.plasma_lightmap_preview", "Bake for Export", icon="RENDER_STILL").final = True
+        if modifier.bake_lightmap:
+            row.operator("object.plasma_lightmap_preview", "Preview", icon="RENDER_STILL").final = False
+            row.operator("object.plasma_lightmap_preview", "Bake for Export", icon="RENDER_STILL").final = True
+        else:
+            row.operator("object.plasma_lightmap_preview", "Bake", icon="RENDER_STILL").final = True
 
         # Kind of clever stuff to show the user a preview...
         # We can't show images, so we make a hidden ImageTexture called LIGHTMAPGEN_PREVIEW. We check
