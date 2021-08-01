@@ -297,7 +297,7 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
             sound.channel = plWin32Sound.kRightChannel
 
         # Reverb/EAX
-        if self.sfx_type in ("kSoundFX", "kNPCVoices") and self.reverb_amount > 0:
+        if self.sfx_type in {"kSoundFX", "kNPCVoices"} and self.reverb_amount > 0:
             eax = sound.eaxSettings
             eax.enable = True
             # Occlusion: the minimum is -100 dB (but the value is multiplied by 100 in EAX's API)

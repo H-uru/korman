@@ -83,7 +83,7 @@ def soundemit(modifier, layout, context):
         col.separator()
         _draw_fade_ui(sound.fade_out, col, "Fade Out:")
 
-        if sound.sfx_type in ("kSoundFX", "kNPCVoices"):
+        if sound.sfx_type in {"kSoundFX", "kNPCVoices"}:
             col.separator()
             col.prop(sound, "reverb_amount", text="Reverb Amount")
 
