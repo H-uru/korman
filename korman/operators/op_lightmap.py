@@ -16,10 +16,12 @@
 import bpy
 from bpy.props import *
 
+import cProfile
 from contextlib import contextmanager
-import itertools
+import pstats
 
 from ..exporter.etlight import LightBaker
+from ..exporter.explosions import ExportError
 from ..helpers import UiHelper
 from ..korlib import ConsoleToggler
 
@@ -95,6 +97,25 @@ class LightmapBakeMultiOperator(_LightingOperator, bpy.types.Operator):
         super().__init__()
 
     def execute(self, context):
+        profile_me = False
+
+        try:
+            if profile_me:
+                cProfile.runctx("self._run(context)", globals(), locals(), "bake_cProfile")
+            else:
+                self._run(context)
+        except ExportError as error:
+            self.report({"ERROR"}, str(error))
+            return {"CANCELLED"}
+        else:
+            if profile_me:
+                with open("bake_profile.log", "w") as out:
+                    stats = pstats.Stats("bake_cProfile", stream=out)
+                    stats = stats.sort_stats("time", "cumtime")
+                    stats.print_stats()
+        return {"FINISHED"}
+
+    def _run(self, context):
         all_objects = context.selected_objects if self.bake_selection else context.scene.objects
         filtered_objects = [i for i in all_objects if i.type == "MESH" and i.plasma_object.enabled]
 
@@ -108,8 +129,6 @@ class LightmapBakeMultiOperator(_LightingOperator, bpy.types.Operator):
             lightmap_mod = i.plasma_modifiers.lightmap
             if lightmap_mod.bake_lightmap:
                 lightmap_mod.image = bake.get_lightmap(i)
-
-        return {"FINISHED"}
 
 
 class LightmapClearMultiOperator(_LightingOperator, bpy.types.Operator):

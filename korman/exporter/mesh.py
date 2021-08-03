@@ -374,6 +374,8 @@ class MeshConverter(_MeshManager):
             inc_progress()
 
     def _export_geometry(self, bo, mesh, materials, geospans, mat2span_LUT):
+        self._report.msg("Converting geometry from '{}'...", mesh.name, indent=1)
+
         # Recall that materials is a mapping of exported materials to blender material indices.
         # Therefore, geodata maps blender material indices to working geometry data.
         # Maybe the logic is a bit inverted, but it keeps the inner loop simple.
