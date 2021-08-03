@@ -32,7 +32,8 @@ class PlasmaFni(bpy.types.PropertyGroup):
                               items=[
                                      ("linear", "Linear", "Linear Fog"),
                                      ("exp", "Exponential", "Exponential Fog"),
-                                     ("none", "None", "Use fog from the previous age")
+                                     ("exp2", "Exponential 2", "Exponential Fog 2"),
+                                     ("none", "None", "No Fog")
                                     ])
     fog_start = FloatProperty(name="Start",
                               description="",

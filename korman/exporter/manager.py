@@ -331,6 +331,8 @@ class ExportManager:
                     stream.writeLine("Graphics.Renderer.Fog.SetDefLinear {:.2f} {:.2f} {:.2f}".format(fni.fog_start, fni.fog_end, fni.fog_density))
                 elif fni.fog_method == "exp":
                     stream.writeLine("Graphics.Renderer.Fog.SetDefExp {:.2f} {:.2f}".format(fni.fog_end, fni.fog_density))
+                elif fni.fog_method == "exp2":
+                    stream.writeLine("Graphics.Renderer.Fog.SetDefExp2 {:.2f} {:.2f}".format(fni.fog_end, fni.fog_density))
 
     def _write_pages(self):
         age_name = self._age_info.name
