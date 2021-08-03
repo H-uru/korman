@@ -232,6 +232,9 @@ class _MeshManager:
                             continue
                         setattr(mod, key, value)
 
+    def is_collapsed(self, bo) -> bool:
+        return bo.name in self._overrides
+
 
 class MeshConverter(_MeshManager):
     def __init__(self, exporter):

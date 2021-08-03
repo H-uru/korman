@@ -15,7 +15,7 @@
 
 import bpy
 
-from contextlib import ExitStack
+from contextlib import contextmanager
 import itertools
 
 from .explosions import *
@@ -375,6 +375,8 @@ class LightBaker(_MeshManager):
         # this tended to create sharp edges. There was already a discussion about this on the
         # Guild of Writers forum, so I'm implementing a code version of dendwaler's process,
         # as detailed here: https://forum.guildofwriters.org/viewtopic.php?p=62572#p62572
+        # This has been amended with Sirius's observations in GH-265 about forced uv map
+        # packing. Namely, don't do it unless modifiers make us.
         uv_base = self._get_lightmap_uvtex(mesh, modifier)
         if uv_base is not None:
             uv_textures.active = uv_base
@@ -384,25 +386,25 @@ class LightBaker(_MeshManager):
             uv_textures.active = uvtex
 
             # if the artist hid any UVs, they will not be baked to... fix this now
-            bpy.ops.object.mode_set(mode="EDIT")
-            bpy.ops.uv.reveal()
-            bpy.ops.object.mode_set(mode="OBJECT")
+            with self._set_mode("EDIT"):
+                bpy.ops.uv.reveal()
             self._associate_image_with_uvtex(uv_textures.active, im)
-            bpy.ops.object.mode_set(mode="EDIT")
 
-            # prep the uvtex for lightmapping
-            bpy.ops.mesh.select_all(action="SELECT")
-            bpy.ops.uv.average_islands_scale()
-            bpy.ops.uv.pack_islands()
+            # Meshes with modifiers need to have islands packed to prevent generated vertices
+            # from sharing UVs. Sigh.
+            if self.is_collapsed(bo):
+                self._report.warn("'{}': packing islands in UV Texture '{}' due to modifier collapse", bo.name, uv_base.name)
+                with self._set_mode("EDIT"):
+                    bpy.ops.mesh.select_all(action="SELECT")
+                    bpy.ops.uv.pack_islands()
         else:
             # same thread, see Sirius's suggestion RE smart unwrap. this seems to yield good
             # results in my tests. it will be good enough for quick exports.
             uvtex = uv_textures.new(self.lightmap_uvtex_name)
             self._associate_image_with_uvtex(uvtex, im)
-            bpy.ops.object.mode_set(mode="EDIT")
-            bpy.ops.mesh.select_all(action="SELECT")
-            bpy.ops.uv.smart_project()
-        bpy.ops.object.mode_set(mode="OBJECT")
+            with self._set_mode("EDIT"):
+                bpy.ops.mesh.select_all(action="SELECT")
+                bpy.ops.uv.smart_project(island_margin=0.05)
 
         # Now, set the new LIGHTMAPGEN uv layer as what we want to render to...
         # NOTE that this will need to be reset by us to what the user had previously
@@ -490,3 +492,11 @@ class LightBaker(_MeshManager):
                 elif isinstance(i.data, bpy.types.Mesh) and not self._has_valid_material(i):
                     toggle.track(i, "hide_render", True)
                 i.select = value
+
+    @contextmanager
+    def _set_mode(self, mode):
+        bpy.ops.object.mode_set(mode=mode)
+        try:
+            yield
+        finally:
+            bpy.ops.object.mode_set(mode="OBJECT")
