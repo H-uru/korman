@@ -14,6 +14,7 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+from contextlib import ExitStack
 import itertools
 from PyHSPlasma import *
 from math import fabs
@@ -163,6 +164,7 @@ class _GeoData:
 
 class _MeshManager:
     def __init__(self, report=None):
+        self.context_stack = ExitStack()
         if report is not None:
             self._report = report
         self._overrides = {}
@@ -181,6 +183,8 @@ class _MeshManager:
         return props
 
     def __enter__(self):
+        self.context_stack.__enter__()
+
         scene = bpy.context.scene
         self._report.progress_advance()
         self._report.progress_range = len(scene.objects)
@@ -207,23 +211,26 @@ class _MeshManager:
             self._report.progress_increment()
         return self
 
-    def __exit__(self, type, value, traceback):
-        data_bos, data_meshes = bpy.data.objects, bpy.data.meshes
-        for obj_name, override in self._overrides.items():
-            bo = data_bos.get(obj_name)
+    def __exit__(self, *exc_info):
+        try:
+            self.context_stack.__exit__(*exc_info)
+        finally:
+            data_bos, data_meshes = bpy.data.objects, bpy.data.meshes
+            for obj_name, override in self._overrides.items():
+                bo = data_bos.get(obj_name)
 
-            # Reapply the old mesh
-            trash_mesh, bo.data = bo.data, data_meshes.get(override["mesh"])
-            data_meshes.remove(trash_mesh)
+                # Reapply the old mesh
+                trash_mesh, bo.data = bo.data, data_meshes.get(override["mesh"])
+                data_meshes.remove(trash_mesh)
 
-            # If modifiers were removed, reapply them now unless they're read-only.
-            readonly_attributes = {("DECIMATE", "face_count"),}
-            for cached_mod in override["modifiers"]:
-                mod = bo.modifiers.new(cached_mod["name"], cached_mod["type"])
-                for key, value in cached_mod.items():
-                    if key in {"name", "type"} or (cached_mod["type"], key) in readonly_attributes:
-                        continue
-                    setattr(mod, key, value)
+                # If modifiers were removed, reapply them now unless they're read-only.
+                readonly_attributes = {("DECIMATE", "face_count"),}
+                for cached_mod in override["modifiers"]:
+                    mod = bo.modifiers.new(cached_mod["name"], cached_mod["type"])
+                    for key, value in cached_mod.items():
+                        if key in {"name", "type"} or (cached_mod["type"], key) in readonly_attributes:
+                            continue
+                        setattr(mod, key, value)
 
 
 class MeshConverter(_MeshManager):

@@ -28,7 +28,7 @@ _NUM_RENDER_LAYERS = 20
 class LightBaker(_MeshManager):
     """ExportTime Lighting"""
 
-    def __init__(self, report=None, stack=None, *, verbose=False):
+    def __init__(self, report=None, *, verbose=False):
         self._lightgroups = {}
         if report is None:
             self._report = ExportVerboseLogger() if verbose else ExportProgressLogger()
@@ -40,7 +40,6 @@ class LightBaker(_MeshManager):
             self._own_report = False
         super().__init__(self._report)
 
-        self._context_stack = stack
         self.vcol_layer_name = "autocolor"
         self.lightmap_name = "{}_LIGHTMAPGEN.png"
         self.lightmap_uvtex_name = "LIGHTMAPGEN"
@@ -445,8 +444,8 @@ class LightBaker(_MeshManager):
         # nukage. If we're in the lightmap operators, we clearly want this to persist for
         # future exports as an optimization. We won't reach this point if there is already an
         # autocolor layer (gulp).
-        if self._context_stack is not None and needs_vcol_layer:
-            self._context_stack.enter_context(TemporaryObject(vcol_layer, vcols.remove))
+        if not self.force and needs_vcol_layer:
+            self.context_stack.enter_context(TemporaryObject(vcol_layer, vcols.remove))
 
         # Indicate we should bake
         return True

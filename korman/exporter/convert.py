@@ -16,7 +16,6 @@
 import bpy
 
 from pathlib import Path
-from contextlib import ExitStack
 
 from ..korlib import ConsoleToggler
 
@@ -47,7 +46,7 @@ class Exporter:
 
     def run(self):
         log = logger.ExportVerboseLogger if self._op.verbose else logger.ExportProgressLogger
-        with ConsoleToggler(self._op.show_console), log(self._op.filepath) as self.report, ExitStack() as self.context_stack:
+        with ConsoleToggler(self._op.show_console), log(self._op.filepath) as self.report:
             # Step 0: Init export resmgr and stuff
             self.mgr = manager.ExportManager(self)
             self.mesh = mesh.MeshConverter(self)
@@ -59,7 +58,7 @@ class Exporter:
             self.image = image.ImageCache(self)
             self.locman = locman.LocalizationConverter(self)
             self.decal = decal.DecalConverter(self)
-            self.oven = etlight.LightBaker(self.report, stack=self.context_stack)
+            self.oven = etlight.LightBaker(self.report)
 
             # Step 0.8: Init the progress mgr
             self.mesh.add_progress_presteps(self.report)
