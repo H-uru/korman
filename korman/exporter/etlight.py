@@ -110,11 +110,11 @@ class LightBaker:
         """Bakes all static lighting for Plasma geometry"""
 
         self._report.msg("\nBaking Static Lighting...")
-        bake = self._harvest_bakable_objects(objs)
 
         with GoodNeighbor() as toggle:
             try:
                 # reduce the amount of indentation
+                bake = self._harvest_bakable_objects(objs, toggle)
                 result = self._bake_static_lighting(bake, toggle)
             finally:
                 # this stuff has been observed to be problematic with GoodNeighbor
@@ -238,7 +238,7 @@ class LightBaker:
                 return True
         return False
 
-    def _harvest_bakable_objects(self, objs):
+    def _harvest_bakable_objects(self, objs, toggle):
         # The goal here is to minimize the calls to bake_image, so we are going to collect everything
         # that needs to be baked and sort it out by configuration.
         default_layers = tuple((True,) * _NUM_RENDER_LAYERS)
@@ -255,7 +255,8 @@ class LightBaker:
                     if self.lightmap_uvtex_name in uv_texture_names:
                         self._report.msg("'{}': Skipping due to valid lightmap override", obj.name, indent=1)
                     else:
-                        self._report.msg("'{}': Have lightmap but UVs are missing???", obj.name, indent=1)
+                        self._report.warn("'{}': Have lightmap, but regenerating UVs", obj.name, indent=1)
+                        self._prep_for_lightmap_uvs(obj, mod.image, toggle)
                     return False
                 return True
             return False
@@ -360,6 +361,24 @@ class LightBaker:
             im = data_images.new(im_name, width=size, height=size)
         self._lightmap_images[bo.name] = im
 
+        self._prep_for_lightmap_uvs(bo, im, toggle)
+
+        # Now, set the new LIGHTMAPGEN uv layer as what we want to render to...
+        # NOTE that this will need to be reset by us to what the user had previously
+        # Not using toggle.track due to observed oddities
+        for i in uv_textures:
+            value = i.name == self.lightmap_uvtex_name
+            i.active = value
+            i.active_render = value
+
+        # Indicate we should bake
+        return True
+
+    def _prep_for_lightmap_uvs(self, bo, image, toggle):
+        mesh = bo.data
+        modifier = bo.plasma_modifiers.lightmap
+        uv_textures = mesh.uv_textures
+
         # If there is a cached LIGHTMAPGEN uvtexture, nuke it
         uvtex = uv_textures.get(self.lightmap_uvtex_name, None)
         if uvtex is not None:
@@ -392,7 +411,7 @@ class LightBaker:
             # if the artist hid any UVs, they will not be baked to... fix this now
             with self._set_mode("EDIT"):
                 bpy.ops.uv.reveal()
-            self._associate_image_with_uvtex(uv_textures.active, im)
+            self._associate_image_with_uvtex(uv_textures.active, image)
 
             # Meshes with modifiers need to have islands packed to prevent generated vertices
             # from sharing UVs. Sigh.
@@ -408,22 +427,11 @@ class LightBaker:
             # results in my tests. it will be good enough for quick exports.
             uvtex = uv_textures.new(self.lightmap_uvtex_name)
             uv_textures.active = uvtex
-            self._associate_image_with_uvtex(uvtex, im)
+            self._associate_image_with_uvtex(uvtex, image)
             with self._set_mode("EDIT"):
                 bpy.ops.mesh.select_all(action="SELECT")
                 bpy.ops.uv.select_all(action="SELECT")
                 bpy.ops.uv.smart_project(island_margin=0.05)
-
-        # Now, set the new LIGHTMAPGEN uv layer as what we want to render to...
-        # NOTE that this will need to be reset by us to what the user had previously
-        # Not using toggle.track due to observed oddities
-        for i in uv_textures:
-            value = i.name == self.lightmap_uvtex_name
-            i.active = value
-            i.active_render = value
-
-        # Indicate we should bake
-        return True
 
     def _prep_for_vcols(self, bo, toggle):
         mesh = bo.data
