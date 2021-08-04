@@ -25,10 +25,10 @@ from ..helpers import *
 
 _NUM_RENDER_LAYERS = 20
 
-class LightBaker(_MeshManager):
+class LightBaker:
     """ExportTime Lighting"""
 
-    def __init__(self, report=None, *, verbose=False):
+    def __init__(self, *, mesh=None, report=None, verbose=False):
         self._lightgroups = {}
         if report is None:
             self._report = ExportVerboseLogger() if verbose else ExportProgressLogger()
@@ -38,7 +38,11 @@ class LightBaker(_MeshManager):
         else:
             self._report = report
             self._own_report = False
-        super().__init__(self._report)
+
+        # This used to be the base class, but due to the need to access the export state
+        # which may be stored in the exporter's mesh manager, we've changed from is-a to has-a
+        # semantics. Sorry for this confusion!
+        self._mesh = _MeshManager(self._report) if mesh is None else mesh
 
         self.vcol_layer_name = "autocolor"
         self.lightmap_name = "{}_LIGHTMAPGEN.png"
@@ -51,6 +55,13 @@ class LightBaker(_MeshManager):
     def __del__(self):
         if self._own_report:
             self._report.progress_end()
+
+    def __enter__(self):
+        self._mesh.__enter__()
+        return self
+
+    def __exit__(self, *exc_info):
+        self._mesh.__exit__(*exc_info)
 
     @staticmethod
     def add_progress_steps(report, add_base=False):
@@ -385,8 +396,10 @@ class LightBaker(_MeshManager):
 
             # Meshes with modifiers need to have islands packed to prevent generated vertices
             # from sharing UVs. Sigh.
-            if self.is_collapsed(bo):
-                self._report.warn("'{}': packing islands in UV Texture '{}' due to modifier collapse", bo.name, uv_base.name)
+            if self._mesh.is_collapsed(bo):
+                # Danger: uv_base.name -> UnicodeDecodeError (wtf? another blender bug?)
+                self._report.warn("'{}': packing islands in UV Texture '{}' due to modifier collapse",
+                                  bo.name, modifier.uv_map, indent=2)
                 with self._set_mode("EDIT"):
                     bpy.ops.mesh.select_all(action="SELECT")
                     bpy.ops.uv.pack_islands(margin=0.01)
@@ -441,7 +454,7 @@ class LightBaker(_MeshManager):
         # future exports as an optimization. We won't reach this point if there is already an
         # autocolor layer (gulp).
         if not self.force and needs_vcol_layer:
-            self.context_stack.enter_context(TemporaryObject(vcol_layer, vcols.remove))
+            self._mesh.context_stack.enter_context(TemporaryObject(vcol_layer, vcols.remove))
 
         # Indicate we should bake
         return True
