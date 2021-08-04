@@ -196,7 +196,7 @@ def lightmap(modifier, layout, context):
     col = layout.column()
     col.active = is_texture
     col.prop_search(modifier, "uv_map", context.active_object.data, "uv_textures")
-    if bool(modifier.id_data.modifiers):
+    if bool(modifier.id_data.modifiers) and modifier.uv_map:
         col.label("UV Map islands will be packed on export.", icon="ERROR")
     col = layout.column()
     col.active = is_texture

@@ -221,14 +221,6 @@ class LightBaker(_MeshManager):
     def get_lightmap_name(self, bo):
         return self.lightmap_name.format(bo.name)
 
-    def _get_lightmap_uvtex(self, mesh, modifier):
-        if modifier.uv_map:
-            return mesh.uv_textures[modifier.uv_map]
-        for i in mesh.uv_textures:
-            if i.name not in {"LIGHTMAPGEN", self.lightmap_uvtex_name}:
-                return i
-        return None
-
     def _has_valid_material(self, bo):
         for material in bo.data.materials:
             if material is not None:
@@ -366,7 +358,8 @@ class LightBaker(_MeshManager):
         toggle.track(bo, "hide", False)
 
         # Because the way Blender tracks active UV layers is massively stupid...
-        self._uvtexs[mesh.name] = uv_textures.active.name
+        if uv_textures.active is not None:
+            self._uvtexs[mesh.name] = uv_textures.active.name
 
         # We must make this the active object before touching any operators
         bpy.context.scene.objects.active = bo
@@ -377,7 +370,7 @@ class LightBaker(_MeshManager):
         # as detailed here: https://forum.guildofwriters.org/viewtopic.php?p=62572#p62572
         # This has been amended with Sirius's observations in GH-265 about forced uv map
         # packing. Namely, don't do it unless modifiers make us.
-        uv_base = self._get_lightmap_uvtex(mesh, modifier)
+        uv_base = uv_textures.get(modifier.uv_map) if modifier.uv_map else None
         if uv_base is not None:
             uv_textures.active = uv_base
 
@@ -396,11 +389,12 @@ class LightBaker(_MeshManager):
                 self._report.warn("'{}': packing islands in UV Texture '{}' due to modifier collapse", bo.name, uv_base.name)
                 with self._set_mode("EDIT"):
                     bpy.ops.mesh.select_all(action="SELECT")
-                    bpy.ops.uv.pack_islands()
+                    bpy.ops.uv.pack_islands(margin=0.01)
         else:
             # same thread, see Sirius's suggestion RE smart unwrap. this seems to yield good
             # results in my tests. it will be good enough for quick exports.
             uvtex = uv_textures.new(self.lightmap_uvtex_name)
+            uv_textures.active = uvtex
             self._associate_image_with_uvtex(uvtex, im)
             with self._set_mode("EDIT"):
                 bpy.ops.mesh.select_all(action="SELECT")
