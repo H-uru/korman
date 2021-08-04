@@ -411,6 +411,7 @@ class LightBaker:
             self._associate_image_with_uvtex(uvtex, im)
             with self._set_mode("EDIT"):
                 bpy.ops.mesh.select_all(action="SELECT")
+                bpy.ops.uv.select_all(action="SELECT")
                 bpy.ops.uv.smart_project(island_margin=0.05)
 
         # Now, set the new LIGHTMAPGEN uv layer as what we want to render to...
