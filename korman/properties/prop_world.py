@@ -30,9 +30,9 @@ class PlasmaFni(bpy.types.PropertyGroup):
                                     subtype="COLOR")
     fog_method = EnumProperty(name="Fog Type",
                               items=[
-                                     ("linear", "Linear", "Linear Fog"),
-                                     ("exp", "Exponential", "Exponential Fog"),
-                                     ("exp2", "Exponential 2", "Exponential Fog 2"),
+                                     ("linear", "Linear", "Fog Based on Linear Distance"),
+                                     ("exp", "Exponential", "Fog Based on Exponential Distance"),
+                                     ("exp2", "Exponential 2", "Fog Based on Exponential Distance Squared"),
                                      ("none", "None", "No Fog")
                                     ])
     fog_start = FloatProperty(name="Start",
