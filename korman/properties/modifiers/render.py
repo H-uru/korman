@@ -472,7 +472,7 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
         materials = mat_mgr.get_materials(bo)
 
         # Find the stupid UVTex
-        uvtex_name = "LIGHTMAPGEN"
+        uvtex_name = exporter.oven.lightmap_uvtex_name
         uvw_src = next((i for i, uvtex in enumerate(bo.data.uv_textures) if uvtex.name == uvtex_name), None)
         if uvw_src is None:
             raise ExportError("'{}': Lightmap UV Texture '{}' seems to be missing. Did you delete it?", bo.name, uvtex_name)

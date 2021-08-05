@@ -61,7 +61,7 @@ class LightmapAutobakePreviewOperator(_LightingOperator, bpy.types.Operator):
             if not self.final:
                 bake.lightmap_name = "{}_LIGHTMAPGEN_PREVIEW.png"
                 bake.lightmap_uvtex_name = "LIGHTMAPGEN_PREVIEW"
-            bake.force = self.final
+            bake.force = True
             bake.retain_lightmap_uvtex = self.final
             if not bake.bake_static_lighting([context.object,]):
                 self.report({"WARNING"}, "No valid lights found to bake.")

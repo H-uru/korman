@@ -58,7 +58,7 @@ class Exporter:
             self.image = image.ImageCache(self)
             self.locman = locman.LocalizationConverter(self)
             self.decal = decal.DecalConverter(self)
-            self.oven = etlight.LightBaker(self.report)
+            self.oven = etlight.LightBaker(mesh=self.mesh, report=self.report)
 
             # Step 0.8: Init the progress mgr
             self.mesh.add_progress_presteps(self.report)

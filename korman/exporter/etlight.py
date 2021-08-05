@@ -15,7 +15,7 @@
 
 import bpy
 
-from contextlib import ExitStack
+from contextlib import contextmanager
 import itertools
 
 from .explosions import *
@@ -25,10 +25,10 @@ from ..helpers import *
 
 _NUM_RENDER_LAYERS = 20
 
-class LightBaker(_MeshManager):
+class LightBaker:
     """ExportTime Lighting"""
 
-    def __init__(self, report=None, *, verbose=False):
+    def __init__(self, *, mesh=None, report=None, verbose=False):
         self._lightgroups = {}
         if report is None:
             self._report = ExportVerboseLogger() if verbose else ExportProgressLogger()
@@ -38,7 +38,11 @@ class LightBaker(_MeshManager):
         else:
             self._report = report
             self._own_report = False
-        super().__init__(self._report)
+
+        # This used to be the base class, but due to the need to access the export state
+        # which may be stored in the exporter's mesh manager, we've changed from is-a to has-a
+        # semantics. Sorry for this confusion!
+        self._mesh = _MeshManager(self._report) if mesh is None else mesh
 
         self.vcol_layer_name = "autocolor"
         self.lightmap_name = "{}_LIGHTMAPGEN.png"
@@ -51,6 +55,13 @@ class LightBaker(_MeshManager):
     def __del__(self):
         if self._own_report:
             self._report.progress_end()
+
+    def __enter__(self):
+        self._mesh.__enter__()
+        return self
+
+    def __exit__(self, *exc_info):
+        self._mesh.__exit__(*exc_info)
 
     @staticmethod
     def add_progress_steps(report, add_base=False):
@@ -99,11 +110,11 @@ class LightBaker(_MeshManager):
         """Bakes all static lighting for Plasma geometry"""
 
         self._report.msg("\nBaking Static Lighting...")
-        bake = self._harvest_bakable_objects(objs)
 
         with GoodNeighbor() as toggle:
             try:
                 # reduce the amount of indentation
+                bake = self._harvest_bakable_objects(objs, toggle)
                 result = self._bake_static_lighting(bake, toggle)
             finally:
                 # this stuff has been observed to be problematic with GoodNeighbor
@@ -221,21 +232,13 @@ class LightBaker(_MeshManager):
     def get_lightmap_name(self, bo):
         return self.lightmap_name.format(bo.name)
 
-    def _get_lightmap_uvtex(self, mesh, modifier):
-        if modifier.uv_map:
-            return mesh.uv_textures[modifier.uv_map]
-        for i in mesh.uv_textures:
-            if i.name not in {"LIGHTMAPGEN", self.lightmap_uvtex_name}:
-                return i
-        return None
-
     def _has_valid_material(self, bo):
         for material in bo.data.materials:
             if material is not None:
                 return True
         return False
 
-    def _harvest_bakable_objects(self, objs):
+    def _harvest_bakable_objects(self, objs, toggle):
         # The goal here is to minimize the calls to bake_image, so we are going to collect everything
         # that needs to be baked and sort it out by configuration.
         default_layers = tuple((True,) * _NUM_RENDER_LAYERS)
@@ -252,7 +255,8 @@ class LightBaker(_MeshManager):
                     if self.lightmap_uvtex_name in uv_texture_names:
                         self._report.msg("'{}': Skipping due to valid lightmap override", obj.name, indent=1)
                     else:
-                        self._report.msg("'{}': Have lightmap but UVs are missing???", obj.name, indent=1)
+                        self._report.warn("'{}': Have lightmap, but regenerating UVs", obj.name, indent=1)
+                        self._prep_for_lightmap_uvs(obj, mod.image, toggle)
                     return False
                 return True
             return False
@@ -357,52 +361,7 @@ class LightBaker(_MeshManager):
             im = data_images.new(im_name, width=size, height=size)
         self._lightmap_images[bo.name] = im
 
-        # If there is a cached LIGHTMAPGEN uvtexture, nuke it
-        uvtex = uv_textures.get(self.lightmap_uvtex_name, None)
-        if uvtex is not None:
-            uv_textures.remove(uvtex)
-
-        # Make sure we can enter Edit Mode(TM)
-        toggle.track(bo, "hide", False)
-
-        # Because the way Blender tracks active UV layers is massively stupid...
-        self._uvtexs[mesh.name] = uv_textures.active.name
-
-        # We must make this the active object before touching any operators
-        bpy.context.scene.objects.active = bo
-
-        # Originally, we used the lightmap unpack UV operator to make our UV texture, however,
-        # this tended to create sharp edges. There was already a discussion about this on the
-        # Guild of Writers forum, so I'm implementing a code version of dendwaler's process,
-        # as detailed here: https://forum.guildofwriters.org/viewtopic.php?p=62572#p62572
-        uv_base = self._get_lightmap_uvtex(mesh, modifier)
-        if uv_base is not None:
-            uv_textures.active = uv_base
-
-            # this will copy the UVs to the new UV texture
-            uvtex = uv_textures.new(self.lightmap_uvtex_name)
-            uv_textures.active = uvtex
-
-            # if the artist hid any UVs, they will not be baked to... fix this now
-            bpy.ops.object.mode_set(mode="EDIT")
-            bpy.ops.uv.reveal()
-            bpy.ops.object.mode_set(mode="OBJECT")
-            self._associate_image_with_uvtex(uv_textures.active, im)
-            bpy.ops.object.mode_set(mode="EDIT")
-
-            # prep the uvtex for lightmapping
-            bpy.ops.mesh.select_all(action="SELECT")
-            bpy.ops.uv.average_islands_scale()
-            bpy.ops.uv.pack_islands()
-        else:
-            # same thread, see Sirius's suggestion RE smart unwrap. this seems to yield good
-            # results in my tests. it will be good enough for quick exports.
-            uvtex = uv_textures.new(self.lightmap_uvtex_name)
-            self._associate_image_with_uvtex(uvtex, im)
-            bpy.ops.object.mode_set(mode="EDIT")
-            bpy.ops.mesh.select_all(action="SELECT")
-            bpy.ops.uv.smart_project()
-        bpy.ops.object.mode_set(mode="OBJECT")
+        self._prep_for_lightmap_uvs(bo, im, toggle)
 
         # Now, set the new LIGHTMAPGEN uv layer as what we want to render to...
         # NOTE that this will need to be reset by us to what the user had previously
@@ -414,6 +373,65 @@ class LightBaker(_MeshManager):
 
         # Indicate we should bake
         return True
+
+    def _prep_for_lightmap_uvs(self, bo, image, toggle):
+        mesh = bo.data
+        modifier = bo.plasma_modifiers.lightmap
+        uv_textures = mesh.uv_textures
+
+        # If there is a cached LIGHTMAPGEN uvtexture, nuke it
+        uvtex = uv_textures.get(self.lightmap_uvtex_name, None)
+        if uvtex is not None:
+            uv_textures.remove(uvtex)
+
+        # Make sure we can enter Edit Mode(TM)
+        toggle.track(bo, "hide", False)
+
+        # Because the way Blender tracks active UV layers is massively stupid...
+        if uv_textures.active is not None:
+            self._uvtexs[mesh.name] = uv_textures.active.name
+
+        # We must make this the active object before touching any operators
+        bpy.context.scene.objects.active = bo
+
+        # Originally, we used the lightmap unpack UV operator to make our UV texture, however,
+        # this tended to create sharp edges. There was already a discussion about this on the
+        # Guild of Writers forum, so I'm implementing a code version of dendwaler's process,
+        # as detailed here: https://forum.guildofwriters.org/viewtopic.php?p=62572#p62572
+        # This has been amended with Sirius's observations in GH-265 about forced uv map
+        # packing. Namely, don't do it unless modifiers make us.
+        uv_base = uv_textures.get(modifier.uv_map) if modifier.uv_map else None
+        if uv_base is not None:
+            uv_textures.active = uv_base
+
+            # this will copy the UVs to the new UV texture
+            uvtex = uv_textures.new(self.lightmap_uvtex_name)
+            uv_textures.active = uvtex
+
+            # if the artist hid any UVs, they will not be baked to... fix this now
+            with self._set_mode("EDIT"):
+                bpy.ops.uv.reveal()
+            self._associate_image_with_uvtex(uv_textures.active, image)
+
+            # Meshes with modifiers need to have islands packed to prevent generated vertices
+            # from sharing UVs. Sigh.
+            if self._mesh.is_collapsed(bo):
+                # Danger: uv_base.name -> UnicodeDecodeError (wtf? another blender bug?)
+                self._report.warn("'{}': packing islands in UV Texture '{}' due to modifier collapse",
+                                  bo.name, modifier.uv_map, indent=2)
+                with self._set_mode("EDIT"):
+                    bpy.ops.mesh.select_all(action="SELECT")
+                    bpy.ops.uv.select_all(action="SELECT")
+                    bpy.ops.uv.pack_islands(margin=0.01)
+        else:
+            # same thread, see Sirius's suggestion RE smart unwrap. this seems to yield good
+            # results in my tests. it will be good enough for quick exports.
+            uvtex = uv_textures.new(self.lightmap_uvtex_name)
+            uv_textures.active = uvtex
+            self._associate_image_with_uvtex(uvtex, image)
+            with self._set_mode("EDIT"):
+                bpy.ops.mesh.select_all(action="SELECT")
+                bpy.ops.uv.smart_project(island_margin=0.05)
 
     def _prep_for_vcols(self, bo, toggle):
         mesh = bo.data
@@ -445,7 +463,7 @@ class LightBaker(_MeshManager):
         # future exports as an optimization. We won't reach this point if there is already an
         # autocolor layer (gulp).
         if not self.force and needs_vcol_layer:
-            self.context_stack.enter_context(TemporaryObject(vcol_layer, vcols.remove))
+            self._mesh.context_stack.enter_context(TemporaryObject(vcol_layer, vcols.remove))
 
         # Indicate we should bake
         return True
@@ -490,3 +508,11 @@ class LightBaker(_MeshManager):
                 elif isinstance(i.data, bpy.types.Mesh) and not self._has_valid_material(i):
                     toggle.track(i, "hide_render", True)
                 i.select = value
+
+    @contextmanager
+    def _set_mode(self, mode):
+        bpy.ops.object.mode_set(mode=mode)
+        try:
+            yield
+        finally:
+            bpy.ops.object.mode_set(mode="OBJECT")

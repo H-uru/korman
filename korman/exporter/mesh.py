@@ -167,6 +167,7 @@ class _MeshManager:
         self.context_stack = ExitStack()
         if report is not None:
             self._report = report
+        self._entered = False
         self._overrides = {}
 
     @staticmethod
@@ -183,6 +184,9 @@ class _MeshManager:
         return props
 
     def __enter__(self):
+        assert self._entered is False, "_MeshManager is not reentrant"
+        self._entered = True
+
         self.context_stack.__enter__()
 
         scene = bpy.context.scene
@@ -231,6 +235,10 @@ class _MeshManager:
                         if key in {"name", "type"} or (cached_mod["type"], key) in readonly_attributes:
                             continue
                         setattr(mod, key, value)
+            self._entered = False
+
+    def is_collapsed(self, bo) -> bool:
+        return bo.name in self._overrides
 
 
 class MeshConverter(_MeshManager):
