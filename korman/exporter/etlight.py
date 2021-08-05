@@ -421,6 +421,7 @@ class LightBaker:
                                   bo.name, modifier.uv_map, indent=2)
                 with self._set_mode("EDIT"):
                     bpy.ops.mesh.select_all(action="SELECT")
+                    bpy.ops.uv.select_all(action="SELECT")
                     bpy.ops.uv.pack_islands(margin=0.01)
         else:
             # same thread, see Sirius's suggestion RE smart unwrap. this seems to yield good
@@ -430,7 +431,6 @@ class LightBaker:
             self._associate_image_with_uvtex(uvtex, image)
             with self._set_mode("EDIT"):
                 bpy.ops.mesh.select_all(action="SELECT")
-                bpy.ops.uv.select_all(action="SELECT")
                 bpy.ops.uv.smart_project(island_margin=0.05)
 
     def _prep_for_vcols(self, bo, toggle):
