@@ -201,54 +201,47 @@ class LightBaker:
         # (If the object has an edge split modifier, well, screw you!)
         for bo in blender_objects:
             mesh = bo.data
-            bm = bmesh.new()
-            bm.from_mesh(mesh)
-
-            light_vcol = bm.loops.layers.color.get(self.vcol_layer_name)
-
-            # If no vertex color is found, then baking either failed (error raised by oven)
-            # or is turned off. Either way, bail out.
-            if light_vcol is None:
-                bm.free()
-                del bm
+            if self.vcol_layer_name not in mesh.vertex_colors:
+                # No vertex color. Baking either failed or is turned off.
                 continue
 
-            bm.faces.ensure_lookup_table()
+            with bmesh_from_object(bo) as bm:
+                bm.faces.ensure_lookup_table()
+                light_vcol = bm.loops.layers.color.get(self.vcol_layer_name)
 
-            for face in bm.faces:
-                for loop in face.loops:
-                    vert = loop.vert
-                    max_color = loop[light_vcol]
-                    if not face.smooth:
-                        # Face is sharp, so we can't smooth anything.
-                        continue
-                    # Now that we have a loop and its vertex, find all edges the vertex connects to.
-                    for edge in vert.link_edges:
-                        if len(edge.link_faces) != 2:
-                            # Either a border edge, or an abomination.
+                for face in bm.faces:
+                    for loop in face.loops:
+                        vert = loop.vert
+                        max_color = loop[light_vcol]
+                        if not face.smooth:
+                            # Face is sharp, so we can't smooth anything.
                             continue
-                        if not edge.smooth or (mesh.use_auto_smooth and
-                                               edge.calc_face_angle() > mesh.auto_smooth_angle):
-                            # Sharp edge. Don't care.
-                            continue
-                        if face in edge.link_faces:
-                            # Alright, this edge is connected to our loop AND our face.
-                            # Now for the Fun Stuff(c)... First, actually get ahold of the other
-                            # face (the one we're connected to via this edge).
-                            other_face = next(f for f in edge.link_faces if f != face)
-                            # Now get ahold of the loop sharing our vertex on the OTHER SIDE
-                            # of that damnable edge...
-                            other_loop = next(loop for loop in other_face.loops if loop.vert == vert)
-                            other_color = other_loop[light_vcol]
-                            # Phew ! Good, now just pick whichever color has the highest average value
-                            if sum(max_color) / 3 < sum(other_color) / 3:
-                                max_color = other_color
-                    # Assign our hard-earned color back
-                    loop[light_vcol] = max_color
+                        # Now that we have a loop and its vertex, find all edges the vertex connects to.
+                        for edge in vert.link_edges:
+                            if len(edge.link_faces) != 2:
+                                # Either a border edge, or an abomination.
+                                continue
+                            if mesh.use_auto_smooth and (not edge.smooth
+                                    or edge.calc_face_angle() > mesh.auto_smooth_angle):
+                                # Normals are split for edges marked as sharp by the user, and edges
+                                # whose angle is above the theshold. Auto smooth must be on in both cases.
+                                continue
+                            if face in edge.link_faces:
+                                # Alright, this edge is connected to our loop AND our face.
+                                # Now for the Fun Stuff(c)... First, actually get ahold of the other
+                                # face (the one we're connected to via this edge).
+                                other_face = next(f for f in edge.link_faces if f != face)
+                                # Now get ahold of the loop sharing our vertex on the OTHER SIDE
+                                # of that damnable edge...
+                                other_loop = next(loop for loop in other_face.loops if loop.vert == vert)
+                                other_color = other_loop[light_vcol]
+                                # Phew ! Good, now just pick whichever color has the highest average value
+                                if sum(max_color) / 3 < sum(other_color) / 3:
+                                    max_color = other_color
+                        # Assign our hard-earned color back
+                        loop[light_vcol] = max_color
 
-            bm.to_mesh(mesh)
-            bm.free()
-            del bm
+                bm.to_mesh(mesh)
 
     def _generate_lightgroup(self, bo, user_lg=None):
         """Makes a new light group for the baking process that excludes all Plasma RT lamps"""
