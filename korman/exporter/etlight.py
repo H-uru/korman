@@ -189,6 +189,17 @@ class LightBaker:
         # Return how many thingos we baked
         return sum(map(len, bake.values()))
 
+    @contextmanager
+    def _bmesh_from_mesh(self, mesh):
+        bm = bmesh.new()
+        try:
+            # from_object would likely cause Blender to crash further in the export process,
+            # so use the safer from_mesh instead.
+            bm.from_mesh(mesh)
+            yield bm
+        finally:
+            bm.free()
+
     def _fix_vertex_colors(self, blender_objects):
         # Blender's lightmapper has a bug which allows vertices to "self-occlude" when shared between
         # two faces. See here https://forum.guildofwriters.org/viewtopic.php?f=9&t=6576&p=68939
@@ -205,7 +216,7 @@ class LightBaker:
                 # No vertex color. Baking either failed or is turned off.
                 continue
 
-            with bmesh_from_object(bo) as bm:
+            with self._bmesh_from_mesh(mesh) as bm:
                 bm.faces.ensure_lookup_table()
                 light_vcol = bm.loops.layers.color.get(self.vcol_layer_name)
 
