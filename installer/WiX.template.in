@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?include "cpack_variables.wxi"?>
+
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" RequiredVersion="3.6.3303.0">
+
+    <Product Id="$(var.CPACK_WIX_PRODUCT_GUID)"
+        Name="$(var.CPACK_PACKAGE_NAME)"
+        Language="1033"
+        Version="$(var.CPACK_PACKAGE_VERSION)"
+        Manufacturer="$(var.CPACK_PACKAGE_VENDOR)"
+        UpgradeCode="$(var.CPACK_WIX_UPGRADE_GUID)">
+
+        <Package InstallerVersion="301" Compressed="yes" />
+
+        <Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
+
+        <!-- Don't uninstall old versions!-->
+        <InstallExecuteSequence>
+            <RemoveExistingProducts Suppress="yes" />
+        </InstallExecuteSequence>
+
+        <WixVariable Id="WixUILicenseRtf" Value="$(var.CPACK_WIX_LICENSE_RTF)" />
+        <Property Id="WIXUI_INSTALLDIR" Value="INSTALL_ROOT" />
+
+        <?ifdef CPACK_WIX_PRODUCT_ICON?>
+        <Property Id="ARPPRODUCTICON">ProductIcon.ico</Property>
+        <Icon Id="ProductIcon.ico" SourceFile="$(var.CPACK_WIX_PRODUCT_ICON)" />
+        <?endif?>
+
+        <?ifdef CPACK_WIX_UI_BANNER?>
+        <WixVariable Id="WixUIBannerBmp" Value="$(var.CPACK_WIX_UI_BANNER)" />
+        <?endif?>
+
+        <?ifdef CPACK_WIX_UI_DIALOG?>
+        <WixVariable Id="WixUIDialogBmp" Value="$(var.CPACK_WIX_UI_DIALOG)" />
+        <?endif?>
+
+        <FeatureRef Id="ProductFeature" />
+
+        <UIRef Id="$(var.CPACK_WIX_UI_REF)" />
+
+        <?include "properties.wxi"?>
+
+        <!-- TODO: Make the .blend file association and Python 2.2 install optional-->
+        <CustomAction Id="RegisterBlender" Impersonate="no" Execute="deferred"
+                      FileKey="CM_FP_Blender.blender.exe" ExeCommand=" -r"
+                      Return="ignore" />
+        <CustomAction Id="InstallPython22" Impersonate="no" Execute="deferred"
+                      FileKey="CM_FP_Python22.Python_2.2.3.exe" ExeCommand=" /S"
+                      Return="ignore" />
+        <InstallExecuteSequence>
+            <Custom Action="RegisterBlender" After="InstallFiles" />
+            <Custom Action="InstallPython22" After="InstallFiles" />
+        </InstallExecuteSequence>
+
+        <!-- VCRedist junk -->
+        <DirectoryRef Id="TARGETDIR">
+            <Merge Id="VCRedist_CRT" SourceFile="@VCRedist_CRT_MERGE_MODULE@" DiskId="1" Language="0" />
+            <Merge Id="VCRedist_CXXAMP" SourceFile="@VCRedist_CXXAMP_MERGE_MODULE@" DiskId="1" Language="0" />
+            <Merge Id="VCRedist_OpenMP" SourceFile="@VCRedist_OPENMP_MERGE_MODULE@" DiskId="1" Language="0" />
+        </DirectoryRef>
+        <Feature Id="VCRedist" Title="Visual C++ Runtime" AllowAdvertise="yes" Level="1">
+            <MergeRef Id="VCRedist_CRT" />
+            <MergeRef Id="VCRedist_CXXAMP" />
+            <MergeRef Id="VCRedist_OpenMP" />
+        </Feature>
+    </Product>
+</Wix>

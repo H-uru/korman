@@ -1,0 +1,96 @@
+name: CI Build
+on: [push, pull_request]
+
+jobs:
+  windows-build:
+    strategy:
+      matrix:
+        cfg:
+          - {
+              os: windows-2019,
+              generator: Visual Studio 16 2019,
+              arch: Win32,
+              str: windows-x86,
+              blender-url: "https://github.com/Hoikas/blender2.7/releases/download/blender2.79_20210808/blender-2.79.0-git20210808.d2e1ea3f63e3-windows32.zip",
+            }
+          - {
+              os: windows-2019,
+              generator: Visual Studio 16 2019,
+              arch: x64,
+              str: windows-x64,
+              blender-url: "https://github.com/Hoikas/blender2.7/releases/download/blender2.79_20210808/blender-2.79.0-git20210808.d2e1ea3f63e3-windows64.zip",
+            }
+
+    env:
+      CMAKE_GENERATOR: ${{ matrix.cfg.generator }}
+      CMAKE_GENERATOR_PLATFORM: ${{ matrix.cfg.arch }}
+
+    runs-on: ${{ matrix.cfg.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          path: korman
+
+      - name: Download Blender
+        run: |
+          curl --location "${{ matrix.cfg.blender-url }}" --output blender.zip
+          mkdir blender
+          7z x blender.zip -oblender -bsp1
+
+      - name: Build Standalone Korman
+        run: |
+          $BlenderSubDir = Split-Path -LeafBase $([System.URI]"${{ matrix.cfg.blender-url }}").Segments[-1]
+          korman/build.ps1 `
+            -Modern `
+            -BlenderDir "${{ github.workspace }}/blender/$BlenderSubDir" `
+            -NoInstaller -NoBlender
+
+      - name: Upload Standalone Korman
+        uses: actions/upload-artifact@v2
+        with:
+          name: korman-standalone-${{ matrix.cfg.str }}
+          path: build/package
+
+      - name: Build Korman+Blender Bundle
+        if: startsWith(github.ref, 'refs/tags')
+        run: |
+          Remove-Item -Recurse -Force build/package
+          korman/build.ps1 -Modern
+
+      - name: Upload Korman+Blender Bundle
+        if: startsWith(github.ref, 'refs/tags')
+        uses: actions/upload-artifact@v2
+        with:
+          name: korman-blender-${{ matrix.cfg.str }}
+          path: build/package
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags')
+    needs: [windows-build]
+    runs-on: windows-2019
+
+    steps:
+      - name: Checkout Korman
+        uses: actions/checkout@v2
+        with:
+          path: korman
+
+      - name: Download Artifacts
+        id: download
+        uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+
+      - name: Publish Release
+        run: |
+          korman/release.ps1 `
+            -Repository "${{ github.repository }}" `
+            -Token "${{ secrets.GITHUB_TOKEN }}" `
+            -UploadDir "${{ steps.download.outputs.download-path }}" `
+            -SubDirs @{
+              "korman-standalone-windows-x86" = "standalone"
+              "korman-standalone-windows-x64" = "standalone"
+              "korman-blender-windows-x86" = "bundled"
+              "korman-blender-windows-x64" = "bundled"
+            }
