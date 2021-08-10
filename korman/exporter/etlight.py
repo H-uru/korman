@@ -51,6 +51,7 @@ class LightBaker:
         self.force = False
         self._lightmap_images = {}
         self._uvtexs = {}
+        self._active_vcols = {}
 
     def __del__(self):
         if self._own_report:
@@ -120,6 +121,7 @@ class LightBaker:
                 # this stuff has been observed to be problematic with GoodNeighbor
                 self._pop_lightgroups()
                 self._restore_uvtexs()
+                self._restore_vcols()
                 if not self.retain_lightmap_uvtex:
                     self._remove_stale_uvtexes(bake)
             return result
@@ -179,12 +181,78 @@ class LightBaker:
                 elif key[0] == "vcol":
                     self._report.msg("{} Vertex Color(s) [H:{:X}]", len(value), hash(key[1:]), indent=1)
                     self._bake_vcols(value, key[1:])
+                    self._fix_vertex_colors(value)
                 else:
                     raise RuntimeError(key[0])
             inc_progress()
 
         # Return how many thingos we baked
         return sum(map(len, bake.values()))
+
+    @contextmanager
+    def _bmesh_from_mesh(self, mesh):
+        bm = bmesh.new()
+        try:
+            # from_object would likely cause Blender to crash further in the export process,
+            # so use the safer from_mesh instead.
+            bm.from_mesh(mesh)
+            yield bm
+        finally:
+            bm.free()
+
+    def _fix_vertex_colors(self, blender_objects):
+        # Blender's lightmapper has a bug which allows vertices to "self-occlude" when shared between
+        # two faces. See here https://forum.guildofwriters.org/viewtopic.php?f=9&t=6576&p=68939
+        # What we're doing here is an improved version of the algorithm in the previous link.
+        # For each loop, we find all other loops in the mesh sharing the same vertex, which aren't
+        # separated by a sharp edge. We then take the brightest color out of all those loops, and
+        # assign it back to the base loop.
+        # "Sharp edges" include edges manually tagged as sharp by the user, or part of a non-smooth
+        # face, or edges for which the face angle is superior to the mesh's auto-smooth threshold.
+        # (If the object has an edge split modifier, well, screw you!)
+        for bo in blender_objects:
+            mesh = bo.data
+            if self.vcol_layer_name not in mesh.vertex_colors:
+                # No vertex color. Baking either failed or is turned off.
+                continue
+
+            with self._bmesh_from_mesh(mesh) as bm:
+                bm.faces.ensure_lookup_table()
+                light_vcol = bm.loops.layers.color.get(self.vcol_layer_name)
+
+                for face in bm.faces:
+                    for loop in face.loops:
+                        vert = loop.vert
+                        max_color = loop[light_vcol]
+                        if not face.smooth:
+                            # Face is sharp, so we can't smooth anything.
+                            continue
+                        # Now that we have a loop and its vertex, find all edges the vertex connects to.
+                        for edge in vert.link_edges:
+                            if len(edge.link_faces) != 2:
+                                # Either a border edge, or an abomination.
+                                continue
+                            if mesh.use_auto_smooth and (not edge.smooth
+                                    or edge.calc_face_angle() > mesh.auto_smooth_angle):
+                                # Normals are split for edges marked as sharp by the user, and edges
+                                # whose angle is above the theshold. Auto smooth must be on in both cases.
+                                continue
+                            if face in edge.link_faces:
+                                # Alright, this edge is connected to our loop AND our face.
+                                # Now for the Fun Stuff(c)... First, actually get ahold of the other
+                                # face (the one we're connected to via this edge).
+                                other_face = next(f for f in edge.link_faces if f != face)
+                                # Now get ahold of the loop sharing our vertex on the OTHER SIDE
+                                # of that damnable edge...
+                                other_loop = next(loop for loop in other_face.loops if loop.vert == vert)
+                                other_color = other_loop[light_vcol]
+                                # Phew ! Good, now just pick whichever color has the highest average value
+                                if sum(max_color) / 3 < sum(other_color) / 3:
+                                    max_color = other_color
+                        # Assign our hard-earned color back
+                        loop[light_vcol] = max_color
+
+                bm.to_mesh(mesh)
 
     def _generate_lightgroup(self, bo, user_lg=None):
         """Makes a new light group for the baking process that excludes all Plasma RT lamps"""
@@ -448,13 +516,16 @@ class LightBaker:
         needs_vcol_layer = autocolor is None
         if needs_vcol_layer:
             autocolor = vcols.new(vcol_layer_name)
-        toggle.track(vcols, "active", autocolor)
 
+        self._active_vcols[mesh] = (
+            next(i for i, vc in enumerate(mesh.vertex_colors) if vc.active),
+            next(i for i, vc in enumerate(mesh.vertex_colors) if vc.active_render),
+        )
         # Mark "autocolor" as our active render layer
         for vcol_layer in mesh.vertex_colors:
             autocol = vcol_layer.name == vcol_layer_name
-            toggle.track(vcol_layer, "active_render", autocol)
-            toggle.track(vcol_layer, "active", autocol)
+            vcol_layer.active_render = autocol
+            vcol_layer.active = autocol
         mesh.update()
 
         # Vertex colors are sort of ephemeral, so if we have an exit stack, we want to
@@ -463,7 +534,7 @@ class LightBaker:
         # future exports as an optimization. We won't reach this point if there is already an
         # autocolor layer (gulp).
         if not self.force and needs_vcol_layer:
-            self._mesh.context_stack.enter_context(TemporaryObject(vcol_layer, vcols.remove))
+            self._mesh.context_stack.enter_context(TemporaryObject(vcol_layer.name, lambda layer_name: vcols.remove(vcols[layer_name])))
 
         # Indicate we should bake
         return True
@@ -482,6 +553,11 @@ class LightBaker:
             for i in mesh.uv_textures:
                 i.active = uvtex_name == i.name
             mesh.uv_textures.active = mesh.uv_textures[uvtex_name]
+
+    def _restore_vcols(self):
+        for mesh, (vcol_index, vcol_render_index) in self._active_vcols.items():
+            mesh.vertex_colors[vcol_index].active = True
+            mesh.vertex_colors[vcol_render_index].active_render = True
 
     def _select_only(self, objs, toggle):
         if isinstance(objs, bpy.types.Object):
