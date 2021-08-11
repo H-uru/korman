@@ -25,6 +25,98 @@ from ...exporter import utils
 from ...exporter.explosions import ExportError
 from ... import idprops
 
+class PlasmaBlendOntoObject(bpy.types.PropertyGroup):
+    blend_onto = PointerProperty(name="Blend Onto",
+                                 description="Object to render first",
+                                 options=set(),
+                                 type=bpy.types.Object,
+                                 poll=idprops.poll_drawable_objects)
+    enabled = BoolProperty(name="Enabled",
+                           default=True,
+                           options=set())
+
+
+class PlasmaBlendMod(PlasmaModifierProperties):
+    pl_id = "blend"
+
+    bl_category = "Render"
+    bl_label = "Blending"
+    bl_description = "Advanced Blending Options"
+
+    render_level = EnumProperty(name="Render Pass",
+                                description="Suggested render pass for this object.",
+                                items=[("AUTO", "(Auto)", "Let Korman decide when to render this object."),
+                                       ("OPAQUE", "Before Avatar", "Prefer for the object to draw before the avatar."),
+                                       ("FRAMEBUF", "Frame Buffer", "Prefer for the object to draw after the avatar but before other blended objects."),
+                                       ("BLEND", "Blended", "Prefer for the object to draw after most other geometry in the blended pass.")],
+                                options=set())
+    sort_faces = EnumProperty(name="Sort Faces",
+                              description="",
+                              items=[("AUTO", "(Auto)", "Let Korman decide if faces should be sorted."),
+                                     ("ALWAYS", "Always", "Force the object's faces to be sorted."),
+                                     ("NEVER", "Never", "Force the object's faces to never be sorted.")],
+                              options=set())
+
+    dependencies = CollectionProperty(type=PlasmaBlendOntoObject)
+    active_dependency_index = IntProperty(options={"HIDDEN"})
+
+    def export(self, exporter, bo, so):
+        # What'er you lookin at?
+        pass
+
+    @property
+    def draw_opaque(self):
+        return self.render_level == "OPAQUE"
+
+    @property
+    def draw_framebuf(self):
+        return self.render_level == "FRAMEBUF"
+
+    @property
+    def draw_no_defer(self):
+        return self.render_level != "BLEND"
+
+    @property
+    def face_sort(self):
+        return self.sort_faces == "ALWAYS"
+
+    @property
+    def no_face_sort(self):
+        return self.sort_faces == "NEVER"
+
+    @property
+    def has_dependencies(self):
+        return bool(self.dependencies)
+
+    @property
+    def has_circular_dependency(self):
+        return self._check_circular_dependency()
+
+    def _check_circular_dependency(self, objects=None):
+        if objects is None:
+            objects = set()
+        elif self.name in objects:
+            return True
+        objects.add(self.name)
+
+        for i in self.iter_dependencies():
+            # New deep copy of the set for each dependency, so an object can be reused as a
+            # dependant's dependant.
+            this_branch = set(objects)
+            sub_mod = i.plasma_modifiers.blend
+            if sub_mod.enabled and sub_mod._check_circular_dependency(this_branch):
+                return True
+        return False
+
+    def iter_dependencies(self):
+        for i in (j.blend_onto for j in self.dependencies if j.blend_onto is not None and j.enabled):
+            yield i
+
+    def sanity_check(self):
+        if self.has_circular_dependency:
+            raise ExportError("'{}': Circular Render Dependency detected!".format(self.name))
+
+
 class PlasmaDecalManagerRef(bpy.types.PropertyGroup):
     enabled = BoolProperty(name="Enabled",
                            default=True,
@@ -438,6 +530,8 @@ class PlasmaLightingMod(PlasmaModifierProperties):
         if mods.water_basic.enabled:
             return True
         if self.id_data.plasma_object.has_transform_animation:
+            return True
+        if mods.collision.enabled and mods.collision.dynamic:
             return True
         return False
 

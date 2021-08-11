@@ -60,6 +60,7 @@ class Exporter:
             # Step 0.8: Init the progress mgr
             self.mesh.add_progress_presteps(self.report)
             self.report.progress_add_step("Collecting Objects")
+            self.report.progress_add_step("Verify Competence")
             self.report.progress_add_step("Harvesting Actors")
             if self._op.lighting_method != "skip":
                 etlight.LightBaker.add_progress_steps(self.report)
@@ -80,6 +81,10 @@ class Exporter:
                 # Step 2: Gather a list of objects that we need to export, given what the user has told
                 #         us to export (both in the Age and Object Properties)... fun
                 self._collect_objects()
+
+                # Step 2.1: Run through all the objects we collected in Step 2 and make sure there
+                #           is no ruddy funny business going on.
+                self._check_sanity()
 
                 # Step 2.5: Run through all the objects we collected in Step 2 and see if any relationships
                 #           that the artist made requires something to have a CoordinateInterface
@@ -168,6 +173,20 @@ class Exporter:
                     error.add(page, obj.name)
             inc_progress()
         error.raise_if_error()
+
+    def _check_sanity(self):
+        self.report.progress_advance()
+        self.report.progress_range = len(self._objects)
+        inc_progress = self.report.progress_increment
+
+        self.report.msg("\nEnsuring Age is sane...")
+        for bl_obj in self._objects:
+            for mod in bl_obj.plasma_modifiers.modifiers:
+                fn = getattr(mod, "sanity_check", None)
+                if fn is not None:
+                    fn()
+            inc_progress()
+        self.report.msg("... Age is grinning and holding a spatula. Must be OK, then.")
 
     def _export_age_info(self):
         # Make life slightly easier...
@@ -268,9 +287,17 @@ class Exporter:
     def _export_mesh_blobj(self, so, bo):
         self.animation.convert_object_animations(bo, so)
         if bo.data.materials:
-            self.mesh.export_object(bo)
+            self.mesh.export_object(bo, so)
         else:
             self.report.msg("No material(s) on the ObData, so no drawables", indent=1)
+
+    def _export_font_blobj(self, so, bo):
+        self.animation.convert_object_animations(bo, so)
+        with utils.temporary_mesh_object(bo) as meshObj:
+            if bo.data.materials:
+                self.mesh.export_object(meshObj, so)
+            else:
+                self.report.msg("No material(s) on the ObData, so no drawables", indent=1)
 
     def _export_referenced_node_trees(self):
         self.report.progress_advance()
@@ -407,7 +434,7 @@ class Exporter:
         if not valid_path:
             filepath = bpy.context.blend_data.filepath
             if not filepath:
-                filepath = self.filepath
+                filepath = self._op.filepath
             filepath = str(Path(filepath).with_suffix(".ktc"))
             age.texcache_path = filepath
         return filepath

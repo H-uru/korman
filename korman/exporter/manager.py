@@ -16,6 +16,7 @@
 import bpy
 from pathlib import Path
 from PyHSPlasma import *
+from typing import Iterable
 import weakref
 
 from . import explosions
@@ -190,6 +191,13 @@ class ExportManager:
         else:
             return plEncryptedStream.kEncXtea
 
+    def find_interfaces(self, pClass, so : plSceneObject) -> Iterable[plObjInterface]:
+        assert issubclass(pClass, plObjInterface)
+
+        for i in (i.object for i in so.interfaces):
+            if isinstance(i, pClass):
+                yield i
+
     def find_create_key(self, pClass, bl=None, name=None, so=None):
         key = self.find_key(pClass, bl, name, so)
         if key is None:
@@ -313,16 +321,16 @@ class ExportManager:
 
         with output.generate_dat_file(f, enc=self._encryption) as stream:
             fni = bpy.context.scene.world.plasma_fni
-            stream.writeLine("Graphics.Renderer.SetClearColor {} {} {}".format(*fni.clear_color))
-            stream.writeLine("Graphics.Renderer.SetYon {}".format(fni.yon))
+            stream.writeLine("Graphics.Renderer.SetClearColor {:.2f} {:.2f} {:.2f}".format(*fni.clear_color))
+            stream.writeLine("Graphics.Renderer.SetYon {:.1f}".format(fni.yon))
             if fni.fog_method == "none":
                 stream.writeLine("Graphics.Renderer.Fog.SetDefLinear 0 0 0")
             else:
-                stream.writeLine("Graphics.Renderer.Fog.SetDefColor {} {} {}".format(*fni.fog_color))
+                stream.writeLine("Graphics.Renderer.Fog.SetDefColor {:.2f} {:.2f} {:.2f}".format(*fni.fog_color))
                 if fni.fog_method == "linear":
-                    stream.writeLine("Graphics.Renderer.Fog.SetDefLinear {} {} {}".format(fni.fog_start, fni.fog_end, fni.fog_density))
-                elif fni.fog_method == "exp2":
-                    stream.writeLine("Graphics.Renderer.Fog.SetDefExp2 {} {}".format(fni.fog_end, fni.fog_density))
+                    stream.writeLine("Graphics.Renderer.Fog.SetDefLinear {:.2f} {:.2f} {:.2f}".format(fni.fog_start, fni.fog_end, fni.fog_density))
+                elif fni.fog_method == "exp":
+                    stream.writeLine("Graphics.Renderer.Fog.SetDefExp {:.2f} {:.2f}".format(fni.fog_end, fni.fog_density))
 
     def _write_pages(self):
         age_name = self._age_info.name

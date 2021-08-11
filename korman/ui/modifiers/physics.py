@@ -39,6 +39,11 @@ def collision(modifier, layout, context):
     col.active = modifier.dynamic
     col.prop(modifier, "mass")
 
+    layout.separator()
+    row = layout.row()
+    row.active = modifier.bounds == "trimesh"
+    row.prop(modifier, "proxy_object")
+
 def subworld_def(modifier, layout, context):
     layout.prop(modifier, "sub_type")
     if modifier.sub_type != "dynamicav":

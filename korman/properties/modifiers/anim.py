@@ -60,37 +60,52 @@ class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
                                 description="Marker indicating where the default loop begins")
     loop_end = StringProperty(name="Loop End",
                               description="Marker indicating where the default loop ends")
+    obj_sdl_anim = StringProperty(name="SDL Animation",
+                                  description="Name of the SDL variable to use for this animation",
+                                  options=set())
+
+    @property
+    def anim_type(self):
+        return plAgeGlobalAnim if self.enabled and self.obj_sdl_anim else plATCAnim
 
     def export(self, exporter, bo, so):
         action = self.blender_action
+        anim_mod = bo.plasma_modifiers.animation
 
-        atcanim = exporter.mgr.find_create_object(plATCAnim, so=so)
-        atcanim.autoStart = self.auto_start
-        atcanim.loop = self.loop
+        # Do not create the private animation here. The animation converter itself does this
+        # before we reach this point. If it does not create an animation, then we might create an
+        # empty animation that crashes Uru.
+        atcanim = exporter.mgr.find_object(anim_mod.anim_type, so=so)
+        if atcanim is None:
+            return
 
-        # Simple start and loop info
-        if action is not None:
-            markers = action.pose_markers
-            initial_marker = markers.get(self.initial_marker)
-            if initial_marker is not None:
-                atcanim.initial = _convert_frame_time(initial_marker.frame)
+        if not isinstance(atcanim, plAgeGlobalAnim):
+            atcanim.autoStart = self.auto_start
+            atcanim.loop = self.loop
+
+            # Simple start and loop info for ATC
+            if action is not None:
+                markers = action.pose_markers
+                initial_marker = markers.get(self.initial_marker)
+                if initial_marker is not None:
+                    atcanim.initial = _convert_frame_time(initial_marker.frame)
+                else:
+                    atcanim.initial = -1.0
+                if self.loop:
+                    loop_start = markers.get(self.loop_start)
+                    if loop_start is not None:
+                        atcanim.loopStart = _convert_frame_time(loop_start.frame)
+                    else:
+                        atcanim.loopStart = atcanim.start
+                    loop_end = markers.get(self.loop_end)
+                    if loop_end is not None:
+                        atcanim.loopEnd = _convert_frame_time(loop_end.frame)
+                    else:
+                        atcanim.loopEnd = atcanim.end
             else:
-                atcanim.initial = -1.0
-            if self.loop:
-                loop_start = markers.get(self.loop_start)
-                if loop_start is not None:
-                    atcanim.loopStart = _convert_frame_time(loop_start.frame)
-                else:
+                if self.loop:
                     atcanim.loopStart = atcanim.start
-                loop_end = markers.get(self.loop_end)
-                if loop_end is not None:
-                    atcanim.loopEnd = _convert_frame_time(loop_end.frame)
-                else:
                     atcanim.loopEnd = atcanim.end
-        else:
-            if self.loop:
-                atcanim.loopStart = atcanim.start
-                atcanim.loopEnd = atcanim.end
 
 
 class AnimGroupObject(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):

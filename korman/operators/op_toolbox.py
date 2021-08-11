@@ -16,6 +16,7 @@
 import bpy
 from bpy.props import *
 import pickle
+import itertools
 
 class ToolboxOperator:
     @classmethod
@@ -171,6 +172,37 @@ class PlasmaToggleAllPlasmaObjectsOperator(ToolboxOperator, bpy.types.Operator):
             i.plasma_object.enabled = self.enable
         return {"FINISHED"}
 
+        
+class PlasmaToggleDoubleSidedOperator(ToolboxOperator, bpy.types.Operator):
+    bl_idname = "mesh.plasma_toggle_double_sided"
+    bl_label = "Toggle All Double Sided"
+    bl_description = "Toggles all meshes to be double sided"
+    
+    enable = BoolProperty(name="Enable", description="Enable Double Sided")
+    
+    def execute(self, context):
+        enable = self.enable
+        for mesh in bpy.data.meshes:
+            mesh.show_double_sided = enable
+        return {"FINISHED"}
+
+
+class PlasmaToggleDoubleSidedSelectOperator(ToolboxOperator, bpy.types.Operator):
+    bl_idname = "mesh.plasma_toggle_double_sided_selected"
+    bl_label = "Toggle Selected Double Sided"
+    bl_description = "Toggles selected meshes double sided value"
+    
+    @classmethod
+    def poll(cls, context):
+        return super().poll(context) and hasattr(bpy.context, "selected_objects")
+
+    def execute(self, context):
+        mesh_list = [i.data for i in context.selected_objects if i.type == "MESH"]
+        enable = not all((mesh.show_double_sided for mesh in mesh_list))
+        for mesh in mesh_list:
+            mesh.show_double_sided = enable
+        return {"FINISHED"}
+
 
 class PlasmaToggleEnvironmentMapsOperator(ToolboxOperator, bpy.types.Operator):
     bl_idname = "texture.plasma_toggle_environment_maps"
@@ -203,4 +235,40 @@ class PlasmaTogglePlasmaObjectsOperator(ToolboxOperator, bpy.types.Operator):
         enable = not all((i.plasma_object.enabled for i in bpy.context.selected_objects))
         for i in context.selected_objects:
             i.plasma_object.enabled = enable
+        return {"FINISHED"}
+
+
+class PlasmaToggleSoundExportOperator(ToolboxOperator, bpy.types.Operator):
+    bl_idname = "object.plasma_toggle_sound_export"
+    bl_label = "Toggle Sound Export"
+    bl_description = "Toggles the Export function of all sound emitters' files"
+    
+    enable = BoolProperty(name="Enable", description="Sound Export Enable")
+    
+    def execute(self, context):
+        enable = self.enable
+        for i in bpy.data.objects:
+            if i.plasma_modifiers.soundemit is None:
+                continue
+            for sound in i.plasma_modifiers.soundemit.sounds:
+                sound.package = enable
+        return {"FINISHED"}
+
+
+class PlasmaToggleSoundExportSelectedOperator(ToolboxOperator, bpy.types.Operator):
+    bl_idname = "object.plasma_toggle_sound_export_selected"
+    bl_label = "Toggle Selected Sound Export"
+    bl_description = "Toggles the Export function of selected sound emitters' files."
+    
+    @classmethod
+    def poll(cls, context):
+        return super().poll(context) and hasattr(bpy.context, "selected_objects")
+    
+    def execute(self, context):
+        enable = not all((i.package for i in itertools.chain.from_iterable(i.plasma_modifiers.soundemit.sounds for i in bpy.context.selected_objects)))
+        for i in context.selected_objects:
+            if i.plasma_modifiers.soundemit is None:
+                continue
+            for sound in i.plasma_modifiers.soundemit.sounds:
+                sound.package = enable
         return {"FINISHED"}

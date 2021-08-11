@@ -210,6 +210,8 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
 
         # Age Names should really be legal Python 2.x identifiers for AgeSDLHooks
         legal_identifier = korlib.is_legal_python2_identifier(age.age_name)
+        illegal_age_name = not legal_identifier or '_' in age.age_name
+        bad_prefix = age.seq_prefix >= age.MOUL_PREFIX_RANGE[1] or age.seq_prefix <= age.MOUL_PREFIX_RANGE[0]
 
         # Core settings
         layout.separator()
@@ -222,17 +224,28 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
 
         col = split.column()
         col.label("Age Settings:")
+        col.alert = bad_prefix
         col.prop(age, "seq_prefix", text="ID")
-        col.alert = not legal_identifier or '_' in age.age_name
+        col.alert = illegal_age_name
         col.prop(age, "age_name", text="")
 
+        if age.seq_prefix >= age.MOUL_PREFIX_RANGE[1]:
+            layout.label(text="Your sequence prefix is too high for Myst Online: Uru Live", icon="ERROR")
+        elif age.seq_prefix <= age.MOUL_PREFIX_RANGE[0]:
+            # Unlikely.
+            layout.label(text="Your sequence prefix is too low for Myst Online: Uru Live", icon="ERROR")
+
         # Display a hint if the identifier is illegal
-        if not legal_identifier:
-            if korlib.is_python_keyword(age.age_name):
+        if illegal_age_name:
+            if not age.age_name:
+                layout.label(text="Age names cannot be empty", icon="ERROR")
+            elif korlib.is_python_keyword(age.age_name):
                 layout.label(text="Ages should not be named the same as a Python keyword", icon="ERROR")
             elif age.age_sdl:
                 fixed_identifier = korlib.replace_python2_identifier(age.age_name)
                 layout.label(text="Age's SDL will use the name '{}'".format(fixed_identifier), icon="ERROR")
+            if '_' in age.age_name:
+                layout.label(text="Age names should not contain underscores", icon="ERROR")
 
         layout.separator()
         split = layout.split()
@@ -261,6 +274,10 @@ class PlasmaEnvironmentPanel(AgeButtonsPanel, bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         fni = context.world.plasma_fni
+
+        # warn about reversed linear fog values
+        if fni.fog_method == "linear" and fni.fog_start >= fni.fog_end and (fni.fog_start + fni.fog_end) != 0:
+            layout.label(text="Fog Start Value should be less than the End Value", icon="ERROR")
 
         # basic colors
         split = layout.split()

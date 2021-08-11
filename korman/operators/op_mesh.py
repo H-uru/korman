@@ -28,10 +28,6 @@ class PlasmaMeshOperator:
 
 FLARE_MATERIAL_BASE_NAME = "FLAREGEN"
 
-def store_material_selection(self, value):
-    if bpy.data.materials.get(value, None):
-        bpy.context.scene.plasma_scene.last_flare_material = value
-
 
 class PlasmaAddFlareOperator(PlasmaMeshOperator, bpy.types.Operator):
     bl_idname = "mesh.plasma_flare_add"
@@ -52,7 +48,6 @@ class PlasmaAddFlareOperator(PlasmaMeshOperator, bpy.types.Operator):
     flare_material_name = bpy.props.StringProperty(name="Material",
                                                    description="A specially-crafted material to use for this flare",
                                                    default=FLARE_MATERIAL_BASE_NAME,
-                                                   update=store_material_selection,
                                                    options=set())
 
     @classmethod

@@ -375,12 +375,9 @@ class LightBaker(_MeshManager):
         if not self._generate_lightgroup(bo, user_lg):
             return False
 
-        # I have heard tale of some moar "No valid image to bake to" boogs if there is a really
-        # old copy of the autocolor layer on the mesh. Nuke it.
         autocolor = vcols.get("autocolor")
-        if autocolor is not None:
-            vcols.remove(autocolor)
-        autocolor = vcols.new("autocolor")
+        if autocolor is None:
+            autocolor = vcols.new("autocolor")
         toggle.track(vcols, "active", autocolor)
 
         # Mark "autocolor" as our active render layer

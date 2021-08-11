@@ -189,9 +189,13 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
             exporter.output.add_sfx(self._sound)
 
         # There is some bug in the MOUL code that causes a crash if this does not match the expected
-        # result. There's no sense in debugging that though--the user should never specify
-        # streaming vs static. That's an implementation detail.
-        pClass = plWin32StreamingSound if length > 4.0 else plWin32StaticSound
+        # result. Worse, PotS seems to not like static sounds that are brand-new to it. Possibly because
+        # it needs to be decompressed outside of game. There's no sense in debugging any of that
+        # though--the user should never specify streaming vs static. That's an implementation detail.
+        if exporter.mgr.getVer() != pvMoul and self._sound.plasma_sound.package:
+            pClass = plWin32StreamingSound
+        else:
+            pClass = plWin32StreamingSound if length > 4.0 else plWin32StaticSound
 
         # OK. Any Plasma engine that uses OpenAL (MOUL) is subject to this restriction.
         # 3D Positional audio MUST... and I mean MUST... have mono emitters.
