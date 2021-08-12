@@ -17,7 +17,7 @@ import bpy
 from bpy.props import *
 
 import abc
-from typing import Generator
+from typing import Any, Dict, Generator
 
 class PlasmaModifierProperties(bpy.types.PropertyGroup):
     @property
@@ -127,6 +127,18 @@ class PlasmaModifierLogicWiz:
             raise
         else:
             return tree
+
+    def _create_python_file_node(self, tree, filename: str, attributes: Dict[str, Any]) -> bpy.types.Node:
+        pfm_node = tree.nodes.new("PlasmaPythonFileNode")
+        with pfm_node.NoUpdate():
+            pfm_node.filename = filename
+            for attr in attributes:
+                new_attr = pfm_node.attributes.add()
+                new_attr.attribute_id = attr["id"]
+                new_attr.attribute_type = attr["type"]
+                new_attr.attribute_name = attr["name"]
+        pfm_node.update()
+        return pfm_node
 
     @abc.abstractmethod
     def logicwiz(self, bo, tree):

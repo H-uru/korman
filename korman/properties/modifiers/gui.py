@@ -230,27 +230,13 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         yield self.convert_logic(bo, age_name=exporter.age_name, rgn_obj=rgn_obj, version=version)
 
     def logicwiz(self, bo, tree, age_name, rgn_obj, version):
-        nodes = tree.nodes
-
         # Assign journal script based on target version
         journal_pfm = journal_pfms[version]
-        journalnode = nodes.new("PlasmaPythonFileNode")
-        with journalnode.NoUpdate():
-            journalnode.filename = journal_pfm["filename"]
-
-            # Manually add required attributes to the PFM
-            journal_attribs = journal_pfm["attribs"]
-            for attr in journal_attribs:
-                new_attr = journalnode.attributes.add()
-                new_attr.attribute_id = attr["id"]
-                new_attr.attribute_type = attr["type"]
-                new_attr.attribute_name = attr["name"]
-        journalnode.update()
-
+        journalnode = self._create_python_file_node(tree, journal_pfm["filename"], journal_pfm["attribs"])
         if version <= pvPots:
-            self._create_pots_nodes(bo, nodes, journalnode, age_name, rgn_obj)
+            self._create_pots_nodes(bo, tree.nodes, journalnode, age_name, rgn_obj)
         else:
-            self._create_moul_nodes(bo, nodes, journalnode, age_name, rgn_obj)
+            self._create_moul_nodes(bo, tree.nodes, journalnode, age_name, rgn_obj)
 
     def _create_pots_nodes(self, clickable_object, nodes, journalnode, age_name, rgn_obj):
         clickable_region = nodes.new("PlasmaClickableRegionNode")
@@ -484,27 +470,13 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
             yield self.seek_point.name
 
     def logicwiz(self, bo, tree, age_name, version, region):
-        nodes = tree.nodes
-
         # Assign linking book script based on target version
         linking_pfm = linking_pfms[version]
-        linkingnode = nodes.new("PlasmaPythonFileNode")
-        with linkingnode.NoUpdate():
-            linkingnode.filename = linking_pfm["filename"]
-
-            # Manually add required attributes to the PFM
-            linking_attribs = linking_pfm["attribs"]
-            for attr in linking_attribs:
-                new_attr = linkingnode.attributes.add()
-                new_attr.attribute_id = attr["id"]
-                new_attr.attribute_type = attr["type"]
-                new_attr.attribute_name = attr["name"]
-        linkingnode.update()
-
+        linkingnode = self._create_python_file_node(tree, linking_pfm["filename"], linking_pfm["attribs"])
         if version <= pvPots:
-            self._create_pots_nodes(bo, nodes, linkingnode, age_name, region)
+            self._create_pots_nodes(bo, tree.nodes, linkingnode, age_name, region)
         else:
-            self._create_moul_nodes(bo, nodes, linkingnode, age_name, region)
+            self._create_moul_nodes(bo, tree.nodes, linkingnode, age_name, region)
 
     def _create_pots_nodes(self, clickable_object, nodes, linkingnode, age_name, clk_region):
         # Clickable
