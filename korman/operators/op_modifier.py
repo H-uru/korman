@@ -346,7 +346,7 @@ class ModifierLogicWizOperator(ModifierOperator, bpy.types.Operator):
             print("WRN: This modifier is not actually enabled!")
 
         start = time.process_time()
-        mod.logicwiz(obj)
+        mod.create_logic(obj)
         end = time.process_time()
         print("\nLogicWiz finished in {:.2f} seconds".format(end-start))
         return {"FINISHED"}

@@ -13,10 +13,11 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
-import abc
 import bpy
 from bpy.props import *
-from contextlib import contextmanager
+
+import abc
+from typing import Generator
 
 class PlasmaModifierProperties(bpy.types.PropertyGroup):
     @property
@@ -49,6 +50,13 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
     def enabled(self):
         return self.display_order >= 0
 
+    def export(self, exporter, bo, so):
+        """This is the main phase of the modifier export where most, if not all, PRP objects should
+           be generated. No new Blender objects should be created unless their lifespan is constrained
+           to the duration of this method.
+        """
+        pass
+
     @property
     def face_sort(self):
         """Indicates that the geometry's faces should be sorted by the engine"""
@@ -71,6 +79,14 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
         """Indicates that the geometry's Spans should never be sorted with those from other
            Drawables that will render in the same pass"""
         return False
+
+    def pre_export(self, exporter, bo: bpy.types.Object) -> Generator:
+        """This is the first phase of the modifier export; allowing modifiers to create additonal
+           objects or logic nodes to be used by the exporter. To do so, overload this method
+           and yield any Blender ID from your method. That ID will then be exported and deleted
+           when the export completes. PRP objects should generally not be exported in this phase.
+        """
+        yield
 
     @property
     def requires_actor(self):
@@ -96,25 +112,30 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
 
 
 class PlasmaModifierLogicWiz:
-    @contextmanager
-    def generate_logic(self, bo, **kwargs):
+    def convert_logic(self, bo, **kwargs):
+        """Creates, converts, and returns an unmanaged NodeTree for this logic wizard. If the wizard
+           fails during conversion, the temporary tree is deleted for you. However, on success, you
+           are responsible for removing the tree from Blender, if applicable."""
         name = kwargs.pop("name", self.key_name)
         assert not "tree" in kwargs
         tree = bpy.data.node_groups.new(name, "PlasmaNodeTree")
         kwargs["tree"] = tree
         try:
             self.logicwiz(bo, **kwargs)
-            yield tree
-        finally:
+        except:
             bpy.data.node_groups.remove(tree)
+            raise
+        else:
+            return tree
 
     @abc.abstractmethod
     def logicwiz(self, bo, tree):
         pass
 
-    def export_logic(self, exporter, bo, so, **kwargs):
-        with self.generate_logic(bo, **kwargs) as tree:
-            tree.export(exporter, bo, so)
+    def pre_export(self, exporter, bo):
+        """Default implementation of the pre_export phase for logic wizards that simply triggers
+           the logic nodes to be created and for their export to be scheduled."""
+        yield self.convert_logic(bo)
 
 
 class PlasmaModifierUpgradable:

@@ -15,7 +15,8 @@
 
 import bmesh
 import bpy
-from typing import Callable
+
+from typing import Callable, Iterator, Tuple
 from contextlib import contextmanager
 
 from PyHSPlasma import *
@@ -73,7 +74,7 @@ def bmesh_temporary_object(name : str, factory : Callable, page_name : str=None)
         bpy.context.scene.objects.unlink(obj)
 
 @contextmanager
-def bmesh_object(name : str):
+def bmesh_object(name: str) -> Iterator[Tuple[bpy.types.Object, bmesh.types.BMesh]]:
     """Creates an object and mesh that will be removed if the context is exited
        due to an error"""
     mesh = bpy.data.meshes.new(name)
