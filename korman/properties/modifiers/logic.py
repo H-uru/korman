@@ -60,7 +60,7 @@ class PlasmaAdvancedLogic(PlasmaModifierProperties):
                     raise ExportError("'{}': Advanced Logic is missing a node tree for '{}'".format(bo.name, i.name))
 
                 # Defer node tree export until all trees are harvested.
-                exporter.want_node_trees.setdefault(i.node_tree.name, set()).add((bo, so))
+                exporter.want_node_trees[i.node_tree.name].add((bo, so))
 
     def harvest_actors(self):
         actors = set()

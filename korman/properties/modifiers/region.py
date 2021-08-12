@@ -143,10 +143,6 @@ class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
                           items=bounds_types,
                           default="hull")
 
-    def export(self, exporter, bo, so):
-        with self.generate_logic(bo) as tree:
-            tree.export(exporter, bo, so)
-
     def logicwiz(self, bo, tree):
         nodes = tree.nodes
 

@@ -115,19 +115,9 @@ class PlasmaSittingBehavior(idprops.IDPropObjectMixin, PlasmaModifierProperties,
                                  description="How far away we will tolerate the avatar facing the clickable",
                                  min=-180, max=180, default=45)
 
-    def export(self, exporter, bo, so):
-        # The user absolutely MUST specify a clickable or this won't export worth crap.
-        if self.clickable_object is None:
-            raise ExportError("'{}': Sitting Behavior's clickable object is invalid".format(self.key_name))
-
-        # Generate the logic nodes now
-        with self.generate_logic(bo) as tree:
-            tree.export(exporter, bo, so)
-
     def harvest_actors(self):
         if self.facing_enabled:
-            return (self.clickable_object.name,)
-        return ()
+            yield self.clickable_object.name
 
     def logicwiz(self, bo, tree):
         nodes = tree.nodes
@@ -177,3 +167,8 @@ class PlasmaSittingBehavior(idprops.IDPropObjectMixin, PlasmaModifierProperties,
     def requires_actor(self):
         # This should be an empty, really...
         return True
+
+    def sanity_check(self):
+        # The user absolutely MUST specify a clickable or this won't export worth crap.
+        if self.clickable_object is None:
+            raise ExportError("'{}': Sitting Behavior's clickable object is invalid".format(self.key_name))
