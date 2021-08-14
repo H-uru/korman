@@ -292,6 +292,9 @@ class LightConverter:
                     self._report.msg("[{}] PermaLight '{}'", lamp.type, obj.name, indent=2)
                     permaLights.append(pl_light)
 
+        if len(permaLights) > 8:
+            self._report.warn("More than 8 RT lamps on material: '{}'", bm.name, indent=1)
+
         return (permaLights, permaProjs)
 
     def get_light_key(self, bo, bl_light, so):
