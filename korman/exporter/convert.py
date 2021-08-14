@@ -346,7 +346,7 @@ class Exporter:
     def has_coordiface(self, bo):
         if bo.type in {"CAMERA", "EMPTY", "LAMP"}:
             return True
-        if bo.parent is not None:
+        if bo.parent is not None or bo.children:
             return True
         if bo.name in self.actors:
             return True
