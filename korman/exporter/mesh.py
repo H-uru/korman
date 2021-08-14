@@ -505,9 +505,10 @@ class MeshConverter(_MeshManager):
                     face_verts.append(data.blender2gs[vertex][coluv])
 
             # Convert to triangles, if need be...
-            if len(face_verts) == 3:
+            num_faces = len(face_verts)
+            if num_faces == 3:
                 data.triangles += face_verts
-            elif len(face_verts) == 4:
+            elif num_faces == 4:
                 data.triangles += (face_verts[0], face_verts[1], face_verts[2])
                 data.triangles += (face_verts[0], face_verts[2], face_verts[3])
 
