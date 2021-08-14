@@ -258,7 +258,6 @@ class LightConverter:
         # If there is no light group, we'll say that there is no runtime lighting...
         # If there is, we will harvest all Blender lamps in that light group that are Plasma Objects
         lg = bm.light_group
-        lcount = 0
         if lg is not None:
             for obj in lg.objects:
                 if obj.type != "LAMP":
