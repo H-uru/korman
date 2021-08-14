@@ -258,6 +258,7 @@ class LightConverter:
         # If there is no light group, we'll say that there is no runtime lighting...
         # If there is, we will harvest all Blender lamps in that light group that are Plasma Objects
         lg = bm.light_group
+        lcount = 0
         if lg is not None:
             for obj in lg.objects:
                 if obj.type != "LAMP":
@@ -291,6 +292,10 @@ class LightConverter:
                 else:
                     self._report.msg("[{}] PermaLight '{}'", lamp.type, obj.name, indent=2)
                     permaLights.append(pl_light)
+                    lcount = lcount + 1
+    
+        if lcount > 8:
+            self._report.warn("More than 8 RT lamps on material: '{}'".format(bm.name), indent=1)
 
         return (permaLights, permaProjs)
 
