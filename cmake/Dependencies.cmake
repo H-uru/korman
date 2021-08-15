@@ -165,6 +165,7 @@ if(korman_BUILD_STRING_THEORY)
         GIT_TAG ${_string_theory_tag}
         CMAKE_CACHE_ARGS
             -DST_BUILD_TESTS:BOOL=OFF
+            -DST_BUILD_STATIC:BOOL=ON # string_theory < 3.0
     )
 endif()
 
@@ -172,18 +173,21 @@ if(korman_BUILD_ZLIB)
     # Using zlib-ng instead of zlib because the latter's CMakeLists is a pile of steaming garbage
     # in that it always produces a shared library if BUILD_SHARED_LIBS=OFF, and bad problems when
     # `if(UNIX)` -> TRUE. Grrr.
+    if(MSVC AND MSVC_TOOLSET_VERSION LESS 140)
+        list(APPEND _zlib_extra_args
+            -DCMAKE_C_FLAGS:STRING=/Dinline=__inline # VS2013's C99 support is incomplete.
+            -DWITH_AVX2:BOOL=OFF # Triggers downstream linker errors
+            -DWITH_SSE2:BOOL=OFF # Broken
+        )
+    endif()
     korman_add_external_project(zlib
-        #URL
-        #    "https://zlib.net/zlib-1.2.11.tar.gz"
-        #    "https://sourceforge.net/projects/libpng/files/zlib/1.2.11/zlib-1.2.11.tar.gz/download"
-        #DOWNLOAD_NAME "zlib-1.2.11.tar.gz"
-        #URL_HASH "SHA256=c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1"
         GIT_REPOSITORY "https://github.com/zlib-ng/zlib-ng.git"
         GIT_TAG 2.0.5
         CMAKE_CACHE_ARGS
             -DBUILD_SHARED_LIBS:BOOL=OFF
             -DZLIB_COMPAT:BOOL=ON
             -DZLIB_ENABLE_TESTS:BOOL=OFF
+            ${_zlib_extra_args}
     )
 endif()
 

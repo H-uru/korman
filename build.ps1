@@ -100,7 +100,7 @@ function Convert-BoolToCMake($Value) {
 
 function Start-KormanBuild($HostGenerator, $TargetPlatform, $OutputDir, $StagingDir) {
     Write-Host -ForegroundColor Cyan "Configuring Korman with $HostGenerator for $TargetPlatform..."
-    $InstallBlender = Convert-BoolToCMake $(if ($NoBlender) { $false } else { $true })
+    $InstallBlender = Convert-BoolToCMake $(if ($NoBlender -Or $Classic) { $false } else { $true })
     $HarvestPython22 = Convert-BoolToCMake $(if ($NoInstaller) { $false } else { $true })
     cmake `
         -G "$HostGenerator" `
@@ -127,7 +127,7 @@ function Set-KormanClassicBuild($OutputDir, $Arch) {
 
 function Complete-KormanBuild($OutputDir) {
     Write-Host -ForegroundColor Cyan "Aaaand they're off!!!"
-    cmake --build "$OutputDir" --config Release --parallel | Write-Host
+    cmake --build "$OutputDir" --config Release --parallel
     if ($LASTEXITCODE -Ne 0) { throw "Build failed!" }
 }
 
