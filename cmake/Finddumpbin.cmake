@@ -15,9 +15,14 @@
 
 
 get_filename_component(_linker_dir "${CMAKE_LINKER}" DIRECTORY)
+
+# In Visual Studio 2013, the dumpbin.exe in the linker directory is missing an important DLL.
+# But, it's present in the parent directory, so prefer that one.
+get_filename_component(_msvc_bin_dir "${_linker_dir}/../" ABSOLUTE)
+
 find_program(dumpbin_EXECUTABLE
     NAMES dumpbin
-    PATHS ${_linker_dir}
+    PATHS "${_msvc_bin_dir}" "${_linker_dir}"
 )
 
 mark_as_advanced(dumpbin_EXECUTABLE)

@@ -35,7 +35,7 @@ if(WIN32 AND EXISTS "${Blender_EXECUTABLE}")
             COMMAND "${dumpbin_EXECUTABLE}" /headers "${Blender_EXECUTABLE}"
             RESULTS_VARIABLE _RETURNCODE
             OUTPUT_VARIABLE _dumpbin_output
-            ERROR_VARIABLE _dumpbin_error
+            ERROR_VARIABLE _dumpbin_output
             OUTPUT_STRIP_TRAILING_WHITESPACE
             ERROR_STRIP_TRAILING_WHITESPACE
         )
@@ -57,6 +57,14 @@ if(WIN32 AND EXISTS "${Blender_EXECUTABLE}")
 endif()
 
 if(EXISTS "${Blender_EXECUTABLE}")
+    execute_process(
+        COMMAND "${Blender_EXECUTABLE}" -b -v
+        RESULTS_VARIABLE _RETURNCODE
+        OUTPUT_VARIABLE _Blender_VERSION_OUTPUT
+        ERROR_VARIABLE _Blender_VERSION_OUTPUT
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_STRIP_TRAILING_WHITESPACE
+    )
     # Starting Blender is noisy on stdout, so all the extra characters will make sure things go right.
     # https://youtu.be/SlQFIsQ0dbs?t=19
     set(_Blender_PYTHON_EXPR
@@ -65,14 +73,14 @@ if(EXISTS "${Blender_EXECUTABLE}")
     execute_process(
         COMMAND "${Blender_EXECUTABLE}" -b --python-expr "${_Blender_PYTHON_EXPR}"
         RESULTS_VARIABLE _RETURNCODE
-        OUTPUT_VARIABLE _Blender_VERSION_OUTPUT
-        ERROR_VARIABLE _Blender_VERSION_OUTPUT
+        OUTPUT_VARIABLE _Blender_PYTHON_OUTPUT
+        ERROR_VARIABLE _Blender_PYTHON_OUTPUT
         OUTPUT_STRIP_TRAILING_WHITESPACE
         ERROR_STRIP_TRAILING_WHITESPACE
     )
     string(REGEX MATCH [[Blender ([0-9]+\.[0-9]+)]] _match "${_Blender_VERSION_OUTPUT}")
     set(Blender_VERSION "${CMAKE_MATCH_1}")
-    string(REGEX MATCH [[!!! OOGABOOGA ([0-9]+\.[0-9]+) AGOOBAGOO !!!]] _match "${_Blender_VERSION_OUTPUT}")
+    string(REGEX MATCH [[!!! OOGABOOGA ([0-9]+\.[0-9]+) AGOOBAGOO !!!]] _match "${_Blender_PYTHON_OUTPUT}")
     set(Blender_PYTHON_VERSION "${CMAKE_MATCH_1}")
 endif()
 

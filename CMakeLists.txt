@@ -42,6 +42,9 @@ elseif("${Blender_PYTHON_VERSION}" AND NOT "${Blender_PYTHON_VERSION}" MATCHES "
     message(FATAL_ERROR "Your manually defined Blender python version ($CACHE{Blender_PYTHON_VERSION}) doesn't pass muster.")
 endif()
 find_package(Blender 2.79 EXACT ${_Blender_REQUIRED})
+if(NOT Blender_FOUND)
+    set(Blender_VERSION "2.79")
+endif()
 
 # Gotta do this because libHSPlasma is still using the old broke-ass pre-3.12 find modules.
 set(Python3_FIND_STRATEGY VERSION)
