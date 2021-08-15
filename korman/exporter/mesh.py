@@ -41,17 +41,11 @@ class _GeoSpan:
         """Determines the color all vertex colors should be multipled by in this span."""
         if self.geospan.props & plGeometrySpan.kDiffuseFoldedIn:
             color = bm.diffuse_color
-            base_layer = self._find_bottom_of_stack()
+            base_layer = self.geospan.material.object.layers[0].object.bottomOfStack.object
             return (color.r, color.b, color.g, base_layer.opacity)
         if not bo.plasma_modifiers.lighting.preshade:
             return (0.0, 0.0, 0.0, 0.0)
         return (1.0, 1.0, 1.0, 1.0)
-
-    def _find_bottom_of_stack(self) -> plLayerInterface:
-        base_layer = self.geospan.material.object.layers[0].object
-        while base_layer.underLay is not None:
-            base_layer = base_layer.underLay.object
-        return base_layer
 
 
 class _RenderLevel:

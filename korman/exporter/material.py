@@ -1192,9 +1192,7 @@ class MaterialConverter:
         except IndexError:
             return None
         else:
-            while layer.underLay is not None:
-                layer = layer.underLay.object
-            return layer
+            return layer.bottomOfStack.object
 
     def get_bump_layer(self, bo):
         return self._bump_mats.get(bo, None)
