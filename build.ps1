@@ -16,11 +16,13 @@
 param(
     [Parameter(ParameterSetName="classic", Mandatory=$false)]
     [Parameter(ParameterSetName="modern", Mandatory=$false)]
+    [Parameter(ParameterSetName="dev", Mandatory=$false)]
     [ValidateSet("Visual Studio 2013", "Visual Studio 2015", "Visual Studio 2017", "Visual Studio 2019", "Visual Studio 2022")]
     [string]$Generator,
 
     [Parameter(ParameterSetName="classic", Mandatory=$false)]
     [Parameter(ParameterSetName="modern", Mandatory=$false)]
+    [Parameter(ParameterSetName="dev", Mandatory=$false)]
     [string]$BuildDir = "$(Get-Location)/build",
 
     [Parameter(ParameterSetName="modern", Mandatory=$true)]
@@ -43,7 +45,11 @@ param(
     })]
     [switch]$Classic,
 
+    [Parameter(ParameterSetName="dev", Mandatory=$true)]
+    [switch]$Dev,
+
     [Parameter(ParameterSetName="classic", Mandatory=$true)]
+    [Parameter(ParameterSetName="dev", Mandatory=$false)]
     [string]$PythonVersion,
 
     [Parameter(ParameterSetName="modern")]
@@ -51,6 +57,7 @@ param(
     [string]$Platform,
 
     [Parameter(ParameterSetName="modern")]
+    [Parameter(ParameterSetName="dev")]
     [string]$BlenderDir,
 
     [Parameter(ParameterSetName="modern")]
@@ -80,6 +87,11 @@ $Platform_LUT = @{
     "x64" = "x64"
 }
 
+# Fixup -NoBlender for dev and classic modes.
+if ($Classic -Or $Dev) {
+    $NoBlender = $true
+}
+
 function Find-CMakeArgument($UserInput, $EnvValue, $LUT, $Default) {
     if ($UserInput) {
         return $LUT[$UserInput]
@@ -99,19 +111,25 @@ function Convert-BoolToCMake($Value) {
 }
 
 function Start-KormanBuild($HostGenerator, $TargetPlatform, $OutputDir, $StagingDir) {
-    Write-Host -ForegroundColor Cyan "Configuring Korman with $HostGenerator for $TargetPlatform..."
-    $InstallBlender = Convert-BoolToCMake $(if ($NoBlender -Or $Classic) { $false } else { $true })
+    # Only pass the -G and -A arguments for new build directories.
+    if (!(Test-Path "$OutputDir/CMakeCache.txt")) {
+        Write-Host -ForegroundColor Cyan "Configuring Korman with $HostGenerator for $TargetPlatform..."
+        $GeneratorArg = "-G$HostGenerator"
+        $PlatformArg = "-A$TargetPlatform"
+    } else {
+        Write-Host -ForegroundColor Cyan "Re-Configuring Korman..."
+    }
+    $InstallBlender = Convert-BoolToCMake $(if ($NoBlender) { $false } else { $true })
     $HarvestPython22 = Convert-BoolToCMake $(if ($NoInstaller) { $false } else { $true })
     cmake `
-        -G "$HostGenerator" `
-        -A "$TargetPlatform" `
+        $GeneratorArg $PlatformArg `
         -S "$PSScriptRoot" `
         -B "$OutputDir" `
         -DBlender_ROOT="$BlenderDir" `
         -DBlender_PYTHON_VERSION="$PythonVersion" `
         -Dkorman_EXTERNAL_STAGING_DIR="$StagingDir" `
         -Dkorman_HARVEST_PYTHON22="$HarvestPython22" `
-        -Dkorman_INSTALL_BLENDER="$InstallBlender" | Write-Host
+        -Dkorman_INSTALL_BLENDER="$InstallBlender"
     if ($LASTEXITCODE -Ne 0) { throw "Configure failed!" }
 }
 
@@ -125,9 +143,27 @@ function Set-KormanClassicBuild($OutputDir, $Arch) {
     if ($LASTEXITCODE -Ne 0) { throw "Configure failed!" }
 }
 
-function Complete-KormanBuild($OutputDir) {
+function Set-KormanDevBuild($OutputDir) {
+    Write-Host -ForegroundColor Cyan "Setting up development build..."
+    if ($BlenderDir) { $InstallDest = $BlenderDir } else { $InstallDest = "$OutputDir/install" }
+    cmake `
+        -B "$OutputDir" `
+        -DCMAKE_INSTALL_PREFIX="$InstallDest" `
+        -Dkorman_HARVEST_PYTHON22=OFF `
+        -Dkorman_HARVEST_VCREDIST=OFF `
+        -Dkorman_INSTALL_BLENDER=OFF `
+        -Dkorman_INSTALL_SCRIPTS=OFF `
+        -Dkorman_INSTALL_PACKAGE=OFF
+}
+
+function Complete-KormanBuild($OutputDir, $Install = $false) {
     Write-Host -ForegroundColor Cyan "Aaaand they're off!!!"
-    cmake --build "$OutputDir" --config Release --parallel
+    # Don't even ask.
+    if ($Install) {
+        cmake --build `"$OutputDir`" --target INSTALL --config Release --parallel
+    } else {
+        cmake --build `"$OutputDir`" @($InstallArg) --config Release --parallel
+    }
     if ($LASTEXITCODE -Ne 0) { throw "Build failed!" }
 }
 
@@ -180,6 +216,12 @@ function Build-KormanClassicInstaller() {
     }
 }
 
+function Build-KormanDev($HostGenerator, $TargetPlatform, $OutputDir) {
+    Start-KormanBuild "$HostGenerator" "$TargetPlatform" "$OutputDir" "$OutputDir/external"
+    Set-KormanDevBuild "$OutputDir"
+    Complete-KormanBuild "$OutputDir" -Install $true
+}
+
 function Build-KormanModern($HostGenerator, $TargetPlatform, $OutputDir) {
     $CheckBuildDir = Test-Path $OutputDir
     Start-KormanBuild "$HostGenerator" "$TargetPlatform" "$OutputDir" "$OutputDir/external"
@@ -217,7 +259,12 @@ if ($Classic) {
     Build-KormanClassicSingleArch "$MyGenerator" x86 "$BuildDir"
     Build-KormanClassicSingleArch "$MyGenerator" x64 "$BuildDir"
     Build-KormanClassicInstaller
-} else {
+} elseif($Modern) {
     $MyPlatform = Find-CMakeArgument $Platform $Env:CMAKE_GENERATOR_PLATFORM $Platform_LUT x64
     Build-KormanModern "$MyGenerator" "$MyPlatform" "$BuildDir"
+} elseif($Dev) {
+    $MyPlatform = Find-CMakeArgument $Platform $Env:CMAKE_GENERATOR_PLATFORM $Platform_LUT x64
+    Build-KormanDev "$MyGenerator" "$MyPlatform" "$BuildDir"
+} else {
+    throw "Unknown build type"
 }

@@ -32,6 +32,7 @@ set(CMAKE_INSTALL_PREFIX "${PROJECT_BINARY_DIR}/install" CACHE PATH "")
 # That would indicate that we are installing Korman into the blender we found, so no need to install blender.
 option(korman_INSTALL_BLENDER "Copy Blender as part of the INSTALL target" ON)
 option(korman_INSTALL_SCRIPTS "Copy Korman python scripts as part of the INSTALL target" ON)
+option(korman_INSTALL_PACKAGE "Buid Korman CPack installers" ON)
 
 # While, yes, we could tie our build process into Blender's, Blender pulls in
 # tons of dependencies and can be quite slow if you start trying to build
@@ -51,7 +52,9 @@ set(Python3_FIND_STRATEGY VERSION)
 find_package(Python3 ${Blender_PYTHON_VERSION} EXACT COMPONENTS Development REQUIRED)
 
 include(Dependencies)
-include(Packaging)
+if(korman_INSTALL_PACKAGE)
+    include(Packaging)
+endif()
 
 if(korman_INSTALL_SCRIPTS)
     set(korman_INSTALL_SCRIPTS_PATH "${Blender_VERSION}/scripts/addons" CACHE STRING "")
