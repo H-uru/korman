@@ -208,7 +208,7 @@ if(korman_BUILD_HSPLASMA)
     korman_add_external_project(HSPlasma
         GIT_REPOSITORY "https://github.com/H-uru/libhsplasma.git"
         # Be sure to increase this as the feature set used by Korman increases
-        GIT_TAG 187e3ee8b63d0f7a7e3cac15ed399af5b825b998
+        GIT_TAG ba5ca8e3fe9261dc6a0d40abfc6f6ec7c82c1b93
         # We can only do shallow checkouts if the above is a branch or tag.
         GIT_SHALLOW FALSE
         CMAKE_CACHE_ARGS
