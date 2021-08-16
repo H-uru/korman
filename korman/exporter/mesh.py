@@ -346,13 +346,6 @@ class MeshConverter(_MeshManager):
         for i in permaProjs:
             geospan.addPermaProj(i)
 
-        # If this object has a CI, we don't need xforms here...
-        if self._exporter().has_coordiface(bo):
-            geospan.localToWorld = hsMatrix44()
-            geospan.worldToLocal = hsMatrix44()
-        else:
-            geospan.localToWorld = utils.matrix44(bo.matrix_basis)
-            geospan.worldToLocal = geospan.localToWorld.inverse()
         return geospan
 
     def finalize(self):
@@ -506,9 +499,10 @@ class MeshConverter(_MeshManager):
                     face_verts.append(data.blender2gs[vertex][coluv])
 
             # Convert to triangles, if need be...
-            if len(face_verts) == 3:
+            num_faces = len(face_verts)
+            if num_faces == 3:
                 data.triangles += face_verts
-            elif len(face_verts) == 4:
+            elif num_faces == 4:
                 data.triangles += (face_verts[0], face_verts[1], face_verts[2])
                 data.triangles += (face_verts[0], face_verts[2], face_verts[3])
 
@@ -589,11 +583,11 @@ class MeshConverter(_MeshManager):
         # If this object has modifiers, then it's a unique mesh, and we don't need to try caching it
         # Otherwise, let's *try* to share meshes as best we can...
         if bo.modifiers:
-            drawables = self._export_mesh(bo)
+            drawables = self._export_object(bo)
         else:
             drawables = self._mesh_geospans.get(bo.data, None)
             if drawables is None:
-                drawables = self._export_mesh(bo)
+                drawables = self._export_object(bo)
 
         # Create the DrawInterface
         if drawables:
@@ -601,11 +595,18 @@ class MeshConverter(_MeshManager):
             for dspan_key, idx in drawables:
                 diface.addDrawable(dspan_key, idx)
 
-    def _export_mesh(self, bo):
-        # Previously, this called bo.to_mesh to apply modifiers. However, due to limitations in the
-        # lightmap generation, this is now done for all modified mesh objects before any Plasma data
-        # is exported.
-        mesh = bo.data
+    def _export_object(self, bo):
+        # Apply all transforms if we don't have a CI. Empirical evidence suggests that simply
+        # stashing the transform matrices into the spans can be wiped away by plEnableMsg (WTF)
+        if self._exporter().has_coordiface(bo):
+            return self._export_mesh(bo, bo.data)
+        else:
+            mesh = bo.to_mesh(bpy.context.scene, True, "RENDER", calc_tessface=False)
+            with helpers.TemporaryObject(mesh, bpy.data.meshes.remove):
+                mesh.transform(bo.matrix_world)
+                return self._export_mesh(bo, mesh)
+
+    def _export_mesh(self, bo, mesh):
         mesh.calc_tessface()
 
         # Step 0.8: Determine materials needed for export... Three considerations here:
