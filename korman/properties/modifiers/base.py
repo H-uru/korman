@@ -17,7 +17,7 @@ import bpy
 from bpy.props import *
 
 import abc
-from typing import Any, Dict, Generator
+from typing import Any, Dict, Generator, Optional
 
 class PlasmaModifierProperties(bpy.types.PropertyGroup):
     @property
@@ -139,6 +139,28 @@ class PlasmaModifierLogicWiz:
                 new_attr.attribute_name = attr["name"]
         pfm_node.update()
         return pfm_node
+
+    def _create_python_attribute(self, pfm_node, attribute_name: str, attribute_type: Optional[str] = None, **kwargs):
+        """Creates and links a Python Attribute Node to the Python File Node given by `pfm_node`.
+           This will automatically handle simple attribute types such as numbers and strings, however,
+           for object linkage, you should specify the optional `attribute_type` to ensure the proper
+           attribute type is found. For attribute nodes that require multiple values, the `value` may
+           be set to None and handled in your code."""
+        from ...nodes.node_python import PlasmaAttribute, PlasmaAttribNodeBase
+        if attribute_type is None:
+            assert len(kwargs) == 1 and "value" in kwargs, \
+                "In order to deduce the attribute_type, exactly one attribute value must be passed as a kw named `value`"
+            attribute_type = PlasmaAttribute.type_LUT.get(kwargs["value"].__class__)
+        node_cls = next((i for i in PlasmaAttribNodeBase.__subclasses__() if attribute_type in i.pl_attrib), None)
+        assert node_cls is not None, "'{}': Unable to find attribute node type for '{}' ('{}')".format(
+            self.id_data.name, attribute_name, attribute_type
+        )
+
+        node = pfm_node.id_data.nodes.new(node_cls.bl_idname)
+        node.link_output(pfm_node, "pfm", attribute_name)
+        for i, j in kwargs.items():
+            setattr(node, i, j)
+        return node
 
     @abc.abstractmethod
     def logicwiz(self, bo, tree):
