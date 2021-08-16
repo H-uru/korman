@@ -70,13 +70,20 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
 
         split = layout.split()
         col = split.column()
-        col.label("Animation:")
-        col.active = self._has_animation_data(context) and not use_stencil
-        col.prop(layer_props, "anim_auto_start")
-        col.prop(layer_props, "anim_loop")
+        sub = col.column()
+        sub.label("Animation:")
+        sub.active = self._has_animation_data(context) and not use_stencil
+        sub.prop(layer_props, "anim_auto_start")
+        sub.prop(layer_props, "anim_loop")
+        sub.separator()
+        sub.label("SDL Animation:")
+        sub.prop(layer_props, "anim_sdl_var", text="")
+        # Yes, two separator.
         col.separator()
-        col.label("SDL Animation:")
-        col.prop(layer_props, "anim_sdl_var", text="")
+        col.separator()
+        sub = col.column()
+        sub.active = texture.type == "IMAGE" and texture.image is None
+        sub.prop_menu_enum(layer_props, "dynatext_resolution", text="Dynamic Text Size")
 
         col = split.column()
         col.label("Miscellaneous:")

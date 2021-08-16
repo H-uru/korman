@@ -99,3 +99,12 @@ class PlasmaLayer(bpy.types.PropertyGroup):
                                     description="Don't save the depth information, allowing rendering of layers behind this one",
                                     default=False,
                                     options=set())
+
+    dynatext_resolution = EnumProperty(name="Dynamic Text Map Resolution",
+                                       description="Size of the Dynamic Text Map's underlying image",
+                                       items=[("128", "128x128", ""),
+                                              ("256", "256x256", ""),
+                                              ("512", "512x512", ""),
+                                              ("1024", "1024x1024", "")],
+                                       default="1024",
+                                       options=set())

@@ -14,13 +14,17 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
-import functools
-import math
 import mathutils
+
+from collections import defaultdict
+import functools
+import itertools
+import math
 from pathlib import Path
-from PyHSPlasma import *
-from typing import Sequence, Union
+from typing import Iterator, Optional, Union
 import weakref
+
+from PyHSPlasma import *
 
 from .explosions import *
 from .. import helpers
@@ -133,7 +137,8 @@ class _Texture:
 
 class MaterialConverter:
     def __init__(self, exporter):
-        self._obj2mat = {}
+        self._obj2mat = defaultdict(dict)
+        self._obj2layer = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
         self._bump_mats = {}
         self._exporter = weakref.ref(exporter)
         self._pending = {}
@@ -258,13 +263,13 @@ class MaterialConverter:
         # material had no Textures, we will need to initialize a default layer
         if not hsgmat.layers:
             layer = self._mgr.find_create_object(plLayer, name="{}_AutoLayer".format(mat_name), bl=bo)
+            self._obj2layer[bo][bm][None].append(layer.key)
             self._propagate_material_settings(bo, bm, layer)
             layer = self._export_layer_animations(bo, bm, None, 0, layer)
             hsgmat.addLayer(layer.key)
 
         # Cache this material for later
-        mat_list = self._obj2mat.setdefault(bo, [])
-        mat_list.append(hsgmat.key)
+        self._obj2mat[bo][bm] = hsgmat.key
 
         # Looks like we're done...
         return hsgmat.key
@@ -496,6 +501,10 @@ class MaterialConverter:
         # NOTE: animated stencils and bumpmaps are nonsense.
         if not slot.use_stencil and not wantBumpmap:
             layer = self._export_layer_animations(bo, bm, slot, idx, layer)
+
+        # Stash the top of the stack for later in the export
+        if bm is not None:
+            self._obj2layer[bo][bm][texture].append(layer.key)
         return layer
 
     def _export_layer_animations(self, bo, bm, tex_slot, idx, base_layer) -> plLayer:
@@ -791,8 +800,8 @@ class MaterialConverter:
         if texture.image is None:
             dtm = self._mgr.find_create_object(plDynamicTextMap, name="{}_DynText".format(layer.key.name), bl=bo)
             dtm.hasAlpha = texture.use_alpha
-            # if you have a better idea, let's hear it...
-            dtm.visWidth, dtm.visHeight = 1024, 1024
+            dtm.visWidth = int(layer_props.dynatext_resolution)
+            dtm.visHeight = int(layer_props.dynatext_resolution)
             layer.texture = dtm.key
         else:
             detail_blend = TEX_DETAIL_ALPHA
@@ -1183,8 +1192,45 @@ class MaterialConverter:
                 data[i] = level_data
         return numLevels, eWidth, eHeight, [data,]
 
-    def get_materials(self, bo) -> Sequence[plKey]:
-        return self._obj2mat.get(bo, [])
+    def get_materials(self, bo: bpy.types.Object, bm: Optional[bpy.types.Material] = None) -> Iterator[plKey]:
+        material_dict = self._obj2mat.get(bo, {})
+        if bm is None:
+            return material_dict.values()
+        else:
+            return material_dict.get(bm, [])
+
+    def get_layers(self, bo: Optional[bpy.types.Object] = None,
+                   bm: Optional[bpy.types.Material] = None,
+                   tex: Optional[bpy.types.Texture] = None) -> Iterator[plKey]:
+
+        # All three? Simple.
+        if bo is not None and bm is not None and tex is not None:
+            yield from filter(None, self._obj2layer[bo][bm][tex])
+            return
+        if bo is None and bm is None and tex is None:
+            self._exporter().report.warn("Asking for all the layers we've ever exported, eh? You like living dangerously.", indent=2)
+
+        # What we want to do is filter _obj2layers:
+        # bo if set, or all objects
+        # bm if set, or tex.users_materials if set, or all materials... ON THE OBJECT(s)
+        # tex if set, or all layers... ON THE OBJECT(s) MATERIAL(s)
+        object_iter = lambda: (bo,) if bo is not None else self._obj2layer.keys()
+        if bm is not None:
+            material_seq = (bm,)
+        elif tex is not None:
+            material_seq = tex.users_material
+        else:
+            _iter = filter(lambda x: x and x.material, itertools.chain.from_iterable((i.material_slots for i in object_iter())))
+            # Performance turd: this could, in the worst case, block on creating a list of every material
+            # attached to every single Plasma Object in the current scene. This whole algorithm sucks,
+            # though, so whatever.
+            material_seq = [slot.material for slot in _iter]
+
+        for filtered_obj in object_iter():
+            for filtered_mat in material_seq:
+                all_texes = self._obj2layer[filtered_obj][filtered_mat]
+                filtered_texes = all_texes[tex] if tex is not None else itertools.chain.from_iterable(all_texes.values())
+                yield from filter(None, filtered_texes)
 
     def get_base_layer(self, hsgmat):
         try:

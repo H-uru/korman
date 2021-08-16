@@ -15,6 +15,8 @@
 
 import bpy
 from bpy.props import *
+
+from collections.abc import Iterable
 from contextlib import contextmanager
 from pathlib import Path
 from PyHSPlasma import *
@@ -283,7 +285,7 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
             from_node = socket.links[0].from_node
 
             value = from_node.value if socket.is_simple_value else from_node.get_key(exporter, so)
-            if not isinstance(value, (tuple, list)):
+            if isinstance(value, str) or not isinstance(value, Iterable):
                 value = (value,)
             for i in value:
                 param = plPythonParameter()
@@ -808,26 +810,47 @@ class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.typ
     pl_attrib = ("ptAttribMaterial", "ptAttribMaterialList",
                  "ptAttribDynamicMap", "ptAttribMaterialAnimation")
 
-    def _poll_texture(self, value):
+    def _poll_material(self, value: bpy.types.Material) -> bool:
+        # Don't filter materials by texture - this would (potentially) result in surprising UX
+        # in that you would have to clear the texture selection before being able to select
+        # certain materials.
+        if self.target_object is not None:
+            object_materials = (slot.material for slot in self.target_object.material_slots if slot and slot.material)
+            return value in object_materials
+        return True
+
+    def _poll_texture(self, value: bpy.types.Texture) -> bool:
+        # is this the type of dealio that we're looking for?
+        attrib = self.to_socket
+        if attrib is not None:
+            attrib = attrib.attribute_type
+            if attrib == "ptAttribDynamicMap":
+                if not self._is_dyntext(value):
+                    return False
+            elif attrib == "ptAttribMaterialAnimation":
+                if not self._is_animated(self.material, value):
+                    return False
+
+        # must be a legal option... but is it a member of this material... or, if no material,
+        # any of the materials attached to the object?
         if self.material is not None:
-            # is this the type of dealio that we're looking for?
-            attrib = self.to_socket
-            if attrib is not None:
-                attrib = attrib.attribute_type
-                if attrib == "ptAttribDynamicMap":
-                    if not self._is_dyntext(value):
-                        return False
-                elif attrib == "ptAttribMaterialAnimation":
-                    if not self._is_animated(self.material, value):
-                        return False
-
-            # must be a legal option... but is it a member of this material?
             return value.name in self.material.texture_slots
-        return False
+        elif self.target_object is not None:
+            for i in (slot.material for slot in self.target_object.material_slots if slot and slot.material):
+                if value in (slot.texture for slot in i.texture_slots if slot and slot.texture):
+                    return True
+            return False
+        else:
+            return True
 
+    target_object = PointerProperty(name="Object",
+                                    description="",
+                                    type=bpy.types.Object,
+                                    poll=idprops.poll_drawable_objects)
     material = PointerProperty(name="Material",
                                description="Material the texture is attached to",
-                               type=bpy.types.Material)
+                               type=bpy.types.Material,
+                               poll=_poll_material)
     texture = PointerProperty(name="Texture",
                               description="Texture to expose to Python",
                               type=bpy.types.Texture,
@@ -839,35 +862,52 @@ class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.typ
         self.outputs[0].link_limit = 1
 
     def draw_buttons(self, context, layout):
+        if self.target_object is not None:
+            iter_materials = lambda: (i.material for i in self.target_object.material_slots if i and i.material)
+            if self.material is not None:
+                if self.material not in iter_materials():
+                    layout.label("The selected material is not linked to the target object.", icon="ERROR")
+                    layout.alert = True
+            if self.texture is not None:
+                if not frozenset(self.texture.users_material) & frozenset(iter_materials()):
+                    layout.label("The selected texture is not on a material linked to the target object.", icon="ERROR")
+                    layout.alert = True
+
+        layout.prop(self, "target_object")
         layout.prop(self, "material")
-        if self.material is not None:
-            layout.prop(self, "texture")
+        layout.prop(self, "texture")
 
     def get_key(self, exporter, so):
-        if self.material is None:
-            self.raise_error("Material must be specified")
-        if self.texture is None:
-            self.raise_error("Texture must be specified")
+        if not any((self.target_object, self.material, self.texture)):
+            self.raise_error("At least one of: target object, material, or texture must be specified.")
 
         attrib = self.to_socket
         if attrib is None:
             self.raise_error("must be connected to a Python File node!")
         attrib = attrib.attribute_type
-        material = self.material
-        texture = self.texture
 
-        # Your attribute stuff here...
+        layer_generator = exporter.mesh.material.get_layers(self.target_object, self.material, self.texture)
+        bottom_layers = (i.object.bottomOfStack for i in layer_generator)
+
         if attrib == "ptAttribDynamicMap":
-            if not self._is_dyntext(texture):
-                self.raise_error("Texture '{}' is not a Dynamic Text Map".format(self.texture_name))
-            name = "{}_{}_DynText".format(material.name, texture.name)
-            return exporter.mgr.find_create_key(plDynamicTextMap, name=name, so=so)
-        elif self._is_animated(material, texture):
-            name = "{}_{}_LayerAnim".format(material_name, texture.name)
-            return exporter.mgr.find_create_key(plLayerAnimation, name=name, so=so)
+            yield from filter(lambda x: x and isinstance(x.object, plDynamicTextMap),
+                              (i.object.texture for i in layer_generator))
+        elif attrib == "ptAttribMaterialAnimation":
+            yield from filter(lambda x: x and isinstance(x.object, plLayerAnimationBase), layer_generator)
+        elif attrib == "ptAttribMaterialList":
+            yield from filter(lambda x: x and not isinstance(x.object, plLayerAnimationBase), bottom_layers)
+        elif attrib == "ptAttribMaterial":
+            # Only return the first key; warn about others.
+            result_gen = filter(lambda x: x and not isinstance(x.object, plLayerAnimationBase), bottom_layers)
+            result = next(result_gen, None)
+            remainder = sum((1 for i in result))
+            if remainder > 1:
+                exporter.report.warn("'{}.{}': Expected a single layer, but mapped to {}. Make the settings more specific.",
+                                     self.id_data.name, self.path_from_id(), remainder + 1, indent=2)
+            if result is not None:
+                yield result
         else:
-            name = "{}_{}".format(material.name, texture.name)
-            return exporter.mgr.find_create_key(plLayer, name=name, so=so)
+            raise RuntimeError(attrib)
 
     @classmethod
     def _idprop_mapping(cls):
