@@ -702,11 +702,6 @@ class PlasmaLocalizedTextModifier(PlasmaModifierProperties, PlasmaModifierLogicW
     def pre_export(self, exporter, bo):
         yield self.convert_logic(bo, age_name=exporter.age_name, version=exporter.mgr.getVer())
 
-    def export(self, exporter, bo, so):
-        # TODO: This should probably be pulled out into its own export pass for locs
-        for i in filter(None, self.translations):
-            exporter.locman.add_string("DynaTexts", self.key_name, i.language, i.text_id, indent=2)
-
     def logicwiz(self, bo, tree, *, age_name, version):
         # Rough justice. If the dynamic text map texture doesn't request alpha, then we'll want
         # to explicitly clear it to the material's diffuse color. This will allow artists to trivially
@@ -722,7 +717,7 @@ class PlasmaLocalizedTextModifier(PlasmaModifierProperties, PlasmaModifierLogicW
 
     def _create_nodes(self, bo, tree, *, age_name, version, material=None, clear_color=None):
         pfm_node = self._create_python_file_node(tree, "xDynTextLoc.py", _LOCALIZED_TEXT_PFM)
-        loc_path = self.key_name if version <= pvPots else "{}.DynaTexts.{}".format(age_name, self.key_name)
+        loc_path = self.key_name if version <= pvPots else "{}.{}.{}".format(age_name, self.localization_set, self.key_name)
 
         self._create_python_attribute(pfm_node, "dynTextMap", "ptAttribDynamicMap",
                                       target_object=bo, material=material, texture=self.texture)
@@ -744,6 +739,10 @@ class PlasmaLocalizedTextModifier(PlasmaModifierProperties, PlasmaModifierLogicW
             self._create_python_attribute(pfm_node, "clearColorG", value=clear_color[1])
             self._create_python_attribute(pfm_node, "clearColorB", value=clear_color[2])
             self._create_python_attribute(pfm_node, "clearColorA", value=1.0)
+
+    @property
+    def localization_set(self):
+        return "DynaTexts"
 
     def sanity_check(self):
         if self.texture is None:

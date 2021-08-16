@@ -69,6 +69,7 @@ class Exporter:
             self.report.progress_add_step("Collecting Objects")
             self.report.progress_add_step("Verify Competence")
             self.report.progress_add_step("Touching the Intangible")
+            self.report.progress_add_step("Unifying Superstrings")
             self.report.progress_add_step("Harvesting Actors")
             if self._op.lighting_method != "skip":
                 etlight.LightBaker.add_progress_steps(self.report)
@@ -97,6 +98,9 @@ class Exporter:
                 # Step 2.2: Run through all the objects again and ask them to "pre_export" themselves.
                 #           In other words, generate any ephemeral Blender objects that need to be exported.
                 self._pre_export_scene_objects()
+
+                # Step 2.3: Run through all the objects and export localization.
+                self._export_localization()
 
                 # Step 2.5: Run through all the objects we collected in Step 2 and see if any relationships
                 #           that the artist made requires something to have a CoordinateInterface
@@ -247,6 +251,18 @@ class Exporter:
             ci.parentToLocal = ci.localToParent.inverse()
             return ci
         return so.coord.object
+
+    def _export_localization(self):
+        self.report.progress_advance()
+        self.report.progress_range = len(self._objects)
+        inc_progress = self.report.progress_increment
+
+        self.report.msg("\nExporting localization...")
+
+        for bl_obj in self._objects:
+            for mod in filter(lambda x: hasattr(x, "export_localization"), bl_obj.plasma_modifiers.modifiers):
+                mod.export_localization(self)
+            inc_progress()
 
     def _export_scene_objects(self):
         self.report.progress_advance()

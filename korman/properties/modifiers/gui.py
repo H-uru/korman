@@ -123,6 +123,15 @@ class PlasmaJournalTranslation(bpy.types.PropertyGroup):
 
 
 class TranslationMixin:
+    def export_localization(self, exporter):
+        translations = [i for i in self.translations if i.text_id is not None]
+        if not translations:
+            exporter.report.error("'{}': '{}' No content translations available. The localization will not be exported.",
+                                  self.id_data.name, self.bl_label, indent=1)
+            return
+        for i in translations:
+            exporter.locman.add_string(self.localization_set, self.key_name, i.language, i.text_id, indent=1)
+
     def _get_translation(self):
         # Ensure there is always a default (read: English) translation available.
         default_idx, default = next(((idx, translation) for idx, translation in enumerate(self.translations)
@@ -152,6 +161,10 @@ class TranslationMixin:
             translation.language = language_name
         else:
             self.active_translation_index = idx
+
+    @property
+    def localization_set(self):
+        raise RuntimeError("TranslationMixin subclass needs a localization set getter!")
 
     @property
     def translations(self):
@@ -213,15 +226,6 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
             exporter.report.port("Object '{}' has a JournalMod not enabled for export to the selected engine.  Skipping.",
                                  bo.name, version, indent=2)
             return
-
-        # Export the Journal translation contents
-        translations = [i for i in self.journal_translations if i.text_id is not None]
-        if not translations:
-            exporter.report.error("Journal '{}': No content translations available. The journal will not be exported.",
-                                  bo.name, indent=2)
-            return
-        for i in translations:
-            exporter.locman.add_journal(self.key_name, i.language, i.text_id, indent=2)
 
         if self.clickable_region is None:
             with utils.bmesh_object("{}_Journal_ClkRgn".format(self.key_name)) as (rgn_obj, bm):
@@ -305,11 +309,15 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
 
         locpath = nodes.new("PlasmaAttribStringNode")
         locpath.link_output(journalnode, "pfm", "LocPath")
-        locpath.value = "{}.Journals.{}".format(age_name, self.key_name)
+        locpath.value = "{}.{}.{}".format(age_name, self.localization_set, self.key_name)
 
         guitype = nodes.new("PlasmaAttribStringNode")
         guitype.link_output(journalnode, "pfm", "GUIType")
         guitype.value = self.book_type
+
+    @property
+    def localization_set(self):
+        return "Journals"
 
     @property
     def requires_actor(self):

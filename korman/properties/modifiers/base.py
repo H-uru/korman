@@ -57,6 +57,15 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
         """
         pass
 
+    # Commented out to prevent conflicts with TranslationMixin overload.
+    """
+    def export_localization(self, exporter):
+        '''This is an auxiliary export phase that should only convert localization data. PRP objects
+           are in an undefined state and therefore should not be used.
+        '''
+        pass
+    """
+
     @property
     def face_sort(self):
         """Indicates that the geometry's faces should be sorted by the engine"""

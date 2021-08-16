@@ -16,6 +16,7 @@
 import bpy
 from PyHSPlasma import *
 
+from collections import defaultdict
 from contextlib import contextmanager
 import itertools
 from pathlib import Path
@@ -45,24 +46,16 @@ class LocalizationConverter:
             self._age_name = kwargs.get("age_name")
             self._path = kwargs.get("path")
             self._version = kwargs.get("version")
-        self._journals = {}
-        self._strings = {}
+        self._strings = defaultdict(lambda: defaultdict(dict))
 
-    def add_journal(self, name, language, text_id, indent=0):
-        if text_id.is_modified:
-            self._report.warn("Journal '{}' translation for '{}' is modified on the disk but not reloaded in Blender.",
-                              name, language, indent=indent)
-        journal = self._journals.setdefault(name, {})
-        journal[language] = text_id.as_string()
-        return True
-
-    def add_string(self, set_name, element_name, language, value):
-        trans_set = self._strings.setdefault(set_name, {})
-        trans_element = trans_set.setdefault(element_name, {})
-        trans_element[language] = value
-        if self._exporter is not None and self._exporter().mgr.getVer() <= pvPots:
-            return False
-        return True
+    def add_string(self, set_name, element_name, language, value, indent=0):
+        self._report.msg("Accepted '{}' translation for '{}'.", element_name, language, indent=indent)
+        if isinstance(value, bpy.types.Text):
+            if value.is_modified:
+                self._report.warn("'{}' translation for '{}' is modified on the disk but not reloaded in Blender.",
+                                element_name, language, indent=indent)
+            value = value.as_string()
+        self._strings[set_name][element_name][language] = value
 
     @contextmanager
     def _generate_file(self, filename, **kwargs):
@@ -96,8 +89,9 @@ class LocalizationConverter:
                     stream.write(contents.encode("windows-1252", "replace"))
                 return True
 
-        for journal_name, translations in self._journals.items():
-            self._report.msg("Copying Journal '{}'", journal_name, indent=1)
+        locs = itertools.chain(self._strings["Journals"].items(), self._strings["DynaTexts"].items())
+        for journal_name, translations in locs:
+            self._report.msg("Copying localization '{}'", journal_name, indent=1)
             for language_name, value in translations.items():
                 if language_name not in _SP_LANGUAGES:
                     self._report.warn("Translation '{}' will not be used because it is not supported in this version of Plasma.",
@@ -121,30 +115,20 @@ class LocalizationConverter:
                     self._report.port("No 'English' nor any other suitable default translation available", indent=2)
 
     def _generate_loc_files(self):
-        set_LUT = {
-            "Journals": self._journals
-        }
-
-        # Merge in any manual strings, but error if dupe sets are encountered.
-        special_sets, string_sets = frozenset(set_LUT.keys()), frozenset(self._strings.keys())
-        intersection = special_sets & string_sets
-        assert not intersection, "Duplicate localization sets: {}".format(" ".join(intersection))
-        set_LUT.update(self._strings)
-
-        if not any(itertools.chain.from_iterable(set_LUT.values())):
+        if not self._strings:
             return
 
         method = bpy.context.scene.world.plasma_age.localization_method
         if method == "single_file":
-            self._generate_loc_file("{}.loc".format(self._age_name), set_LUT)
+            self._generate_loc_file("{}.loc".format(self._age_name), self._strings)
         elif method in {"database", "database_back_compat"}:
             # Where the strings are set -> element -> language: str, we want language -> set -> element: str
             # This is so we can mimic pfLocalizationEditor's <agename>English.loc pathing.
-            database = {}
-            for set_name, elements in set_LUT.items():
+            database = defaultdict(lambda: defaultdict(dict))
+            for set_name, elements in self._strings.items():
                 for element_name, translations in elements.items():
                     for language_name, value in translations.items():
-                        database.setdefault(language_name, {}).setdefault(set_name, {})[element_name] = value
+                        database[language_name][set_name][element_name] = value
 
             for language_name, sets in database.items():
                 self._generate_loc_file("{}{}.loc".format(self._age_name, language_name), sets, language_name)
@@ -200,7 +184,7 @@ class LocalizationConverter:
         loc_path = str(Path(self._path) / "dat" / "{}.loc".format(self._age_name))
         log = logger.ExportVerboseLogger if age_props.verbose else logger.ExportProgressLogger
         with korlib.ConsoleToggler(age_props.show_console), log(loc_path) as self._report:
-            self._report.progress_add_step("Harvesting Journals")
+            self._report.progress_add_step("Harvesting Translations")
             self._report.progress_add_step("Generating Localization")
             self._report.progress_start("Exporting Localization Data")
 
@@ -212,20 +196,23 @@ class LocalizationConverter:
             self._report.raise_errors()
 
     def _run_harvest_journals(self):
+        from ..properties.modifiers import TranslationMixin
+
         objects = bpy.context.scene.objects
         self._report.progress_advance()
         self._report.progress_range = len(objects)
         inc_progress = self._report.progress_increment
 
         for i in objects:
-            journal = i.plasma_modifiers.journalbookmod
-            if journal.enabled:
-                translations = [j for j in journal.journal_translations if j.text_id is not None]
-                if not translations:
-                    self._report.error("Journal '{}': No content translations available. The journal will not be exported.",
-                                       i.name, indent=2)
-                for j in translations:
-                    self.add_journal(journal.key_name, j.language, j.text_id, indent=1)
+            for mod_type in filter(None, (getattr(j, "pl_id", None) for j in TranslationMixin.__subclasses__())):
+                modifier = getattr(i.plasma_modifiers, mod_type)
+                if modifier.enabled:
+                    translations = [j for j in modifier.translations if j.text_id is not None]
+                    if not translations:
+                        self._report.error("'{}': No content translations available. The localization will not be exported.",
+                                        i.name, indent=2)
+                    for j in translations:
+                        self.add_string(modifier.localization_set, modifier.key_name, j.language, j.text_id, indent=1)
             inc_progress()
 
     def _run_generate(self):
