@@ -198,7 +198,13 @@ class MaterialConverter:
             hgmat = None
         else:
             # Ensure that RT-lit objects don't infect the static-lit objects.
-            mat_prefix = "RTLit_" if bo.plasma_modifiers.lighting.rt_lights else ""
+            lighting_mod = bo.plasma_modifiers.lighting
+            if lighting_mod.unleashed:
+                mat_prefix = "Unleashed_"
+            elif lighting_mod.rt_lights:
+                mat_prefix = "RTLit_"
+            else:
+                mat_prefix = ""
             mat_name = "".join((mat_prefix, bm.name))
             self._report.msg("Exporting Material '{}'", mat_name, indent=1)
             hsgmat = self._mgr.find_key(hsGMaterial, name=mat_name, bl=bo)
