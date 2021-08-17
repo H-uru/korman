@@ -153,28 +153,26 @@ def lighting(modifier, layout, context):
 
     lightmap = modifier.id_data.plasma_modifiers.lightmap
     have_static_lights = lightmap.enabled or modifier.preshade
-    def yes_no(val):
-        return "Yes" if val else "No"
 
     col = layout.column(align=True)
     col.label("Plasma Lighting Summary:")
-    if modifier.rt_lights and have_static_lights:
-        col.label(" You have unleashed Satan!", icon="GHOST_ENABLED")
+    if modifier.unleashed:
+        col.label("You have unleashed Satan!", icon="GHOST_ENABLED")
     else:
-        col.label(" Satan remains ensconced deep in the abyss...", icon="GHOST_ENABLED")
+        col.label("Satan remains ensconced deep in the abyss...", icon="GHOST_ENABLED")
     col.label("Animated lights will be cast at runtime.", icon="LAYER_USED")
     col.label("Projection lights will be cast at runtime.", icon="LAYER_USED")
     col.label("Specular lights will be cast to specular materials at runtime.", icon="LAYER_USED")
     col.label("Other Plasma lights {} be cast at runtime.".format("will" if modifier.rt_lights else "will NOT"),
               icon="LAYER_USED")
 
-    map_type = "a lightmap" if lightmap.enabled and lightmap.bake_type == "lightmap" else "vertex colors"
+    map_type = "a lightmap" if lightmap.bake_lightmap else "vertex colors"
     if lightmap.enabled and lightmap.lights:
             col.label("All '{}' lights will be baked to {}".format(lightmap.lights.name, map_type),
                       icon="LAYER_USED")
     elif have_static_lights:
         light_type = "Blender-only" if modifier.rt_lights else "unanimated"
-        col.label("Other {} lights will be baked to {}.".format(light_type, map_type), icon="LAYER_USED")
+        col.label("Other {} lights will be baked to {} (if applicable).".format(light_type, map_type), icon="LAYER_USED")
     else:
         col.label("No static lights will be baked.", icon="LAYER_USED")
 

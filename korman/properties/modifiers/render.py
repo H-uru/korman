@@ -590,6 +590,11 @@ class PlasmaLightingMod(PlasmaModifierProperties):
         return (self.enabled and self.force_rt_lights) or self.want_rt_lights
 
     @property
+    def unleashed(self):
+        """Has Satan been unleashed? Meaning, RT lights and preshading."""
+        return self.enabled and self.rt_lights and self.preshade
+
+    @property
     def want_rt_lights(self):
         """Gets whether or not this object ought to be lit dynamically"""
         mods = self.id_data.plasma_modifiers
