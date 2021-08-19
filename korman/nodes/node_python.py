@@ -260,7 +260,7 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
 
         # Special PFM-SO handling ahoy - be sure to do it for all objects this PFM is attached to.
         # Otherwise, you get non-determinant behavior.
-        self._export_ancillary_sceneobject(exporter, so)
+        self._export_ancillary_sceneobject(exporter, bo, so)
 
         # No need to continue if the PFM was already generated.
         if pfm.filename:
@@ -297,15 +297,16 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
                     self._export_key_attrib(exporter, bo, so, i, socket)
                 pfm.addParameter(param)
 
-    def _export_ancillary_sceneobject(self, exporter, so : plSceneObject) -> None:
+    def _export_ancillary_sceneobject(self, exporter, bo, so: plSceneObject) -> None:
         # Danger: Special case evil ahoy...
         # If the key is an object that represents a lamp, we have to assume that the reason it's
         # being passed to Python is so it can be turned on/off at will. That means it's technically
         # an animated lamp.
-        for light in exporter.mgr.find_interfaces(plLightInfo, so):
-            exporter.report.msg("Marking RT light '{}' as animated due to usage in a Python File node",
-                                 so.key.name, indent=3)
-            light.setProperty(plLightInfo.kLPMovable, True)
+        if not bool(bo.users_group):
+            for light in exporter.mgr.find_interfaces(plLightInfo, so):
+                exporter.report.msg("Marking RT light '{}' as animated due to usage in a Python File node",
+                                    so.key.name, indent=3)
+                light.setProperty(plLightInfo.kLPMovable, True)
 
     def _export_key_attrib(self, exporter, bo, so : plSceneObject, key : plKey, socket) -> None:
         if key is None:
@@ -324,7 +325,7 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
                                  plFactory.ClassName(key.type), indent=3)
 
         if isinstance(key.object, plSceneObject):
-            self._export_ancillary_sceneobject(exporter, key.object)
+            self._export_ancillary_sceneobject(exporter, bo, key.object)
 
     def _get_attrib_sockets(self, idx):
         for i in self.inputs:
