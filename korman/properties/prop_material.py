@@ -13,25 +13,16 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
-from .ui_anim import *
-from .ui_camera import *
-from .ui_image import *
-from .ui_lamp import *
-from .ui_list import *
-from .ui_material import *
-from .ui_menus import *
-from .ui_modifiers import *
-from .ui_object import *
-from .ui_render_layer import *
-from .ui_scene import *
-from .ui_text import *
-from .ui_texture import *
-from .ui_toolbox import *
-from .ui_world import *
+import bpy
+from bpy.props import *
+
+from .. import idprops
+
+class PlasmaMaterial(bpy.types.PropertyGroup):
+    bl_name = "material.plasma_material"
+	
+	plasma_double_sided = BoolProperty(name="Double Sided",
+	                                   description="Sets this material as double sided (formerly TWOSIDE)",
+									   default=False)
 
 
-def register():
-    ui_menus.register()
-
-def unregister():
-    ui_menus.unregister()
