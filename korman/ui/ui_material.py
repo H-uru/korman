@@ -31,12 +31,12 @@ class PlasmaMaterialPanel(MaterialButtonsPanel, bpy.types.Panel):
     bl_label = "Plasma Material Options"
 	
     def draw(self, context):
-        mat, slot = context.material, getattr(context, "material_slot", None)
-        mat_props = mat.plasma_mat
+        mat = context.material
+        mat_props = mat.plasma_material
         layout = self.layout
 
         split = layout.split()
         col = split.column()
         sub = col.column()
-        col.prop(mat_props, "plasma_double_sided")
+        col.prop(mat_props, "double_sided")
 
