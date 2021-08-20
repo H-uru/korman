@@ -80,6 +80,8 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
            Drawables that will render in the same pass"""
         return False
 
+    # This is temporarily commented out to prevent MRO failure. Revisit in Python 3.7
+    '''
     def pre_export(self, exporter, bo: bpy.types.Object) -> Generator:
         """This is the first phase of the modifier export; allowing modifiers to create additonal
            objects or logic nodes to be used by the exporter. To do so, overload this method
@@ -87,6 +89,7 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
            when the export completes. PRP objects should generally not be exported in this phase.
         """
         yield
+    '''
 
     @property
     def requires_actor(self):
