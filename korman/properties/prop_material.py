@@ -19,10 +19,9 @@ from bpy.props import *
 from .. import idprops
 
 class PlasmaMaterial(bpy.types.PropertyGroup):
-    bl_name = "material.plasma_material"
+    bl_idname = "mat.plasma_mat"
 	
-	plasma_double_sided = BoolProperty(name="Double Sided",
-	                                   description="Sets this material as double sided (formerly TWOSIDE)",
-									   default=False)
-
+    plasma_double_sided = BoolProperty(name="Double Sided",
+                                       description="Sets this material as double sided (formerly TWOSIDE)",
+                                       default=False)
 

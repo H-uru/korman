@@ -174,21 +174,21 @@ class PlasmaToggleAllPlasmaObjectsOperator(ToolboxOperator, bpy.types.Operator):
 
         
 class PlasmaToggleDoubleSidedOperator(ToolboxOperator, bpy.types.Operator):
-    bl_idname = "mesh.plasma_toggle_double_sided"
+    bl_idname = "mat.plasma_toggle_double_sided"
     bl_label = "Toggle All Double Sided"
-    bl_description = "Toggles all materials to be double sided (NOT RECOMMENDED)"
+    bl_description = "Toggles all materials to be double sided"
     
     enable = BoolProperty(name="Enable", description="Enable Double Sided")
     
     def execute(self, context):
         enable = self.enable
         for mat in bpy.data.materials:
-            mat.plasma_material.plasma_double_sided = enable
+            mat.plasma_mat.plasma_double_sided = enable
         return {"FINISHED"}
 
 
 class PlasmaToggleDoubleSidedSelectOperator(ToolboxOperator, bpy.types.Operator):
-    bl_idname = "mesh.plasma_toggle_double_sided_selected"
+    bl_idname = "mat.plasma_toggle_double_sided_selected"
     bl_label = "Toggle Selected Double Sided"
     bl_description = "Toggles selected meshes' material(s) double sided value"
     
@@ -198,9 +198,9 @@ class PlasmaToggleDoubleSidedSelectOperator(ToolboxOperator, bpy.types.Operator)
 
     def execute(self, context):
         mat_list = [i.data for i in context.selected_objects if i.type == "MATERIAL"]
-        enable = not all((mat.plasma_material.plasma_double_sided for mat in mat_list))
+        enable = not all((mat.plasma_mat.plasma_double_sided for mat in mat_list))
         for mat in mat_list:
-            mat.plasma_material.plasma_double_sided = enable
+            mat.plasma_mat.plasma_double_sided = enable
         return {"FINISHED"}
 
 

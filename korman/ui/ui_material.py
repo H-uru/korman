@@ -19,20 +19,24 @@ from . import ui_list
 
 class MaterialButtonsPanel:
     bl_space_type = "PROPERTIES"
-	bl_region_type = "WINDOW"
-	bl_context = "material"
+    bl_region_type = "WINDOW"
+    bl_context = "material"
+
+    @classmethod
+    def poll(cls, context):
+        return context.material and context.scene.render.engine == "PLASMA_GAME"
 
 
 class PlasmaMaterialPanel(MaterialButtonsPanel, bpy.types.Panel):
     bl_label = "Plasma Material Options"
 	
-	def draw(self, context):
-	    material = context.material, getattr(context, "material_slot", None)
-		mat_props = material.plasma_material
-		layout = self.layout
-		
-		split = layout.split()
-		col = split.column()
-		sub = col.column()
-		col.prop(mat_props, "plasma_double_sided")
+    def draw(self, context):
+        mat, slot = context.material, getattr(context, "material_slot", None)
+        mat_props = mat.plasma_mat
+        layout = self.layout
+
+        split = layout.split()
+        col = split.column()
+        sub = col.column()
+        col.prop(mat_props, "plasma_double_sided")
 
