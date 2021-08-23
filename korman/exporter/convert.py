@@ -449,8 +449,10 @@ class Exporter:
             for mod in bo.plasma_modifiers.modifiers:
                 proc = getattr(mod, "pre_export", None)
                 if proc is not None:
-                    for i in filter(None, proc(self, bo)):
-                        handle_temporary(i, bo)
+                    result = proc(self, bo)
+                    if result is not None:
+                        for i in filter(None, result):
+                            handle_temporary(i, bo)
 
         for bl_obj in self._objects:
             do_pre_export(bl_obj)
