@@ -429,7 +429,7 @@ class Exporter:
 
                 # If the object is marked as a Plasma Object, be sure that we go into the same page
                 # as the requestor, unless the modifier decided it knows better.
-                if not temporary.plasma_object.property_set("page"):
+                if not temporary.plasma_object.is_property_set("page"):
                     temporary.plasma_object.page = parent.plasma_object.page
 
                 # Wow, recursively generated objects. Aren't you special?
