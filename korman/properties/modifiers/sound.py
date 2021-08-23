@@ -113,7 +113,7 @@ class PlasmaRandomSound(PlasmaModifierProperties):
             raise RuntimeError()
 
     def post_export(self, exporter, bo, so):
-        if self.mode == "collision":
+        if self.mode == "collision" and self.surfaces:
             parent_bo = bo.parent
             if parent_bo is None:
                 raise ExportError("[{}]: Collision sound objects MUST be parented directly to the collider object.", bo.name)
