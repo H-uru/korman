@@ -253,3 +253,8 @@ class PlasmaCamera(bpy.types.PropertyGroup):
                                      description="",
                                      options=set())
     active_transition_index = IntProperty(options={"HIDDEN"})
+
+    @property
+    def allow_animations(self) -> bool:
+        """Check to see if animations are allowed on this camera"""
+        return self.camera_type == "fixed"

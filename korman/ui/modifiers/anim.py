@@ -16,6 +16,7 @@
 import bpy
 
 from .. import ui_list
+from .. import ui_anim
 
 def _check_for_anim(layout, modifier):
     try:
@@ -31,21 +32,13 @@ def animation(modifier, layout, context):
     if action is None:
         return
 
-    split = layout.split()
-    col = split.column()
-    col.prop(modifier, "auto_start")
-    col = split.column()
-    col.prop(modifier, "loop")
+    if modifier.id_data.type == "CAMERA":
+        if not modifier.id_data.data.plasma_camera.allow_animations:
+            layout.label("Animation modifiers are not allowed on this camera type!", icon="ERROR")
+            return
 
-    if action:
-        layout.prop_search(modifier, "initial_marker", action, "pose_markers", icon="PMARKER")
-        col = layout.column()
-        col.enabled = modifier.loop and not modifier.obj_sdl_anim
-        col.prop_search(modifier, "loop_start", action, "pose_markers", icon="PMARKER")
-        col.prop_search(modifier, "loop_end", action, "pose_markers", icon="PMARKER")
-    layout.separator()
-    layout.prop(modifier, "obj_sdl_anim")
-        
+    ui_anim.draw_multi_animation(layout, "object", modifier, "subanimations")
+
 def animation_filter(modifier, layout, context):
     split = layout.split()
 

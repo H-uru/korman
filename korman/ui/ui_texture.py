@@ -16,6 +16,7 @@
 import bpy
 
 from . import ui_list
+from . import ui_anim
 
 class TextureButtonsPanel:
     bl_space_type = "PROPERTIES"
@@ -70,35 +71,23 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
 
         split = layout.split()
         col = split.column()
-        sub = col.column()
-        sub.label("Animation:")
-        sub.active = self._has_animation_data(context) and not use_stencil
-        sub.prop(layer_props, "anim_auto_start")
-        sub.prop(layer_props, "anim_loop")
-        sub.separator()
-        sub.label("SDL Animation:")
-        sub.prop(layer_props, "anim_sdl_var", text="")
-        # Yes, two separator.
-        col.separator()
-        col.separator()
-        sub = col.column()
-        sub.active = texture.type == "IMAGE" and texture.image is None
-        sub.prop_menu_enum(layer_props, "dynatext_resolution", text="Dynamic Text Size")
-
-        col = split.column()
-        col.label("Miscellaneous:")
-        col.active = not use_stencil
-        col.prop(layer_props, "opacity", text="Opacity")
-        col.separator()
-
-        col = col.column()
-        col.enabled = True
         col.label("Z Depth:")
         col.prop(layer_props, "alpha_halo")
         col.prop(layer_props, "skip_depth_write")
         col.prop(layer_props, "skip_depth_test")
         col.prop(layer_props, "z_bias")
 
+        col = split.column()
+        col.label("Miscellaneous:")
+        sub = col.column()
+        sub.active = not use_stencil
+        sub.prop(layer_props, "opacity", text="Opacity")
+        sub.separator()
+        sub = col.column()
+        sub.active = texture.type == "IMAGE" and texture.image is None
+        sub.prop_menu_enum(layer_props, "dynatext_resolution", text="Dynamic Text Size")
+
+        layout.separator()
         split = layout.split()
         col = split.column()
         detail_map_candidate = texture.type == "IMAGE" and texture.use_mipmap
@@ -114,7 +103,18 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
         col.prop(layer_props, "detail_opacity_start")
         col.prop(layer_props, "detail_opacity_stop")
 
-    def _has_animation_data(self, context):
+
+class PlasmaLayerAnimationPanel(TextureButtonsPanel, bpy.types.Panel):
+    bl_label = "Plasma Layer Animations"
+
+    @classmethod
+    def poll(cls, context):
+        if super().poll(context):
+            return cls._has_animation_data(context)
+        return False
+
+    @classmethod
+    def _has_animation_data(cls, context):
         tex = getattr(context, "texture", None)
         if tex is not None:
             if tex.animation_data is not None:
@@ -126,3 +126,7 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
                 return True
 
         return False
+
+    def draw(self, context):
+        ui_anim.draw_multi_animation(self.layout, "texture", context.texture.plasma_layer,
+                                     "subanimations", use_box=True)

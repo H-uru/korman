@@ -15,6 +15,7 @@
 
 import bpy
 
+from .prop_anim import *
 from .prop_camera import *
 from .prop_image import *
 from .prop_lamp import *

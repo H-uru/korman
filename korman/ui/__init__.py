@@ -13,6 +13,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from .ui_anim import *
 from .ui_camera import *
 from .ui_image import *
 from .ui_lamp import *

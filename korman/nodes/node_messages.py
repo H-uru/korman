@@ -105,19 +105,27 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
                                     ("TEXTURE", "Texture", "Texture Action")],
                              default="OBJECT")
 
-    def _poll_material_textures(self, value):
-        if self.target_object is None:
+    def _poll_texture(self, value):
+        # must be a legal option... but is it a member of this material... or, if no material,
+        # any of the materials attached to the object?
+        if self.target_material is not None:
+            return value.name in self.target_material.texture_slots
+        elif self.target_object is not None:
+            for i in (slot.material for slot in self.target_object.material_slots if slot and slot.material):
+                if value in (slot.texture for slot in i.texture_slots if slot and slot.texture):
+                    return True
             return False
-        if self.target_material is None:
-            return False
-        return value.name in self.target_material.texture_slots
+        else:
+            return True
 
-    def _poll_mesh_materials(self, value):
-        if self.target_object is None:
-            return False
-        if self.target_object.type != "MESH":
-            return False
-        return value.name in self.target_object.data.materials
+    def _poll_material(self, value):
+        # Don't filter materials by texture - this would (potentially) result in surprising UX
+        # in that you would have to clear the texture selection before being able to select
+        # certain materials.
+        if self.target_object is not None:
+            object_materials = (slot.material for slot in self.target_object.material_slots if slot and slot.material)
+            return value in object_materials
+        return True
 
     target_object = PointerProperty(name="Object",
                                     description="Target object",
@@ -125,11 +133,11 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
     target_material = PointerProperty(name="Material",
                                       description="Target material",
                                       type=bpy.types.Material,
-                                      poll=_poll_mesh_materials)
+                                      poll=_poll_material)
     target_texture = PointerProperty(name="Texture",
                                      description="Target texture",
                                      type=bpy.types.Texture,
-                                     poll=_poll_material_textures)
+                                     poll=_poll_texture)
 
     go_to = EnumProperty(name="Go To",
                          description="Where should the animation start?",
@@ -189,18 +197,55 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
                                 ("kStop", "Stop", "When the action is stopped by a message")],
                          default="kEnd")
 
+    # Blender memory workaround
+    _ENTIRE_ANIMATION = "(Entire Animation)"
+    def _get_anim_names(self, context):
+        if self.anim_type == "OBJECT":
+            items = [(anim.animation_name, anim.animation_name, "")
+                     for anim in self.target_object.plasma_modifiers.animation.subanimations]
+        elif self.anim_type == "TEXTURE":
+            if self.target_texture is not None:
+                items = [(anim.animation_name, anim.animation_name, "")
+                         for anim in self.target_texture.plasma_layer.subanimations]
+            elif self.target_material is not None or self.target_object is not None:
+                if self.target_material is None:
+                    materials = (i.material for i in self.target_object.material_slots if i and i.material)
+                else:
+                    materials = (self.target_material,)
+                layer_props = (i.texture.plasma_layer for mat in materials for i in mat.texture_slots if i and i.texture)
+                all_anims = frozenset((anim.animation_name for i in layer_props for anim in i.subanimations))
+                items = [(i, i, "") for i in all_anims]
+            else:
+                items = [(PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, "")]
+        else:
+            raise RuntimeError()
+
+        # We always want "(Entire Animation)", if it exists, to be the first item.
+        entire = items.index((PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, ""))
+        if entire not in (-1, 0):
+            items.pop(entire)
+            items.insert(0, (PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, ""))
+
+        return items
+
+    anim_name = EnumProperty(name="Animation",
+                             description="Name of the animation to control",
+                             items=_get_anim_names,
+                             options=set())
+
     def draw_buttons(self, context, layout):
         layout.prop(self, "anim_type")
-        layout.prop(self, "target_object")
 
+        col = layout.column()
+        if self.anim_type == "OBJECT":
+            col.alert = self.target_object is None
+        else:
+            col.alert = not any((self.target_object, self.target_material, self.target_texture))
+        col.prop(self, "target_object")
         if self.anim_type != "OBJECT":
-            col = layout.column()
-            col.enabled = self.target_object is not None
             col.prop(self, "target_material")
-
-            col = layout.column()
-            col.enabled = self.target_object is not None and self.target_material is not None
             col.prop(self, "target_texture")
+        col.prop(self, "anim_name")
 
         layout.prop(self, "go_to")
         layout.prop(self, "action")
@@ -238,26 +283,24 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
 
         # We're either sending this off to an AGMasterMod or a LayerAnim
         obj = self.target_object
-        if obj is None:
-            self.raise_error("target object must be specified")
         if self.anim_type == "OBJECT":
+            if obj is None:
+                self.raise_error("target object must be specified")
             if not obj.plasma_object.has_animation_data:
                 self.raise_error("invalid animation")
-            target = exporter.animation.get_animation_key(obj)
+            target = (exporter.animation.get_animation_key(obj),)
         else:
             material = self.target_material
-            if material is None:
-                self.raise_error("target material must be specified")
             texture = self.target_texture
-            if texture is None:
-                self.raise_error("target texture must be specified")
-            target = exporter.mesh.material.get_texture_animation_key(obj, material, texture)
+            if obj is None and material is None and texture is None:
+                self.raise_error("At least one of: target object, material, texture MUST be specified")
+            target = exporter.mesh.material.get_texture_animation_key(obj, material, texture, self.anim_name)
 
-        if target is None:
-            raise RuntimeError()
-        if isinstance(target.object, plLayerSDLAnimation):
-            self.raise_error("Cannot control an SDL Animation")
-        msg.addReceiver(target)
+        target = [i for i in target if not isinstance(i.object, (plAgeGlobalAnim, plLayerSDLAnimation))]
+        if not target:
+            self.raise_error("No controllable animations were found.")
+        for i in target:
+            msg.addReceiver(i)
 
         # Check the enum properties to see what commands we need to add
         for prop in (self.go_to, self.action, self.play_direction, self.looping):
@@ -266,19 +309,19 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
                 msg.setCmd(cmd, True)
 
         # Easier part starts here???
-        fps = bpy.context.scene.render.fps
+        msg.animName = self.anim_name
         if self.action == "kPlayToPercent":
             msg.time = self.play_to_percent
         elif self.action == "kPlayToTime":
-            msg.time = self.play_to_frame / fps
+            msg.time = exporter.animation.convert_frame_time(self.play_to_frame)
 
         # Implicit s better than explicit, I guess...
         if self.loop_begin != self.loop_end:
             # NOTE: loop name is not used in the engine AFAICT
             msg.setCmd(plAnimCmdMsg.kSetLoopBegin, True)
             msg.setCmd(plAnimCmdMsg.kSetLoopEnd, True)
-            msg.loopBegin = self.loop_begin / fps
-            msg.loopEnd = self.loop_end / fps
+            msg.loopBegin = exporter.animation.convert_frame_time(self.loop_begin)
+            msg.loopEnd = exporter.animation.convert_frame_time(self.loop_end)
 
         # Whew, this was crazy
         return msg

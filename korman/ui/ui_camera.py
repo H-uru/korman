@@ -204,19 +204,25 @@ class PlasmaCameraAnimationPanel(CameraButtonsPanel, bpy.types.Panel):
         split = layout.split()
         col = split.column()
         col.label("Animation:")
-        col.active = props.anim_enabled and any(helpers.fetch_fcurves(context.object))
+        anim_enabled = props.anim_enabled or context.object.plasma_modifiers.animation.enabled
+        col.active = anim_enabled and context.object.plasma_object.has_animation_data
         col.prop(props, "start_on_push")
         col.prop(props, "stop_on_pop")
         col.prop(props, "reset_on_pop")
 
         col = split.column()
         col.active = camera.camera_type == "rail"
+        invalid = camera.camera_type == "rail" and not context.object.plasma_object.has_transform_animation
+        col.alert = invalid
         col.label("Rail:")
         col.prop(props, "rail_pos", text="")
+        if invalid:
+            col.label("Rail cameras must have a transformation animation!", icon="ERROR")
 
     def draw_header(self, context):
-        self.layout.active = any(helpers.fetch_fcurves(context.object))
-        self.layout.prop(context.camera.plasma_camera.settings, "anim_enabled", text="")
+        self.layout.active = context.object.plasma_object.has_animation_data
+        if not context.object.plasma_modifiers.animation.enabled:
+            self.layout.prop(context.camera.plasma_camera.settings, "anim_enabled", text="")
 
 
 class PlasmaCameraViewPanel(CameraButtonsPanel, bpy.types.Panel):

@@ -299,26 +299,22 @@ class Exporter:
 
     def _export_camera_blobj(self, so, bo):
         # Hey, guess what? Blender's camera data is utter crap!
-        # NOTE: Animation export is dependent on camera type, so we'll do that later.
         camera = bo.data.plasma_camera
         self.camera.export_camera(so, bo, camera.camera_type, camera.settings, camera.transitions)
 
     def _export_empty_blobj(self, so, bo):
-        self.animation.convert_object_animations(bo, so)
+        pass
 
     def _export_lamp_blobj(self, so, bo):
-        self.animation.convert_object_animations(bo, so)
         self.light.export_rtlight(so, bo)
 
     def _export_mesh_blobj(self, so, bo):
-        self.animation.convert_object_animations(bo, so)
         if bo.data.materials:
             self.mesh.export_object(bo, so)
         else:
             self.report.msg("No material(s) on the ObData, so no drawables", indent=1)
 
     def _export_font_blobj(self, so, bo):
-        self.animation.convert_object_animations(bo, so)
         with utils.temporary_mesh_object(bo) as meshObj:
             if bo.data.materials:
                 self.mesh.export_object(meshObj, so)
