@@ -14,11 +14,13 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
-import math
 import bmesh
-import mathutils
-from pathlib import Path
 from bpy.props import *
+import mathutils
+
+import math
+from pathlib import Path
+
 from PyHSPlasma import *
 
 from ...addon_prefs import game_versions
@@ -113,14 +115,63 @@ class PlasmaJournalTranslation(bpy.types.PropertyGroup):
                             items=languages,
                             default=_DEFAULT_LANGUAGE_NAME,
                             options=set())
-    text_id = PointerProperty(name="Journal Contents",
-                              description="Text data block containing the journal's contents for this language",
+    text_id = PointerProperty(name="Contents",
+                              description="Text data block containing the text for this language",
                               type=bpy.types.Text,
                               poll=_poll_nonpytext,
                               options=set())
 
 
-class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz):
+class TranslationMixin:
+    def export_localization(self, exporter):
+        translations = [i for i in self.translations if i.text_id is not None]
+        if not translations:
+            exporter.report.error("'{}': '{}' No content translations available. The localization will not be exported.",
+                                  self.id_data.name, self.bl_label, indent=1)
+            return
+        for i in translations:
+            exporter.locman.add_string(self.localization_set, self.key_name, i.language, i.text_id, indent=1)
+
+    def _get_translation(self):
+        # Ensure there is always a default (read: English) translation available.
+        default_idx, default = next(((idx, translation) for idx, translation in enumerate(self.translations)
+                                    if translation.language == _DEFAULT_LANGUAGE_NAME), (None, None))
+        if default is None:
+            default_idx = len(self.translations)
+            default = self.translations.add()
+            default.language = _DEFAULT_LANGUAGE_NAME
+        if self.active_translation_index < len(self.translations):
+            language = self.translations[self.active_translation_index].language
+        else:
+            self.active_translation_index = default_idx
+            language = default.language
+
+        # Due to the fact that we are using IDs to keep the data from becoming insane on new
+        # additions, we must return the integer id...
+        return next((idx for key, _, _, idx in languages if key == language))
+
+    def _set_translation(self, value):
+        # We were given an int here, must change to a string
+        language_name = next((key for key, _, _, i in languages if i == value))
+        idx = next((idx for idx, translation in enumerate(self.translations)
+                   if translation.language == language_name), None)
+        if idx is None:
+            self.active_translation_index = len(self.translations)
+            translation = self.translations.add()
+            translation.language = language_name
+        else:
+            self.active_translation_index = idx
+
+    @property
+    def localization_set(self):
+        raise RuntimeError("TranslationMixin subclass needs a localization set getter!")
+
+    @property
+    def translations(self):
+        raise RuntimeError("TranslationMixin subclass needs a translation getter!")
+
+
+class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz, TranslationMixin):
     pl_id = "journalbookmod"
 
     bl_category = "GUI"
@@ -156,36 +207,6 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
                                        type=bpy.types.Object,
                                        poll=idprops.poll_mesh_objects)
 
-    def _get_translation(self):
-        # Ensure there is always a default (read: English) translation available.
-        default_idx, default = next(((idx, translation) for idx, translation in enumerate(self.journal_translations)
-                                    if translation.language == _DEFAULT_LANGUAGE_NAME), (None, None))
-        if default is None:
-            default_idx = len(self.journal_translations)
-            default = self.journal_translations.add()
-            default.language = _DEFAULT_LANGUAGE_NAME
-        if self.active_translation_index < len(self.journal_translations):
-            language = self.journal_translations[self.active_translation_index].language
-        else:
-            self.active_translation_index = default_idx
-            language = default.language
-
-        # Due to the fact that we are using IDs to keep the data from becoming insane on new
-        # additions, we must return the integer id...
-        return next((idx for key, _, _, idx in languages if key == language))
-
-    def _set_translation(self, value):
-        # We were given an int here, must change to a string
-        language_name = next((key for key, _, _, i in languages if i == value))
-        idx = next((idx for idx, translation in enumerate(self.journal_translations)
-                   if translation.language == language_name), None)
-        if idx is None:
-            self.active_translation_index = len(self.journal_translations)
-            translation = self.journal_translations.add()
-            translation.language = language_name
-        else:
-            self.active_translation_index = idx
-
     journal_translations = CollectionProperty(name="Journal Translations",
                                               type=PlasmaJournalTranslation,
                                               options=set())
@@ -193,7 +214,8 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
     active_translation = EnumProperty(name="Language",
                                       description="Language of this translation",
                                       items=languages,
-                                      get=_get_translation, set=_set_translation,
+                                      get=TranslationMixin._get_translation,
+                                      set=TranslationMixin._set_translation,
                                       options=set())
 
     def pre_export(self, exporter, bo):
@@ -204,15 +226,6 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
             exporter.report.port("Object '{}' has a JournalMod not enabled for export to the selected engine.  Skipping.",
                                  bo.name, version, indent=2)
             return
-
-        # Export the Journal translation contents
-        translations = [i for i in self.journal_translations if i.text_id is not None]
-        if not translations:
-            exporter.report.error("Journal '{}': No content translations available. The journal will not be exported.",
-                                  bo.name, indent=2)
-            return
-        for i in translations:
-            exporter.locman.add_journal(self.key_name, i.language, i.text_id, indent=2)
 
         if self.clickable_region is None:
             with utils.bmesh_object("{}_Journal_ClkRgn".format(self.key_name)) as (rgn_obj, bm):
@@ -296,16 +309,25 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
 
         locpath = nodes.new("PlasmaAttribStringNode")
         locpath.link_output(journalnode, "pfm", "LocPath")
-        locpath.value = "{}.Journals.{}".format(age_name, self.key_name)
+        locpath.value = "{}.{}.{}".format(age_name, self.localization_set, self.key_name)
 
         guitype = nodes.new("PlasmaAttribStringNode")
         guitype.link_output(journalnode, "pfm", "GUIType")
         guitype.value = self.book_type
 
     @property
+    def localization_set(self):
+        return "Journals"
+
+    @property
     def requires_actor(self):
         # We are too late in the export to be harvested automatically, so let's be explicit
         return True
+
+    @property
+    def translations(self):
+        # Backwards compatibility thunk.
+        return self.journal_translations
 
 
 linking_pfms = {

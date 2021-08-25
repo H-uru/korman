@@ -96,6 +96,14 @@ class PlasmaAgeExportOperator(ExportOperator, bpy.types.Operator):
                                          "default": "as_requested",
                                          "options": set()}),
 
+        "localization_method": (EnumProperty, {"name": "Localization",
+                                               "description": "Specifies how localization data should be exported",
+                                               "items": [("database", "Localization Database", "A per-language database compatible with pfLocalizationEditor"),
+                                                         ("database_back_compat", "Localization Database (Compat Mode)", "A per-language database compatible with pfLocalizationEditor and Korman <=0.11"),
+                                                         ("single_file", "Single File", "A single file database, as in Korman <=0.11")],
+                                               "default": "database",
+                                               "options": set()}),
+
         "export_active": (BoolProperty, {"name": "INTERNAL: Export currently running",
                                          "default": False,
                                          "options": {"SKIP_SAVE"}}),

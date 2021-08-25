@@ -97,6 +97,51 @@ def decal_receive(modifier, layout, context):
         layout.alert = decal_mgr is None
         layout.prop_search(mgr_ref, "name", scene, "decal_managers", icon="BRUSH_DATA")
 
+def dynatext(modifier, layout, context):
+    col = layout.column()
+    col.alert = modifier.texture is None
+    col.prop(modifier, "texture")
+    if modifier.texture is None:
+        col.label("You must specify a blank image texture to draw on.", icon="ERROR")
+
+    split = layout.split()
+    col = split.column()
+    col.label("Content Translations:")
+    col.prop(modifier, "active_translation", text="")
+    # This should never fail...
+    try:
+        translation = modifier.translations[modifier.active_translation_index]
+    except Exception as e:
+        col.label(text="Error (see console)", icon="ERROR")
+        print(e)
+    else:
+        col.prop(translation, "text_id", text="")
+
+    col = split.column()
+    col.label("Font:")
+    sub = col.row()
+    sub.alert = not modifier.font_face.strip()
+    sub.prop(modifier, "font_face", text="", icon="OUTLINER_DATA_FONT")
+    col.prop(modifier, "font_size", text="Size")
+
+    layout.separator()
+    split = layout.split()
+    col = split.column(align=True)
+    if modifier.texture is not None:
+        col.alert = modifier.margin_top + modifier.margin_bottom >= int(modifier.texture.plasma_layer.dynatext_resolution)
+    col.prop(modifier, "margin_top")
+    col.prop(modifier, "margin_bottom")
+    col = split.column(align=True)
+    if modifier.texture is not None:
+        col.alert = modifier.margin_left + modifier.margin_right >= int(modifier.texture.plasma_layer.dynatext_resolution)
+    col.prop(modifier, "margin_left")
+    col.prop(modifier, "margin_right")
+
+    layout.separator()
+    flow = layout.column_flow(columns=2)
+    flow.prop_menu_enum(modifier, "justify")
+    flow.prop(modifier, "line_spacing")
+
 def fademod(modifier, layout, context):
     layout.prop(modifier, "fader_type")
 

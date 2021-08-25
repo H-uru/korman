@@ -19,10 +19,11 @@ from bpy.props import *
 import functools
 from PyHSPlasma import *
 
-from .base import PlasmaModifierProperties, PlasmaModifierUpgradable
+from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz, PlasmaModifierUpgradable
 from ...exporter.etlight import _NUM_RENDER_LAYERS
 from ...exporter import utils
 from ...exporter.explosions import ExportError
+from .gui import languages, PlasmaJournalTranslation, TranslationMixin
 from ... import idprops
 
 class PlasmaBlendOntoObject(bpy.types.PropertyGroup):
@@ -607,6 +608,150 @@ class PlasmaLightingMod(PlasmaModifierProperties):
         if mods.collision.enabled and mods.collision.dynamic:
             return True
         return False
+
+
+_LOCALIZED_TEXT_PFM = (
+    { 'id': 1,  'type': "ptAttribDynamicMap",   'name': "dynTextMap", },
+    { 'id': 2,  'type': "ptAttribString",       'name': "locPath" },
+    { 'id': 3,  'type': "ptAttribString",       'name': "fontFace" },
+    { 'id': 4,  'type': "ptAttribInt",          'name': "fontSize" },
+    { 'id': 5,  'type': "ptAttribFloat",        'name': "fontColorR" },
+    { 'id': 6,  'type': "ptAttribFloat",        'name': "fontColorG" },
+    { 'id': 7,  'type': "ptAttribFloat",        'name': "fontColorB" },
+    { 'id': 8,  'type': "ptAttribFloat",        'name': "fontColorA" },
+    { 'id': 9,  'type': "ptAttribInt",          'name': "marginTop" },
+    { 'id': 10, 'type': "ptAttribInt",          'name': "marginLeft" },
+    { 'id': 11, 'type': "ptAttribInt",          'name': "marginBottom" },
+    { 'id': 12, 'type': "ptAttribInt",          'name': "marginRight" },
+    { 'id': 13, 'type': "ptAttribInt",          'name': "lineSpacing" },
+    # Yes, it's really a ptAttribDropDownList, but those are only for use in
+    # artist generated node trees.
+    { 'id': 14, 'type': "ptAttribString",       'name': "justify" },
+    { 'id': 15, 'type': "ptAttribFloat",        'name': "clearColorR" },
+    { 'id': 16, 'type': "ptAttribFloat",        'name': "clearColorG" },
+    { 'id': 17, 'type': "ptAttribFloat",        'name': "clearColorB" },
+    { 'id': 18, 'type': "ptAttribFloat",        'name': "clearColorA" },
+)
+
+class PlasmaLocalizedTextModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz, TranslationMixin):
+    pl_id = "dynatext"
+
+    bl_category = "Render"
+    bl_label = "Localized Text"
+    bl_description = ""
+    bl_icon = "TEXT"
+
+    translations = CollectionProperty(name="Translations",
+                                      type=PlasmaJournalTranslation,
+                                      options=set())
+    active_translation_index = IntProperty(options={"HIDDEN"})
+    active_translation = EnumProperty(name="Language",
+                                      description="Language of this translation",
+                                      items=languages,
+                                      get=TranslationMixin._get_translation,
+                                      set=TranslationMixin._set_translation,
+                                      options=set())
+
+    def _poll_dyna_text(self, value: bpy.types.Texture) -> bool:
+        if value.type != "IMAGE":
+            return False
+        if value.image is not None:
+            return False
+        tex_materials = frozenset(value.users_material)
+        obj_materials = frozenset(filter(None, (i.material for i in self.id_data.material_slots)))
+        return bool(tex_materials & obj_materials)
+
+    texture = PointerProperty(name="Texture",
+                              description="The texture to write the localized text on",
+                              type=bpy.types.Texture,
+                              poll=_poll_dyna_text)
+
+    font_face = StringProperty(name="Font Face",
+                               default="Arial",
+                               options=set())
+    font_size = IntProperty(name="Font Size",
+                            default=12,
+                            min=0, soft_max=72,
+                            options=set())
+    font_color = FloatVectorProperty(name="Font Color",
+                                     default=(0.0, 0.0, 0.0, 1.0),
+                                     min=0.0, max=1.0,
+                                     subtype="COLOR", size=4,
+                                     options=set())
+
+    # Using individual properties for better UI documentation
+    margin_top = IntProperty(name="Margin Top",
+                             min=-4096, soft_min=0, max=4096,
+                             options=set())
+    margin_left = IntProperty(name="Margin Left",
+                              min=-4096, soft_min=0, max=4096,
+                              options=set())
+    margin_bottom = IntProperty(name="Margin Bottom",
+                                min=-4096, soft_min=0, max=4096,
+                                options=set())
+    margin_right = IntProperty(name="Margin Right",
+                               min=-4096, soft_min=0, max=4096,
+                               options=set())
+
+    justify = EnumProperty(name="Justification",
+                           items=[("left", "Left", ""),
+                                  ("center", "Center", ""),
+                                  ("right", "Right", "")],
+                           default="left",
+                           options=set())
+    line_spacing = IntProperty(name="Line Spacing",
+                               default=0,
+                               soft_min=0, soft_max=10,
+                               options=set())
+
+    def pre_export(self, exporter, bo):
+        yield self.convert_logic(bo, age_name=exporter.age_name, version=exporter.mgr.getVer())
+
+    def logicwiz(self, bo, tree, *, age_name, version):
+        # Rough justice. If the dynamic text map texture doesn't request alpha, then we'll want
+        # to explicitly clear it to the material's diffuse color. This will allow artists to trivially
+        # add text surfaces directly to objects, opposed to where Cyan tends to use a separate
+        # transparent object over the background object.
+        if not self.texture.use_alpha:
+            material_filter = lambda slot: slot and slot.material and self.texture in (i.texture for i in slot.material.texture_slots if i)
+            for slot in filter(material_filter, bo.material_slots):
+                self._create_nodes(bo, tree, age_name=age_name, version=version,
+                                   material=slot.material, clear_color=slot.material.diffuse_color)
+        else:
+            self._create_nodes(bo, tree, age_name=age_name, version=version)
+
+    def _create_nodes(self, bo, tree, *, age_name, version, material=None, clear_color=None):
+        pfm_node = self._create_python_file_node(tree, "xDynTextLoc.py", _LOCALIZED_TEXT_PFM)
+        loc_path = self.key_name if version <= pvPots else "{}.{}.{}".format(age_name, self.localization_set, self.key_name)
+
+        self._create_python_attribute(pfm_node, "dynTextMap", "ptAttribDynamicMap",
+                                      target_object=bo, material=material, texture=self.texture)
+        self._create_python_attribute(pfm_node, "locPath", value=loc_path)
+        self._create_python_attribute(pfm_node, "fontFace", value=self.font_face)
+        self._create_python_attribute(pfm_node, "fontSize", value=self.font_size)
+        self._create_python_attribute(pfm_node, "fontColorR", value=self.font_color[0])
+        self._create_python_attribute(pfm_node, "fontColorG", value=self.font_color[1])
+        self._create_python_attribute(pfm_node, "fontColorB", value=self.font_color[2])
+        self._create_python_attribute(pfm_node, "fontColorA", value=self.font_color[3])
+        self._create_python_attribute(pfm_node, "marginTop", value=self.margin_top)
+        self._create_python_attribute(pfm_node, "marginLeft", value=self.margin_left)
+        self._create_python_attribute(pfm_node, "marginBottom", value=self.margin_bottom)
+        self._create_python_attribute(pfm_node, "marginRight", value=self.margin_right)
+        self._create_python_attribute(pfm_node, "justify", value=self.justify)
+
+        if clear_color is not None:
+            self._create_python_attribute(pfm_node, "clearColorR", value=clear_color[0])
+            self._create_python_attribute(pfm_node, "clearColorG", value=clear_color[1])
+            self._create_python_attribute(pfm_node, "clearColorB", value=clear_color[2])
+            self._create_python_attribute(pfm_node, "clearColorA", value=1.0)
+
+    @property
+    def localization_set(self):
+        return "DynaTexts"
+
+    def sanity_check(self):
+        if self.texture is None:
+            raise ExportError("'{}': Localized Text modifier requires a texture", self.id_data.name)
 
 
 class PlasmaShadowCasterMod(PlasmaModifierProperties):

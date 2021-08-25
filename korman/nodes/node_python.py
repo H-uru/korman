@@ -138,6 +138,14 @@ class PlasmaAttributeArguments(bpy.types.PropertyGroup):
 
 
 class PlasmaAttribute(bpy.types.PropertyGroup):
+    # This is thy lookup helper
+    type_LUT = {
+        bool: "ptAttribBoolean",
+        float: "ptAttribFloat",
+        int: "ptAttribInt",
+        str: "ptAttribString",
+    }
+
     attribute_id = IntProperty()
     attribute_type = StringProperty()
     attribute_name = StringProperty()

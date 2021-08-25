@@ -805,7 +805,12 @@ class MaterialConverter:
         #     when the exporter tells us to finalize all our shit
         if texture.image is None:
             dtm = self._mgr.find_create_object(plDynamicTextMap, name="{}_DynText".format(layer.key.name), bl=bo)
-            dtm.hasAlpha = texture.use_alpha
+            if texture.use_alpha:
+                dtm.hasAlpha = True
+                if not state.blendFlags & hsGMatState.kBlendMask:
+                    state.blendFlags |= hsGMatState.kBlendAlpha
+            else:
+                dtm.hasAlpha = False
             dtm.visWidth = int(layer_props.dynatext_resolution)
             dtm.visHeight = int(layer_props.dynatext_resolution)
             layer.texture = dtm.key
