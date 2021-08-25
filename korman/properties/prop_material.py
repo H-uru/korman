@@ -22,6 +22,6 @@ class PlasmaMaterial(bpy.types.PropertyGroup):
     bl_idname = "material.plasma_material"
 	
     double_sided = BoolProperty(name="Double Sided",
-                                       description="Sets this material as double sided (formerly TWOSIDE)",
-                                       default=False)
+                                description="Sets this material as double sided (formerly TWOSIDE)",
+                                default=False)
 

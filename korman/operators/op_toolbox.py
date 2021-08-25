@@ -183,7 +183,7 @@ class PlasmaToggleDoubleSidedOperator(ToolboxOperator, bpy.types.Operator):
     def execute(self, context):
         enable = self.enable
         for mat in bpy.data.materials:
-            mat.plasma_mat.plasma_double_sided = enable
+            mat.plasma_material.double_sided = enable
         return {"FINISHED"}
 
 
@@ -198,9 +198,9 @@ class PlasmaToggleDoubleSidedSelectOperator(ToolboxOperator, bpy.types.Operator)
 
     def execute(self, context):
         mat_list = [slot.material for slot in itertools.chain.from_iterable((i.material_slots for i in context.selected_objects)) if slot and slot.material]
-        enable = not all((mat.plasma_mat.plasma_double_sided for mat in mat_list))
+        enable = not all((mat.plasma_material.double_sided for mat in mat_list))
         for mat in mat_list:
-            mat.plasma_mat.plasma_double_sided = enable
+            mat.plasma_material.double_sided = enable
         return {"FINISHED"}
 
 
