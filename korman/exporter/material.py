@@ -1274,7 +1274,9 @@ class MaterialConverter:
         return utils.color(color)
 
     def get_material_runtime(self, bo, bm, color : Union[None, mathutils.Color]=None) -> hsColorRGBA:
-        if not bo.plasma_modifiers.lighting.preshade:
+        # If we are animated, then we will need to toss out the diffuse color animation here for
+        # non-preshaded objects.
+        if color is None and not bo.plasma_modifiers.lighting.preshade:
             return hsColorRGBA.kBlack
         if color is None:
             color = bm.diffuse_color
