@@ -501,7 +501,7 @@ class MaterialConverter:
                 state.ZFlags |= hsGMatState.kZNoZWrite
 
         # Export the specific texture type
-        self._tex_exporters[texture.type](bo, layer, slot)
+        self._tex_exporters[texture.type](bo, layer, slot, idx)
 
         # Export any layer animations
         # NOTE: animated stencils and bumpmaps are nonsense.
@@ -533,9 +533,10 @@ class MaterialConverter:
 
         fcurves = []
 
-        # Base layers get all of the fcurves for animating things like the diffuse color
+        # Base layers get all of the fcurves for animating things like the diffuse color. Danger,
+        # however, the user can insert fake base layers on top, so be careful.
         texture = tex_slot.texture if tex_slot is not None else None
-        if idx == 0:
+        if idx == 0 or base_layer.state.miscFlags & hsGMatState.kMiscRestartPassHere:
             harvest_fcurves(bm, fcurves)
             harvest_fcurves(texture, fcurves)
         elif tex_slot is not None:
@@ -624,7 +625,7 @@ class MaterialConverter:
             return ctrl
         return None
 
-    def _export_texture_type_environment_map(self, bo, layer, slot):
+    def _export_texture_type_environment_map(self, bo, layer, slot, idx):
         """Exports a Blender EnvironmentMapTexture to a plLayer"""
 
         texture = slot.texture
@@ -769,7 +770,7 @@ class MaterialConverter:
 
         return pl_env
 
-    def _export_texture_type_image(self, bo, layer, slot):
+    def _export_texture_type_image(self, bo, layer, slot, idx):
         """Exports a Blender ImageTexture to a plLayer"""
         texture = slot.texture
         layer_props = texture.plasma_layer
@@ -799,6 +800,11 @@ class MaterialConverter:
 
             if texture.invert_alpha and has_alpha:
                 state.blendFlags |= hsGMatState.kBlendInvertAlpha
+
+            # Not really mutually exclusive, but if this isn't the first slot and there's no alpha,
+            # then this is probably a new base layer, meaning that we need to restart the render pass.
+            if not has_alpha and idx > 0:
+                state.miscFlags |= hsGMatState.kMiscRestartPassHere
 
         if texture.extension in {"CLIP", "EXTEND"}:
             state.clampFlags |= hsGMatState.kClampTexture
@@ -842,11 +848,11 @@ class MaterialConverter:
                                        mipmap=mipmap, allowed_formats=allowed_formats,
                                        indent=3)
 
-    def _export_texture_type_none(self, bo, layer, texture):
+    def _export_texture_type_none(self, bo, layer, slot, idx):
         # We'll allow this, just for sanity's sake...
         pass
 
-    def _export_texture_type_blend(self, bo, layer, slot):
+    def _export_texture_type_blend(self, bo, layer, slot, idx):
         state = layer.state
         state.blendFlags |= hsGMatState.kBlendAlpha | hsGMatState.kBlendAlphaMult | hsGMatState.kBlendNoTexColor
         state.clampFlags |= hsGMatState.kClampTexture
