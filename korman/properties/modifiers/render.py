@@ -564,8 +564,6 @@ class PlasmaLightingMod(PlasmaModifierProperties):
         mods = self.id_data.plasma_modifiers
         if mods.water_basic.enabled:
             return False
-        if mods.lightmap.bake_lightmap:
-            return False
         return True
 
     def export(self, exporter, bo, so):

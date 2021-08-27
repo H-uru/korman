@@ -205,7 +205,8 @@ class MaterialConverter:
                 mat_prefix = "RTLit_"
             else:
                 mat_prefix = ""
-            mat_name = "".join((mat_prefix, bm.name))
+            mat_prefix2 = "NonVtxP_" if self._exporter().mesh.is_nonpreshaded(bo, bm) else ""
+            mat_name = "".join((mat_prefix, mat_prefix2, bm.name))
             self._report.msg("Exporting Material '{}'", mat_name, indent=1)
             hsgmat = self._mgr.find_key(hsGMaterial, name=mat_name, bl=bo)
             if hsgmat is not None:
@@ -489,8 +490,7 @@ class MaterialConverter:
         else:
             layer_props = texture.plasma_layer
             layer.opacity = layer_props.opacity / 100
-            if layer_props.opacity < 100 and not state.blendFlags & hsGMatState.kBlendMask:
-                state.blendFlags |= hsGMatState.kBlendAlpha
+            self._handle_layer_opacity(layer, layer_props.opacity)
             if layer_props.alpha_halo:
                 state.blendFlags |= hsGMatState.kBlendAlphaTestHigh
             if layer_props.z_bias:
@@ -602,10 +602,14 @@ class MaterialConverter:
         return ctrl
 
     def _export_layer_opacity_animation(self, bo, bm, tex_slot, base_layer, fcurves):
+        # Dumb function to intercept the opacity values and properly flag the base layer
+        def process_opacity(value):
+            self._handle_layer_opacity(base_layer, value)
+            return value
+
         for i in fcurves:
             if i.data_path == "plasma_layer.opacity":
-                base_layer.state.blendFlags |= hsGMatState.kBlendAlpha
-                ctrl = self._exporter().animation.make_scalar_leaf_controller(i)
+                ctrl = self._exporter().animation.make_scalar_leaf_controller(i, process_opacity)
                 return ctrl
         return None
 
@@ -1254,7 +1258,8 @@ class MaterialConverter:
     def get_bump_layer(self, bo):
         return self._bump_mats.get(bo, None)
 
-    def get_material_ambient(self, bo, bm, color : Union[None, mathutils.Color]=None) -> hsColorRGBA:
+    def get_material_ambient(self, bo, bm, color: Union[None, mathutils.Color] = None) -> hsColorRGBA:
+        # Although Plasma calls this the ambient color, it is actually always used as the emissive color.
         emit_scale = bm.emit * 0.5
         if emit_scale > 0.0:
             if color is None:
@@ -1266,18 +1271,33 @@ class MaterialConverter:
         else:
             return utils.color(bpy.context.scene.world.ambient_color)
 
-    def get_material_preshade(self, bo, bm, color : Union[None, mathutils.Color]=None) -> hsColorRGBA:
-        if bo.plasma_modifiers.lighting.rt_lights:
-            return hsColorRGBA.kBlack
-        if color is None:
-            color = bm.diffuse_color
-        return utils.color(color)
+    def get_material_preshade(self, bo, bm, color: Union[None, mathutils.Color] = None) -> hsColorRGBA:
+        # This color is always used for shading. In all lighting equations, it represents the world
+        # ambient color. Anyway, if we have a manual (read: animated color), just dump that out.
+        if color is not None:
+            return utils.color(color)
 
-    def get_material_runtime(self, bo, bm, color : Union[None, mathutils.Color]=None) -> hsColorRGBA:
-        # If we are animated, then we will need to toss out the diffuse color animation here for
-        # non-preshaded objects.
-        if color is None and not bo.plasma_modifiers.lighting.preshade:
+        # Runtime lit objects want light from runtime lights, so they have an ambient world color
+        # of black - and yes, this is an ambient world color. But it gets more fascinating...
+        # The color has been folded into the vertex colors for nonpreshaded, so for nonpreshaded,
+        # we'll want black if it's ONLY runtime lighting (and white for lightmaps). Otherwise,
+        # just use the material color for now.
+        if self._exporter().mesh.is_nonpreshaded(bo, bm):
+            if bo.plasma_modifiers.lightmap.bake_lightmap:
+                return hsColorRGBA.kWhite
+            elif not bo.plasma_modifiers.lighting.preshade:
+                return hsColorRGBA.kBlack
+
+        # Gulp
+        return utils.color(bm.diffuse_color)
+
+    def get_material_runtime(self, bo, bm, color: Union[None, mathutils.Color] = None) -> hsColorRGBA:
+        # The layer runstime color has no effect if the lighting equation is kLiteVtxNonPreshaded,
+        # so return black to prevent animations from being exported.
+        if self._exporter().mesh.is_nonpreshaded(bo, bm):
             return hsColorRGBA.kBlack
+
+        # Hmm...
         if color is None:
             color = bm.diffuse_color
         return utils.color(color)
@@ -1298,6 +1318,13 @@ class MaterialConverter:
         name = "{}_{}_LayerAnim".format(bm_name, tex_name)
         pClass = plLayerSDLAnimation if texture is not None and texture.plasma_layer.anim_sdl_var else plLayerAnimation
         return self._mgr.find_create_key(pClass, bl=bo, name=name)
+
+    def _handle_layer_opacity(self, layer: plLayerInterface, value: float):
+        if value < 100:
+            base_layer = layer.bottomOfStack.object
+            state = base_layer.state
+            if not state.blendFlags & hsGMatState.kBlendMask:
+                state.blendFlags |= hsGMatState.kBlendAlpha
 
     @property
     def _mgr(self):
@@ -1338,6 +1365,26 @@ class MaterialConverter:
 
         layer.specularPower = min(100.0, float(bm.specular_hardness))
         layer.LODBias = -1.0
+
+    def requires_material_shading(self, bm: bpy.types.Material) -> bool:
+        """Determines if this material requires the lighting equation we all know and love
+           (kLiteMaterial) in order to display opacity and color animations."""
+        if bm.animation_data is not None and bm.animation_data.action is not None:
+            if any((i.data_path == "diffuse_color" for i in bm.animation_data.action.fcurves)):
+                return True
+
+        for slot in filter(lambda x: x and x.use and x.texture, bm.texture_slots):
+            tex = slot.texture
+
+            # TODO (someday): I think PlasmaMax will actually bake some opacities into the vertices
+            # so that kLiteVtxNonPreshaded can be used. Might be a good idea at some point.
+            if tex.plasma_layer.opacity < 100:
+                return True
+
+            if tex.animation_data is not None and tex.animation_data.action is not None:
+                if any((i.data_path == "plasma_layer.opacity" for i in tex.animation_data.action.fcurves)):
+                    return True
+        return False
 
     def _requires_single_user(self, bo, bm):
         if bo.data.show_double_sided:
