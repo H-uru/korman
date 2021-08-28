@@ -652,9 +652,9 @@ class MaterialConverter:
         # Sanity check: the image here should be 3x2 faces, so we should not have any
         #               dam remainder...
         if width % 3 != 0:
-            raise ExportError("CubeMap '{}' width must be a multiple of 3".format(image.name))
+            raise ExportError("CubeMap '{}' width must be a multiple of 3".format(texture.image.name))
         if height % 2 != 0:
-            raise ExportError("CubeMap '{}' height must be a multiple of 2".format(image.name))
+            raise ExportError("CubeMap '{}' height must be a multiple of 2".format(texture.image.name))
 
         # According to PlasmaMAX, we don't give a rip about UVs...
         layer.UVWSrc = plLayerInterface.kUVWReflect
