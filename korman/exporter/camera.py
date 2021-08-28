@@ -171,8 +171,9 @@ class CameraConverter:
         return brain
 
     def _export_fixed_camera(self, so, bo, props):
-        if props.anim_enabled:
-            self._exporter().animation.convert_object_animations(bo, so)
+        anim_mod = bo.plasma_modifiers.animation
+        if props.anim_enabled and not anim_mod.enabled and bo.plasma_object.has_animation_data:
+            anim_mod.convert_object_animations(self._exporter(), bo, so)
         brain = self._mgr.find_create_object(plCameraBrain1_Fixed, so=so)
         self._convert_brain(so, bo, props, brain)
         return brain

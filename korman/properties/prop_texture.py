@@ -17,6 +17,7 @@ import bpy
 from bpy.props import *
 
 from .. import idprops
+from .prop_anim import PlasmaAnimationCollection
 
 class EnvMapVisRegion(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
     enabled = BoolProperty(default=True)
@@ -55,16 +56,6 @@ class PlasmaLayer(bpy.types.PropertyGroup):
     vis_regions = CollectionProperty(name="Visibility Regions",
                                      type=EnvMapVisRegion)
     active_region_index = IntProperty(options={"HIDDEN"})
-
-    anim_auto_start = BoolProperty(name="Auto Start",
-                                   description="Automatically start layer animation",
-                                   default=True)
-    anim_loop = BoolProperty(name="Loop",
-                             description="Loop layer animation",
-                             default=True)
-    anim_sdl_var = StringProperty(name="SDL Variable",
-                                  description="Name of the SDL Variable to use for this animation",
-                                  options=set())
 
     is_detail_map = BoolProperty(name="Detail Fade",
                                  description="Texture fades out as distance from the camera increases",
@@ -108,3 +99,9 @@ class PlasmaLayer(bpy.types.PropertyGroup):
                                               ("1024", "1024x1024", "")],
                                        default="1024",
                                        options=set())
+
+    subanimations = PointerProperty(type=PlasmaAnimationCollection)
+
+    @classmethod
+    def register(cls):
+        PlasmaAnimationCollection.register_entire_animation(bpy.types.Texture, cls)

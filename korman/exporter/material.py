@@ -21,7 +21,7 @@ import functools
 import itertools
 import math
 from pathlib import Path
-from typing import Iterator, Optional, Union
+from typing import Dict, Iterator, Optional, Union
 import weakref
 
 from PyHSPlasma import *
@@ -514,7 +514,69 @@ class MaterialConverter:
         return layer
 
     def _export_layer_animations(self, bo, bm, tex_slot, idx, base_layer) -> plLayer:
-        """Exports animations on this texture and chains the Plasma layers as needed"""
+        top_layer = base_layer
+        converter = self._exporter().animation
+        texture = tex_slot.texture if tex_slot is not None else None
+
+        def attach_layer(pClass: type, anim_name: str, controllers: Dict[str, plController]):
+            nonlocal top_layer
+            name = "{}_{}".format(base_layer.key.name, anim_name)
+            layer_animation = self._mgr.find_create_object(pClass, bl=bo, name=name)
+
+            # A word: in my testing, saving the Layer SDL to a server can result in issues where
+            # the animation get stuck in a state that no longer matches the animation you've
+            # created, and the result is an irrecoverable mess. Meaning, the animation plays
+            # whenever and however it wants, regardless of your fancy logic nodes. At some point,
+            # we may (TODO) want to pass these animations through the PlasmaNet thingo and apply
+            # the synch flags it thinks we need. For now, just exclude everything.
+            layer_animation.synchFlags |= plSynchedObject.kExcludeAllPersistentState
+
+            for attr, ctrl in controllers.items():
+                setattr(layer_animation, attr, ctrl)
+            layer_animation.underLay = top_layer.key
+            top_layer = layer_animation
+
+        if texture is not None:
+            layer_props = texture.plasma_layer
+            for anim in layer_props.subanimations:
+                if not anim.is_entire_animation:
+                    start, end = anim.start, anim.end
+                else:
+                    start, end = None, None
+                controllers = self._export_layer_controllers(bo, bm, tex_slot, idx, base_layer,
+                                                             start=start, end=end)
+                if not controllers:
+                    continue
+
+                pClass = plLayerSDLAnimation if anim.sdl_var else plLayerAnimation
+                attach_layer(pClass, anim.animation_name, controllers)
+                atc = top_layer.timeConvert
+                atc.begin, atc.end = converter.get_frame_time_range(*controllers.values())
+                atc.loopBegin, atc.loopEnd = atc.begin, atc.end
+                if not anim.auto_start:
+                    atc.flags |= plAnimTimeConvert.kStopped
+                if anim.loop:
+                    atc.flags |= plAnimTimeConvert.kLoop
+                if isinstance(top_layer, plLayerSDLAnimation):
+                    top_layer.varName = layer_props.sdl_var
+        else:
+            # Crappy automatic entire layer animation. Loop it by default.
+            controllers = self._export_layer_controllers(bo, bm, tex_slot, idx, base_layer)
+            if controllers:
+                attach_layer(plLayerAnimation, "(Entire Animation)", controllers)
+                atc = top_layer.timeConvert
+                atc.flags |= plAnimTimeConvert.kLoop
+                atc.begin, atc.end = converter.get_frame_time_range(*controllers.values())
+                atc.loopBegin = atc.begin
+                atc.loopEnd = atc.end
+
+        return top_layer
+
+
+    def _export_layer_controllers(self, bo: bpy.types.Object, bm: bpy.types.Material, tex_slot,
+                                  idx: int, base_layer, *, start: Optional[int] = None,
+                                  end: Optional[int] = None) -> Dict[str, plController]:
+        """Convert animations on this material/texture combo in the requested range to Plasma controllers"""
 
         def harvest_fcurves(bl_id, collection, data_path=None):
             if bl_id is None:
@@ -543,66 +605,33 @@ class MaterialConverter:
             harvest_fcurves(bm, fcurves, tex_slot.path_from_id())
             harvest_fcurves(texture, fcurves)
 
-        if not fcurves:
-            return base_layer
-
-        # Okay, so we have some FCurves. We'll loop through our known layer animation converters
-        # and chain this biotch up as best we can.
-        layer_animation = None
+        # Take the FCurves and ram them through our converters, hopefully returning some valid
+        # animation controllers.
+        controllers = {}
         for attr, converter in self._animation_exporters.items():
-            ctrl = converter(bo, bm, tex_slot, base_layer, fcurves)
+            ctrl = converter(bo, bm, tex_slot, base_layer, fcurves, start=start, end=end)
             if ctrl is not None:
-                if layer_animation is None:
-                    layer_animation = self.get_texture_animation_key(bo, bm, texture).object
-                setattr(layer_animation, attr, ctrl)
+                controllers[attr] = ctrl
+        return controllers
 
-        # Alrighty, if we exported any controllers, layer_animation is a plLayerAnimation. We need to do
-        # the common schtuff now.
-        if layer_animation is not None:
-            layer_animation.underLay = base_layer.key
-
-            fps = bpy.context.scene.render.fps
-            atc = layer_animation.timeConvert
-
-            # Since we are harvesting from the material action but are exporting to a layer, the
-            # action's range is relatively useless. We'll figure our own. Reminder: the blender
-            # documentation is wrong -- FCurve.range() returns a sequence of frame numbers, not times.
-            atc.begin = min((fcurve.range()[0] for fcurve in fcurves)) * (30.0 / fps) / fps
-            atc.end = max((fcurve.range()[1] for fcurve in fcurves)) * (30.0 / fps) / fps
-
-            if tex_slot is not None:
-                layer_props = tex_slot.texture.plasma_layer
-                if not layer_props.anim_auto_start:
-                    atc.flags |= plAnimTimeConvert.kStopped
-                if layer_props.anim_loop:
-                    atc.flags |= plAnimTimeConvert.kLoop
-                    atc.loopBegin = atc.begin
-                    atc.loopEnd = atc.end
-                if layer_props.anim_sdl_var:
-                    layer_animation.varName = layer_props.anim_sdl_var
-            else:
-                # Hmm... I wonder what we should do here? A reasonable default might be to just
-                # run the stupid thing in a loop.
-                atc.flags |= plAnimTimeConvert.kLoop
-                atc.loopBegin = atc.begin
-                atc.loopEnd = atc.end
-            return layer_animation
-
-        # Well, we had some FCurves but they were garbage... Too bad.
-        return base_layer
-
-    def _export_layer_diffuse_animation(self, bo, bm, tex_slot, base_layer, fcurves, converter):
+    def _export_layer_diffuse_animation(self, bo, bm, tex_slot, base_layer, fcurves, *, start, end, converter):
         assert converter is not None
+
+        # If there's no material, then this is simply impossible.
+        if bm is None:
+            return None
 
         def translate_color(color_sequence):
             # See things like get_material_preshade
             result = converter(bo, bm, mathutils.Color(color_sequence))
             return result.red, result.green, result.blue
 
-        ctrl = self._exporter().animation.make_pos_controller(fcurves, "diffuse_color", bm.diffuse_color, translate_color)
+        ctrl = self._exporter().animation.make_pos_controller(fcurves, "diffuse_color",
+                                                              bm.diffuse_color, translate_color,
+                                                              start=start, end=end)
         return ctrl
 
-    def _export_layer_opacity_animation(self, bo, bm, tex_slot, base_layer, fcurves):
+    def _export_layer_opacity_animation(self, bo, bm, tex_slot, base_layer, fcurves, *, start, end):
         # Dumb function to intercept the opacity values and properly flag the base layer
         def process_opacity(value):
             self._handle_layer_opacity(base_layer, value)
@@ -610,18 +639,20 @@ class MaterialConverter:
 
         for i in fcurves:
             if i.data_path == "plasma_layer.opacity":
-                ctrl = self._exporter().animation.make_scalar_leaf_controller(i, process_opacity)
+                ctrl = self._exporter().animation.make_scalar_leaf_controller(i, process_opacity, start=start, end=end)
                 return ctrl
         return None
 
-    def _export_layer_transform_animation(self, bo, bm, tex_slot, base_layer, fcurves):
+    def _export_layer_transform_animation(self, bo, bm, tex_slot, base_layer, fcurves, *, start, end):
         if tex_slot is not None:
             path = tex_slot.path_from_id()
             pos_path = "{}.offset".format(path)
             scale_path = "{}.scale".format(path)
 
             # Plasma uses the controller to generate a matrix44... so we have to produce a leaf controller
-            ctrl = self._exporter().animation.make_matrix44_controller(fcurves, pos_path, scale_path, tex_slot.offset, tex_slot.scale)
+            ctrl = self._exporter().animation.make_matrix44_controller(fcurves, pos_path, scale_path,
+                                                                       tex_slot.offset, tex_slot.scale,
+                                                                       start=start, end=end)
             return ctrl
         return None
 
@@ -1308,22 +1339,19 @@ class MaterialConverter:
             color = bm.diffuse_color
         return utils.color(color)
 
-    def get_texture_animation_key(self, bo, bm, texture):
-        """Finds or creates the appropriate key for sending messages to an animated Texture"""
+    def get_texture_animation_key(self, bo, bm, texture, anim_name: str) -> Iterator[plKey]:
+        """Finds the appropriate key for sending messages to an animated Texture"""
+        if not anim_name:
+            anim_name = "(Entire Animation)"
 
-        tex_name = texture.name if texture is not None else "AutoLayer"
-        if bo.type == "LAMP":
-            assert bm is None
-            bm_name = bo.name
-        else:
-            assert bm is not None
-            bm_name = bm.name
-            if texture is not None and not tex_name in bm.texture_slots:
-                raise ExportError("Texture '{}' not used in Material '{}'".format(bm_name, tex_name))
-
-        name = "{}_{}_LayerAnim".format(bm_name, tex_name)
-        pClass = plLayerSDLAnimation if texture is not None and texture.plasma_layer.anim_sdl_var else plLayerAnimation
-        return self._mgr.find_create_key(pClass, bl=bo, name=name)
+        for top_layer in filter(lambda x: isinstance(x.object, plLayerAnimationBase), self.get_layers(bo, bm, texture)):
+            base_layer = top_layer.object.bottomOfStack
+            needle = top_layer
+            while needle is not None:
+                if needle.name == "{}_{}".format(base_layer.name, anim_name):
+                    yield needle
+                    break
+                needle = needle.object.underLay
 
     def _handle_layer_opacity(self, layer: plLayerInterface, value: float):
         if value < 100:

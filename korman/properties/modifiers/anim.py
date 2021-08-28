@@ -15,9 +15,13 @@
 
 import bpy
 from bpy.props import *
+
+from typing import Iterable, Iterator, Optional
+
 from PyHSPlasma import *
 
 from .base import PlasmaModifierProperties
+from ..prop_anim import PlasmaAnimationCollection
 from ...exporter import ExportError, utils
 from ... import idprops
 
@@ -36,7 +40,15 @@ class ActionModifier:
                 # we will not use this action for any animation logic. that must be stored on the Object
                 # datablock for simplicity's sake.
                 return None
-        raise ExportError("Object '{}' is not animated".format(bo.name))
+        raise ExportError("'{}': Object has an animation modifier but is not animated".format(bo.name))
+
+    def sanity_check(self) -> None:
+        if not self.id_data.plasma_object.has_animation_data:
+            raise ExportError("'{}': Has an animation modifier but no animation data.", self.id_data.name)
+
+        if self.id_data.type == "CAMERA":
+            if not self.id_data.data.plasma_camera.allow_animations:
+                raise ExportError("'{}': Animation modifiers are not allowed on this camera type.", self.id_data.name)
 
 
 class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
@@ -47,65 +59,101 @@ class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
     bl_description = "Object animation"
     bl_icon = "ACTION"
 
-    auto_start = BoolProperty(name="Auto Start",
-                              description="Automatically start this animation on link-in",
-                              default=True)
-    loop = BoolProperty(name="Loop Anim",
-                        description="Loop the animation",
-                        default=True)
+    subanimations = PointerProperty(type=PlasmaAnimationCollection)
 
-    initial_marker = StringProperty(name="Start Marker",
-                                    description="Marker indicating the default start point")
-    loop_start = StringProperty(name="Loop Start",
-                                description="Marker indicating where the default loop begins")
-    loop_end = StringProperty(name="Loop End",
-                              description="Marker indicating where the default loop ends")
-    obj_sdl_anim = StringProperty(name="SDL Animation",
-                                  description="Name of the SDL variable to use for this animation",
-                                  options=set())
+    def pre_export(self, exporter, bo):
+        # We want to run the animation converting early in the process because of dependencies on
+        # the animation data being available. Especially in the camera exporter.
+        so = exporter.mgr.find_create_object(plSceneObject, bl=bo)
+        self.convert_object_animations(exporter, bo, so, self.subanimations)
 
-    @property
-    def anim_type(self):
-        return plAgeGlobalAnim if self.enabled and self.obj_sdl_anim else plATCAnim
+    def convert_object_animations(self, exporter, bo, so, anims: Optional[Iterable] = None):
+        if not anims:
+            anims = [self.subanimations.entire_animation]
+        aganims = list(self._export_ag_anims(exporter, bo, so, anims))
 
-    def export(self, exporter, bo, so):
+        # Defer creation of the private animation until after the converter has been executed.
+        # Just because we have some FCurves doesn't mean they will produce anything particularly
+        # useful. Some versions of Uru will crash if we feed it an empty animation, so yeah.
+        if aganims:
+            agmod, agmaster = exporter.animation.get_anigraph_objects(bo, so)
+            agmod.channelName = self.id_data.name
+            for i in aganims:
+                agmaster.addPrivateAnim(i.key)
+
+    def _export_ag_anims(self, exporter, bo, so, anims: Iterable) -> Iterator[plAGAnim]:
         action = self.blender_action
-        anim_mod = bo.plasma_modifiers.animation
+        converter = exporter.animation
 
-        # Do not create the private animation here. The animation converter itself does this
-        # before we reach this point. If it does not create an animation, then we might create an
-        # empty animation that crashes Uru.
-        atcanim = exporter.mgr.find_object(anim_mod.anim_type, so=so)
-        if atcanim is None:
-            return
+        for anim in anims:
+            assert anim is not None, "Animation should not be None!"
+            anim_name = anim.animation_name
 
-        if not isinstance(atcanim, plAgeGlobalAnim):
-            atcanim.autoStart = self.auto_start
-            atcanim.loop = self.loop
-
-            # Simple start and loop info for ATC
-            if action is not None:
-                markers = action.pose_markers
-                initial_marker = markers.get(self.initial_marker)
-                if initial_marker is not None:
-                    atcanim.initial = _convert_frame_time(initial_marker.frame)
-                else:
-                    atcanim.initial = -1.0
-                if self.loop:
-                    loop_start = markers.get(self.loop_start)
-                    if loop_start is not None:
-                        atcanim.loopStart = _convert_frame_time(loop_start.frame)
-                    else:
-                        atcanim.loopStart = atcanim.start
-                    loop_end = markers.get(self.loop_end)
-                    if loop_end is not None:
-                        atcanim.loopEnd = _convert_frame_time(loop_end.frame)
-                    else:
-                        atcanim.loopEnd = atcanim.end
+            # If this is the entire animation, the range that anim.start and anim.end will return
+            # is the range of all of the keyframes. Of course, we don't nesecarily convert every
+            # keyframe, so we will defer figuring out the range until the conversion is complete.
+            if not anim.is_entire_animation:
+                start, end = anim.start, anim.end
+                start, end = min((start, end)), max((start, end))
             else:
-                if self.loop:
-                    atcanim.loopStart = atcanim.start
-                    atcanim.loopEnd = atcanim.end
+                start, end = None, None
+
+            applicators = converter.convert_object_animations(bo, so, anim_name, start=start, end=end)
+            if not applicators:
+                exporter.report.warn("Animation '{}' generated no applicators. Nothing will be exported.",
+                                     anim_name, indent=2)
+                continue
+
+            pClass = plAgeGlobalAnim if anim.sdl_var else plATCAnim
+            aganim = exporter.mgr.find_create_object(pClass, bl=bo, so=so, name="{}_{}".format(bo.name, anim_name))
+            aganim.name = anim_name
+            aganim.start, aganim.end = converter.get_frame_time_range(*applicators, so=so)
+            for i in applicators:
+                aganim.addApplicator(i)
+
+            if isinstance(aganim, plATCAnim):
+                aganim.autoStart = anim.auto_start
+                aganim.loop = anim.loop
+
+                if action is not None:
+                    markers = action.pose_markers
+                    initial_marker = markers.get(anim.initial_marker)
+                    if initial_marker is not None:
+                        aganim.initial = converter.convert_frame_time(initial_marker.frame)
+                    else:
+                        aganim.initial = -1.0
+                    if anim.loop:
+                        loop_start = markers.get(anim.loop_start)
+                        if loop_start is not None:
+                            aganim.loopStart = converter.convert_frame_time(loop_start.frame)
+                        else:
+                            aganim.loopStart = aganim.start
+                        loop_end = markers.get(anim.loop_end)
+                        if loop_end is not None:
+                            aganim.loopEnd = converter.convert_frame_time(loop_end.frame)
+                        else:
+                            aganim.loopEnd = aganim.end
+                else:
+                    if anim.loop:
+                        aganim.loopStart = aganim.start
+                        aganim.loopEnd = aganim.end
+
+                # Fixme? Not sure if we really need to expose this...
+                aganim.easeInMin = 1.0
+                aganim.easeInMax = 1.0
+                aganim.easeInLength = 1.0
+                aganim.easeOutMin = 1.0
+                aganim.easeOutMax = 1.0
+                aganim.easeOutLength = 1.0
+
+            if isinstance(aganim, plAgeGlobalAnim):
+                aganim.globalVarName = anim.sdl_var
+
+            yield aganim
+
+    @classmethod
+    def register(cls):
+        PlasmaAnimationCollection.register_entire_animation(bpy.types.Object, cls)
 
 
 class AnimGroupObject(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
