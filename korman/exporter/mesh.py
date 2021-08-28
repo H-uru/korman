@@ -18,6 +18,7 @@ from contextlib import ExitStack
 import itertools
 from PyHSPlasma import *
 from math import fabs
+from typing import Iterable
 import weakref
 
 from ..exporter.logger import ExportProgressLogger
@@ -242,6 +243,7 @@ class MeshConverter(_MeshManager):
 
         self._dspans = {}
         self._mesh_geospans = {}
+        self._non_preshaded = {}
 
         # _report is a property on this subclass
         super().__init__()
@@ -278,33 +280,32 @@ class MeshConverter(_MeshManager):
         has_alpha = not all(opaque)
         return has_alpha
 
-    def _check_vtx_nonpreshaded(self, bo, mesh, material_idx, base_layer):
-        def check_layer_shading_animation(layer):
-            if isinstance(layer, plLayerAnimationBase):
-                return layer.opacityCtl is not None or layer.preshadeCtl is not None or layer.runtimeCtl is not None
-            if layer.underLay is not None:
-                return check_layer_shading_animation(layer.underLay.object)
+    def _check_vtx_nonpreshaded(self, bo, mesh, material_idx, bm):
+        def check():
+            # TODO: if this is an avatar, we can't be non-preshaded.
+            # kShadeWhite (used for shadeless) is not handled for kLiteVtxNonPreshaded
+            if bm is not None:
+                if bm.use_shadeless:
+                    return False
+                if self.material.requires_material_shading(bm):
+                    return False
+
+            mods = bo.plasma_modifiers
+            if mods.lighting.rt_lights:
+                return True
+            if mods.lightmap.bake_lightmap:
+                return True
+            if self._check_vtx_alpha(mesh, material_idx):
+                return True
+
             return False
 
-        # TODO: if this is an avatar, we can't be non-preshaded.
-        if check_layer_shading_animation(base_layer):
-            return False
-
-        # kShadeWhite (used for shadeless) is not handled for kLiteVtxNonPreshaded
-        if material_idx is not None:
-            bm = mesh.materials[material_idx]
-            if bm.use_shadeless:
-                return False
-
-        mods = bo.plasma_modifiers
-        if mods.lighting.rt_lights:
-            return True
-        if mods.lightmap.bake_lightmap:
-            return True
-        if self._check_vtx_alpha(mesh, material_idx):
-            return True
-
-        return False
+        # Safe version for inside the mesh converter.
+        result = self._non_preshaded.get((bo, bm))
+        if result is None:
+            result = check()
+            self._non_preshaded[(bo, bm)] = result
+        return result
 
     def _create_geospan(self, bo, mesh, material_idx, bm, hsgmatKey):
         """Initializes a plGeometrySpan from a Blender Object and an hsGMaterial"""
@@ -328,7 +329,7 @@ class MeshConverter(_MeshManager):
         base_layer = hsgmatKey.object.layers[0].object
         if is_alpha_blended(base_layer) or self._check_vtx_alpha(mesh, material_idx):
             geospan.props |= plGeometrySpan.kRequiresBlending
-        if self._check_vtx_nonpreshaded(bo, mesh, material_idx, base_layer):
+        if self._check_vtx_nonpreshaded(bo, mesh, material_idx, bm):
             geospan.props |= plGeometrySpan.kLiteVtxNonPreshaded
         if (geospan.props & plGeometrySpan.kLiteMask) != plGeometrySpan.kLiteMaterial:
             geospan.props |= plGeometrySpan.kDiffuseFoldedIn
@@ -650,6 +651,7 @@ class MeshConverter(_MeshManager):
                 msg = "'{}' is a WaveSet -- only one material is supported".format(bo.name)
                 self._exporter().report.warn(msg, indent=1)
             blmat = materials[0][1]
+            self._check_vtx_nonpreshaded(bo, mesh, 0, blmat)
             matKey = self.material.export_waveset_material(bo, blmat)
             geospan = self._create_geospan(bo, mesh, None, blmat, matKey)
 
@@ -662,6 +664,7 @@ class MeshConverter(_MeshManager):
             geospans = [None] * len(materials)
             mat2span_LUT = {}
             for i, (blmat_idx, blmat) in enumerate(materials):
+                self._check_vtx_nonpreshaded(bo, mesh, blmat_idx, blmat)
                 matKey = self.material.export_material(bo, blmat)
                 geospans[i] = _GeoSpan(bo, blmat,
                                        self._create_geospan(bo, mesh, blmat_idx, blmat, matKey),
@@ -717,6 +720,9 @@ class MeshConverter(_MeshManager):
         if baked_layer is not None:
             return baked_layer.data
         return None
+
+    def is_nonpreshaded(self, bo: bpy.types.Object, bm: bpy.types.Material) -> bool:
+        return self._non_preshaded[(bo, bm)]
 
     @property
     def _mgr(self):
