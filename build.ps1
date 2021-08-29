@@ -184,10 +184,9 @@ function Build-KormanClassicInstaller() {
     New-Item -Path "$PSScriptRoot/installer/Files/x64" -ItemType Directory -Force
 
     # CMake copies the vcredist for us. YAY!
-    Write-Host -ForegroundColor Cyan "Copying sub-installers..."
-    Copy-Item "$BuildDir/x86/harvest/bin/vcredist_x86.exe" "$PSScriptRoot/installer/Files/x86/vcredist_x86.exe"
-    Copy-Item "$BuildDir/x64/harvest/bin/vcredist_x64.exe" "$PSScriptRoot/installer/Files/x64/vcredist_x64.exe"
-    Copy-Item "$BuildDir/x86/harvest/bin/Python-2.2.3.exe" "$PSScriptRoot/installer/Files/x86/Python-2.2.3.exe"
+    Write-Host -ForegroundColor Cyan "Copying binary dependencies..."
+    Copy-Item -Recurse "$BuildDir/x86/harvest/bin/*" "$PSScriptRoot/installer/Files/x86"
+    Copy-Item -Recurse "$BuildDir/x64/harvest/bin/*" "$PSScriptRoot/installer/Files/x64"
 
     Write-Host -ForegroundColor Cyan "Determining Build Info..."
     if (Get-Command git) {
@@ -207,13 +206,13 @@ function Build-KormanClassicInstaller() {
         $PythonDLL = "python$($PythonVersion.Replace('.', '')).dll"
         makensis /DPYTHON_DLL=$PythonDLL Installer.nsi
         if ($LASTEXITCODE -Ne 0) { throw "makensis failed!" }
-
-        # Move it into the expected location for a "new" installer.
-        New-Item -Path "$BuildDir/package" -ItemType Directory -Force
-        Move-Item "$PSScriptRoot/installer/korman.exe" "$BuildDir/package/korman-$KormanRev-windows-classic.exe"
     } finally {
         Pop-Location
     }
+
+    # Move it into the expected location for a "new" installer.
+    New-Item -Path "$BuildDir/package" -ItemType Directory -Force
+    Move-Item "$PSScriptRoot/installer/korman.exe" "$BuildDir/package/korman-$KormanRev-windows-classic.exe"
 }
 
 function Build-KormanDev($HostGenerator, $TargetPlatform, $OutputDir) {
