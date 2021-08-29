@@ -558,7 +558,7 @@ class MaterialConverter:
                 if anim.loop:
                     atc.flags |= plAnimTimeConvert.kLoop
                 if isinstance(top_layer, plLayerSDLAnimation):
-                    top_layer.varName = layer_props.sdl_var
+                    top_layer.varName = anim.sdl_var
         else:
             # Crappy automatic entire layer animation. Loop it by default.
             controllers = self._export_layer_controllers(bo, bm, tex_slot, idx, base_layer)
