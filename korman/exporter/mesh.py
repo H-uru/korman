@@ -604,7 +604,7 @@ class MeshConverter(_MeshManager):
         else:
             mesh = bo.to_mesh(bpy.context.scene, True, "RENDER", calc_tessface=False)
             with helpers.TemporaryObject(mesh, bpy.data.meshes.remove):
-                mesh.transform(bo.matrix_world)
+                utils.transform_mesh(mesh, bo.matrix_world)
                 return self._export_mesh(bo, mesh)
 
     def _export_mesh(self, bo, mesh):
