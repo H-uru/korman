@@ -15,6 +15,7 @@
 
 import bmesh
 import bpy
+import mathutils
 
 from typing import Callable, Iterator, Tuple
 from contextlib import contextmanager
@@ -110,3 +111,13 @@ def temporary_mesh_object(source : bpy.types.Object) -> bpy.types.Object:
         yield obj
     finally:
         bpy.data.objects.remove(obj)
+
+def transform_mesh(mesh: bpy.types.Mesh, matrix: mathutils.Matrix):
+    # There is a disparity in terms of how negative scaling is displayed in Blender versus how it is
+    # applied (Ctrl+A) in that the normals are different. Even though negative scaling is evil, we
+    # prefer to match the visual behavior, not the non-intuitive apply behavior. So, we'll need to
+    # flip the normals if the scaling is negative. The Blender documentation even "helpfully" warns
+    # us about this.
+    mesh.transform(matrix)
+    if matrix.is_negative:
+        mesh.flip_normals()

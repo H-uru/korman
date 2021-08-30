@@ -78,7 +78,7 @@ class PhysicsConverter:
                     vertices = [hsVector3(i.co.x * scale.x, i.co.y * scale.y, i.co.z * scale.z) for i in mesh.vertices]
             else:
                 # apply the transform to the physical itself
-                mesh.transform(mat)
+                utils.transform_mesh(mesh, mat)
                 mesh.update(calc_tessface=indices)
                 vertices = [hsVector3(*i.co) for i in mesh.vertices]
 
@@ -102,7 +102,7 @@ class PhysicsConverter:
             mesh = bo.to_mesh(bpy.context.scene, True, "RENDER", calc_tessface=False)
             with TemporaryObject(mesh, bpy.data.meshes.remove):
                 # No mass and no emedded xform, so we force worldspace collision.
-                mesh.transform(bo.matrix_world)
+                utils.transform_mesh(mesh, bo.matrix_world)
                 mesh.update(calc_tessface=True)
 
                 if z_coord is None:
@@ -283,7 +283,7 @@ class PhysicsConverter:
                 physical.rot = utils.quaternion(mat.to_quaternion())
                 bmesh.ops.scale(mesh, vec=mat.to_scale(), verts=mesh.verts)
             else:
-                mesh.transform(mat)
+                utils.transform_mesh(mesh, mat)
 
             result = bmesh.ops.convex_hull(mesh, input=mesh.verts, use_existing_faces=False)
             BMVert = bmesh.types.BMVert
