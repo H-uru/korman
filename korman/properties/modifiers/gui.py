@@ -230,7 +230,7 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         if self.clickable_region is None:
             with utils.bmesh_object("{}_Journal_ClkRgn".format(self.key_name)) as (rgn_obj, bm):
                 bmesh.ops.create_cube(bm, size=(6.0))
-                bmesh.ops.transform(bm, matrix=mathutils.Matrix.Translation(bo.location - rgn_obj.location),
+                bmesh.ops.transform(bm, matrix=mathutils.Matrix.Translation(bo.matrix_world.translation - rgn_obj.matrix_world.translation),
                                     space=rgn_obj.matrix_world, verts=bm.verts)
                 rgn_obj.plasma_object.enabled = True
                 rgn_obj.hide_render = True
@@ -466,7 +466,7 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         if self.clickable_region is None:
             with utils.bmesh_object("{}_LinkingBook_ClkRgn".format(self.key_name)) as (rgn_obj, bm):
                 bmesh.ops.create_cube(bm, size=(6.0))
-                rgn_offset = mathutils.Matrix.Translation(self.clickable.location - bo.location)
+                rgn_offset = mathutils.Matrix.Translation(self.clickable.matrix_world.translation - bo.matrix_world.translation)
                 bmesh.ops.transform(bm, matrix=rgn_offset, space=bo.matrix_world, verts=bm.verts)
                 rgn_obj.plasma_object.enabled = True
                 rgn_obj.hide_render = True

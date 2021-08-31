@@ -779,7 +779,7 @@ class MaterialConverter:
             # will probably want to steal it for diabolical purposes... In MOUL, root objects are
             # allowed, but that introduces a gotcha with regard to animated roots and PotS. Also,
             # sharing root objects with a DCM seems to result in bad problems in game O.o
-            pl_env.position = hsVector3(*viewpt.location)
+            pl_env.position = hsVector3(*viewpt.matrix_world.translation)
 
             if layer is not None:
                 layer.UVWSrc = plLayerInterface.kUVWReflect

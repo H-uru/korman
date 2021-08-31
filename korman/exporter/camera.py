@@ -132,7 +132,7 @@ class CameraConverter:
         # specifying an actual center allows you to do interesting things like animate the center...
         # Fascinating! Therefore, we will expose the Plasma Object...
         if props.circle_center is None:
-            brain.center = hsVector3(*bo.location)
+            brain.center = hsVector3(*bo.matrix_world.translation)
         else:
             brain.centerObject = self._mgr.find_create_key(plSceneObject, bl=props.circle_center)
             # This flag has no effect in CWE, but I'm using it for correctness' sake

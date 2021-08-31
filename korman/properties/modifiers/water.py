@@ -114,7 +114,7 @@ class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.
         losdbs = ["kLOSDBSwimRegion"]
         member_group = "kGroupLOSOnly" if exporter.mgr.getVer() != pvMoul else "kGroupStatic"
         if bo.plasma_modifiers.water_basic.enabled:
-            exporter.physics.generate_flat_proxy(bo, so, z_coord=bo.location[2],
+            exporter.physics.generate_flat_proxy(bo, so, z_coord=bo.matrix_world.translation[2],
                                                  member_group=member_group,
                                                  losdbs=losdbs)
         else:
@@ -125,7 +125,7 @@ class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.
         # Detector region bounds
         if self.region is not None:
             region_so = exporter.mgr.find_create_object(plSceneObject, bl=self.region)
-    
+
             # Good news: if this phys has already been exported, this is basically a noop
             member_group = "kGroupDetector" if exporter.mgr.getVer() == "pvMoul" else "kGroupLOSOnly"
             exporter.physics.generate_physical(self.region, region_so,
@@ -258,7 +258,7 @@ class PlasmaWaterModifier(idprops.IDPropMixin, PlasmaModifierProperties, bpy.typ
         # Stuff we expose
         state = waveset.state
         state.rippleScale = self.ripple_scale
-        state.waterHeight = bo.location[2]
+        state.waterHeight = bo.matrix_world.translation[2]
         state.windDir = wind_dir
         state.specVector = hsVector3(self.noise / 100.0, self.specular_start, self.specular_end)
         state.specularTint = hsColorRGBA(*self.specular_tint, alpha=self.specular_alpha)
@@ -273,7 +273,7 @@ class PlasmaWaterModifier(idprops.IDPropMixin, PlasmaModifierProperties, bpy.typ
             state.envCenter = dem.position
             state.envRefresh = dem.refreshRate
         else:
-            state.envCenter = hsVector3(*bo.location)
+            state.envCenter = hsVector3(*bo.matrix_world.translation)
             state.envRefresh = 0.0
         state.envRadius = self.envmap_radius
 
