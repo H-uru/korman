@@ -1320,7 +1320,7 @@ class MaterialConverter:
         # we'll want black if it's ONLY runtime lighting (and white for lightmaps). Otherwise,
         # just use the material color for now.
         if self._exporter().mesh.is_nonpreshaded(bo, bm):
-            if bo.plasma_modifiers.lightmap.bake_lightmap:
+            if bo.plasma_modifiers.lightmap.bake_lightmap and not bo.plasma_modifiers.lighting.rt_lights:
                 return hsColorRGBA.kWhite
             elif not bo.plasma_modifiers.lighting.preshade:
                 return hsColorRGBA.kBlack
