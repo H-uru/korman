@@ -245,7 +245,7 @@ class Exporter:
             ci = self.mgr.add_object(ci_cls, bl=bl, so=so)
 
             # Now we have the "fun" work of filling in the CI
-            ci.localToWorld = utils.matrix44(bl.matrix_basis)
+            ci.localToWorld = utils.matrix44(bl.matrix_world)
             ci.worldToLocal = ci.localToWorld.inverse()
             ci.localToParent = utils.matrix44(bl.matrix_local)
             ci.parentToLocal = ci.localToParent.inverse()

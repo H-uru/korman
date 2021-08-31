@@ -102,8 +102,8 @@ def temporary_mesh_object(source : bpy.types.Object) -> bpy.types.Object:
 
     obj = bpy.data.objects.new(source.name, source.to_mesh(bpy.context.scene, True, "RENDER"))
     obj.draw_type = "WIRE"
-    obj.matrix_basis, obj.matrix_world = source.matrix_basis, source.matrix_world
     obj.parent = source.parent
+    obj.matrix_local, obj.matrix_world = source.matrix_local, source.matrix_world
 
     bpy.context.scene.objects.link(obj)
     try:
