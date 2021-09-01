@@ -397,7 +397,7 @@ class AnimationConverter:
 
             def convert_scale_keyframe(scale):
                 # Scale: very likely to cause issues.
-                return (a * b for a, b in zip(adjust_scale, scale))
+                return [a * b for a, b in zip(adjust_scale, scale)]
 
             convert_pos = convert_pos_keyframe
             convert_rot = convert_rot_keyframe
