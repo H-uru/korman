@@ -93,7 +93,7 @@ class PhysicsConverter:
 
         if so.sim is None:
             simIface = self._mgr.add_object(pl=plSimulationInterface, bl=bo)
-            physical = self._mgr.add_object(pl=plGenericPhysical, bl=bo, name=name)
+            physical = self._mgr.add_object(pl=plGenericPhysical, bl=bo, name=bo.name)
 
             simIface.physical = physical.key
             physical.object = so.key

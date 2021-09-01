@@ -466,8 +466,8 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         if self.clickable_region is None:
             with utils.bmesh_object("{}_LinkingBook_ClkRgn".format(self.key_name)) as (rgn_obj, bm):
                 bmesh.ops.create_cube(bm, size=(6.0))
-                rgn_offset = mathutils.Matrix.Translation(self.clickable.matrix_world.translation - bo.matrix_world.translation)
-                bmesh.ops.transform(bm, matrix=rgn_offset, space=bo.matrix_world, verts=bm.verts)
+                rgn_offset = mathutils.Matrix.Translation(self.clickable.matrix_world.translation - rgn_obj.matrix_world.translation)
+                bmesh.ops.transform(bm, matrix=rgn_offset, space=rgn_obj.matrix_world, verts=bm.verts)
                 rgn_obj.plasma_object.enabled = True
                 rgn_obj.hide_render = True
             yield rgn_obj
