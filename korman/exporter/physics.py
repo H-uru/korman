@@ -283,7 +283,7 @@ class PhysicsConverter:
                 physical.rot = utils.quaternion(mat.to_quaternion())
                 bmesh.ops.scale(mesh, vec=mat.to_scale(), verts=mesh.verts)
             else:
-                utils.transform_mesh(mesh, mat)
+                mesh.transform(bo.matrix_world)
 
             result = bmesh.ops.convex_hull(mesh, input=mesh.verts, use_existing_faces=False)
             BMVert = bmesh.types.BMVert
