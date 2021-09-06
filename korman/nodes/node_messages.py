@@ -296,7 +296,8 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
                 self.raise_error("At least one of: target object, material, texture MUST be specified")
             target = exporter.mesh.material.get_texture_animation_key(obj, material, texture, self.anim_name)
 
-        target = [i for i in target if not isinstance(i.object, (plAgeGlobalAnim, plLayerSDLAnimation))]
+        # this kills opacity animation:
+        # target = [i for i in target if not isinstance(i.object, (plAgeGlobalAnim, plLayerSDLAnimation))]
         if not target:
             self.raise_error("No controllable animations were found.")
         for i in target:
