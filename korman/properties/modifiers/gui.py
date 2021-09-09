@@ -86,6 +86,56 @@ class ImageLibraryItem(bpy.types.PropertyGroup):
                                      options=set())
 
 
+class PlasmaGUIDialogModifier(PlasmaModifierProperties):
+    pl_id = "guidialogmod"
+    
+    bl_category = "GUI"
+    bl_label = "GUI Dialog"
+    bl_description = "Brings up a custom GUI dialog"
+    bl_icon = "VIEWZOOM"
+
+    versions = EnumProperty(name="Export Targets",
+                            description="Plasma versions for which this journal exports",
+                            items=game_versions,
+                            options={"ENUM_FLAG"},
+                            default={"pvMoul", "pvPots", "pvPrime"})
+    
+    clickable = PointerProperty(name="GUI Clickable",
+                               description="Object to click to initiate GUI",
+                               type=bpy.types.Object,
+                               poll=idprops.poll_mesh_objects,
+                               options=set())
+    region = PointerProperty(name="GUI Click Region",
+                                description="GUI clickable region",
+                                type=bpy.types.Object,
+                                poll=idprops.poll_mesh_objects,
+                                options=set())
+    gui_object = PointerProperty(name="GUI Object",
+                                description="Object that will be viewed when GUI is active",
+                                type=bpy.types.Object,
+                                poll=idprops.poll_mesh_objects,
+                                options=set())
+    button = PointerProperty(name="GUI Button",
+                                description="Object to click to deactivate GUI (optional)",
+                                type=bpy.types.Object,
+                                poll=idprops.poll_mesh_objects,
+                                options=set())
+    
+    def sanity_check(self):
+        if self.gui_object is None:
+            raise ExportError("{}: GUI Dialog modifier requires a GUI Object!", self.id_data.name)
+        elif self.click is None:
+            raise ExportError("{}: GUI Dialog modifier requires a clickable!", self.id_data.name)
+
+    def pre_export(self, exporter, bo):
+        our_versions = (globals()[j] for j in self.versions)
+        version = exporter.mgr.getVer()
+        if version not in our_versions:
+            exporter.report.port("Object '{}' has a GUI Dialog not enabled for export to the selected engine.  Skipping.",
+                                 bo.name, version, indent=2)
+            return
+
+
 class PlasmaImageLibraryModifier(PlasmaModifierProperties):
     pl_id = "imagelibmod"
 

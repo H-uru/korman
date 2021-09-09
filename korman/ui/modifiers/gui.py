@@ -27,6 +27,24 @@ class ImageListUI(bpy.types.UIList):
             layout.prop(item, "enabled", text="")
 
 
+def guidialogmod(modifier, layout, context):
+    layout.prop_menu_enum(modifier, "versions")
+    layout.separator()
+    
+    split = layout.split()
+    main_col = split.column()
+    
+    layout.label("GUI Objects:")
+    main_col.label("Required:")
+    col = main_col.column()
+    col.prop(modifier, "clickable", text="Clickable")
+    col.prop(modifier, "gui_object", text="GUI Object")
+    main_col.separator()
+    main_col.label("Optional:")
+    col = main_col.column(align=True)
+    col.prop(modifier, "region", text="Click Region")
+    col.prop(modifier, "button", text="GUI Button")
+
 def imagelibmod(modifier, layout, context):
     ui_list.draw_modifier_list(layout, "ImageListUI", modifier, "images", "active_image_index", rows=3, maxrows=6)
 
