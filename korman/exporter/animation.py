@@ -342,7 +342,7 @@ class AnimationConverter:
                                      start: Optional[int] = None, end: Optional[int] = None) -> Optional[plMatrixChannelApplicator]:
         if adjust_xform != mathutils.Matrix.Identity(4):
             self._exporter().report.warn(("{}: Transform animation is not local and may export incorrectly. " +
-                "Please use Ctrl-P -> Clear Parent Inverse before animating objects to avoid issues.").format(bo.name), indent=1)
+                "Please use Alt-P -> Clear Parent Inverse before animating objects to avoid issues.").format(bo.name), indent=1)
         else:
             # Adjustment matrix is identity, just pass None instead...
             adjust_xform = None
