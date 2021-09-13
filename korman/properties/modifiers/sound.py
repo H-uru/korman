@@ -243,6 +243,10 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
                         description="Loop the sound",
                         default=False,
                         options=set())
+    local_only = BoolProperty(name"Local Only",
+                              description="Sounds only plays for local avatar",
+                              default=False,
+                              options=set())
 
     inner_cone = FloatProperty(name="Inner Angle",
                                description="Angle of the inner cone from the negative Z-axis",
@@ -368,6 +372,8 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
             sound.properties |= plSound.kPropLooping
         if self.incidental:
             sound.properties |= plSound.kPropIncidental
+        if self.local_only:
+            sound.properties |= plSound.kPropIsLocalOnly
         sound.dataBuffer = self._find_sound_buffer(exporter, so, wavHeader, dataSize, channel)
 
         # Cone effect
