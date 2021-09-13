@@ -373,7 +373,7 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
         if self.incidental:
             sound.properties |= plSound.kPropIncidental
         if self.local_only:
-            sound.properties |= plSound.kPropIsLocalOnly
+            sound.properties |= plSound.kPropLocalOnly
         sound.dataBuffer = self._find_sound_buffer(exporter, so, wavHeader, dataSize, channel)
 
         # Cone effect
