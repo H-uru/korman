@@ -132,7 +132,7 @@ class CameraConverter:
         # specifying an actual center allows you to do interesting things like animate the center...
         # Fascinating! Therefore, we will expose the Plasma Object...
         if props.circle_center is None:
-            brain.center = hsVector3(*bo.location)
+            brain.center = hsVector3(*bo.matrix_world.translation)
         else:
             brain.centerObject = self._mgr.find_create_key(plSceneObject, bl=props.circle_center)
             # This flag has no effect in CWE, but I'm using it for correctness' sake
@@ -204,7 +204,8 @@ class CameraConverter:
         # path object, but it makes more sense to me to just animate the camera with
         # the details of the path...
         pos_fcurves = tuple(i for i in helpers.fetch_fcurves(bo, False) if i.data_path == "location")
-        pos_ctrl = self._exporter().animation.convert_transform_controller(pos_fcurves, bo.rotation_mode, bo.matrix_basis)
+        pos_ctrl = self._exporter().animation.convert_transform_controller(pos_fcurves, bo.rotation_mode,
+                                                                           bo.matrix_local, bo.matrix_parent_inverse)
         if pos_ctrl is None:
             raise ExportError("'{}': Rail Camera lacks appropriate rail keyframes".format(bo.name))
         path = plAnimPath()

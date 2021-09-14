@@ -64,10 +64,7 @@ class PlasmaLadderModifier(PlasmaModifierProperties):
             ladderVec = self.facing_object.matrix_world.translation - bo.matrix_world.translation
         else:
             # Make our own artificial target -1.0 units back on the local Y axis.
-            world = bo.matrix_world.copy()
-            world.invert()
-            target = bo.location - (mathutils.Vector((0.0, 1.0, 0.0)) * world)
-            ladderVec = target - bo.matrix_local.translation
+            ladderVec = mathutils.Vector((0, -1, 0)) * bo.matrix_world.inverted()
         mod.ladderView = hsVector3(ladderVec.x, ladderVec.y, 0.0)
         mod.ladderView.normalize()
 

@@ -658,7 +658,7 @@ class MeshConverter(_MeshManager):
             # FIXME: Can some of this be generalized?
             geospan.props |= (plGeometrySpan.kWaterHeight | plGeometrySpan.kLiteVtxNonPreshaded |
                               plGeometrySpan.kPropReverseSort | plGeometrySpan.kPropNoShadow)
-            geospan.waterHeight = bo.location[2]
+            geospan.waterHeight = bo.matrix_world.translation[2]
             return [_GeoSpan(bo, blmat, geospan)], None
         else:
             geospans = [None] * len(materials)

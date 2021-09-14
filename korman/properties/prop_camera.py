@@ -225,7 +225,7 @@ class PlasmaCameraProperties(bpy.types.PropertyGroup):
         """Gets the circle camera radius for this camera when it is attached to the given Object"""
         assert bo is not None
         if self.circle_center is not None:
-            vec = bo.location - self.circle_center.location
+            vec = bo.matrix_world.translation - self.circle_center.matrix_world.translation
             return vec.magnitude
         return self.circle_radius_value
 

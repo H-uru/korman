@@ -58,7 +58,7 @@ class AnimationConverter:
         if isinstance(bo.data, bpy.types.Camera):
             applicators.append(self._convert_camera_animation(bo, so, obj_fcurves, data_fcurves, anim_name, start, end))
         else:
-            applicators.append(self._convert_transform_animation(bo, obj_fcurves, bo.matrix_basis, start=start, end=end))
+            applicators.append(self._convert_transform_animation(bo, obj_fcurves, bo.matrix_local, bo.matrix_parent_inverse, start=start, end=end))
         if bo.plasma_modifiers.soundemit.enabled:
             applicators.extend(self._convert_sound_volume_animation(bo.name, obj_fcurves, bo.plasma_modifiers.soundemit, start, end))
         if isinstance(bo.data, bpy.types.Lamp):
@@ -143,7 +143,7 @@ class AnimationConverter:
         # If we exported any FOV animation at all, then we need to ensure there is an applicator
         # returned from here... At bare minimum, we'll need the applicator with an empty
         # CompoundController. This should be sufficient to keep CWE from crashing...
-        applicator = self._convert_transform_animation(bo, obj_fcurves, bo.matrix_basis,
+        applicator = self._convert_transform_animation(bo, obj_fcurves, bo.matrix_local, bo.matrix_parent_inverse,
                                                        allow_empty=has_fov_anim, start=start, end=end)
         camera = self._mgr.find_create_object(plCameraModifier, so=so)
         camera.animated = applicator is not None
@@ -338,9 +338,16 @@ class AnimationConverter:
             applicator.channel = channel
             yield applicator
 
-    def _convert_transform_animation(self, bo, fcurves, xform, *, allow_empty: Optional[bool] = False,
+    def _convert_transform_animation(self, bo, fcurves, default_xform, adjust_xform, *, allow_empty: Optional[bool] = False,
                                      start: Optional[int] = None, end: Optional[int] = None) -> Optional[plMatrixChannelApplicator]:
-        tm = self.convert_transform_controller(fcurves, bo.rotation_mode, xform, allow_empty=allow_empty,
+        if adjust_xform != mathutils.Matrix.Identity(4):
+            self._exporter().report.warn(("{}: Transform animation is not local and may export incorrectly. " +
+                "Please use Alt-P -> Clear Parent Inverse before animating objects to avoid issues.").format(bo.name), indent=1)
+        else:
+            # Adjustment matrix is identity, just pass None instead...
+            adjust_xform = None
+
+        tm = self.convert_transform_controller(fcurves, bo.rotation_mode, default_xform, adjust_xform, allow_empty=allow_empty,
                                                start=start, end=end)
         if tm is None and not allow_empty:
             return None
@@ -351,20 +358,62 @@ class AnimationConverter:
         channel = plMatrixControllerChannel()
         channel.controller = tm
         applicator.channel = channel
-        channel.affine = utils.affine_parts(xform)
+        channel.affine = utils.affine_parts(default_xform)
 
         return applicator
 
-    def convert_transform_controller(self, fcurves, rotation_mode: str, xform, *,
+    def convert_transform_controller(self, fcurves, rotation_mode: str, default_xform, adjust_xform, *,
                                      allow_empty: Optional[bool] = False,
                                      start: Optional[int] = None,
                                      end: Optional[int] = None) -> Union[None, plCompoundController]:
         if not fcurves and not allow_empty:
             return None
 
-        pos = self.make_pos_controller(fcurves, "location", xform.to_translation(), start=start, end=end)
-        rot = self.make_rot_controller(fcurves, rotation_mode, xform, start=start, end=end)
-        scale = self.make_scale_controller(fcurves, "scale", xform.to_scale(), start=start, end=end)
+        if adjust_xform is not None:
+            # We have to edit the keyframes to make the anim local..
+            # In many cases this should work fine, but sometimes scale and rotation might
+            # still cause issues. Also, euler angles need to be converted to quaternion
+            # and back to eulers, which could cause issues. Not much we can do about it.
+            adjust_rotation = adjust_xform.to_quaternion()
+            adjust_scale = adjust_xform.to_scale()
+
+            # Helpers to adjust keyframes in case animation is not local (adjust_xform == identity)
+            def convert_pos_keyframe(pos):
+                # Position: can transform to local space without issues.
+                return tuple(adjust_xform * mathutils.Vector(pos))
+
+            def convert_rot_keyframe(rot):
+                # Rotation: may cause issues if scale is present.
+                if isinstance(rot, mathutils.Quaternion): # quaternion from an axis-angle
+                    return adjust_rotation * rot
+                elif isinstance(rot, mathutils.Euler):
+                    return (adjust_rotation * rot.to_quaternion()).to_euler(rot.order)
+                else: # tuple
+                    if len(rot) == 4: # quat in a tuple
+                        return (adjust_rotation * mathutils.Quaternion(rot))[:]
+                    else: # XYZ euler in a tuple
+                        rot = mathutils.Euler(rot, "XYZ").to_quaternion()
+                        return (adjust_rotation * rot).to_euler("XYZ")[:]
+
+            def convert_scale_keyframe(scale):
+                # Scale: very likely to cause issues.
+                return [a * b for a, b in zip(adjust_scale, scale)]
+
+            convert_pos = convert_pos_keyframe
+            convert_rot = convert_rot_keyframe
+            convert_scale = convert_scale_keyframe
+        else:
+            # Don't change the keyframes at all, so we don't risk screwing them up.
+            convert_pos = None
+            convert_rot = None
+            convert_scale = None
+
+        pos = self.make_pos_controller(fcurves, "location", default_xform.to_translation(),
+                                       convert=convert_pos, start=start, end=end)
+        rot = self.make_rot_controller(fcurves, rotation_mode, default_xform,
+                                       convert=convert_rot, start=start, end=end)
+        scale = self.make_scale_controller(fcurves, "scale", default_xform.to_scale(),
+                                           convert=convert_scale, start=start, end=end)
         if pos is None and rot is None and scale is None:
             if not allow_empty:
                 return None
@@ -490,7 +539,8 @@ class AnimationConverter:
                 default_xform = (default_xform[1], default_xform[0].x, default_xform[0].y, default_xform[0].z)
 
                 if convert is not None:
-                    convert = lambda x: convert(mathutils.Quaternion(x[1:4], x[0]))[:]
+                    convert_original = convert
+                    convert = lambda x: convert_original(mathutils.Quaternion(x[1:4], x[0]))[:]
                 else:
                     convert = lambda x: mathutils.Quaternion(x[1:4], x[0])[:]
 
