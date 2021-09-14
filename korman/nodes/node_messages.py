@@ -804,6 +804,7 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
 
     def _convert_random_sound_msg(self, exporter, so):
         # Yas, plAnimCmdMsg
+        soundemit = self.emitter_object.plasma_modifiers.soundemit
         msg = plAnimCmdMsg()
         msg.addReceiver(exporter.mgr.find_key(plRandomSoundMod, bl=self.emitter_object))
 
@@ -818,6 +819,10 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
             # No, you are not imagining things...
             msg.setCmd(plAnimCmdMsg.kSetSpeed, True)
         msg.speed = self.volume_pct / 100.0 if self.volume == "CUSTOM" else 0.0
+        # Checking for local only
+        for snd in soundemit.sounds:
+            if snd.local_only:
+                msg.setCmd(plAnimCmdMsg.kIsLocalOnly, True)
 
         yield msg
 
@@ -858,6 +863,10 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
                 msg.setCmd(getattr(plSoundMsg, self.looping))
             if self.action != "CURRENT":
                 msg.setCmd(getattr(plSoundMsg, self.action))
+            # Is the sound local? Let's check the modifier...
+            for snd in soundemit.sounds:
+                if snd.local_only:
+                    msg.setCmd(plSoundMsg.kIsLocalOnly)
 
             # Because we might be giving two messages here...
             yield msg
