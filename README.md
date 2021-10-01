@@ -6,7 +6,7 @@ and its open source variant, CyanWorlds.com Engine. For more information, visit 
 
 Dependencies
 ------------
-- [Blender](http://blender3d.org) - 3d modelling problem
+- [Blender](http://blender3d.org) - 3D modeling software
 - [libHSPlasma](https://github.com/H-uru/libhsplasma) - Universal Plasma library used for manipulating data
 - [PhysX 2.6 SDK](http://www.nvidia.com/object/physx_archives.html) - optional, required only for exporting
 ages to the Myst Online: URU Live format with libHSPlasma.
