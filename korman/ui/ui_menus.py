@@ -33,12 +33,11 @@ class PlasmaAddMenu(PlasmaMenu, bpy.types.Menu):
         layout.operator("mesh.plasma_ladder_add", text="Ladder", icon="COLLAPSEMENU")
         layout.operator("mesh.plasma_linkingbook_add", text="Linking Book", icon="FILE_IMAGE")
 
-
-def build_plasma_menu(self, context):
-    if context.scene.render.engine != "PLASMA_GAME":
-        return
-    self.layout.separator()
-    self.layout.menu("menu.plasma_add", icon="URL")
+    def build_menu(self, context):
+        if context.scene.render.engine != "PLASMA_GAME":
+            return
+        self.layout.separator()
+        self.layout.menu("menu.plasma_add", icon="URL")
 
 
 class PlasmaHelpMenu(PlasmaMenu, bpy.types.Menu):
@@ -51,14 +50,13 @@ class PlasmaHelpMenu(PlasmaMenu, bpy.types.Menu):
         layout.operator("wm.url_open", text="Getting Started", icon="URL").url = "https://guildofwriters.org/wiki/Korman:Getting_Started"
         layout.operator("wm.url_open", text="Tutorials", icon="URL").url = "https://guildofwriters.org/wiki/Category:Korman_Tutorials"
 
-
-def build_plasma_help_menu(self, context):
-    self.layout.menu("menu.plasma_help", text="Korman", icon="URL")
+    def build_menu(self, context):
+        self.layout.menu("menu.plasma_help", text="Korman", icon="URL")
 
 def register():
-    bpy.types.INFO_MT_add.append(build_plasma_menu)
-    bpy.types.INFO_MT_help.prepend(build_plasma_help_menu)
+    bpy.types.INFO_MT_add.append(PlasmaAddMenu.build_menu)
+    bpy.types.INFO_MT_help.prepend(PlasmaHelpMenu.build_menu)
 
 def unregister():
-    bpy.types.INFO_MT_add.remove(build_plasma_menu)
-    bpy.types.INFO_MT_help.remove(build_plasma_help_menu)
+    bpy.types.INFO_MT_add.remove(PlasmaAddMenu.build_menu)
+    bpy.types.INFO_MT_help.remove(PlasmaHelpMenu.build_menu)
