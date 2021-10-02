@@ -852,34 +852,6 @@ class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.typ
         else:
             return True
 
-    # Blender memory workaround
-    _ENTIRE_ANIMATION = "(Entire Animation)"
-    def _get_anim_names(self, context):
-        if self.anim_type == "TEXTURE":
-            if self.target_texture is not None:
-                items = [(anim.animation_name, anim.animation_name, "")
-                         for anim in self.target_texture.plasma_layer.subanimations]
-            elif self.target_material is not None or self.target_object is not None:
-                if self.target_material is None:
-                    materials = (i.material for i in self.target_object.material_slots if i and i.material)
-                else:
-                    materials = (self.target_material,)
-                layer_props = (i.texture.plasma_layer for mat in materials for i in mat.texture_slots if i and i.texture)
-                all_anims = frozenset((anim.animation_name for i in layer_props for anim in i.subanimations))
-                items = [(i, i, "") for i in all_anims]
-            else:
-                items = [(PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, "")]
-        else:
-            raise RuntimeError()
-
-        # We always want "(Entire Animation)", if it exists, to be the first item.
-        entire = items.index((PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, ""))
-        if entire not in (-1, 0):
-            items.pop(entire)
-            items.insert(0, (PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, ""))
-
-        return items
-
     target_object = PointerProperty(name="Object",
                                     description="",
                                     type=bpy.types.Object,
@@ -892,6 +864,35 @@ class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.typ
                               description="Texture to expose to Python",
                               type=bpy.types.Texture,
                               poll=_poll_texture)
+
+    # Blender memory workaround
+    _ENTIRE_ANIMATION = "(Entire Animation)"
+    def _get_anim_names(self, context):
+        if self.texture.plasma_layer.subanimations:
+            if self.texture is not None:
+                items = [(anim.animation_name, anim.animation_name, "")
+                         for anim in self.texture.plasma_layer.subanimations]
+            elif self.material is not None or self.target_object is not None:
+                if self.material is None:
+                    materials = (i.material for i in self.target_object.material_slots if i and i.material)
+                else:
+                    materials = (self.material,)
+                layer_props = (i.texture.plasma_layer for mat in materials for i in mat.texture_slots if i and i.texture)
+                all_anims = frozenset((anim.animation_name for i in layer_props for anim in i.subanimations))
+                items = [(i, i, "") for i in all_anims]
+            else:
+                items = [(PlasmaAttribTextureNode._ENTIRE_ANIMATION, PlasmaAttribTextureNode._ENTIRE_ANIMATION, "")]
+        else:
+            raise RuntimeError()
+
+        # We always want "(Entire Animation)", if it exists, to be the first item.
+        entire = items.index((PlasmaAttribTextureNode._ENTIRE_ANIMATION, PlasmaAttribTextureNode._ENTIRE_ANIMATION, ""))
+        if entire not in (-1, 0):
+            items.pop(entire)
+            items.insert(0, (PlasmaAttribTextureNode._ENTIRE_ANIMATION, PlasmaAttribTextureNode._ENTIRE_ANIMATION, ""))
+
+        return items
+
     anim_name = EnumProperty(name="Animation",
                              description="Name of the animation to control",
                              items=_get_anim_names,
@@ -916,7 +917,7 @@ class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.typ
             if self.anim_name is None:
                     layout.label("The selected texture has no animation data.", icon="ERROR")
                     layout.alert = True
-
+        layout.alert = not any((self.target_object, self.material, self.texture))
         layout.prop(self, "target_object")
         layout.prop(self, "material")
         layout.prop(self, "texture")
