@@ -15,6 +15,7 @@
 
 from ..operators.op_mesh import *
 
+
 class PlasmaMenu:
     @classmethod
     def poll(cls, context):
@@ -31,7 +32,9 @@ class PlasmaAddMenu(PlasmaMenu, bpy.types.Menu):
 
         layout.operator("mesh.plasma_flare_add", text="Lamp Flare", icon="PARTICLES")
         layout.operator("mesh.plasma_ladder_add", text="Ladder", icon="COLLAPSEMENU")
-        layout.operator("mesh.plasma_linkingbook_add", text="Linking Book", icon="FILE_IMAGE")
+        layout.operator(
+            "mesh.plasma_linkingbook_add", text="Linking Book", icon="FILE_IMAGE"
+        )
 
     def build_menu(self, context):
         if context.scene.render.engine != "PLASMA_GAME":
@@ -46,16 +49,24 @@ class PlasmaHelpMenu(PlasmaMenu, bpy.types.Menu):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator("wm.url_open", text="About Korman", icon="URL").url = "https://guildofwriters.org/wiki/Korman"
-        layout.operator("wm.url_open", text="Getting Started", icon="URL").url = "https://guildofwriters.org/wiki/Korman:Getting_Started"
-        layout.operator("wm.url_open", text="Tutorials", icon="URL").url = "https://guildofwriters.org/wiki/Category:Korman_Tutorials"
+        layout.operator(
+            "wm.url_open", text="About Korman", icon="URL"
+        ).url = "https://guildofwriters.org/wiki/Korman"
+        layout.operator(
+            "wm.url_open", text="Getting Started", icon="URL"
+        ).url = "https://guildofwriters.org/wiki/Korman:Getting_Started"
+        layout.operator(
+            "wm.url_open", text="Tutorials", icon="URL"
+        ).url = "https://guildofwriters.org/wiki/Category:Korman_Tutorials"
 
     def build_menu(self, context):
         self.layout.menu("menu.plasma_help", text="Korman", icon="URL")
 
+
 def register():
     bpy.types.INFO_MT_add.append(PlasmaAddMenu.build_menu)
     bpy.types.INFO_MT_help.prepend(PlasmaHelpMenu.build_menu)
+
 
 def unregister():
     bpy.types.INFO_MT_add.remove(PlasmaAddMenu.build_menu)

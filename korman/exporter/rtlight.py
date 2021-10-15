@@ -36,6 +36,7 @@ SHADOW_RESOLUTION = {
     "HIGH": 512,
 }
 
+
 class LightConverter:
     def __init__(self, exporter):
         self._exporter = weakref.ref(exporter)
@@ -101,7 +102,7 @@ class LightConverter:
         pl.spotOuter = spot_size
 
         blend = max(0.001, bl.spot_blend)
-        pl.spotInner = spot_size - (blend*spot_size)
+        pl.spotInner = spot_size - (blend * spot_size)
 
         if bl.use_halo:
             pl.falloff = bl.halo_intensity
@@ -182,7 +183,9 @@ class LightConverter:
             sv_bo = rtlamp.lamp_region
             sv_mod = sv_bo.plasma_modifiers.softvolume
             if not sv_mod.enabled:
-                raise ExportError("'{}': '{}' is not a SoftVolume".format(bo.name, sv_bo.name))
+                raise ExportError(
+                    "'{}': '{}' is not a SoftVolume".format(bo.name, sv_bo.name)
+                )
             sv_key = sv_mod.get_key(self._exporter())
         pl_light.softVolume = sv_key
 
@@ -207,7 +210,12 @@ class LightConverter:
         # projection Lamp with our own faux Material. Unfortunately, Plasma only supports projecting
         # one layer. We could exploit the fUnderLay and fOverLay system to export everything, but meh.
         if len(tex_slots) > 1:
-            self._report.warn("Only one texture slot can be exported per Lamp. Picking the first one: '{}'".format(slot.name), indent=3)
+            self._report.warn(
+                "Only one texture slot can be exported per Lamp. Picking the first one: '{}'".format(
+                    slot.name
+                ),
+                indent=3,
+            )
         layer = mat.export_texture_slot(bo, None, None, slot, 0, blend_flags=False)
         state = layer.state
 
@@ -230,13 +238,21 @@ class LightConverter:
             pl_light.setProperty(plLightInfo.kLPOverAll, True)
         elif slot.blend_type == "MULTIPLY":
             # From PlasmaMAX
-            state.blendFlags |= hsGMatState.kBlendMult | hsGMatState.kBlendInvertColor | hsGMatState.kBlendInvertFinalColor
+            state.blendFlags |= (
+                hsGMatState.kBlendMult
+                | hsGMatState.kBlendInvertColor
+                | hsGMatState.kBlendInvertFinalColor
+            )
             pl_light.setProperty(plLightInfo.kLPOverAll, True)
 
         pl_light.projection = layer.key
 
     def _export_shadow_master(self, bo, rtlamp, pl_light):
-        pClass = plDirectShadowMaster if isinstance(pl_light, plDirectionalLightInfo) else plPointShadowMaster
+        pClass = (
+            plDirectShadowMaster
+            if isinstance(pl_light, plDirectionalLightInfo)
+            else plPointShadowMaster
+        )
         shadow = self.mgr.find_create_object(pClass, bl=bo)
 
         shadow.attenDist = rtlamp.shadow_falloff
@@ -249,7 +265,7 @@ class LightConverter:
 
     def find_material_light_keys(self, bo, bm):
         """Given a blender material, we find the keys of all matching Plasma RT Lights.
-           NOTE: We return a tuple of lists: ([permaLights], [permaProjs])"""
+        NOTE: We return a tuple of lists: ([permaLights], [permaProjs])"""
         self._report.msg("Searching for runtime lights...", indent=1)
         permaLights = []
         permaProjs = []
@@ -279,21 +295,31 @@ class LightConverter:
                             break
                     else:
                         # didn't find a layer where both lamp and object were, skip it.
-                        self._report.msg("[{}] '{}': not in same layer, skipping...",
-                                         lamp.type, obj.name, indent=2)
+                        self._report.msg(
+                            "[{}] '{}': not in same layer, skipping...",
+                            lamp.type,
+                            obj.name,
+                            indent=2,
+                        )
                         continue
 
                 # This is probably where PermaLight vs PermaProj should be sorted out...
                 pl_light = self.get_light_key(obj, lamp, None)
                 if self._is_projection_lamp(lamp):
-                    self._report.msg("[{}] PermaProj '{}'", lamp.type, obj.name, indent=2)
+                    self._report.msg(
+                        "[{}] PermaProj '{}'", lamp.type, obj.name, indent=2
+                    )
                     permaProjs.append(pl_light)
                 else:
-                    self._report.msg("[{}] PermaLight '{}'", lamp.type, obj.name, indent=2)
+                    self._report.msg(
+                        "[{}] PermaLight '{}'", lamp.type, obj.name, indent=2
+                    )
                     permaLights.append(pl_light)
 
         if len(permaLights) > 8:
-            self._report.warn("More than 8 RT lamps on material: '{}'", bm.name, indent=1)
+            self._report.warn(
+                "More than 8 RT lamps on material: '{}'", bm.name, indent=1
+            )
 
         return (permaLights, permaProjs)
 
@@ -302,7 +328,9 @@ class LightConverter:
             xlate = _BL2PL[bl_light.type]
             return self.mgr.find_create_key(xlate, bl=bo, so=so)
         except LookupError:
-            raise BlenderOptionNotSupportedError("Object ('{}') lamp type '{}'".format(bo.name, bl_light.type))
+            raise BlenderOptionNotSupportedError(
+                "Object ('{}') lamp type '{}'".format(bo.name, bl_light.type)
+            )
 
     def get_projectors(self, bl_light):
         for tex in bl_light.texture_slots:

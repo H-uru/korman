@@ -30,8 +30,9 @@ _randomsound_modes = {
     "normal": plRandomSoundMod.kNormal,
     "norepeat": plRandomSoundMod.kNoRepeats,
     "coverall": plRandomSoundMod.kCoverall | plRandomSoundMod.kNoRepeats,
-    "sequential": plRandomSoundMod.kSequential
+    "sequential": plRandomSoundMod.kSequential,
 }
+
 
 class PlasmaRandomSound(PlasmaModifierProperties):
     pl_id = "random_sound"
@@ -41,55 +42,101 @@ class PlasmaRandomSound(PlasmaModifierProperties):
     bl_label = "Random Sound"
     bl_description = ""
 
-    mode = EnumProperty(name="Mode",
-                        description="Playback Type",
-                        items=[("random", "Random Time", "Plays a random sound from the emitter at a random time"),
-                               ("collision", "Collision Surface", "Plays a random sound when the object's parent collides")],
-                        default="random",
-                        options=set())
+    mode = EnumProperty(
+        name="Mode",
+        description="Playback Type",
+        items=[
+            (
+                "random",
+                "Random Time",
+                "Plays a random sound from the emitter at a random time",
+            ),
+            (
+                "collision",
+                "Collision Surface",
+                "Plays a random sound when the object's parent collides",
+            ),
+        ],
+        default="random",
+        options=set(),
+    )
 
     # Physical (read: collision) sounds
-    play_on = EnumProperty(name="Play On",
-                           description="Play sounds on this collision event",
-                           items=[("slide", "Slide", "Plays a random sound on object slide"),
-                                  ("impact", "Impact", "Plays a random sound on object slide")],
-                           options=set())
-    surfaces = EnumProperty(name="Play Against",
-                            description="Sounds are played on collision against these surfaces",
-                            items=surface_types[1:],
-                            options={"ENUM_FLAG"})
+    play_on = EnumProperty(
+        name="Play On",
+        description="Play sounds on this collision event",
+        items=[
+            ("slide", "Slide", "Plays a random sound on object slide"),
+            ("impact", "Impact", "Plays a random sound on object slide"),
+        ],
+        options=set(),
+    )
+    surfaces = EnumProperty(
+        name="Play Against",
+        description="Sounds are played on collision against these surfaces",
+        items=surface_types[1:],
+        options={"ENUM_FLAG"},
+    )
 
     # Timed random sounds
-    auto_start = BoolProperty(name="Auto Start",
-                              description="Start playing when the Age loads",
-                              default=True,
-                              options=set())
-    play_mode = EnumProperty(name="Play Mode",
-                             description="",
-                             items=[("normal", "Any", "Plays any attached sound"),
-                                    ("norepeat", "No Repeats", "Do not replay a sound immediately after itself"),
-                                    ("coverall", "Full Set", "Once a sound is played, do not replay it until after all sounds are played"),
-                                    ("sequential", "Sequential", "Play sounds in the order they appear in the emitter")],
-                             default="norepeat",
-                             options=set())
-    stop_after_set = BoolProperty(name="Stop After Set",
-                                  description="Stop playing after all sounds are played",
-                                  default=False,
-                                  options=set())
-    stop_after_play = BoolProperty(name="Stop After Play",
-                                   description="Stop playing after one sound is played",
-                                   default=False,
-                                   options=set())
-    min_delay = FloatProperty(name="Min Delay",
-                              description="Minimum delay length",
-                              min=0.0,
-                              subtype="TIME", unit="TIME",
-                              options=set())
-    max_delay = FloatProperty(name="Max Delay",
-                              description="Maximum delay length",
-                              min=0.0,
-                              subtype="TIME", unit="TIME",
-                              options=set())
+    auto_start = BoolProperty(
+        name="Auto Start",
+        description="Start playing when the Age loads",
+        default=True,
+        options=set(),
+    )
+    play_mode = EnumProperty(
+        name="Play Mode",
+        description="",
+        items=[
+            ("normal", "Any", "Plays any attached sound"),
+            (
+                "norepeat",
+                "No Repeats",
+                "Do not replay a sound immediately after itself",
+            ),
+            (
+                "coverall",
+                "Full Set",
+                "Once a sound is played, do not replay it until after all sounds are played",
+            ),
+            (
+                "sequential",
+                "Sequential",
+                "Play sounds in the order they appear in the emitter",
+            ),
+        ],
+        default="norepeat",
+        options=set(),
+    )
+    stop_after_set = BoolProperty(
+        name="Stop After Set",
+        description="Stop playing after all sounds are played",
+        default=False,
+        options=set(),
+    )
+    stop_after_play = BoolProperty(
+        name="Stop After Play",
+        description="Stop playing after one sound is played",
+        default=False,
+        options=set(),
+    )
+    min_delay = FloatProperty(
+        name="Min Delay",
+        description="Minimum delay length",
+        min=0.0,
+        subtype="TIME",
+        unit="TIME",
+        options=set(),
+    )
+    max_delay = FloatProperty(
+        name="Max Delay",
+        description="Maximum delay length",
+        min=0.0,
+        subtype="TIME",
+        unit="TIME",
+        options=set(),
+    )
 
     def export(self, exporter, bo, so):
         rndmod = exporter.mgr.find_create_object(plRandomSoundMod, bl=bo, so=so)
@@ -116,15 +163,23 @@ class PlasmaRandomSound(PlasmaModifierProperties):
         if self.mode == "collision" and self.surfaces:
             parent_bo = bo.parent
             if parent_bo is None:
-                raise ExportError("[{}]: Collision sound objects MUST be parented directly to the collider object.", bo.name)
+                raise ExportError(
+                    "[{}]: Collision sound objects MUST be parented directly to the collider object.",
+                    bo.name,
+                )
             phys = exporter.mgr.find_object(plGenericPhysical, bl=parent_bo)
             if phys is None:
-                raise ExportError("[{}]: Collision sound objects MUST be parented directly to the collider object.", bo.name)
+                raise ExportError(
+                    "[{}]: Collision sound objects MUST be parented directly to the collider object.",
+                    bo.name,
+                )
 
             # The soundGroup on the physical may or may not be the generic "this is my surface type"
             # soundGroup with no actual sounds attached. So, we need to lookup the actual one.
             sndgroup = exporter.mgr.find_create_object(plPhysicalSndGroup, bl=parent_bo)
-            sndgroup.group = getattr(plPhysicalSndGroup, parent_bo.plasma_modifiers.collision.surface)
+            sndgroup.group = getattr(
+                plPhysicalSndGroup, parent_bo.plasma_modifiers.collision.surface
+            )
             phys.soundGroup = sndgroup.key
 
             rndmod = exporter.mgr.find_key(plRandomSoundMod, bl=bo, so=so)
@@ -135,32 +190,55 @@ class PlasmaRandomSound(PlasmaModifierProperties):
             else:
                 raise RuntimeError()
 
-            sounds = { i: sound for i, sound in enumerate(getattr(sndgroup, groupattr)) }
+            sounds = {i: sound for i, sound in enumerate(getattr(sndgroup, groupattr))}
             for surface_name in self.surfaces:
                 surface_id = getattr(plPhysicalSndGroup, surface_name)
                 if surface_id in sounds:
-                    exporter.report.warn("Overwriting physical {} surface '{}' ID:{}",
-                                         groupattr, surface_name, surface_id, indent=2)
+                    exporter.report.warn(
+                        "Overwriting physical {} surface '{}' ID:{}",
+                        groupattr,
+                        surface_name,
+                        surface_id,
+                        indent=2,
+                    )
                 else:
-                    exporter.report.msg("Got physical {} surface '{}' ID:{}",
-                                        groupattr, surface_name, surface_id, indent=2)
+                    exporter.report.msg(
+                        "Got physical {} surface '{}' ID:{}",
+                        groupattr,
+                        surface_name,
+                        surface_id,
+                        indent=2,
+                    )
                 sounds[surface_id] = rndmod
             # Keeps the LUT (or should that be lookup vector?) as small as possible
-            setattr(sndgroup, groupattr, [sounds.get(i) for i in range(max(sounds.keys()) + 1)])
+            setattr(
+                sndgroup,
+                groupattr,
+                [sounds.get(i) for i in range(max(sounds.keys()) + 1)],
+            )
 
 
 class PlasmaSfxFade(bpy.types.PropertyGroup):
-    fade_type = EnumProperty(name="Type",
-                             description="Fade Type",
-                             items=[("NONE", "[Disable]", "Don't fade"),
-                                    ("kLinear", "Linear", "Linear fade"),
-                                    ("kLogarithmic", "Logarithmic", "Log fade"),
-                                    ("kExponential", "Exponential", "Exponential fade")],
-                             options=set())
-    length = FloatProperty(name="Length",
-                           description="Seconds to spend fading",
-                           default=1.0, min=0.0,
-                           options=set(), subtype="TIME", unit="TIME")
+    fade_type = EnumProperty(
+        name="Type",
+        description="Fade Type",
+        items=[
+            ("NONE", "[Disable]", "Don't fade"),
+            ("kLinear", "Linear", "Linear fade"),
+            ("kLogarithmic", "Logarithmic", "Log fade"),
+            ("kExponential", "Exponential", "Exponential fade"),
+        ],
+        options=set(),
+    )
+    length = FloatProperty(
+        name="Length",
+        description="Seconds to spend fading",
+        default=1.0,
+        min=0.0,
+        options=set(),
+        subtype="TIME",
+        unit="TIME",
+    )
 
 
 class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
@@ -195,86 +273,125 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
 
     def _update_name(self, context=None):
         if self.is_stereo and self.channel != {"L", "R"}:
-            self.name = "{}:{}".format(self._sound_name, "L" if "L" in self.channel else "R")
+            self.name = "{}:{}".format(
+                self._sound_name, "L" if "L" in self.channel else "R"
+            )
         else:
             self.name = self._sound_name
 
     enabled = BoolProperty(name="Enabled", default=True, options=set())
-    sound = PointerProperty(name="Sound",
-                            description="Sound Datablock",
-                            type=bpy.types.Sound,
-                            update=_update_sound)
-    updating_sound = BoolProperty(default=False,
-                                  options={"HIDDEN", "SKIP_SAVE"})
+    sound = PointerProperty(
+        name="Sound",
+        description="Sound Datablock",
+        type=bpy.types.Sound,
+        update=_update_sound,
+    )
+    updating_sound = BoolProperty(default=False, options={"HIDDEN", "SKIP_SAVE"})
 
     is_stereo = BoolProperty(default=True, options={"HIDDEN"})
     is_valid = BoolProperty(default=False, options={"HIDDEN"})
 
-    sfx_region = PointerProperty(name="Soft Volume",
-                                 description="Soft region this sound can be heard in",
-                                 type=bpy.types.Object,
-                                 poll=idprops.poll_softvolume_objects)
+    sfx_region = PointerProperty(
+        name="Soft Volume",
+        description="Soft region this sound can be heard in",
+        type=bpy.types.Object,
+        poll=idprops.poll_softvolume_objects,
+    )
 
-    sfx_type = EnumProperty(name="Category",
-                            description="Describes the purpose of this sound",
-                            items=[("kSoundFX", "3D", "3D Positional SoundFX"),
-                                   ("kAmbience", "Ambience", "Ambient Sounds"),
-                                   ("kBackgroundMusic", "Music", "Background Music"),
-                                   ("kGUISound", "GUI", "GUI Effect"),
-                                   ("kNPCVoices", "NPC", "NPC Speech")],
-                            options=set())
-    channel = EnumProperty(name="Channel",
-                           description="Which channel(s) to play",
-                           items=[("L", "Left", "Left Channel"),
-                                  ("R", "Right", "Right Channel")],
-                           options={"ENUM_FLAG"},
-                           default={"L", "R"},
-                           update=_update_name)
+    sfx_type = EnumProperty(
+        name="Category",
+        description="Describes the purpose of this sound",
+        items=[
+            ("kSoundFX", "3D", "3D Positional SoundFX"),
+            ("kAmbience", "Ambience", "Ambient Sounds"),
+            ("kBackgroundMusic", "Music", "Background Music"),
+            ("kGUISound", "GUI", "GUI Effect"),
+            ("kNPCVoices", "NPC", "NPC Speech"),
+        ],
+        options=set(),
+    )
+    channel = EnumProperty(
+        name="Channel",
+        description="Which channel(s) to play",
+        items=[("L", "Left", "Left Channel"), ("R", "Right", "Right Channel")],
+        options={"ENUM_FLAG"},
+        default={"L", "R"},
+        update=_update_name,
+    )
 
-    auto_start = BoolProperty(name="Auto Start",
-                              description="Start playing when the age is loaded",
-                              default=False,
-                              options=set())
-    incidental = BoolProperty(name="Incidental",
-                              description="Sound is a low-priority incident and the engine may forgo playback",
-                              default=False,
-                              options=set())
-    loop = BoolProperty(name="Loop",
-                        description="Loop the sound",
-                        default=False,
-                        options=set())
+    auto_start = BoolProperty(
+        name="Auto Start",
+        description="Start playing when the age is loaded",
+        default=False,
+        options=set(),
+    )
+    incidental = BoolProperty(
+        name="Incidental",
+        description="Sound is a low-priority incident and the engine may forgo playback",
+        default=False,
+        options=set(),
+    )
+    loop = BoolProperty(
+        name="Loop", description="Loop the sound", default=False, options=set()
+    )
 
-    inner_cone = FloatProperty(name="Inner Angle",
-                               description="Angle of the inner cone from the negative Z-axis",
-                               min=0, max=math.radians(360), default=0, step=100,
-                               options=set(),
-                               subtype="ANGLE")
-    outer_cone = FloatProperty(name="Outer Angle",
-                               description="Angle of the outer cone from the negative Z-axis",
-                               min=0, max=math.radians(360), default=math.radians(360), step=100,
-                               options=set(),
-                               subtype="ANGLE")
-    outside_volume = IntProperty(name="Outside Volume",
-                         description="Sound's volume when outside the outer cone",
-                         min=0, max=100, default=100,
-                         options=set(),
-                         subtype="PERCENTAGE")
+    inner_cone = FloatProperty(
+        name="Inner Angle",
+        description="Angle of the inner cone from the negative Z-axis",
+        min=0,
+        max=math.radians(360),
+        default=0,
+        step=100,
+        options=set(),
+        subtype="ANGLE",
+    )
+    outer_cone = FloatProperty(
+        name="Outer Angle",
+        description="Angle of the outer cone from the negative Z-axis",
+        min=0,
+        max=math.radians(360),
+        default=math.radians(360),
+        step=100,
+        options=set(),
+        subtype="ANGLE",
+    )
+    outside_volume = IntProperty(
+        name="Outside Volume",
+        description="Sound's volume when outside the outer cone",
+        min=0,
+        max=100,
+        default=100,
+        options=set(),
+        subtype="PERCENTAGE",
+    )
 
-    min_falloff = IntProperty(name="Begin Falloff",
-                              description="Distance where volume attenuation begins",
-                              min=0, max=1000000000, default=1,
-                              options=set(),
-                              subtype="DISTANCE")
-    max_falloff = IntProperty(name="End Falloff",
-                              description="Distance where the sound is inaudible",
-                              min=0, max=1000000000, default=1000,
-                              options=set(),
-                              subtype="DISTANCE")
-    volume = IntProperty(name="Volume",
-                         description="Volume to play the sound",
-                         min=0, max=100, default=100,
-                         options={"ANIMATABLE"},
-                         subtype="PERCENTAGE")
+    min_falloff = IntProperty(
+        name="Begin Falloff",
+        description="Distance where volume attenuation begins",
+        min=0,
+        max=1000000000,
+        default=1,
+        options=set(),
+        subtype="DISTANCE",
+    )
+    max_falloff = IntProperty(
+        name="End Falloff",
+        description="Distance where the sound is inaudible",
+        min=0,
+        max=1000000000,
+        default=1000,
+        options=set(),
+        subtype="DISTANCE",
+    )
+    volume = IntProperty(
+        name="Volume",
+        description="Volume to play the sound",
+        min=0,
+        max=100,
+        default=100,
+        options={"ANIMATABLE"},
+        subtype="PERCENTAGE",
+    )
 
     fade_in = PointerProperty(type=PlasmaSfxFade, options=set())
     fade_out = PointerProperty(type=PlasmaSfxFade, options=set())
@@ -291,10 +408,13 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
     # This is really a property of the sound itself, not of this particular emitter instance.
     # However, to prevent weird UI inconsistencies where the button might be missing or change
     # states when clearing the sound pointer, we'll cache the actual value here.
-    package = BoolProperty(name="Export",
-                           description="Package this file in the age export",
-                           get=_get_package_value, set=_set_package_value,
-                           options=set())
+    package = BoolProperty(
+        name="Export",
+        description="Package this file in the age export",
+        get=_get_package_value,
+        set=_set_package_value,
+        options=set(),
+    )
     package_value = BoolProperty(options={"HIDDEN", "SKIP_SAVE"})
 
     @property
@@ -331,10 +451,23 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
             header.blockAlign = int(header.blockAlign / 2)
             dataSize = int(dataSize / 2)
         if self.is_3d_stereo:
-            audible.addSound(self._convert_sound(exporter, so, pClass, header, dataSize, channel="L"))
-            audible.addSound(self._convert_sound(exporter, so, pClass, header, dataSize, channel="R"))
+            audible.addSound(
+                self._convert_sound(exporter, so, pClass, header, dataSize, channel="L")
+            )
+            audible.addSound(
+                self._convert_sound(exporter, so, pClass, header, dataSize, channel="R")
+            )
         else:
-            audible.addSound(self._convert_sound(exporter, so, pClass, header, dataSize, channel=self.channel_override))
+            audible.addSound(
+                self._convert_sound(
+                    exporter,
+                    so,
+                    pClass,
+                    header,
+                    dataSize,
+                    channel=self.channel_override,
+                )
+            )
 
     def _convert_sound(self, exporter, so, pClass, wavHeader, dataSize, channel=None):
         if channel is None:
@@ -352,10 +485,18 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
         elif self.sfx_region:
             sv_mod = self.sfx_region.plasma_modifiers.softvolume
             if not sv_mod.enabled:
-                raise ExportError("'{}': SoundEmit '{}', '{}' is not a SoftVolume".format(self.id_data.name, self._sound_name, self.sfx_region.name))
+                raise ExportError(
+                    "'{}': SoundEmit '{}', '{}' is not a SoftVolume".format(
+                        self.id_data.name, self._sound_name, self.sfx_region.name
+                    )
+                )
             sv_key = sv_mod.get_key(exporter)
         if sv_key is not None:
-            sv_key.object.listenState |= plSoftVolume.kListenCheck | plSoftVolume.kListenDirty | plSoftVolume.kListenRegistered
+            sv_key.object.listenState |= (
+                plSoftVolume.kListenCheck
+                | plSoftVolume.kListenDirty
+                | plSoftVolume.kListenRegistered
+            )
             sound.softRegion = sv_key
 
         # Sound
@@ -368,7 +509,9 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
             sound.properties |= plSound.kPropLooping
         if self.incidental:
             sound.properties |= plSound.kPropIncidental
-        sound.dataBuffer = self._find_sound_buffer(exporter, so, wavHeader, dataSize, channel)
+        sound.dataBuffer = self._find_sound_buffer(
+            exporter, so, wavHeader, dataSize, channel
+        )
 
         # Cone effect
         # I have observed that Blender 2.77's UI doesn't show the appropriate unit (degrees) for
@@ -473,20 +616,26 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
 
     @classmethod
     def _idprop_mapping(cls):
-        return {"sound": "sound_data",
-                "sfx_region": "soft_region"}
+        return {"sound": "sound_data", "sfx_region": "soft_region"}
 
     def _idprop_sources(self):
-        return {"sound_data": bpy.data.sounds,
-                "soft_region": bpy.data.objects}
+        return {"sound_data": bpy.data.sounds, "soft_region": bpy.data.objects}
 
     @property
     def is_3d_stereo(self):
-        return self.sfx_type == "kSoundFX" and self.channel == {"L", "R"} and self.is_stereo
+        return (
+            self.sfx_type == "kSoundFX"
+            and self.channel == {"L", "R"}
+            and self.is_stereo
+        )
 
     def _raise_error(self, msg):
         if self.sound:
-            raise ExportError("SoundEmitter '{}': Sound '{}' {}".format(self.id_data.name, self.sound.name, msg))
+            raise ExportError(
+                "SoundEmitter '{}': Sound '{}' {}".format(
+                    self.id_data.name, self.sound.name, msg
+                )
+            )
         else:
             raise ExportError("SoundEmitter '{}': {}".format(self.id_data.name, msg))
 
@@ -515,9 +664,13 @@ class PlasmaSoundEmitter(PlasmaModifierProperties):
     active_sound_index = IntProperty(options={"HIDDEN"})
 
     def export(self, exporter, bo, so):
-        winaud = exporter.mgr.find_create_object(plWinAudible, so=so, name=self.key_name)
+        winaud = exporter.mgr.find_create_object(
+            plWinAudible, so=so, name=self.key_name
+        )
         winaud.sceneNode = exporter.mgr.get_scene_node(so.key.location)
-        aiface = exporter.mgr.find_create_object(plAudioInterface, so=so, name=self.key_name)
+        aiface = exporter.mgr.find_create_object(
+            plAudioInterface, so=so, name=self.key_name
+        )
         aiface.audible = winaud.key
 
         # Pass this off to each individual sound for conversion
@@ -527,7 +680,7 @@ class PlasmaSoundEmitter(PlasmaModifierProperties):
 
     def get_sound_indices(self, name=None, sound=None):
         """Returns the index of the given sound in the plWin32Sound. This is needed because stereo
-           3D sounds export as two mono sound objects -- wheeeeee"""
+        3D sounds export as two mono sound objects -- wheeeeee"""
         assert name or sound
         idx = 0
 

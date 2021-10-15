@@ -48,17 +48,20 @@ footstep_surface_ids = {
     # 18 = swimming (why would you want this?)
 }
 
-footstep_surfaces = [("dirt", "Dirt", "Dirt"),
-                     ("grass", "Grass", "Grass"),
-                     ("metal", "Metal", "Metal Catwalk"),
-                     ("puddle", "Puddle", "Shallow Water"),
-                     ("rope", "Rope", "Rope Ladder"),
-                     ("rug", "Rug", "Carpet Rug"),
-                     ("stone", "Stone", "Stone Tile"),
-                     ("water", "Water", "Deep Water"),
-                     ("woodbridge", "Wood Bridge", "Wood Bridge"),
-                     ("woodfloor", "Wood Floor", "Wood Floor"),
-                     ("woodladder", "Wood Ladder", "Wood Ladder")]
+footstep_surfaces = [
+    ("dirt", "Dirt", "Dirt"),
+    ("grass", "Grass", "Grass"),
+    ("metal", "Metal", "Metal Catwalk"),
+    ("puddle", "Puddle", "Shallow Water"),
+    ("rope", "Rope", "Rope Ladder"),
+    ("rug", "Rug", "Carpet Rug"),
+    ("stone", "Stone", "Stone Tile"),
+    ("water", "Water", "Deep Water"),
+    ("woodbridge", "Wood Bridge", "Wood Bridge"),
+    ("woodfloor", "Wood Floor", "Wood Floor"),
+    ("woodladder", "Wood Ladder", "Wood Ladder"),
+]
+
 
 class PlasmaCameraRegion(PlasmaModifierProperties):
     pl_id = "camera_rgn"
@@ -68,24 +71,40 @@ class PlasmaCameraRegion(PlasmaModifierProperties):
     bl_description = "Camera Region"
     bl_icon = "CAMERA_DATA"
 
-    camera_type = EnumProperty(name="Camera Type",
-                               description="What kind of camera should be used?",
-                               items=[("auto_follow", "Auto Follow Camera", "Automatically generated follow camera"),
-                                      ("manual", "Manual Camera", "User specified camera object")],
-                               default="manual",
-                               options=set())
-    camera_object = PointerProperty(name="Camera",
-                                    description="Switches to this camera",
-                                    type=bpy.types.Object,
-                                    poll=idprops.poll_camera_objects,
-                                    options=set())
+    camera_type = EnumProperty(
+        name="Camera Type",
+        description="What kind of camera should be used?",
+        items=[
+            (
+                "auto_follow",
+                "Auto Follow Camera",
+                "Automatically generated follow camera",
+            ),
+            ("manual", "Manual Camera", "User specified camera object"),
+        ],
+        default="manual",
+        options=set(),
+    )
+    camera_object = PointerProperty(
+        name="Camera",
+        description="Switches to this camera",
+        type=bpy.types.Object,
+        poll=idprops.poll_camera_objects,
+        options=set(),
+    )
     auto_camera = PointerProperty(type=PlasmaCameraProperties, options=set())
 
     def export(self, exporter, bo, so):
         if self.camera_type == "manual":
             if self.camera_object is None:
-                raise ExportError("Camera Modifier '{}' does not specify a valid camera object".format(self.id_data.name))
-            camera_so_key = exporter.mgr.find_create_key(plSceneObject, bl=self.camera_object)
+                raise ExportError(
+                    "Camera Modifier '{}' does not specify a valid camera object".format(
+                        self.id_data.name
+                    )
+                )
+            camera_so_key = exporter.mgr.find_create_key(
+                plSceneObject, bl=self.camera_object
+            )
             camera_props = self.camera_object.data.plasma_camera.settings
         else:
             assert self.camera_type[:4] == "auto"
@@ -98,9 +117,13 @@ class PlasmaCameraRegion(PlasmaModifierProperties):
 
         # Setup physical stuff
         phys_mod = bo.plasma_modifiers.collision
-        exporter.physics.generate_physical(bo, so, member_group="kGroupDetector",
-                                           report_groups=["kGroupAvatar"],
-                                           properties=["kPinned"])
+        exporter.physics.generate_physical(
+            bo,
+            so,
+            member_group="kGroupDetector",
+            report_groups=["kGroupAvatar"],
+            properties=["kPinned"],
+        )
 
         # I don't feel evil enough to make this generate a logic tree...
         msg = plCameraMsg()
@@ -116,8 +139,14 @@ class PlasmaCameraRegion(PlasmaModifierProperties):
         actors = set()
         if self.camera_type == "manual":
             if self.camera_object is None:
-                raise ExportError("Camera Modifier '{}' does not specify a valid camera object".format(self.id_data.name))
-            actors.update(self.camera_object.data.plasma_camera.settings.harvest_actors())
+                raise ExportError(
+                    "Camera Modifier '{}' does not specify a valid camera object".format(
+                        self.id_data.name
+                    )
+                )
+            actors.update(
+                self.camera_object.data.plasma_camera.settings.harvest_actors()
+            )
         else:
             actors.update(self.auto_camera.harvest_actors())
         return actors
@@ -134,14 +163,18 @@ class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     bl_label = "Footstep"
     bl_description = "Footstep Region"
 
-    surface = EnumProperty(name="Surface",
-                           description="What kind of surface are we walking on?",
-                           items=footstep_surfaces,
-                           default="stone")
-    bounds = EnumProperty(name="Region Bounds",
-                          description="Physical object's bounds",
-                          items=bounds_types,
-                          default="hull")
+    surface = EnumProperty(
+        name="Surface",
+        description="What kind of surface are we walking on?",
+        items=footstep_surfaces,
+        default="stone",
+    )
+    bounds = EnumProperty(
+        name="Region Bounds",
+        description="Physical object's bounds",
+        items=bounds_types,
+        default="hull",
+    )
 
     def logicwiz(self, bo, tree):
         nodes = tree.nodes
@@ -178,13 +211,16 @@ class PlasmaPanicLinkRegion(PlasmaModifierProperties):
     bl_label = "Panic Link"
     bl_description = "Panic Link Region"
 
-    play_anim = BoolProperty(name="Play Animation",
-                             description="Play the link-out animation when panic linking",
-                             default=True)
+    play_anim = BoolProperty(
+        name="Play Animation",
+        description="Play the link-out animation when panic linking",
+        default=True,
+    )
 
     def export(self, exporter, bo, so):
-        exporter.physics.generate_physical(bo, so, member_group="kGroupDetector",
-                                           report_groups=["kGroupAvatar"])
+        exporter.physics.generate_physical(
+            bo, so, member_group="kGroupDetector", report_groups=["kGroupAvatar"]
+        )
 
         # Finally, the panic link region proper
         reg = exporter.mgr.add_object(plPanicLinkRegion, name=self.key_name, so=so)
@@ -207,22 +243,38 @@ class PlasmaSoftVolume(idprops.IDPropMixin, PlasmaModifierProperties):
     bl_description = "Soft-Boundary Region"
 
     # Advanced
-    use_nodes = BoolProperty(name="Use Nodes",
-                             description="Make this a node-based Soft Volume",
-                             default=False)
-    node_tree = PointerProperty(name="Node Tree",
-                                description="Node Tree detailing soft volume logic",
-                                type=bpy.types.NodeTree)
+    use_nodes = BoolProperty(
+        name="Use Nodes",
+        description="Make this a node-based Soft Volume",
+        default=False,
+    )
+    node_tree = PointerProperty(
+        name="Node Tree",
+        description="Node Tree detailing soft volume logic",
+        type=bpy.types.NodeTree,
+    )
 
     # Basic
-    invert = BoolProperty(name="Invert",
-                          description="Invert the soft region")
-    inside_strength = IntProperty(name="Inside", description="Strength inside the region",
-                                  subtype="PERCENTAGE", default=100, min=0, max=100)
-    outside_strength = IntProperty(name="Outside", description="Strength outside the region",
-                                   subtype="PERCENTAGE", default=0, min=0, max=100)
-    soft_distance = FloatProperty(name="Distance", description="Soft Distance",
-                                  default=0.0, min=0.0, max=500.0)
+    invert = BoolProperty(name="Invert", description="Invert the soft region")
+    inside_strength = IntProperty(
+        name="Inside",
+        description="Strength inside the region",
+        subtype="PERCENTAGE",
+        default=100,
+        min=0,
+        max=100,
+    )
+    outside_strength = IntProperty(
+        name="Outside",
+        description="Strength outside the region",
+        subtype="PERCENTAGE",
+        default=0,
+        min=0,
+        max=100,
+    )
+    soft_distance = FloatProperty(
+        name="Distance", description="Soft Distance", default=0.0, min=0.0, max=500.0
+    )
 
     def _apply_settings(self, sv):
         sv.insideStrength = self.inside_strength / 100.0
@@ -237,7 +289,11 @@ class PlasmaSoftVolume(idprops.IDPropMixin, PlasmaModifierProperties):
             tree = self.get_node_tree()
             output = tree.find_output("PlasmaSoftVolumeOutputNode")
             if output is None:
-                raise ExportError("SoftVolume '{}' Node Tree '{}' has no output node!".format(self.key_name, tree.name))
+                raise ExportError(
+                    "SoftVolume '{}' Node Tree '{}' has no output node!".format(
+                        self.key_name, tree.name
+                    )
+                )
             return output.get_key(exporter, so)
         else:
             pClass = plSoftVolumeInvert if self.invert else plSoftVolumeSimple
@@ -251,7 +307,11 @@ class PlasmaSoftVolume(idprops.IDPropMixin, PlasmaModifierProperties):
 
     def _export_convex_region(self, exporter, bo, so):
         if bo.type != "MESH":
-            raise ExportError("SoftVolume '{}': Simple SoftVolumes can only be meshes!".format(bo.name))
+            raise ExportError(
+                "SoftVolume '{}': Simple SoftVolumes can only be meshes!".format(
+                    bo.name
+                )
+            )
 
         # Grab the SoftVolume KO
         sv = self.get_key(exporter, so).object
@@ -296,7 +356,11 @@ class PlasmaSoftVolume(idprops.IDPropMixin, PlasmaModifierProperties):
 
     def get_node_tree(self):
         if self.node_tree is None:
-            raise ExportError("SoftVolume '{}' does not specify a valid Node Tree!".format(self.key_name))
+            raise ExportError(
+                "SoftVolume '{}' does not specify a valid Node Tree!".format(
+                    self.key_name
+                )
+            )
         return self.node_tree
 
     @classmethod
@@ -314,34 +378,47 @@ class PlasmaSubworldRegion(PlasmaModifierProperties):
     bl_label = "Subworld Region"
     bl_description = "Subworld transition region"
 
-    subworld = PointerProperty(name="Subworld",
-                               description="Subworld to transition into",
-                               type=bpy.types.Object,
-                               poll=idprops.poll_subworld_objects)
-    transition = EnumProperty(name="Transition",
-                              description="When to transition to the new subworld",
-                              items=[("enter", "On Enter", "Transition when the avatar enters the region"),
-                                     ("exit", "On Exit", "Transition when the avatar exits the region")],
-                              default="enter",
-                              options=set())
+    subworld = PointerProperty(
+        name="Subworld",
+        description="Subworld to transition into",
+        type=bpy.types.Object,
+        poll=idprops.poll_subworld_objects,
+    )
+    transition = EnumProperty(
+        name="Transition",
+        description="When to transition to the new subworld",
+        items=[
+            ("enter", "On Enter", "Transition when the avatar enters the region"),
+            ("exit", "On Exit", "Transition when the avatar exits the region"),
+        ],
+        default="enter",
+        options=set(),
+    )
 
     def export(self, exporter, bo, so):
         # Due to the fact that our subworld modifier can produce both RidingAnimatedPhysical
-        # and [HK|PX]Subworlds depending on the situation, this could get hairy, fast. 
+        # and [HK|PX]Subworlds depending on the situation, this could get hairy, fast.
         # Start by surveying the lay of the land.
         from_sub, to_sub = bo.plasma_object.subworld, self.subworld
         from_isded = exporter.physics.is_dedicated_subworld(from_sub)
         to_isded = exporter.physics.is_dedicated_subworld(to_sub)
         if 1:
+
             def get_log_text(bo, isded):
                 main = "[Main World]" if bo is None else bo.name
                 sub = "Subworld" if isded or bo is None else "RidingAnimatedPhysical"
                 return main, sub
+
             from_name, from_type = get_log_text(from_sub, from_isded)
             to_name, to_type = get_log_text(to_sub, to_isded)
-            exporter.report.msg("Transition from '{}' ({}) to '{}' ({})",
-                                 from_name, from_type, to_name, to_type,
-                                 indent=2)
+            exporter.report.msg(
+                "Transition from '{}' ({}) to '{}' ({})",
+                from_name,
+                from_type,
+                to_name,
+                to_type,
+                indent=2,
+            )
 
         # I think the best solution here is to not worry about the excitement mentioned above.
         # If we encounter anything truly interesting, we can fix it in CWE more easily IMO because
@@ -353,7 +430,9 @@ class PlasmaSubworldRegion(PlasmaModifierProperties):
             region.onExit = self.transition == "exit"
         else:
             msg = plRideAnimatedPhysMsg()
-            msg.BCastFlags |= plMessage.kLocalPropagate | plMessage.kPropagateToModifiers
+            msg.BCastFlags |= (
+                plMessage.kLocalPropagate | plMessage.kPropagateToModifiers
+            )
             msg.sender = so.key
             msg.entering = to_sub is not None
 
@@ -362,7 +441,9 @@ class PlasmaSubworldRegion(PlasmaModifierProperties):
             # reverts on region exit. We're going for an approach that is backwards compatible
             # with subworlds, so our enter/exit regions are separate. Here, enter/exit message
             # corresponds with when we should trigger the transition.
-            region = exporter.mgr.find_create_object(plRidingAnimatedPhysicalDetector, so=so)
+            region = exporter.mgr.find_create_object(
+                plRidingAnimatedPhysicalDetector, so=so
+            )
             if self.transition == "enter":
                 region.enterMsg = msg
             elif self.transition == "exit":
@@ -371,5 +452,6 @@ class PlasmaSubworldRegion(PlasmaModifierProperties):
                 raise ExportAssertionError()
 
         # Fancy pants region collider type shit
-        exporter.physics.generate_physical(bo, so, member_group="kGroupDetector",
-                                           report_groups=["kGroupAvatar"])
+        exporter.physics.generate_physical(
+            bo, so, member_group="kGroupDetector", report_groups=["kGroupAvatar"]
+        )

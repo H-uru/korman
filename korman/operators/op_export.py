@@ -27,6 +27,7 @@ from ..helpers import UiHelper
 from .. import korlib, plasma_launcher
 from ..properties.prop_world import PlasmaAge
 
+
 class ExportOperator:
     def _get_default_path(self, context):
         blend_filepath = context.blend_data.filepath
@@ -55,94 +56,212 @@ class PlasmaAgeExportOperator(ExportOperator, bpy.types.Operator):
     # over on the PlasmaAge world properties. We've got a helper so we can access them like they're actually on us...
     # If you want a volatile property, register it directly on this operator!
     _properties = {
-        "verbose": (BoolProperty, {"name": "Display Verbose Log",
-                                   "description": "Shows the verbose export log in the console",
-                                   "default": False}),
-
-        "show_console": (BoolProperty, {"name": "Display Log Console",
-                                        "description": "Forces the Blender System Console open during the export",
-                                        "default": True}),
-
-        "texcache_path": (StringProperty, {"name": "Texture Cache Path",
-                                           "description": "Texture Cache Filepath"}),
-
-        "texcache_method": (EnumProperty, {"name": "Texture Cache",
-                                           "description": "Texture Cache Settings",
-                                           "items": [("skip", "Don't Use Texture Cache", "The texture cache is neither used nor updated."),
-                                                     ("use", "Use Texture Cache", "Use (and update, if needed) cached textures."),
-                                                     ("rebuild", "Rebuild Texture Cache", "Rebuilds the texture cache from scratch.")],
-                                           "default": "use"}),
-
-        "lighting_method": (EnumProperty, {"name": "Static Lighting",
-                                           "description": "Static Lighting Settings",
-                                           "items": [("skip", "Don't Bake Lighting", "Static lighting is not baked during this export (fastest export)"),
-                                                     ("bake", "Bake Lighting", "Static lighting is baked according to your specifications"),
-                                                     ("force_vcol", "Force Vertex Color Bake", "All static lighting is baked as vertex colors (faster export)"),
-                                                     ("force_lightmap", "Force Lightmap Bake", "All static lighting is baked as lightmaps (slower export)")],
-                                           "default": "bake"}),
-
-        "envmap_method": (EnumProperty, {"name": "Environment Maps",
-                                         "description": "Environment Map Settings",
-                                         "items": [("skip", "Don't Export EnvMaps", "Environment Maps are not exported"),
-                                                   ("dcm2dem", "Downgrade Planar EnvMaps", "When the engine doesn't support them, Planar Environment Maps are downgraded to Cube Maps"),
-                                                   ("perengine", "Export Supported EnvMaps", "Only environment maps supported by the selected game engine are exported")],
-                                         "default": "dcm2dem"}),
-
-        "python_method": (EnumProperty, {"name": "Python",
-                                         "description": "Specifies how Python should be packed",
-                                         "items": [("none", "Pack Nothing", "Don't pack any Python files."),
-                                                   ("as_requested", "Pack Requested Scripts", "Packs any script both linked as a Text file and requested for packaging."),
-                                                   ("all", "Pack All Scripts", "Packs all Python files linked as a Text file.")],
-                                         "default": "as_requested",
-                                         "options": set()}),
-
-        "localization_method": (EnumProperty, {"name": "Localization",
-                                               "description": "Specifies how localization data should be exported",
-                                               "items": [("database", "Localization Database", "A per-language database compatible with pfLocalizationEditor"),
-                                                         ("database_back_compat", "Localization Database (Compat Mode)", "A per-language database compatible with pfLocalizationEditor and Korman <=0.11"),
-                                                         ("single_file", "Single File", "A single file database, as in Korman <=0.11")],
-                                               "default": "database",
-                                               "options": set()}),
-
-        "export_active": (BoolProperty, {"name": "INTERNAL: Export currently running",
-                                         "default": False,
-                                         "options": {"SKIP_SAVE"}}),
+        "verbose": (
+            BoolProperty,
+            {
+                "name": "Display Verbose Log",
+                "description": "Shows the verbose export log in the console",
+                "default": False,
+            },
+        ),
+        "show_console": (
+            BoolProperty,
+            {
+                "name": "Display Log Console",
+                "description": "Forces the Blender System Console open during the export",
+                "default": True,
+            },
+        ),
+        "texcache_path": (
+            StringProperty,
+            {"name": "Texture Cache Path", "description": "Texture Cache Filepath"},
+        ),
+        "texcache_method": (
+            EnumProperty,
+            {
+                "name": "Texture Cache",
+                "description": "Texture Cache Settings",
+                "items": [
+                    (
+                        "skip",
+                        "Don't Use Texture Cache",
+                        "The texture cache is neither used nor updated.",
+                    ),
+                    (
+                        "use",
+                        "Use Texture Cache",
+                        "Use (and update, if needed) cached textures.",
+                    ),
+                    (
+                        "rebuild",
+                        "Rebuild Texture Cache",
+                        "Rebuilds the texture cache from scratch.",
+                    ),
+                ],
+                "default": "use",
+            },
+        ),
+        "lighting_method": (
+            EnumProperty,
+            {
+                "name": "Static Lighting",
+                "description": "Static Lighting Settings",
+                "items": [
+                    (
+                        "skip",
+                        "Don't Bake Lighting",
+                        "Static lighting is not baked during this export (fastest export)",
+                    ),
+                    (
+                        "bake",
+                        "Bake Lighting",
+                        "Static lighting is baked according to your specifications",
+                    ),
+                    (
+                        "force_vcol",
+                        "Force Vertex Color Bake",
+                        "All static lighting is baked as vertex colors (faster export)",
+                    ),
+                    (
+                        "force_lightmap",
+                        "Force Lightmap Bake",
+                        "All static lighting is baked as lightmaps (slower export)",
+                    ),
+                ],
+                "default": "bake",
+            },
+        ),
+        "envmap_method": (
+            EnumProperty,
+            {
+                "name": "Environment Maps",
+                "description": "Environment Map Settings",
+                "items": [
+                    (
+                        "skip",
+                        "Don't Export EnvMaps",
+                        "Environment Maps are not exported",
+                    ),
+                    (
+                        "dcm2dem",
+                        "Downgrade Planar EnvMaps",
+                        "When the engine doesn't support them, Planar Environment Maps are downgraded to Cube Maps",
+                    ),
+                    (
+                        "perengine",
+                        "Export Supported EnvMaps",
+                        "Only environment maps supported by the selected game engine are exported",
+                    ),
+                ],
+                "default": "dcm2dem",
+            },
+        ),
+        "python_method": (
+            EnumProperty,
+            {
+                "name": "Python",
+                "description": "Specifies how Python should be packed",
+                "items": [
+                    ("none", "Pack Nothing", "Don't pack any Python files."),
+                    (
+                        "as_requested",
+                        "Pack Requested Scripts",
+                        "Packs any script both linked as a Text file and requested for packaging.",
+                    ),
+                    (
+                        "all",
+                        "Pack All Scripts",
+                        "Packs all Python files linked as a Text file.",
+                    ),
+                ],
+                "default": "as_requested",
+                "options": set(),
+            },
+        ),
+        "localization_method": (
+            EnumProperty,
+            {
+                "name": "Localization",
+                "description": "Specifies how localization data should be exported",
+                "items": [
+                    (
+                        "database",
+                        "Localization Database",
+                        "A per-language database compatible with pfLocalizationEditor",
+                    ),
+                    (
+                        "database_back_compat",
+                        "Localization Database (Compat Mode)",
+                        "A per-language database compatible with pfLocalizationEditor and Korman <=0.11",
+                    ),
+                    (
+                        "single_file",
+                        "Single File",
+                        "A single file database, as in Korman <=0.11",
+                    ),
+                ],
+                "default": "database",
+                "options": set(),
+            },
+        ),
+        "export_active": (
+            BoolProperty,
+            {
+                "name": "INTERNAL: Export currently running",
+                "default": False,
+                "options": {"SKIP_SAVE"},
+            },
+        ),
     }
 
     # This wigs out and very bad things happen if it's not directly on the operator...
     filepath = StringProperty(subtype="FILE_PATH")
-    filter_glob = StringProperty(default="*.age;*.zip", options={'HIDDEN'})
+    filter_glob = StringProperty(default="*.age;*.zip", options={"HIDDEN"})
 
-    version = EnumProperty(name="Version",
-                           description="Plasma version to export this age for",
-                           items=game_versions,
-                           default="pvPots",
-                           options=set())
+    version = EnumProperty(
+        name="Version",
+        description="Plasma version to export this age for",
+        items=game_versions,
+        default="pvPots",
+        options=set(),
+    )
 
-    dat_only = BoolProperty(name="Export Only PRPs",
-                            description="Only the Age PRPs should be exported",
-                            default=True,
-                            options={"HIDDEN"})
+    dat_only = BoolProperty(
+        name="Export Only PRPs",
+        description="Only the Age PRPs should be exported",
+        default=True,
+        options={"HIDDEN"},
+    )
 
-    actions = EnumProperty(name="Actions",
-                           description="Actions for the exporter to perform",
-                           default={"EXPORT"},
-                           items=[("EXPORT", "Export", "Export the age data"),
-                                  ("PROFILE", "Profile", "Profile the exporter"),
-                                  ("LAUNCH", "Launch Age", "Launch the age in Plasma")],
-                           options={"ENUM_FLAG"})
+    actions = EnumProperty(
+        name="Actions",
+        description="Actions for the exporter to perform",
+        default={"EXPORT"},
+        items=[
+            ("EXPORT", "Export", "Export the age data"),
+            ("PROFILE", "Profile", "Profile the exporter"),
+            ("LAUNCH", "Launch Age", "Launch the age in Plasma"),
+        ],
+        options={"ENUM_FLAG"},
+    )
 
-    ki = IntProperty(name="KI",
-                     description="KI Number of the player to use when launching the game",
-                     options=set())
+    ki = IntProperty(
+        name="KI",
+        description="KI Number of the player to use when launching the game",
+        options=set(),
+    )
 
-    player = StringProperty(name="Player",
-                            description="Name of the player to use when launching the game",
-                            options=set())
+    player = StringProperty(
+        name="Player",
+        description="Name of the player to use when launching the game",
+        options=set(),
+    )
 
-    serverini = StringProperty(name="Server INI",
-                               description="Name of the server configuation to use when launching the game",
-                               options=set())
+    serverini = StringProperty(
+        name="Server INI",
+        description="Name of the server configuation to use when launching the game",
+        options=set(),
+    )
 
     def draw(self, context):
         layout = self.layout
@@ -204,7 +323,10 @@ class PlasmaAgeExportOperator(ExportOperator, bpy.types.Operator):
 
         ageName = path.stem
         if korlib.is_python_keyword(ageName):
-            self.report({"ERROR"}, "The Age name conflicts with the Python keyword '{}'".format(ageName))
+            self.report(
+                {"ERROR"},
+                "The Age name conflicts with the Python keyword '{}'".format(ageName),
+            )
             return {"CANCELLED"}
 
         # This prevents us from finding out at the very end that very, very bad things happened...
@@ -222,8 +344,12 @@ class PlasmaAgeExportOperator(ExportOperator, bpy.types.Operator):
                 try:
                     self.export_active = True
                     if "PROFILE" in self.actions:
-                        profile_path = str(path.with_name("{}_cProfile".format(ageName)))
-                        profile = cProfile.runctx("e.run()", globals(), locals(), profile_path)
+                        profile_path = str(
+                            path.with_name("{}_cProfile".format(ageName))
+                        )
+                        profile = cProfile.runctx(
+                            "e.run()", globals(), locals(), profile_path
+                        )
                     else:
                         e.run()
                 except exporter.ExportError as error:
@@ -274,13 +400,19 @@ class PlasmaAgeExportOperator(ExportOperator, bpy.types.Operator):
 
     def _sanity_check_run_plasma(self):
         if not bpy.app.binary_path_python:
-            raise exporter.PlasmaLaunchError("Can't Launch Plasma: No Python executable available")
+            raise exporter.PlasmaLaunchError(
+                "Can't Launch Plasma: No Python executable available"
+            )
         if self.version == "pvMoul":
             if not self.ki:
-                raise exporter.PlasmaLaunchError("Can't Launch Plasma: Player KI not set")
+                raise exporter.PlasmaLaunchError(
+                    "Can't Launch Plasma: Player KI not set"
+                )
         else:
             if not self.player:
-                raise exporter.PlasmaLaunchError("Can't Launch Plasma: Player Name not set")
+                raise exporter.PlasmaLaunchError(
+                    "Can't Launch Plasma: Player Name not set"
+                )
 
     def _run_plasma(self, context):
         path = Path(self.filepath)
@@ -289,8 +421,13 @@ class PlasmaAgeExportOperator(ExportOperator, bpy.types.Operator):
         # It would be nice to launch URU right here. Unfortunately, for single player URUs, we will
         # need to actually wait for the whole rigamaroll to finish. Therefore, we need to kick
         # open a separate python exe to launch URU and wait.
-        args = [bpy.app.binary_path_python, plasma_launcher.__file__,
-                str(client_dir), path.stem, self.version]
+        args = [
+            bpy.app.binary_path_python,
+            plasma_launcher.__file__,
+            str(client_dir),
+            path.stem,
+            self.version,
+        ]
         if self.version == "pvMoul":
             if self.serverini:
                 args.append("--serverini")
@@ -300,8 +437,13 @@ class PlasmaAgeExportOperator(ExportOperator, bpy.types.Operator):
             args.append(self.player)
 
         with exporter.ExportVerboseLogger() as log:
-            proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                    cwd=str(client_dir), universal_newlines=True)
+            proc = subprocess.Popen(
+                args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                cwd=str(client_dir),
+                universal_newlines=True,
+            )
             while True:
                 line = proc.stdout.readline().strip()
                 if line == "DIE":
@@ -320,13 +462,15 @@ class PlasmaLocalizationExportOperator(ExportOperator, bpy.types.Operator):
     bl_description = "Export Age localization data"
 
     filepath = StringProperty(subtype="DIR_PATH")
-    filter_glob = StringProperty(default="*.pak", options={'HIDDEN'})
+    filter_glob = StringProperty(default="*.pak", options={"HIDDEN"})
 
-    version = EnumProperty(name="Version",
-                           description="Plasma version to export this age for",
-                           items=game_versions,
-                           default="pvPots",
-                           options=set())
+    version = EnumProperty(
+        name="Version",
+        description="Plasma version to export this age for",
+        items=game_versions,
+        default="pvPots",
+        options=set(),
+    )
 
     def execute(self, context):
         path = Path(self.filepath)
@@ -344,12 +488,16 @@ class PlasmaLocalizationExportOperator(ExportOperator, bpy.types.Operator):
         # Age names cannot be python keywords
         age_name = context.scene.world.plasma_age.age_name
         if korlib.is_python_keyword(age_name):
-            self.report({"ERROR"}, "The Age name conflicts with the Python keyword '{}'".format(age_name))
+            self.report(
+                {"ERROR"},
+                "The Age name conflicts with the Python keyword '{}'".format(age_name),
+            )
             return {"CANCELLED"}
 
         # Bonus Fun: Implement Profile-mode here (later...)
-        e = exporter.LocalizationConverter(age_name=age_name, path=self.filepath,
-                                           version=globals()[self.version])
+        e = exporter.LocalizationConverter(
+            age_name=age_name, path=self.filepath, version=globals()[self.version]
+        )
         try:
             e.run()
         except exporter.ExportError as error:
@@ -368,13 +516,15 @@ class PlasmaPythonExportOperator(ExportOperator, bpy.types.Operator):
     bl_description = "Export Age python script package"
 
     filepath = StringProperty(subtype="FILE_PATH")
-    filter_glob = StringProperty(default="*.pak", options={'HIDDEN'})
+    filter_glob = StringProperty(default="*.pak", options={"HIDDEN"})
 
-    version = EnumProperty(name="Version",
-                           description="Plasma version to export this age for",
-                           items=game_versions,
-                           default="pvPots",
-                           options=set())
+    version = EnumProperty(
+        name="Version",
+        description="Plasma version to export this age for",
+        items=game_versions,
+        default="pvPots",
+        options=set(),
+    )
 
     def draw(self, context):
         layout = self.layout
@@ -388,7 +538,7 @@ class PlasmaPythonExportOperator(ExportOperator, bpy.types.Operator):
         row = layout.row()
         row.enabled = korlib.ConsoleToggler.is_platform_supported()
         row.prop(age, "show_console")
-        layout.prop(age, "verbose")       
+        layout.prop(age, "verbose")
 
     def execute(self, context):
         path = Path(self.filepath)
@@ -407,12 +557,16 @@ class PlasmaPythonExportOperator(ExportOperator, bpy.types.Operator):
         # Age names cannot be python keywords
         age_name = context.scene.world.plasma_age.age_name
         if korlib.is_python_keyword(age_name):
-            self.report({"ERROR"}, "The Age name conflicts with the Python keyword '{}'".format(age_name))
+            self.report(
+                {"ERROR"},
+                "The Age name conflicts with the Python keyword '{}'".format(age_name),
+            )
             return {"CANCELLED"}
 
         # Bonus Fun: Implement Profile-mode here (later...)
-        e = exporter.PythonPackageExporter(filepath=self.filepath,
-                                           version=globals()[self.version])
+        e = exporter.PythonPackageExporter(
+            filepath=self.filepath, version=globals()[self.version]
+        )
         try:
             e.run()
         except exporter.ExportError as error:
@@ -439,12 +593,17 @@ class PlasmaPythonExportOperator(ExportOperator, bpy.types.Operator):
 def menu_cb(self, context):
     if context.scene.render.engine == "PLASMA_GAME":
         self.layout.operator_context = "INVOKE_DEFAULT"
-        self.layout.operator(PlasmaAgeExportOperator.bl_idname, text="Plasma Age (.age)")
-        self.layout.operator(PlasmaPythonExportOperator.bl_idname, text="Plasma Scripts (.pak)")
+        self.layout.operator(
+            PlasmaAgeExportOperator.bl_idname, text="Plasma Age (.age)"
+        )
+        self.layout.operator(
+            PlasmaPythonExportOperator.bl_idname, text="Plasma Scripts (.pak)"
+        )
 
 
 def register():
     bpy.types.INFO_MT_file_export.append(menu_cb)
+
 
 def unregister():
     bpy.types.INFO_MT_file_export.remove(menu_cb)

@@ -22,6 +22,7 @@ from .explosions import *
 from .. import helpers
 from . import utils
 
+
 class CameraConverter:
     def __init__(self, exporter):
         self._exporter = weakref.ref(exporter)
@@ -31,7 +32,9 @@ class CameraConverter:
 
         brain.poaOffset = hsVector3(*camera_props.poa_offset)
         if camera_props.poa_type == "object":
-            brain.subject = self._mgr.find_create_key(plSceneObject, bl=camera_props.poa_object)
+            brain.subject = self._mgr.find_create_key(
+                plSceneObject, bl=camera_props.poa_object
+            )
 
         brain.xPanLimit = camera_props.x_pan_angle / 2.0
         brain.zPanLimit = camera_props.y_pan_angle / 2.0
@@ -72,7 +75,9 @@ class CameraConverter:
             brain.setFlags(plCameraBrain1.kIgnoreSubworldMovement, True)
 
     def export_camera(self, so, bo, camera_type, camera_props, camera_trans=[]):
-        brain = getattr(self, "_export_{}_camera".format(camera_type))(so, bo, camera_props)
+        brain = getattr(self, "_export_{}_camera".format(camera_type))(
+            so, bo, camera_props
+        )
         mod = self._export_camera_modifier(so, bo, camera_props, camera_trans)
         mod.brain = brain.key
 
@@ -97,7 +102,9 @@ class CameraConverter:
                 continue
             cam_trans = plCameraModifier.CamTrans()
             if manual_trans.camera:
-                cam_trans.transTo = self._mgr.find_create_key(plCameraModifier, bl=manual_trans.camera)
+                cam_trans.transTo = self._mgr.find_create_key(
+                    plCameraModifier, bl=manual_trans.camera
+                )
             cam_trans.ignore = manual_trans.mode == "ignore"
 
             trans_info = manual_trans.transition
@@ -121,9 +128,15 @@ class CameraConverter:
         if props.poa_type == "avatar":
             brain.circleFlags |= plCameraBrain1_Circle.kCircleLocalAvatar
         elif props.poa_type == "object":
-            brain.poaObject = self._mgr.find_create_key(plSceneObject, bl=props.poa_object)
+            brain.poaObject = self._mgr.find_create_key(
+                plSceneObject, bl=props.poa_object
+            )
         else:
-            self._report.warn("Circle Camera '{}' has no Point of Attention. Is this intended?", bo.name, indent=3)
+            self._report.warn(
+                "Circle Camera '{}' has no Point of Attention. Is this intended?",
+                bo.name,
+                indent=3,
+            )
         if props.circle_pos == "farthest":
             brain.circleFlags |= plCameraBrain1_Circle.kFarthest
 
@@ -134,7 +147,9 @@ class CameraConverter:
         if props.circle_center is None:
             brain.center = hsVector3(*bo.matrix_world.translation)
         else:
-            brain.centerObject = self._mgr.find_create_key(plSceneObject, bl=props.circle_center)
+            brain.centerObject = self._mgr.find_create_key(
+                plSceneObject, bl=props.circle_center
+            )
             # This flag has no effect in CWE, but I'm using it for correctness' sake
             brain.circleFlags |= plCameraBrain1_Circle.kHasCenterObject
 
@@ -172,7 +187,11 @@ class CameraConverter:
 
     def _export_fixed_camera(self, so, bo, props):
         anim_mod = bo.plasma_modifiers.animation
-        if props.anim_enabled and not anim_mod.enabled and bo.plasma_object.has_animation_data:
+        if (
+            props.anim_enabled
+            and not anim_mod.enabled
+            and bo.plasma_object.has_animation_data
+        ):
             anim_mod.convert_object_animations(self._exporter(), bo, so)
         brain = self._mgr.find_create_object(plCameraBrain1_Fixed, so=so)
         self._convert_brain(so, bo, props, brain)
@@ -203,11 +222,16 @@ class CameraConverter:
         # The rail is defined by a position controller in Plasma. Cyan uses a separate
         # path object, but it makes more sense to me to just animate the camera with
         # the details of the path...
-        pos_fcurves = tuple(i for i in helpers.fetch_fcurves(bo, False) if i.data_path == "location")
-        pos_ctrl = self._exporter().animation.convert_transform_controller(pos_fcurves, bo.rotation_mode,
-                                                                           bo.matrix_local, bo.matrix_parent_inverse)
+        pos_fcurves = tuple(
+            i for i in helpers.fetch_fcurves(bo, False) if i.data_path == "location"
+        )
+        pos_ctrl = self._exporter().animation.convert_transform_controller(
+            pos_fcurves, bo.rotation_mode, bo.matrix_local, bo.matrix_parent_inverse
+        )
         if pos_ctrl is None:
-            raise ExportError("'{}': Rail Camera lacks appropriate rail keyframes".format(bo.name))
+            raise ExportError(
+                "'{}': Rail Camera lacks appropriate rail keyframes".format(bo.name)
+            )
         path = plAnimPath()
         path.controller = pos_ctrl
         path.affineParts = utils.affine_parts(bo.matrix_local)
@@ -217,8 +241,16 @@ class CameraConverter:
             if abs(f1 - f2) > 0.001:
                 break
             # to avoid single/duplicate keyframe client crash (per Hoikas)
-            if any((len(i.keys) == 1 for i in (pos_ctrl.X, pos_ctrl.Y, pos_ctrl.Z) if i is not None)):
-                raise ExportError("'{}': Rail Camera must have more than one keyframe", bo.name)
+            if any(
+                (
+                    len(i.keys) == 1
+                    for i in (pos_ctrl.X, pos_ctrl.Y, pos_ctrl.Z)
+                    if i is not None
+                )
+            ):
+                raise ExportError(
+                    "'{}': Rail Camera must have more than one keyframe", bo.name
+                )
         else:
             # The animation is a loop
             path.flags |= plAnimPath.kWrap

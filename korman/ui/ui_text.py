@@ -15,6 +15,7 @@
 
 import bpy
 
+
 class PlasmaTextEditorHeader(bpy.types.Header):
     bl_space_type = "TEXT_EDITOR"
 

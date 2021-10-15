@@ -15,6 +15,7 @@
 
 import bpy
 
+
 class LampButtonsPanel:
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
@@ -22,8 +23,11 @@ class LampButtonsPanel:
 
     @classmethod
     def poll(cls, context):
-        return (context.object and context.scene.render.engine == "PLASMA_GAME" and
-                isinstance(context.object.data, bpy.types.Lamp))
+        return (
+            context.object
+            and context.scene.render.engine == "PLASMA_GAME"
+            and isinstance(context.object.data, bpy.types.Lamp)
+        )
 
 
 class PlasmaLampPanel(LampButtonsPanel, bpy.types.Panel):
@@ -95,10 +99,12 @@ def _plasma_draw_area_lamp(self, context):
         sub.prop(lamp, "size_y", text="D")
         sub.prop(plasma_lamp, "size_height", text="H")
 
+
 # Swap out the draw functions for the standard Area Shape panel
 # TODO: Maybe we should consider standardizing an interface for overriding
 #       standard Blender panels? This seems like a really useful approach.
 from bl_ui import properties_data_lamp
+
 properties_data_lamp.DATA_PT_area._draw_blender = properties_data_lamp.DATA_PT_area.draw
 properties_data_lamp.DATA_PT_area.draw = _draw_area_lamp
 del properties_data_lamp

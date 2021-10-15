@@ -16,6 +16,7 @@
 import bpy
 from . import ui_list
 
+
 class RenderLayerButtonsPanel:
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
@@ -27,7 +28,18 @@ class RenderLayerButtonsPanel:
 
 
 class BakePassUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_property,
+        index=0,
+        flt_flag=0,
+    ):
         layout.prop(item, "display_name", emboss=False, text="", icon="RENDERLAYERS")
 
 
@@ -38,9 +50,18 @@ class PlasmaBakePassPanel(RenderLayerButtonsPanel, bpy.types.Panel):
         layout = self.layout
         scene = context.scene.plasma_scene
 
-        ui_list.draw_list(layout, "BakePassUI", "scene", scene, "bake_passes",
-                          "active_pass_index",  name_prefix="Pass",
-                          name_prop="display_name", rows=3, maxrows=3)
+        ui_list.draw_list(
+            layout,
+            "BakePassUI",
+            "scene",
+            scene,
+            "bake_passes",
+            "active_pass_index",
+            name_prefix="Pass",
+            name_prop="display_name",
+            rows=3,
+            maxrows=3,
+        )
 
         active_pass_index = scene.active_pass_index
         try:

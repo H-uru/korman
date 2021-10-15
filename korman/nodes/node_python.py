@@ -27,10 +27,23 @@ from .. import idprops
 from ..plasma_attributes import get_attributes_from_str
 
 _single_user_attribs = {
-    "ptAttribBoolean", "ptAttribInt", "ptAttribFloat", "ptAttribString", "ptAttribDropDownList",
-    "ptAttribSceneobject", "ptAttribDynamicMap", "ptAttribGUIDialog", "ptAttribExcludeRegion",
-    "ptAttribWaveSet", "ptAttribSwimCurrent", "ptAttribAnimation", "ptAttribBehavior",
-    "ptAttribMaterial", "ptAttribMaterialAnimation", "ptAttribGUIPopUpMenu", "ptAttribGUISkin",
+    "ptAttribBoolean",
+    "ptAttribInt",
+    "ptAttribFloat",
+    "ptAttribString",
+    "ptAttribDropDownList",
+    "ptAttribSceneobject",
+    "ptAttribDynamicMap",
+    "ptAttribGUIDialog",
+    "ptAttribExcludeRegion",
+    "ptAttribWaveSet",
+    "ptAttribSwimCurrent",
+    "ptAttribAnimation",
+    "ptAttribBehavior",
+    "ptAttribMaterial",
+    "ptAttribMaterialAnimation",
+    "ptAttribGUIPopUpMenu",
+    "ptAttribGUISkin",
     "ptAttribGrassShader",
 }
 
@@ -83,9 +96,11 @@ _attrib_key_types = {
     "ptAttribGUIPopUpMenu": plFactory.ClassIndex("pfGUIPopUpMenu"),
     "ptAttribGUISkin": plFactory.ClassIndex("pfGUISkin"),
     "ptAttribWaveSet": plFactory.ClassIndex("plWaveSet7"),
-    "ptAttribSwimCurrent": (plFactory.ClassIndex("plSwimRegionInterface"),
-                            plFactory.ClassIndex("plSwimCircularCurrentRegion"),
-                            plFactory.ClassIndex("plSwimStraightCurrentRegion")),
+    "ptAttribSwimCurrent": (
+        plFactory.ClassIndex("plSwimRegionInterface"),
+        plFactory.ClassIndex("plSwimCircularCurrentRegion"),
+        plFactory.ClassIndex("plSwimStraightCurrentRegion"),
+    ),
     "ptAttribClusterList": plFactory.ClassIndex("plClusterGroup"),
     "ptAttribMaterialAnimation": plFactory.ClassIndex("plLayerAnimation"),
     "ptAttribGrassShader": plFactory.ClassIndex("plGrassShaderMod"),
@@ -174,8 +189,10 @@ class PlasmaAttribute(bpy.types.PropertyGroup):
 
     def _get_simple_value(self):
         return getattr(self, self._simple_attrs[self.attribute_type])
+
     def _set_simple_value(self, value):
         setattr(self, self._simple_attrs[self.attribute_type], value)
+
     simple_value = property(_get_simple_value, _set_simple_value)
 
 
@@ -203,17 +220,21 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
             self.attributes.clear()
             self.inputs.clear()
         if self.text_id is not None:
-            bpy.ops.node.plasma_attributes_to_node(node_path=self.node_path, text_path=self.text_id.name)
+            bpy.ops.node.plasma_attributes_to_node(
+                node_path=self.node_path, text_path=self.text_id.name
+            )
 
-    filename = StringProperty(name="File Name",
-                              description="Python Filename",
-                              update=_update_pyfile)
+    filename = StringProperty(
+        name="File Name", description="Python Filename", update=_update_pyfile
+    )
     filepath = StringProperty(options={"HIDDEN"})
-    text_id = PointerProperty(name="Script File",
-                              description="Script file datablock",
-                              type=bpy.types.Text,
-                              poll=_poll_pytext,
-                              update=_update_pytext)
+    text_id = PointerProperty(
+        name="Script File",
+        description="Script file datablock",
+        type=bpy.types.Text,
+        poll=_poll_pytext,
+        update=_update_pytext,
+    )
 
     # This property exists for UI purposes ONLY
     package = BoolProperty(options={"HIDDEN", "SKIP_SAVE"})
@@ -223,7 +244,7 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
 
     @property
     def attribute_map(self):
-        return { i.attribute_id: i for i in self.attributes }
+        return {i.attribute_id: i for i in self.attributes}
 
     def draw_buttons(self, context, layout):
         main_row = layout.row(align=True)
@@ -233,7 +254,9 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
 
         # open operator
         sel_text = "Load Script" if self.text_id is None else ""
-        operator = main_row.operator("file.plasma_file_picker", icon="FILESEL", text=sel_text)
+        operator = main_row.operator(
+            "file.plasma_file_picker", icon="FILESEL", text=sel_text
+        )
         operator.filter_glob = "*.py"
         operator.data_path = self.node_path
         operator.filename_property = "filename"
@@ -251,14 +274,19 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
             # rescan operator
             row = main_row.row(align=True)
             row.enabled = self.text_id is not None
-            operator = row.operator("node.plasma_attributes_to_node", icon="FILE_REFRESH", text="")
+            operator = row.operator(
+                "node.plasma_attributes_to_node", icon="FILE_REFRESH", text=""
+            )
             if self.text_id is not None:
                 operator.text_path = self.text_id.name
                 operator.node_path = self.node_path
 
         # This could happen on an upgrade
         if self.text_id is None and self.filename:
-            layout.label(text="Script '{}' is not loaded in Blender".format(self.filename), icon="ERROR")
+            layout.label(
+                text="Script '{}' is not loaded in Blender".format(self.filename),
+                icon="ERROR",
+            )
 
     def get_key(self, exporter, so):
         return self._find_create_key(plPythonFileMod, exporter, so=so)
@@ -279,12 +307,16 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
 
         # Check to see if we should pack this file
         if exporter.output.want_py_text(self.text_id):
-            exporter.report.msg("Including Python '{}' for package", self.filename, indent=3)
+            exporter.report.msg(
+                "Including Python '{}' for package", self.filename, indent=3
+            )
             exporter.output.add_python_mod(self.filename, text_id=self.text_id)
             # PFMs can have their own SDL...
             sdl_text = bpy.data.texts.get("{}.sdl".format(py_name), None)
             if sdl_text is not None:
-                exporter.report.msg("Including corresponding SDL '{}'", sdl_text.name, indent=3)
+                exporter.report.msg(
+                    "Including corresponding SDL '{}'", sdl_text.name, indent=3
+                )
                 exporter.output.add_sdl(sdl_text.name, text_id=sdl_text)
 
         # Handle exporting the Python Parameters
@@ -292,7 +324,11 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
         for socket in attrib_sockets:
             from_node = socket.links[0].from_node
 
-            value = from_node.value if socket.is_simple_value else from_node.get_key(exporter, so)
+            value = (
+                from_node.value
+                if socket.is_simple_value
+                else from_node.get_key(exporter, so)
+            )
             if isinstance(value, str) or not isinstance(value, Iterable):
                 value = (value,)
             for i in value:
@@ -312,14 +348,23 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
         # an animated lamp.
         if not bool(bo.users_group):
             for light in exporter.mgr.find_interfaces(plLightInfo, so):
-                exporter.report.msg("Marking RT light '{}' as animated due to usage in a Python File node",
-                                    so.key.name, indent=3)
+                exporter.report.msg(
+                    "Marking RT light '{}' as animated due to usage in a Python File node",
+                    so.key.name,
+                    indent=3,
+                )
                 light.setProperty(plLightInfo.kLPMovable, True)
 
-    def _export_key_attrib(self, exporter, bo, so : plSceneObject, key : plKey, socket) -> None:
+    def _export_key_attrib(
+        self, exporter, bo, so: plSceneObject, key: plKey, socket
+    ) -> None:
         if key is None:
-            exporter.report.warn("Attribute '{}' didn't return a key and therefore will be unavailable to Python",
-                                 self.id_data.name, socket.links[0].name, indent=3)
+            exporter.report.warn(
+                "Attribute '{}' didn't return a key and therefore will be unavailable to Python",
+                self.id_data.name,
+                socket.links[0].name,
+                indent=3,
+            )
             return
 
         key_type = _attrib_key_types[socket.attribute_type]
@@ -328,9 +373,13 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
         else:
             good_key = key.type == key_type
         if not good_key:
-            exporter.report.warn("'{}' Node '{}' returned an unexpected key type '{}'",
-                                 self.id_data.name, socket.links[0].from_node.name,
-                                 plFactory.ClassName(key.type), indent=3)
+            exporter.report.warn(
+                "'{}' Node '{}' returned an unexpected key type '{}'",
+                self.id_data.name,
+                socket.links[0].from_node.name,
+                plFactory.ClassName(key.type),
+                indent=3,
+            )
 
         if isinstance(key.object, plSceneObject):
             self._export_ancillary_sceneobject(exporter, bo, key.object)
@@ -352,10 +401,12 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
 
             if attrib_type in node_attrib_types:
                 if issubclass(i, PlasmaAttribNodeBase):
-                   yield { "node_idname": i.bl_idname,
-                           "node_text": i.bl_label,
-                           "socket_name": "pfm",
-                           "socket_text": "Python File" }
+                    yield {
+                        "node_idname": i.bl_idname,
+                        "node_text": i.bl_label,
+                        "socket_name": "pfm",
+                        "socket_text": "Python File",
+                    }
                 else:
                     for socket_name, socket_def in i.output_sockets.items():
                         if socket_def.get("hidden") is True:
@@ -365,15 +416,23 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
 
                         valid_link_nodes = socket_def.get("valid_link_nodes")
                         valid_link_sockets = socket_def.get("valid_link_sockets")
-                        if valid_link_nodes is not None and self.bl_idname not in valid_link_nodes:
+                        if (
+                            valid_link_nodes is not None
+                            and self.bl_idname not in valid_link_nodes
+                        ):
                             continue
-                        if valid_link_sockets is not None and "PlasmaPythonFileNodeSocket" not in valid_link_sockets:
+                        if (
+                            valid_link_sockets is not None
+                            and "PlasmaPythonFileNodeSocket" not in valid_link_sockets
+                        ):
                             continue
 
-                        yield { "node_idname": i.bl_idname,
-                                "node_text": i.bl_label,
-                                "socket_name": socket_name,
-                                "socket_text": socket_def["text"] }
+                        yield {
+                            "node_idname": i.bl_idname,
+                            "node_text": i.bl_label,
+                            "socket_name": socket_name,
+                            "socket_text": socket_def["text"],
+                        }
 
     @classmethod
     def generate_valid_links_to(cls, context, socket, is_output):
@@ -394,9 +453,15 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
                 return
             valid_link_sockets = socket_def.get("valid_link_sockets")
             valid_link_nodes = socket_def.get("valid_link_nodes")
-            if valid_link_sockets is not None and "PlasmaPythonFileNodeSocket" not in valid_link_sockets:
+            if (
+                valid_link_sockets is not None
+                and "PlasmaPythonFileNodeSocket" not in valid_link_sockets
+            ):
                 return
-            if valid_link_nodes is not None and "PlasmaPythonFileNode" not in valid_link_nodes:
+            if (
+                valid_link_nodes is not None
+                and "PlasmaPythonFileNode" not in valid_link_nodes
+            ):
                 return
 
         # Ok, apparently this thing can connect as a ptAttribute. The only problem with that is
@@ -414,15 +479,20 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
                     continue
 
                 # *gulp*
-                yield { "node_idname": "PlasmaPythonFileNode",
-                        "node_text": text_id.name,
-                        "node_settings": { "filename": text_id.name },
-                        "socket_name":  attrib["name"],
-                        "socket_text": attrib["name"] }
+                yield {
+                    "node_idname": "PlasmaPythonFileNode",
+                    "node_text": text_id.name,
+                    "node_settings": {"filename": text_id.name},
+                    "socket_name": attrib["name"],
+                    "socket_text": attrib["name"],
+                }
 
     def harvest_actors(self):
         for i in self.inputs:
-            if not i.is_linked or i.attribute_type not in {"ptAttribSceneobject", "ptAttribSceneobjectList"}:
+            if not i.is_linked or i.attribute_type not in {
+                "ptAttribSceneobject",
+                "ptAttribSceneobjectList",
+            }:
                 continue
             node = i.links[0].from_node
             if node.target_object is not None:
@@ -486,7 +556,11 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
                 if not inputs:
                     self._make_attrib_socket(attrib, empty)
                 elif attrib.attribute_type not in _single_user_attribs:
-                    unconnected = [socket for socket in inputs if not socket.is_linked or socket in toasty_sockets]
+                    unconnected = [
+                        socket
+                        for socket in inputs
+                        if not socket.is_linked or socket in toasty_sockets
+                    ]
                     if not unconnected:
                         self._make_attrib_socket(attrib, empty)
                     while len(unconnected) > 1:
@@ -643,9 +717,13 @@ class PlasmaAttribDropDownListNode(PlasmaAttribNodeBase, bpy.types.Node):
     def _list_items(self, context):
         attrib = self.to_socket
         if attrib is not None:
-            return [(option.value, option.value, "") for option in attrib.attribute_arguments.options]
+            return [
+                (option.value, option.value, "")
+                for option in attrib.attribute_arguments.options
+            ]
         else:
             return []
+
     value = EnumProperty(items=_list_items)
 
     def draw_buttons(self, context, layout):
@@ -665,8 +743,10 @@ class PlasmaAttribIntNode(PlasmaAttribNodeBase, bpy.types.Node):
 
     def _get_int(self):
         return round(self.value_float)
+
     def _set_int(self, value):
         self.value_float = float(value)
+
     def _on_update_float(self, context):
         self.inited = True
 
@@ -710,35 +790,59 @@ class PlasmaAttribIntNode(PlasmaAttribNodeBase, bpy.types.Node):
             return self.value_int
         else:
             return self.value_float
+
     def _set_value(self, value):
         self.value_float = value
+
     value = property(_get_value, _set_value)
 
     def _range_label(self, layout):
         attrib = self.to_socket
-        layout.label(text="Range: [{}, {}]".format(attrib.attribute_arguments.range_values[0], attrib.attribute_arguments.range_values[1]))
+        layout.label(
+            text="Range: [{}, {}]".format(
+                attrib.attribute_arguments.range_values[0],
+                attrib.attribute_arguments.range_values[1],
+            )
+        )
 
     def _out_of_range(self, value):
         attrib = self.to_socket
-        if attrib.attribute_arguments.range_values[0] == attrib.attribute_arguments.range_values[1]:
+        if (
+            attrib.attribute_arguments.range_values[0]
+            == attrib.attribute_arguments.range_values[1]
+        ):
             # Ignore degenerate intervals
             return False
-        if attrib.attribute_arguments.range_values[0] <= value <= attrib.attribute_arguments.range_values[1]:
+        if (
+            attrib.attribute_arguments.range_values[0]
+            <= value
+            <= attrib.attribute_arguments.range_values[1]
+        ):
             return False
         return True
 
 
-class PlasmaAttribObjectNode(idprops.IDPropObjectMixin, PlasmaAttribNodeBase, bpy.types.Node):
+class PlasmaAttribObjectNode(
+    idprops.IDPropObjectMixin, PlasmaAttribNodeBase, bpy.types.Node
+):
     bl_category = "PYTHON"
     bl_idname = "PlasmaAttribObjectNode"
     bl_label = "Object Attribute"
 
-    pl_attrib = ("ptAttribSceneobject", "ptAttribSceneobjectList", "ptAttribAnimation",
-                 "ptAttribSwimCurrent", "ptAttribWaveSet", "ptAttribGrassShader")
+    pl_attrib = (
+        "ptAttribSceneobject",
+        "ptAttribSceneobjectList",
+        "ptAttribAnimation",
+        "ptAttribSwimCurrent",
+        "ptAttribWaveSet",
+        "ptAttribGrassShader",
+    )
 
-    target_object = PointerProperty(name="Object",
-                                    description="Object containing the required data",
-                                    type=bpy.types.Object)
+    target_object = PointerProperty(
+        name="Object",
+        description="Object containing the required data",
+        type=bpy.types.Object,
+    )
 
     def init(self, context):
         super().init(context)
@@ -765,8 +869,12 @@ class PlasmaAttribObjectNode(idprops.IDPropObjectMixin, PlasmaAttribNodeBase, bp
             return ref_so_key
         elif attrib == "ptAttribAnimation":
             anim = bo.plasma_modifiers.animation
-            agmod = exporter.mgr.find_create_key(plAGModifier, so=ref_so, name=anim.key_name)
-            agmaster = exporter.mgr.find_create_key(plAGMasterModifier, so=ref_so, name=anim.key_name)
+            agmod = exporter.mgr.find_create_key(
+                plAGModifier, so=ref_so, name=anim.key_name
+            )
+            agmaster = exporter.mgr.find_create_key(
+                plAGMasterModifier, so=ref_so, name=anim.key_name
+            )
             return agmaster
         elif attrib == "ptAttribSwimCurrent":
             swimregion = bo.plasma_modifiers.swimregion
@@ -774,17 +882,22 @@ class PlasmaAttribObjectNode(idprops.IDPropObjectMixin, PlasmaAttribNodeBase, bp
         elif attrib == "ptAttribWaveSet":
             waveset = bo.plasma_modifiers.water_basic
             if not waveset.enabled:
-                self.raise_error("water modifier not enabled on '{}'".format(self.object_name))
+                self.raise_error(
+                    "water modifier not enabled on '{}'".format(self.object_name)
+                )
             return exporter.mgr.find_create_key(plWaveSet7, so=ref_so, bl=bo)
         elif attrib == "ptAttribGrassShader":
             grass_shader = bo.plasma_modifiers.grass_shader
             if not grass_shader.enabled:
-                self.raise_error("grass shader modifier not enabled on '{}'".format(self.object_name))
+                self.raise_error(
+                    "grass shader modifier not enabled on '{}'".format(self.object_name)
+                )
             if exporter.mgr.getVer() <= pvPots:
                 return None
-            return [exporter.mgr.find_create_key(plGrassShaderMod, so=ref_so, name=i.name)
-                    for i in exporter.mesh.material.get_materials(bo)]
-
+            return [
+                exporter.mgr.find_create_key(plGrassShaderMod, so=ref_so, name=i.name)
+                for i in exporter.mesh.material.get_materials(bo)
+            ]
 
     @classmethod
     def _idprop_mapping(cls):
@@ -810,21 +923,31 @@ class PlasmaAttribStringNode(PlasmaAttribNodeBase, bpy.types.Node):
             self.value = attrib.simple_value
 
 
-class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.types.Node):
+class PlasmaAttribTextureNode(
+    idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.types.Node
+):
     bl_category = "PYTHON"
     bl_idname = "PlasmaAttribTextureNode"
     bl_label = "Texture Attribute"
     bl_width_default = 175
 
-    pl_attrib = ("ptAttribMaterial", "ptAttribMaterialList",
-                 "ptAttribDynamicMap", "ptAttribMaterialAnimation")
+    pl_attrib = (
+        "ptAttribMaterial",
+        "ptAttribMaterialList",
+        "ptAttribDynamicMap",
+        "ptAttribMaterialAnimation",
+    )
 
     def _poll_material(self, value: bpy.types.Material) -> bool:
         # Don't filter materials by texture - this would (potentially) result in surprising UX
         # in that you would have to clear the texture selection before being able to select
         # certain materials.
         if self.target_object is not None:
-            object_materials = (slot.material for slot in self.target_object.material_slots if slot and slot.material)
+            object_materials = (
+                slot.material
+                for slot in self.target_object.material_slots
+                if slot and slot.material
+            )
             return value in object_materials
         return True
 
@@ -845,25 +968,37 @@ class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.typ
         if self.material is not None:
             return value.name in self.material.texture_slots
         elif self.target_object is not None:
-            for i in (slot.material for slot in self.target_object.material_slots if slot and slot.material):
-                if value in (slot.texture for slot in i.texture_slots if slot and slot.texture):
+            for i in (
+                slot.material
+                for slot in self.target_object.material_slots
+                if slot and slot.material
+            ):
+                if value in (
+                    slot.texture for slot in i.texture_slots if slot and slot.texture
+                ):
                     return True
             return False
         else:
             return True
 
-    target_object = PointerProperty(name="Object",
-                                    description="",
-                                    type=bpy.types.Object,
-                                    poll=idprops.poll_drawable_objects)
-    material = PointerProperty(name="Material",
-                               description="Material the texture is attached to",
-                               type=bpy.types.Material,
-                               poll=_poll_material)
-    texture = PointerProperty(name="Texture",
-                              description="Texture to expose to Python",
-                              type=bpy.types.Texture,
-                              poll=_poll_texture)
+    target_object = PointerProperty(
+        name="Object",
+        description="",
+        type=bpy.types.Object,
+        poll=idprops.poll_drawable_objects,
+    )
+    material = PointerProperty(
+        name="Material",
+        description="Material the texture is attached to",
+        type=bpy.types.Material,
+        poll=_poll_material,
+    )
+    texture = PointerProperty(
+        name="Texture",
+        description="Texture to expose to Python",
+        type=bpy.types.Texture,
+        poll=_poll_texture,
+    )
 
     def init(self, context):
         super().init(context)
@@ -872,14 +1007,26 @@ class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.typ
 
     def draw_buttons(self, context, layout):
         if self.target_object is not None:
-            iter_materials = lambda: (i.material for i in self.target_object.material_slots if i and i.material)
+            iter_materials = lambda: (
+                i.material
+                for i in self.target_object.material_slots
+                if i and i.material
+            )
             if self.material is not None:
                 if self.material not in iter_materials():
-                    layout.label("The selected material is not linked to the target object.", icon="ERROR")
+                    layout.label(
+                        "The selected material is not linked to the target object.",
+                        icon="ERROR",
+                    )
                     layout.alert = True
             if self.texture is not None:
-                if not frozenset(self.texture.users_material) & frozenset(iter_materials()):
-                    layout.label("The selected texture is not on a material linked to the target object.", icon="ERROR")
+                if not frozenset(self.texture.users_material) & frozenset(
+                    iter_materials()
+                ):
+                    layout.label(
+                        "The selected texture is not on a material linked to the target object.",
+                        icon="ERROR",
+                    )
                     layout.alert = True
 
         layout.prop(self, "target_object")
@@ -888,31 +1035,51 @@ class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.typ
 
     def get_key(self, exporter, so):
         if not any((self.target_object, self.material, self.texture)):
-            self.raise_error("At least one of: target object, material, or texture must be specified.")
+            self.raise_error(
+                "At least one of: target object, material, or texture must be specified."
+            )
 
         attrib = self.to_socket
         if attrib is None:
             self.raise_error("must be connected to a Python File node!")
         attrib = attrib.attribute_type
 
-        layer_generator = exporter.mesh.material.get_layers(self.target_object, self.material, self.texture)
+        layer_generator = exporter.mesh.material.get_layers(
+            self.target_object, self.material, self.texture
+        )
         bottom_layers = (i.object.bottomOfStack for i in layer_generator)
 
         if attrib == "ptAttribDynamicMap":
-            yield from filter(lambda x: x and isinstance(x.object, plDynamicTextMap),
-                              (i.object.texture for i in layer_generator))
+            yield from filter(
+                lambda x: x and isinstance(x.object, plDynamicTextMap),
+                (i.object.texture for i in layer_generator),
+            )
         elif attrib == "ptAttribMaterialAnimation":
-            yield from filter(lambda x: x and isinstance(x.object, plLayerAnimationBase), layer_generator)
+            yield from filter(
+                lambda x: x and isinstance(x.object, plLayerAnimationBase),
+                layer_generator,
+            )
         elif attrib == "ptAttribMaterialList":
-            yield from filter(lambda x: x and not isinstance(x.object, plLayerAnimationBase), bottom_layers)
+            yield from filter(
+                lambda x: x and not isinstance(x.object, plLayerAnimationBase),
+                bottom_layers,
+            )
         elif attrib == "ptAttribMaterial":
             # Only return the first key; warn about others.
-            result_gen = filter(lambda x: x and not isinstance(x.object, plLayerAnimationBase), bottom_layers)
+            result_gen = filter(
+                lambda x: x and not isinstance(x.object, plLayerAnimationBase),
+                bottom_layers,
+            )
             result = next(result_gen, None)
             remainder = sum((1 for i in result))
             if remainder > 1:
-                exporter.report.warn("'{}.{}': Expected a single layer, but mapped to {}. Make the settings more specific.",
-                                     self.id_data.name, self.path_from_id(), remainder + 1, indent=2)
+                exporter.report.warn(
+                    "'{}.{}': Expected a single layer, but mapped to {}. Make the settings more specific.",
+                    self.id_data.name,
+                    self.path_from_id(),
+                    remainder + 1,
+                    indent=2,
+                )
             if result is not None:
                 yield result
         else:
@@ -920,16 +1087,19 @@ class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.typ
 
     @classmethod
     def _idprop_mapping(cls):
-        return {"material": "material_name",
-                "texture": "texture_name"}
+        return {"material": "material_name", "texture": "texture_name"}
 
     def _idprop_sources(self):
-        return {"material_name": bpy.data.materials,
-                "texture_name": bpy.data.textures}
+        return {"material_name": bpy.data.materials, "texture_name": bpy.data.textures}
 
     def _is_animated(self, material, texture):
-        return   ((material.animation_data is not None and material.animation_data.action is not None)
-               or (texture.animation_data is not None and texture.animation_data.action is not None))
+        return (
+            material.animation_data is not None
+            and material.animation_data.action is not None
+        ) or (
+            texture.animation_data is not None
+            and texture.animation_data.action is not None
+        )
 
     def _is_dyntext(self, texture):
         return texture.type == "IMAGE" and texture.image is None
@@ -947,7 +1117,6 @@ _attrib_colors = {
     "ptAttribResponder": (0.031, 0.110, 0.290, 1.0),
     "ptAttribResponderList": (0.031, 0.110, 0.290, 1.0),
     "ptAttribString": (0.675, 0.659, 0.494, 1.0),
-
     PlasmaAttribIntNode.pl_attrib: (0.443, 0.439, 0.392, 1.0),
     PlasmaAttribObjectNode.pl_attrib: (0.565, 0.267, 0.0, 1.0),
     PlasmaAttribTextureNode.pl_attrib: (0.035, 0.353, 0.0, 1.0),

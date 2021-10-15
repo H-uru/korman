@@ -26,6 +26,7 @@ from .render import *
 from .sound import *
 from .water import *
 
+
 class PlasmaModifiers(bpy.types.PropertyGroup):
     def determine_next_id(self):
         """Gets the ID for the next modifier in the UI"""
@@ -40,7 +41,7 @@ class PlasmaModifiers(bpy.types.PropertyGroup):
     @property
     def modifiers(self):
         """Generates all of the enabled modifiers.
-           NOTE: We do not promise to return modifiers in their display_order!
+        NOTE: We do not promise to return modifiers in their display_order!
         """
         for i in dir(self):
             attr = getattr(self, i, None)
@@ -66,7 +67,7 @@ class PlasmaModifiers(bpy.types.PropertyGroup):
             setattr(cls, i.pl_id, bpy.props.PointerProperty(type=i))
         bpy.types.Object.plasma_modifiers = bpy.props.PointerProperty(type=cls)
 
-    def test_property(self, property : str) -> bool:
+    def test_property(self, property: str) -> bool:
         """Tests a property on all enabled Plasma modifiers"""
         return any((getattr(i, property) for i in self.modifiers))
 
@@ -79,17 +80,24 @@ def modifier_mapping():
     """This returns a dict mapping Plasma Modifier categories to names"""
 
     d = {}
-    sorted_modifiers = sorted(PlasmaModifierProperties.__subclasses__(), key=lambda x: x.bl_label)
+    sorted_modifiers = sorted(
+        PlasmaModifierProperties.__subclasses__(), key=lambda x: x.bl_label
+    )
     for i, mod in enumerate(sorted_modifiers):
-        pl_id, category, label, description = mod.pl_id, mod.bl_category, mod.bl_label, mod.bl_description
+        pl_id, category, label, description = (
+            mod.pl_id,
+            mod.bl_category,
+            mod.bl_label,
+            mod.bl_description,
+        )
         icon = getattr(mod, "bl_icon", "")
 
         # The modifier might include the cateogry name in its name, so we'll strip that.
         if label != category:
             if label.startswith(category):
-                label = label[len(category)+1:]
+                label = label[len(category) + 1 :]
             if label.endswith(category):
-                label = label[:-len(category)-1]
+                label = label[: -len(category) - 1]
 
         tup = (pl_id, label, description, icon, i)
         d_cat = d.setdefault(category, [])

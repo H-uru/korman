@@ -22,6 +22,7 @@ from contextlib import contextmanager
 
 from PyHSPlasma import *
 
+
 def affine_parts(xform):
     # Decompose the matrix into the 90s-era 3ds max affine parts sillyness
     # All that's missing now is something like "(c) 1998 HeadSpin" oh wait...
@@ -35,9 +36,11 @@ def affine_parts(xform):
     affine.U = quaternion(rot)
     return affine
 
+
 def color(blcolor, alpha=1.0):
     """Converts a Blender Color into an hsColorRGBA"""
     return hsColorRGBA(blcolor.r, blcolor.g, blcolor.b, alpha)
+
 
 def matrix44(blmat):
     """Converts a mathutils.Matrix to an hsMatrix44"""
@@ -49,15 +52,16 @@ def matrix44(blmat):
         hsmat[i, 3] = blmat[i][3]
     return hsmat
 
+
 def quaternion(blquat):
     """Converts a mathutils.Quaternion to an hsQuat"""
     return hsQuat(blquat.x, blquat.y, blquat.z, blquat.w)
 
 
 @contextmanager
-def bmesh_temporary_object(name : str, factory : Callable, page_name : str=None):
+def bmesh_temporary_object(name: str, factory: Callable, page_name: str = None):
     """Creates a temporary object and mesh that exists only for the duration of
-       the context"""
+    the context"""
     mesh = bpy.data.meshes.new(name)
     obj = bpy.data.objects.new(name, mesh)
     obj.draw_type = "WIRE"
@@ -74,10 +78,11 @@ def bmesh_temporary_object(name : str, factory : Callable, page_name : str=None)
         bm.free()
         bpy.context.scene.objects.unlink(obj)
 
+
 @contextmanager
 def bmesh_object(name: str) -> Iterator[Tuple[bpy.types.Object, bmesh.types.BMesh]]:
     """Creates an object and mesh that will be removed if the context is exited
-       due to an error"""
+    due to an error"""
     mesh = bpy.data.meshes.new(name)
     obj = bpy.data.objects.new(name, mesh)
     obj.draw_type = "WIRE"
@@ -95,13 +100,16 @@ def bmesh_object(name: str) -> Iterator[Tuple[bpy.types.Object, bmesh.types.BMes
     finally:
         bm.free()
 
+
 @contextmanager
-def temporary_mesh_object(source : bpy.types.Object) -> bpy.types.Object:
+def temporary_mesh_object(source: bpy.types.Object) -> bpy.types.Object:
     """Creates a temporary mesh object from a nonmesh object that will only exist for the duration
-       of the context."""
+    of the context."""
     assert source.type != "MESH"
 
-    obj = bpy.data.objects.new(source.name, source.to_mesh(bpy.context.scene, True, "RENDER"))
+    obj = bpy.data.objects.new(
+        source.name, source.to_mesh(bpy.context.scene, True, "RENDER")
+    )
     obj.draw_type = "WIRE"
     obj.parent = source.parent
     obj.matrix_local, obj.matrix_world = source.matrix_local, source.matrix_world
@@ -111,6 +119,7 @@ def temporary_mesh_object(source : bpy.types.Object) -> bpy.types.Object:
         yield obj
     finally:
         bpy.data.objects.remove(obj)
+
 
 def transform_mesh(mesh: bpy.types.Mesh, matrix: mathutils.Matrix):
     # There is a disparity in terms of how negative scaling is displayed in Blender versus how it is

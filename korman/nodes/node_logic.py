@@ -19,10 +19,17 @@ from collections import OrderedDict
 from PyHSPlasma import *
 
 from .node_core import *
-from ..properties.modifiers.physics import bounds_types, bounds_type_index, bounds_type_str
+from ..properties.modifiers.physics import (
+    bounds_types,
+    bounds_type_index,
+    bounds_type_str,
+)
 from .. import idprops
 
-class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.Node):
+
+class PlasmaExcludeRegionNode(
+    idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.Node
+):
     bl_category = "LOGIC"
     bl_idname = "PlasmaExcludeRegionNode"
     bl_label = "Exclude Region"
@@ -33,46 +40,70 @@ class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.typ
 
     def _get_bounds(self):
         if self.region_object is not None:
-            return bounds_type_index(self.region_object.plasma_modifiers.collision.bounds)
+            return bounds_type_index(
+                self.region_object.plasma_modifiers.collision.bounds
+            )
         return bounds_type_index("hull")
+
     def _set_bounds(self, value):
         if self.region_object is not None:
-            self.region_object.plasma_modifiers.collision.bounds = bounds_type_str(value)
+            self.region_object.plasma_modifiers.collision.bounds = bounds_type_str(
+                value
+            )
 
-    region_object = PointerProperty(name="Region",
-                                    description="Region object's name",
-                                    type=bpy.types.Object,
-                                    poll=idprops.poll_mesh_objects)
-    bounds = EnumProperty(name="Bounds",
-                          description="Region bounds",
-                          items=bounds_types,
-                          get=_get_bounds,
-                          set=_set_bounds)
-    block_cameras = BoolProperty(name="Block Cameras",
-                                description="The region blocks cameras when it has been cleared")
+    region_object = PointerProperty(
+        name="Region",
+        description="Region object's name",
+        type=bpy.types.Object,
+        poll=idprops.poll_mesh_objects,
+    )
+    bounds = EnumProperty(
+        name="Bounds",
+        description="Region bounds",
+        items=bounds_types,
+        get=_get_bounds,
+        set=_set_bounds,
+    )
+    block_cameras = BoolProperty(
+        name="Block Cameras",
+        description="The region blocks cameras when it has been cleared",
+    )
 
-    input_sockets = OrderedDict([
-        ("safe_point", {
-            "type": "PlasmaExcludeSafePointSocket",
-            "text": "Safe Point",
-            "spawn_empty": True,
-            # This never links to anything...
-            "valid_link_sockets": frozenset(),
-        }),
-        ("msg", {
-            "type": "PlasmaExcludeMessageSocket",
-            "text": "Message",
-            "spawn_empty": True,
-        }),
-    ])
+    input_sockets = OrderedDict(
+        [
+            (
+                "safe_point",
+                {
+                    "type": "PlasmaExcludeSafePointSocket",
+                    "text": "Safe Point",
+                    "spawn_empty": True,
+                    # This never links to anything...
+                    "valid_link_sockets": frozenset(),
+                },
+            ),
+            (
+                "msg",
+                {
+                    "type": "PlasmaExcludeMessageSocket",
+                    "text": "Message",
+                    "spawn_empty": True,
+                },
+            ),
+        ]
+    )
 
-    output_sockets = OrderedDict([
-        ("keyref", {
-            "text": "References",
-            "type": "PlasmaPythonReferenceNodeSocket",
-            "valid_link_nodes": {"PlasmaPythonFileNode"},
-        }),
-    ])
+    output_sockets = OrderedDict(
+        [
+            (
+                "keyref",
+                {
+                    "text": "References",
+                    "type": "PlasmaPythonReferenceNodeSocket",
+                    "valid_link_nodes": {"PlasmaPythonFileNode"},
+                },
+            ),
+        ]
+    )
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "region_object", icon="MESH_DATA")
@@ -82,21 +113,31 @@ class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.typ
     def get_key(self, exporter, parent_so):
         if self.region_object is None:
             self.raise_error("Region must be set")
-        return self._find_create_key(plExcludeRegionModifier, exporter, bl=self.region_object)
+        return self._find_create_key(
+            plExcludeRegionModifier, exporter, bl=self.region_object
+        )
 
     def harvest_actors(self):
-        return (i.safepoint.name for i in self.find_input_sockets("safe_points") if i.safepoint is not None)
+        return (
+            i.safepoint.name
+            for i in self.find_input_sockets("safe_points")
+            if i.safepoint is not None
+        )
 
     def export(self, exporter, bo, parent_so):
         excludergn = self.get_key(exporter, parent_so).object
         excludergn.setFlag(plExcludeRegionModifier.kBlockCameras, self.block_cameras)
-        region_so = exporter.mgr.find_create_object(plSceneObject, bl=self.region_object)
+        region_so = exporter.mgr.find_create_object(
+            plSceneObject, bl=self.region_object
+        )
 
         # Safe points
         for i in self.find_input_sockets("safe_point"):
             safept = i.safepoint_object
             if safept:
-                excludergn.addSafePoint(exporter.mgr.find_create_key(plSceneObject, bl=safept))
+                excludergn.addSafePoint(
+                    exporter.mgr.find_create_key(plSceneObject, bl=safept)
+                )
 
         # Ensure the region is exported
         if exporter.mgr.getVer() <= pvPots:
@@ -105,11 +146,15 @@ class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.typ
         else:
             member_group = "kGroupStatic"
             collide_groups = []
-        exporter.physics.generate_physical(self.region_object, region_so, bounds=self.bounds,
-                                           properties=["kPinned"],
-                                           losdbs=["kLOSDBUIBlockers"],
-                                           member_group=member_group,
-                                           collide_groups=collide_groups)
+        exporter.physics.generate_physical(
+            self.region_object,
+            region_so,
+            bounds=self.bounds,
+            properties=["kPinned"],
+            losdbs=["kLOSDBUIBlockers"],
+            member_group=member_group,
+            collide_groups=collide_groups,
+        )
 
     @property
     def export_once(self):
@@ -120,12 +165,16 @@ class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.typ
         return {"region_object": "region"}
 
 
-class PlasmaExcludeSafePointSocket(idprops.IDPropObjectMixin, PlasmaNodeSocketBase, bpy.types.NodeSocket):
+class PlasmaExcludeSafePointSocket(
+    idprops.IDPropObjectMixin, PlasmaNodeSocketBase, bpy.types.NodeSocket
+):
     bl_color = (0.0, 0.0, 0.0, 0.0)
 
-    safepoint_object = PointerProperty(name="Safe Point",
-                                       description="A point outside of this exclude region to move the avatar to",
-                                       type=bpy.types.Object)
+    safepoint_object = PointerProperty(
+        name="Safe Point",
+        description="A point outside of this exclude region to move the avatar to",
+        type=bpy.types.Object,
+    )
 
     def draw(self, context, layout, node, text):
         layout.prop(self, "safepoint_object", icon="EMPTY_DATA")

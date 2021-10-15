@@ -16,7 +16,8 @@
 import bpy
 from bpy.props import *
 
+
 class PlasmaText(bpy.types.PropertyGroup):
-    package = BoolProperty(name="Export",
-                           description="Package this file in the age export",
-                           options=set())
+    package = BoolProperty(
+        name="Export", description="Package this file in the age export", options=set()
+    )

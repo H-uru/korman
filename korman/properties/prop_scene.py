@@ -19,9 +19,11 @@ import itertools
 
 from ..exporter.etlight import _NUM_RENDER_LAYERS
 
+
 class PlasmaBakePass(bpy.types.PropertyGroup):
     def _get_display_name(self):
         return self.name
+
     def _set_display_name(self, value):
         for i in bpy.data.objects:
             lm = i.plasma_modifiers.lightmap
@@ -29,32 +31,32 @@ class PlasmaBakePass(bpy.types.PropertyGroup):
                 lm.bake_pass_name = value
         self.name = value
 
-    display_name = StringProperty(name="Pass Name",
-                                  get=_get_display_name,
-                                  set=_set_display_name,
-                                  options=set())
+    display_name = StringProperty(
+        name="Pass Name", get=_get_display_name, set=_set_display_name, options=set()
+    )
 
-    render_layers = BoolVectorProperty(name="Layers to Bake",
-                                       description="Render layers to use for baking",
-                                       options=set(),
-                                       subtype="LAYER",
-                                       size=_NUM_RENDER_LAYERS,
-                                       default=((True,) * _NUM_RENDER_LAYERS))
+    render_layers = BoolVectorProperty(
+        name="Layers to Bake",
+        description="Render layers to use for baking",
+        options=set(),
+        subtype="LAYER",
+        size=_NUM_RENDER_LAYERS,
+        default=((True,) * _NUM_RENDER_LAYERS),
+    )
 
 
 class PlasmaWetDecalRef(bpy.types.PropertyGroup):
-    enabled = BoolProperty(name="Enabled",
-                           default=True,
-                           options=set())
+    enabled = BoolProperty(name="Enabled", default=True, options=set())
 
-    name = StringProperty(name="Decal Name",
-                          description="Wet decal manager",
-                          options=set())
+    name = StringProperty(
+        name="Decal Name", description="Wet decal manager", options=set()
+    )
 
 
 class PlasmaDecalManager(bpy.types.PropertyGroup):
     def _get_display_name(self):
         return self.name
+
     def _set_display_name(self, value):
         prev_value = self.name
         for i in bpy.data.objects:
@@ -69,59 +71,88 @@ class PlasmaDecalManager(bpy.types.PropertyGroup):
                     j.name = value
         self.name = value
 
-    name = StringProperty(name="Decal Name",
-                          options=set())
-    display_name = StringProperty(name="Display Name",
-                                  get=_get_display_name,
-                                  set=_set_display_name,
-                                  options=set())
+    name = StringProperty(name="Decal Name", options=set())
+    display_name = StringProperty(
+        name="Display Name", get=_get_display_name, set=_set_display_name, options=set()
+    )
 
-    decal_type = EnumProperty(name="Decal Type",
-                              description="",
-                              items=[("footprint_dry", "Footprint (Dry)", ""),
-                                     ("footprint_wet", "Footprint (Wet)", ""),
-                                     ("puddle", "Water Ripple (Shallow)", ""),
-                                     ("ripple", "Water Ripple (Deep)", "")],
-                              default="footprint_dry",
-                              options=set())
-    image = PointerProperty(name="Image",
-                            description="",
-                            type=bpy.types.Image,
-                            options=set())
-    blend = EnumProperty(name="Blend Mode",
-                         description="",
-                         items=[("kBlendAdd", "Add", ""),
-                                ("kBlendAlpha", "Alpha", ""),
-                                ("kBlendMADD", "Brighten", ""),
-                                ("kBlendMult", "Multiply", "")],
-                         default="kBlendAlpha",
-                         options=set())
+    decal_type = EnumProperty(
+        name="Decal Type",
+        description="",
+        items=[
+            ("footprint_dry", "Footprint (Dry)", ""),
+            ("footprint_wet", "Footprint (Wet)", ""),
+            ("puddle", "Water Ripple (Shallow)", ""),
+            ("ripple", "Water Ripple (Deep)", ""),
+        ],
+        default="footprint_dry",
+        options=set(),
+    )
+    image = PointerProperty(
+        name="Image", description="", type=bpy.types.Image, options=set()
+    )
+    blend = EnumProperty(
+        name="Blend Mode",
+        description="",
+        items=[
+            ("kBlendAdd", "Add", ""),
+            ("kBlendAlpha", "Alpha", ""),
+            ("kBlendMADD", "Brighten", ""),
+            ("kBlendMult", "Multiply", ""),
+        ],
+        default="kBlendAlpha",
+        options=set(),
+    )
 
-    length = IntProperty(name="Length",
-                         description="",
-                         subtype="PERCENTAGE",
-                         min=0, soft_min=25, soft_max=400, default=100,
-                         options=set())
-    width = IntProperty(name="Width",
-                        description="",
-                        subtype="PERCENTAGE",
-                        min=0, soft_min=25, soft_max=400, default=100,
-                        options=set())
-    intensity = IntProperty(name="Intensity",
-                            description="",
-                            subtype="PERCENTAGE",
-                            min=0, soft_max=100, default=100,
-                            options=set())
-    life_span = FloatProperty(name="Life Span",
-                              description="",
-                              subtype="TIME", unit="TIME",
-                              min=0.0, soft_max=300.0, default=30.0,
-                              options=set())
-    wet_time = FloatProperty(name="Wet Time",
-                             description="How long the decal print shapes stay wet after losing contact with this surface",
-                             subtype="TIME", unit="TIME",
-                             min=0.0, soft_max=300.0, default=10.0,
-                             options=set())
+    length = IntProperty(
+        name="Length",
+        description="",
+        subtype="PERCENTAGE",
+        min=0,
+        soft_min=25,
+        soft_max=400,
+        default=100,
+        options=set(),
+    )
+    width = IntProperty(
+        name="Width",
+        description="",
+        subtype="PERCENTAGE",
+        min=0,
+        soft_min=25,
+        soft_max=400,
+        default=100,
+        options=set(),
+    )
+    intensity = IntProperty(
+        name="Intensity",
+        description="",
+        subtype="PERCENTAGE",
+        min=0,
+        soft_max=100,
+        default=100,
+        options=set(),
+    )
+    life_span = FloatProperty(
+        name="Life Span",
+        description="",
+        subtype="TIME",
+        unit="TIME",
+        min=0.0,
+        soft_max=300.0,
+        default=30.0,
+        options=set(),
+    )
+    wet_time = FloatProperty(
+        name="Wet Time",
+        description="How long the decal print shapes stay wet after losing contact with this surface",
+        subtype="TIME",
+        unit="TIME",
+        min=0.0,
+        soft_max=300.0,
+        default=10.0,
+        options=set(),
+    )
 
     # Footprints to wet-ize
     wet_managers = CollectionProperty(type=PlasmaWetDecalRef)
@@ -135,8 +166,11 @@ class PlasmaScene(bpy.types.PropertyGroup):
     decal_managers = CollectionProperty(type=PlasmaDecalManager)
     active_decal_index = IntProperty(options={"HIDDEN"})
 
-    modifier_copy_object = PointerProperty(name="INTERNAL: Object to copy modifiers from",
-                                           options={"HIDDEN", "SKIP_SAVE"},
-                                           type=bpy.types.Object)
-    modifier_copy_id = StringProperty(name="INTERNAL: Modifier to copy from",
-                                      options={"HIDDEN", "SKIP_SAVE"})
+    modifier_copy_object = PointerProperty(
+        name="INTERNAL: Object to copy modifiers from",
+        options={"HIDDEN", "SKIP_SAVE"},
+        type=bpy.types.Object,
+    )
+    modifier_copy_id = StringProperty(
+        name="INTERNAL: Modifier to copy from", options={"HIDDEN", "SKIP_SAVE"}
+    )

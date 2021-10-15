@@ -22,7 +22,10 @@ from .base import PlasmaModifierProperties
 from ...exporter import ExportError, ExportAssertionError
 from ... import idprops
 
-class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.types.PropertyGroup):
+
+class PlasmaSwimRegion(
+    idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.types.PropertyGroup
+):
     pl_id = "swimregion"
 
     bl_category = "Water"
@@ -36,54 +39,94 @@ class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.
         "STRAIGHT": plSwimStraightCurrentRegion,
     }
 
-    region = PointerProperty(name="Region",
-                             description="Swimming detector region",
-                             type=bpy.types.Object,
-                             poll=idprops.poll_mesh_objects)
+    region = PointerProperty(
+        name="Region",
+        description="Swimming detector region",
+        type=bpy.types.Object,
+        poll=idprops.poll_mesh_objects,
+    )
 
-    down_buoyancy = FloatProperty(name="Downward Buoyancy",
-                                  description="Distance the avatar sinks into the water",
-                                  min=0.0, max=100.0, default=3.0,
-                                  options=set())
-    up_buoyancy = FloatProperty(name="Up Buoyancy",
-                                description="Distance the avatar rises up after sinking",
-                                min=0.0, max=100.0, default=0.05,
-                                options=set())
-    up_velocity = FloatProperty(name="Up Velcocity",
-                                description="Rate at which the avatar rises",
-                                min=0.0, max=100.0, default=3.0,
-                                options=set())
+    down_buoyancy = FloatProperty(
+        name="Downward Buoyancy",
+        description="Distance the avatar sinks into the water",
+        min=0.0,
+        max=100.0,
+        default=3.0,
+        options=set(),
+    )
+    up_buoyancy = FloatProperty(
+        name="Up Buoyancy",
+        description="Distance the avatar rises up after sinking",
+        min=0.0,
+        max=100.0,
+        default=0.05,
+        options=set(),
+    )
+    up_velocity = FloatProperty(
+        name="Up Velcocity",
+        description="Rate at which the avatar rises",
+        min=0.0,
+        max=100.0,
+        default=3.0,
+        options=set(),
+    )
 
-    current_type = EnumProperty(name="Water Current",
-                                description="",
-                                items=[("NONE", "None", "No current"),
-                                       ("CIRCULAR", "Circular", "Circular current"),
-                                       ("STRAIGHT", "Straight", "Straight current")],
-                                options=set())
-    rotation = FloatProperty(name="Rotation",
-                             description="Rate of rotation about the current object",
-                             min=-100.0, max=100.0, default=1.0,
-                             options=set())
-    near_distance = FloatProperty(name="Near Distance",
-                                  description="Maximum distance at which the current is at the Near Velocity rate",
-                                  min=0.0, max=10000.0, default=1.0,
-                                  options=set())
-    far_distance = FloatProperty(name="Far Distance",
-                                 description="Distance at which the current is at the Far Velocity rate",
-                                 min=0.0, max=10000.0, default=1.0,
-                                 options=set())
-    near_velocity = FloatProperty(name="Near Velocity",
-                                  description="Current velocity near the region center",
-                                  min=-100.0, max=100.0, default=0.0,
-                                  options=set())
-    far_velocity = FloatProperty(name="Far Velocity",
-                                 description="Current velocity far from the region center",
-                                 min=-100.0, max=100.0, default=0.0,
-                                 options=set())
-    current = PointerProperty(name="Current Object",
-                              description="Object whose Y-axis defines the direction of the current",
-                              type=bpy.types.Object,
-                              poll=idprops.poll_empty_objects)
+    current_type = EnumProperty(
+        name="Water Current",
+        description="",
+        items=[
+            ("NONE", "None", "No current"),
+            ("CIRCULAR", "Circular", "Circular current"),
+            ("STRAIGHT", "Straight", "Straight current"),
+        ],
+        options=set(),
+    )
+    rotation = FloatProperty(
+        name="Rotation",
+        description="Rate of rotation about the current object",
+        min=-100.0,
+        max=100.0,
+        default=1.0,
+        options=set(),
+    )
+    near_distance = FloatProperty(
+        name="Near Distance",
+        description="Maximum distance at which the current is at the Near Velocity rate",
+        min=0.0,
+        max=10000.0,
+        default=1.0,
+        options=set(),
+    )
+    far_distance = FloatProperty(
+        name="Far Distance",
+        description="Distance at which the current is at the Far Velocity rate",
+        min=0.0,
+        max=10000.0,
+        default=1.0,
+        options=set(),
+    )
+    near_velocity = FloatProperty(
+        name="Near Velocity",
+        description="Current velocity near the region center",
+        min=-100.0,
+        max=100.0,
+        default=0.0,
+        options=set(),
+    )
+    far_velocity = FloatProperty(
+        name="Far Velocity",
+        description="Current velocity far from the region center",
+        min=-100.0,
+        max=100.0,
+        default=0.0,
+        options=set(),
+    )
+    current = PointerProperty(
+        name="Current Object",
+        description="Object whose Y-axis defines the direction of the current",
+        type=bpy.types.Object,
+        poll=idprops.poll_empty_objects,
+    )
 
     def export(self, exporter, bo, so):
         swimIface = self.get_key(exporter, so).object
@@ -101,10 +144,18 @@ class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.
             swimIface.farDist = self.far_distance
             swimIface.nearVel = self.near_velocity
             swimIface.farVel = self.far_velocity
-        if isinstance(swimIface, (plSwimCircularCurrentRegion, plSwimStraightCurrentRegion)):
+        if isinstance(
+            swimIface, (plSwimCircularCurrentRegion, plSwimStraightCurrentRegion)
+        ):
             if self.current is None:
-                raise ExportError("Swimming Surface '{}' does not specify a current object".format(bo.name))
-            swimIface.currentObj = exporter.mgr.find_create_key(plSceneObject, bl=self.current)
+                raise ExportError(
+                    "Swimming Surface '{}' does not specify a current object".format(
+                        bo.name
+                    )
+                )
+            swimIface.currentObj = exporter.mgr.find_create_key(
+                plSceneObject, bl=self.current
+            )
 
         # The surface needs bounds for LOS -- this is generally a flat plane, or I would think...
         # NOTE: If the artist has this on a WaveSet, they probably intend for the avatar to swim on
@@ -112,25 +163,38 @@ class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.
         #       pool. Therefore, we need to flatten out a temporary mesh in that case.
         # Ohey! CWE doesn't let you swim at all if the surface isn't flat...
         losdbs = ["kLOSDBSwimRegion"]
-        member_group = "kGroupLOSOnly" if exporter.mgr.getVer() != pvMoul else "kGroupStatic"
+        member_group = (
+            "kGroupLOSOnly" if exporter.mgr.getVer() != pvMoul else "kGroupStatic"
+        )
         if bo.plasma_modifiers.water_basic.enabled:
-            exporter.physics.generate_flat_proxy(bo, so, z_coord=bo.matrix_world.translation[2],
-                                                 member_group=member_group,
-                                                 losdbs=losdbs)
+            exporter.physics.generate_flat_proxy(
+                bo,
+                so,
+                z_coord=bo.matrix_world.translation[2],
+                member_group=member_group,
+                losdbs=losdbs,
+            )
         else:
-            exporter.physics.generate_physical(bo, so, bounds="trimesh",
-                                               member_group=member_group,
-                                               losdbs=losdbs)
+            exporter.physics.generate_physical(
+                bo, so, bounds="trimesh", member_group=member_group, losdbs=losdbs
+            )
 
         # Detector region bounds
         if self.region is not None:
             region_so = exporter.mgr.find_create_object(plSceneObject, bl=self.region)
 
             # Good news: if this phys has already been exported, this is basically a noop
-            member_group = "kGroupDetector" if exporter.mgr.getVer() == "pvMoul" else "kGroupLOSOnly"
-            exporter.physics.generate_physical(self.region, region_so,
-                                               member_group=member_group,
-                                               report_groups=["kGroupAvatar"])
+            member_group = (
+                "kGroupDetector"
+                if exporter.mgr.getVer() == "pvMoul"
+                else "kGroupLOSOnly"
+            )
+            exporter.physics.generate_physical(
+                self.region,
+                region_so,
+                member_group=member_group,
+                report_groups=["kGroupAvatar"],
+            )
 
             # I am a little concerned if we already have a plSwimDetector... I am not certain how
             # well Plasma would tolerate having a plSwimMsg with multiple regions referenced.
@@ -141,7 +205,9 @@ class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.
             if exporter.mgr.find_key(plSwimDetector, so=region_so) is None:
                 enter_msg, exit_msg = plSwimMsg(), plSwimMsg()
                 for i in (enter_msg, exit_msg):
-                    i.BCastFlags = plMessage.kLocalPropagate | plMessage.kPropagateToModifiers
+                    i.BCastFlags = (
+                        plMessage.kLocalPropagate | plMessage.kPropagateToModifiers
+                    )
                     i.sender = region_so.key
                     i.swimRegion = swimIface.key
                 enter_msg.isEntering = True
@@ -156,7 +222,12 @@ class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.
             # swimming surface should have a detector. m'kay? But still, we might want to make note
             # of this sitation. Just in case someone is like "WTF! Why am I not swimming?!?!1111111"
             # Because you need to have a detector, dummy.
-            exporter.report.warn("Swimming Surface '{}' does not specify a detector region".format(bo.name), indent=2)
+            exporter.report.warn(
+                "Swimming Surface '{}' does not specify a detector region".format(
+                    bo.name
+                ),
+                indent=2,
+            )
 
     def get_key(self, exporter, so=None):
         pClass = self._CURRENTS[self.current_type]
@@ -169,72 +240,66 @@ class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.
 
     @classmethod
     def _idprop_mapping(cls):
-        return {"current": "current_object",
-                "region": "region_name"}
+        return {"current": "current_object", "region": "region_name"}
 
 
-class PlasmaWaterModifier(idprops.IDPropMixin, PlasmaModifierProperties, bpy.types.PropertyGroup):
+class PlasmaWaterModifier(
+    idprops.IDPropMixin, PlasmaModifierProperties, bpy.types.PropertyGroup
+):
     pl_id = "water_basic"
 
     bl_category = "Water"
     bl_label = "Basic Water"
     bl_description = "Basic water properties"
 
-    wind_object = PointerProperty(name="Wind Object",
-                                  description="Object whose Y axis represents the wind direction",
-                                  type=bpy.types.Object,
-                                  poll=idprops.poll_empty_objects)
-    wind_speed = FloatProperty(name="Wind Speed",
-                               description="Magnitude of the wind",
-                               default=1.0)
-    envmap = PointerProperty(name="EnvMap",
-                             description="Texture defining an environment map for this water object",
-                             type=bpy.types.Texture,
-                             poll=idprops.poll_envmap_textures)
-    envmap_radius = FloatProperty(name="Environment Sphere Radius",
-                                  description="How far away the first object you want to see is",
-                                  min=5.0, max=10000.0,
-                                  default=500.0)
+    wind_object = PointerProperty(
+        name="Wind Object",
+        description="Object whose Y axis represents the wind direction",
+        type=bpy.types.Object,
+        poll=idprops.poll_empty_objects,
+    )
+    wind_speed = FloatProperty(
+        name="Wind Speed", description="Magnitude of the wind", default=1.0
+    )
+    envmap = PointerProperty(
+        name="EnvMap",
+        description="Texture defining an environment map for this water object",
+        type=bpy.types.Texture,
+        poll=idprops.poll_envmap_textures,
+    )
+    envmap_radius = FloatProperty(
+        name="Environment Sphere Radius",
+        description="How far away the first object you want to see is",
+        min=5.0,
+        max=10000.0,
+        default=500.0,
+    )
 
-    specular_tint = FloatVectorProperty(name="Specular Tint",
-                                        subtype="COLOR",
-                                        min=0.0, max=1.0,
-                                        default=(1.0, 1.0, 1.0))
-    specular_alpha = FloatProperty(name="Specular Alpha",
-                                   min=0.0, max=1.0,
-                                   default=0.3)
-    noise = IntProperty(name="Noise",
-                        subtype="PERCENTAGE",
-                        min=0, max=300,
-                        default=50)
-    specular_start = FloatProperty(name="Specular Start",
-                                   min=0.0, max=1000.0,
-                                   default=50.0)
-    specular_end = FloatProperty(name="Specular End",
-                                 min=0.0, max=10000.0,
-                                 default=1000.0)
-    ripple_scale = FloatProperty(name="Ripple Scale",
-                                 min=5.0, max=1000.0,
-                                 default=25.0)
+    specular_tint = FloatVectorProperty(
+        name="Specular Tint", subtype="COLOR", min=0.0, max=1.0, default=(1.0, 1.0, 1.0)
+    )
+    specular_alpha = FloatProperty(name="Specular Alpha", min=0.0, max=1.0, default=0.3)
+    noise = IntProperty(name="Noise", subtype="PERCENTAGE", min=0, max=300, default=50)
+    specular_start = FloatProperty(
+        name="Specular Start", min=0.0, max=1000.0, default=50.0
+    )
+    specular_end = FloatProperty(
+        name="Specular End", min=0.0, max=10000.0, default=1000.0
+    )
+    ripple_scale = FloatProperty(name="Ripple Scale", min=5.0, max=1000.0, default=25.0)
 
-    depth_opacity = FloatProperty(name="Opacity End",
-                                  min=0.5, max=20.0,
-                                  default=3.0)
-    depth_reflection = FloatProperty(name="Reflection End",
-                                     min=0.5, max=20.0,
-                                     default=3.0)
-    depth_wave = FloatProperty(name="Wave End",
-                               min=0.5, max=20.0,
-                               default=4.0)
-    zero_opacity = FloatProperty(name="Opacity Start",
-                                 min=-10.0, max=10.0,
-                                 default=-1.0)
-    zero_reflection = FloatProperty(name="Reflection Start",
-                                    min=-10.0, max=10.0,
-                                    default=0.0)
-    zero_wave = FloatProperty(name="Wave Start",
-                              min=-10.0, max=10.0,
-                              default=0.0)
+    depth_opacity = FloatProperty(name="Opacity End", min=0.5, max=20.0, default=3.0)
+    depth_reflection = FloatProperty(
+        name="Reflection End", min=0.5, max=20.0, default=3.0
+    )
+    depth_wave = FloatProperty(name="Wave End", min=0.5, max=20.0, default=4.0)
+    zero_opacity = FloatProperty(
+        name="Opacity Start", min=-10.0, max=10.0, default=-1.0
+    )
+    zero_reflection = FloatProperty(
+        name="Reflection Start", min=-10.0, max=10.0, default=0.0
+    )
+    zero_wave = FloatProperty(name="Wave Start", min=-10.0, max=10.0, default=0.0)
 
     @property
     def copy_material(self):
@@ -243,14 +308,21 @@ class PlasmaWaterModifier(idprops.IDPropMixin, PlasmaModifierProperties, bpy.typ
     def export(self, exporter, bo, so):
         waveset = exporter.mgr.find_create_object(plWaveSet7, name=bo.name, so=so)
         if self.wind_object:
-            if self.wind_object.plasma_object.enabled and self.wind_object.plasma_modifiers.animation.enabled:
-                waveset.refObj = exporter.mgr.find_create_key(plSceneObject, bl=self.wind_object)
+            if (
+                self.wind_object.plasma_object.enabled
+                and self.wind_object.plasma_modifiers.animation.enabled
+            ):
+                waveset.refObj = exporter.mgr.find_create_key(
+                    plSceneObject, bl=self.wind_object
+                )
                 waveset.setFlag(plWaveSet7.kHasRefObject, True)
 
             # This is much like what happened in PyPRP
             speed = self.wind_speed
             matrix = self.wind_object.matrix_world
-            wind_dir = hsVector3(matrix[1][0] * speed, matrix[1][1] * speed, matrix[1][2] * speed)
+            wind_dir = hsVector3(
+                matrix[1][0] * speed, matrix[1][1] * speed, matrix[1][2] * speed
+            )
         else:
             # Stolen shamelessly from PyPRP
             wind_dir = hsVector3(0.0871562, 0.996195, 0.0)
@@ -260,15 +332,23 @@ class PlasmaWaterModifier(idprops.IDPropMixin, PlasmaModifierProperties, bpy.typ
         state.rippleScale = self.ripple_scale
         state.waterHeight = bo.matrix_world.translation[2]
         state.windDir = wind_dir
-        state.specVector = hsVector3(self.noise / 100.0, self.specular_start, self.specular_end)
+        state.specVector = hsVector3(
+            self.noise / 100.0, self.specular_start, self.specular_end
+        )
         state.specularTint = hsColorRGBA(*self.specular_tint, alpha=self.specular_alpha)
-        state.waterOffset = hsVector3(self.zero_opacity * -1.0, self.zero_reflection * -1.0, self.zero_wave * -1.0)
-        state.depthFalloff = hsVector3(self.depth_opacity, self.depth_reflection, self.depth_wave)
+        state.waterOffset = hsVector3(
+            self.zero_opacity * -1.0, self.zero_reflection * -1.0, self.zero_wave * -1.0
+        )
+        state.depthFalloff = hsVector3(
+            self.depth_opacity, self.depth_reflection, self.depth_wave
+        )
 
         # Environment Map
         if self.envmap:
             # maybe, just maybe, we're absuing our privledges?
-            dem = exporter.mesh.material.export_dynamic_env(bo, None, self.envmap, plDynamicEnvMap)
+            dem = exporter.mesh.material.export_dynamic_env(
+                bo, None, self.envmap, plDynamicEnvMap
+            )
             waveset.envMap = dem.key
             state.envCenter = dem.position
             state.envRefresh = dem.refreshRate
@@ -296,12 +376,10 @@ class PlasmaWaterModifier(idprops.IDPropMixin, PlasmaModifierProperties, bpy.typ
 
     @classmethod
     def _idprop_mapping(cls):
-        return {"wind_object": "wind_object_name",
-                "envmap": "envmap_name"}
+        return {"wind_object": "wind_object_name", "envmap": "envmap_name"}
 
     def _idprop_sources(self):
-        return {"wind_object_name": bpy.data.objects,
-                "envmap_name": bpy.data.textures}
+        return {"wind_object_name": bpy.data.objects, "envmap_name": bpy.data.textures}
 
     @property
     def key_name(self):
@@ -310,10 +388,12 @@ class PlasmaWaterModifier(idprops.IDPropMixin, PlasmaModifierProperties, bpy.typ
 
 class PlasmaShoreObject(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
     display_name = StringProperty(name="Display Name")
-    shore_object = PointerProperty(name="Shore Object",
-                                   description="Object that waves crash upon",
-                                   type=bpy.types.Object,
-                                   poll=idprops.poll_mesh_objects)
+    shore_object = PointerProperty(
+        name="Shore Object",
+        description="Object that waves crash upon",
+        type=bpy.types.Object,
+        poll=idprops.poll_mesh_objects,
+    )
 
     @classmethod
     def _idprop_mapping(cls):
@@ -340,37 +420,50 @@ class PlasmaWaterShoreModifier(PlasmaModifierProperties):
     shores = CollectionProperty(type=PlasmaShoreObject)
     active_shore_index = IntProperty(options={"HIDDEN"})
 
-    shore_tint = FloatVectorProperty(name="Shore Tint",
-                                     subtype="COLOR",
-                                     min=0.0, max=1.0,
-                                     default=_shore_tint_default)
-    shore_opacity = IntProperty(name="Shore Opacity",
-                                subtype="PERCENTAGE",
-                                min=0, max=100,
-                                default=_shore_opacity_default)
-    wispiness = IntProperty(name="Wispiness",
-                            subtype="PERCENTAGE",
-                            min=0, max=200,
-                            default=_wispiness_default)
+    shore_tint = FloatVectorProperty(
+        name="Shore Tint",
+        subtype="COLOR",
+        min=0.0,
+        max=1.0,
+        default=_shore_tint_default,
+    )
+    shore_opacity = IntProperty(
+        name="Shore Opacity",
+        subtype="PERCENTAGE",
+        min=0,
+        max=100,
+        default=_shore_opacity_default,
+    )
+    wispiness = IntProperty(
+        name="Wispiness",
+        subtype="PERCENTAGE",
+        min=0,
+        max=200,
+        default=_wispiness_default,
+    )
 
-    period = FloatProperty(name="Period",
-                           min=0.0, max=200.0,
-                           default=_period_default)
-    finger = FloatProperty(name="Finger",
-                           min=50.0, max=300.0,
-                           default=_finger_default)
-    edge_opacity = IntProperty(name="Edge Opacity",
-                               subtype="PERCENTAGE",
-                               min=0, max=100,
-                               default=_edge_opacity_default)
-    edge_radius = FloatProperty(name="Edge Radius",
-                                subtype="PERCENTAGE",
-                                min=50, max=300,
-                                default=_edge_radius_default)
+    period = FloatProperty(name="Period", min=0.0, max=200.0, default=_period_default)
+    finger = FloatProperty(name="Finger", min=50.0, max=300.0, default=_finger_default)
+    edge_opacity = IntProperty(
+        name="Edge Opacity",
+        subtype="PERCENTAGE",
+        min=0,
+        max=100,
+        default=_edge_opacity_default,
+    )
+    edge_radius = FloatProperty(
+        name="Edge Radius",
+        subtype="PERCENTAGE",
+        min=50,
+        max=300,
+        default=_edge_radius_default,
+    )
 
     def convert_default(self, wavestate):
         wavestate.wispiness = self._wispiness_default / 100.0
-        wavestate.minColor = hsColorRGBA(*self._shore_tint_default, alpha=(self._shore_opacity_default / 100.0))
+        wavestate.minColor = hsColorRGBA(
+            *self._shore_tint_default, alpha=(self._shore_opacity_default / 100.0)
+        )
         wavestate.edgeOpacity = self._edge_opacity_default / 100.0
         wavestate.edgeRadius = self._edge_radius_default / 100.0
         wavestate.period = self._period_default / 100.0
@@ -382,11 +475,19 @@ class PlasmaWaterShoreModifier(PlasmaModifierProperties):
 
         for i in self.shores:
             if i.shore_object is None:
-                raise ExportError("'{}': Shore Object for '{}' is invalid".format(self.key_name, i.display_name))
-            waveset.addShore(exporter.mgr.find_create_key(plSceneObject, bl=i.shore_object))
+                raise ExportError(
+                    "'{}': Shore Object for '{}' is invalid".format(
+                        self.key_name, i.display_name
+                    )
+                )
+            waveset.addShore(
+                exporter.mgr.find_create_key(plSceneObject, bl=i.shore_object)
+            )
 
         wavestate.wispiness = self.wispiness / 100.0
-        wavestate.minColor = hsColorRGBA(*self.shore_tint, alpha=(self.shore_opacity / 100.0))
+        wavestate.minColor = hsColorRGBA(
+            *self.shore_tint, alpha=(self.shore_opacity / 100.0)
+        )
         wavestate.edgeOpacity = self.edge_opacity / 100.0
         wavestate.edgeRadius = self.edge_radius / 100.0
         wavestate.period = self.period / 100.0
@@ -413,28 +514,43 @@ class PlasmaWaveState:
 
     @classmethod
     def register(cls):
-        cls.min_length = FloatProperty(name="Min Length",
-                                       description="Smallest wave length",
-                                       min=0.1, max=50.0,
-                                       default=cls._min_length_default)
-        cls.max_length = FloatProperty(name="Max Length",
-                                       description="Largest wave length",
-                                       min=0.1, max=50.0,
-                                       default=cls._max_length_default)
-        cls.amplitude = IntProperty(name="Amplitude",
-                                    description="Multiplier for wave height",
-                                    subtype="PERCENTAGE",
-                                    min=0, max=100,
-                                    default=cls._amplitude_default)
-        cls.chop = IntProperty(name="Choppiness",
-                               description="Sharpness of wave crests",
-                               subtype="PERCENTAGE",
-                               min=0, max=500,
-                               default=cls._chop_default)
-        cls.angle_dev = FloatProperty(name="Wave Spread",
-                                      subtype="ANGLE",
-                                      min=math.radians(0.0), max=math.radians(180.0),
-                                      default=cls._angle_dev_default)
+        cls.min_length = FloatProperty(
+            name="Min Length",
+            description="Smallest wave length",
+            min=0.1,
+            max=50.0,
+            default=cls._min_length_default,
+        )
+        cls.max_length = FloatProperty(
+            name="Max Length",
+            description="Largest wave length",
+            min=0.1,
+            max=50.0,
+            default=cls._max_length_default,
+        )
+        cls.amplitude = IntProperty(
+            name="Amplitude",
+            description="Multiplier for wave height",
+            subtype="PERCENTAGE",
+            min=0,
+            max=100,
+            default=cls._amplitude_default,
+        )
+        cls.chop = IntProperty(
+            name="Choppiness",
+            description="Sharpness of wave crests",
+            subtype="PERCENTAGE",
+            min=0,
+            max=500,
+            default=cls._chop_default,
+        )
+        cls.angle_dev = FloatProperty(
+            name="Wave Spread",
+            subtype="ANGLE",
+            min=math.radians(0.0),
+            max=math.radians(180.0),
+            default=cls._angle_dev_default,
+        )
 
 
 class PlasmaWaveGeoState(PlasmaWaveState, PlasmaModifierProperties):

@@ -17,6 +17,7 @@ import bpy
 
 from . import modifiers as modifier_draw
 
+
 class ModifierButtonsPanel:
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
@@ -54,7 +55,9 @@ class PlasmaModifiersPanel(ModifierButtonsPanel, bpy.types.Panel):
 
         # First, let's sort the list of modifiers based on their display order
         # We don't do this sort in the property itself because this is really just a UI hint.
-        modifiers = sorted(obj.plasma_modifiers.modifiers, key=lambda x: x.display_order)
+        modifiers = sorted(
+            obj.plasma_modifiers.modifiers, key=lambda x: x.display_order
+        )
 
         # Inside the modifier_draw module, we have draw callbables for each modifier
         # We'll loop through the list of active modifiers and call the drawprocs for the enabled mods
@@ -65,7 +68,7 @@ class PlasmaModifiersPanel(ModifierButtonsPanel, bpy.types.Panel):
 
     def _draw_modifier_template(self, modifier):
         """This draws our lookalike modifier template and returns a UILayout object for each modifier
-           to consume in order to draw its specific properties"""
+        to consume in order to draw its specific properties"""
         layout = self.layout.box()
 
         # This is the main title row. It mimics the Blender template_modifier, which (unfortunately)
@@ -77,11 +80,21 @@ class PlasmaModifiersPanel(ModifierButtonsPanel, bpy.types.Panel):
         row.prop(modifier, "show_expanded", text="", icon=exicon, emboss=False)
         row.label(text=modifier.bl_label, icon=getattr(modifier, "bl_icon", "NONE"))
 
-        row.operator("object.plasma_modifier_move_up", text="", icon="TRIA_UP").active_modifier = modifier.display_order
-        row.operator("object.plasma_modifier_move_down", text="", icon="TRIA_DOWN").active_modifier = modifier.display_order
-        row.operator("object.plasma_modifier_copy", text="", icon="COPYDOWN").active_modifier = modifier.display_order
-        row.operator("object.plasma_modifier_reset", text="", icon="FILE_REFRESH").active_modifier = modifier.display_order
-        row.operator("object.plasma_modifier_remove", text="", icon="X").active_modifier = modifier.display_order
+        row.operator(
+            "object.plasma_modifier_move_up", text="", icon="TRIA_UP"
+        ).active_modifier = modifier.display_order
+        row.operator(
+            "object.plasma_modifier_move_down", text="", icon="TRIA_DOWN"
+        ).active_modifier = modifier.display_order
+        row.operator(
+            "object.plasma_modifier_copy", text="", icon="COPYDOWN"
+        ).active_modifier = modifier.display_order
+        row.operator(
+            "object.plasma_modifier_reset", text="", icon="FILE_REFRESH"
+        ).active_modifier = modifier.display_order
+        row.operator(
+            "object.plasma_modifier_remove", text="", icon="X"
+        ).active_modifier = modifier.display_order
 
         # Now we return the modifier box, which is populated with the modifier specific properties
         # by whatever insanity is in the modifier module. modifier modifier modifier...
@@ -97,8 +110,16 @@ class PlasmaModifiersSpecialMenu(ModifierButtonsPanel, bpy.types.Menu):
 
         layout.operator("object.plasma_modifier_copy_to_selection", icon="PASTEDOWN")
         layout.separator()
-        layout.operator("object.plasma_modifier_copy", icon="COPYDOWN", text="Copy Modifiers").active_modifier = -1
-        layout.operator("object.plasma_modifier_paste", icon="PASTEDOWN", text="Paste Modifier(s)")
+        layout.operator(
+            "object.plasma_modifier_copy", icon="COPYDOWN", text="Copy Modifiers"
+        ).active_modifier = -1
+        layout.operator(
+            "object.plasma_modifier_paste", icon="PASTEDOWN", text="Paste Modifier(s)"
+        )
         layout.separator()
-        layout.operator("object.plasma_modifier_reset", text="Reset Modifiers", icon="FILE_REFRESH").active_modifier = -1
-        layout.operator("object.plasma_modifier_remove", text="Remove Modifiers", icon="X").active_modifier = -1
+        layout.operator(
+            "object.plasma_modifier_reset", text="Reset Modifiers", icon="FILE_REFRESH"
+        ).active_modifier = -1
+        layout.operator(
+            "object.plasma_modifier_remove", text="Remove Modifiers", icon="X"
+        ).active_modifier = -1

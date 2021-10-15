@@ -15,6 +15,7 @@
 
 import bpy
 
+
 class PlasmaImageEditorHeader(bpy.types.Header):
     bl_space_type = "IMAGE_EDITOR"
 

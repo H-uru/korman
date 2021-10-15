@@ -21,17 +21,23 @@ import weakref
 
 from ..exporter.explosions import ExportError
 
+
 def _get_puddle_class(exporter, name, vs):
     if vs:
         # sigh... thou shalt not...
-        exporter.report.warn("'{}': Cannot use 'Water Ripple (Shallow) on a waveset--forcing to 'Water Ripple (Deep)", name)
+        exporter.report.warn(
+            "'{}': Cannot use 'Water Ripple (Shallow) on a waveset--forcing to 'Water Ripple (Deep)",
+            name,
+        )
         return plDynaRippleVSMgr
     return plDynaPuddleMgr
+
 
 def _get_footprint_class(exporter, name, vs):
     if vs:
         raise ExportError("'{}': Footprints cannot be attached to wavesets", name)
     return plDynaFootMgr
+
 
 class DecalConverter:
     _decal_lookup = {
@@ -53,7 +59,9 @@ class DecalConverter:
         # We don't care about: DynaDecalMgrs in another page.
         decal_mgrs, so_key = self._decal_managers.get(decal_name), so.key
         if decal_mgrs is None:
-            raise ExportError("'{}': Invalid decal manager '{}'", so_key.name, decal_name)
+            raise ExportError(
+                "'{}': Invalid decal manager '{}'", so_key.name, decal_name
+            )
 
         # If we are waveset water, then we can only have one target...
         waveset_id = plFactory.ClassIndex("plWaveSet7")
@@ -61,12 +69,17 @@ class DecalConverter:
 
         so_loc = so_key.location
         for key, decal_mgr in ((i, i.object) for i in decal_mgrs):
-            if key.location == so_loc and getattr(decal_mgr, "waveSet", None) == waveset:
+            if (
+                key.location == so_loc
+                and getattr(decal_mgr, "waveSet", None) == waveset
+            ):
                 decal_mgr.addTarget(so_key)
 
         # HACKAGE: Add the wet/dirty notifes now that we know about all the decal managers.
         notify_names = self._notifies[decal_name]
-        notify_keys = itertools.chain.from_iterable((self._decal_managers[i] for i in notify_names))
+        notify_keys = itertools.chain.from_iterable(
+            (self._decal_managers[i] for i in notify_names)
+        )
         for notify_key in notify_keys:
             for i in (i.object for i in decal_mgrs):
                 i.addNotify(notify_key)
@@ -76,7 +89,9 @@ class DecalConverter:
     def export_active_print_shape(self, print_shape, decal_name):
         decal_mgrs = self._decal_managers.get(decal_name)
         if decal_mgrs is None:
-            raise ExportError("'{}': Invalid decal manager '{}'", print_shape.key.name, decal_name)
+            raise ExportError(
+                "'{}': Invalid decal manager '{}'", print_shape.key.name, decal_name
+            )
         for i in decal_mgrs:
             print_shape.addDecalMgr(i)
 
@@ -84,7 +99,9 @@ class DecalConverter:
         mat_mgr = self._exporter().mesh.material
         mat_keys = mat_mgr.get_materials(bo)
         if not mat_keys:
-            raise ExportError("'{}': Cannot print decal onto object with no materials", bo.name)
+            raise ExportError(
+                "'{}': Cannot print decal onto object with no materials", bo.name
+            )
 
         zFlags = hsGMatState.kZIncLayer | hsGMatState.kZNoZWrite
         for material in (i.object for i in mat_keys):
@@ -97,7 +114,14 @@ class DecalConverter:
             layer.state.ZFlags |= zFlags
 
     def generate_dynamic_decal(self, bo, decal_name):
-        decal = next((i for i in bpy.context.scene.plasma_scene.decal_managers if i.name == decal_name), None)
+        decal = next(
+            (
+                i
+                for i in bpy.context.scene.plasma_scene.decal_managers
+                if i.name == decal_name
+            ),
+            None,
+        )
         if decal is None:
             raise ExportError("'{}': Invalid decal manager '{}'", bo.name, decal_name)
 
@@ -112,7 +136,9 @@ class DecalConverter:
         name = "{}_{}".format(decal_name, bo.name) if is_waveset else decal_name
         decal_mgr = exporter.mgr.find_object(pClass, bl=bo, name=name)
         if decal_mgr is None:
-            self._report.msg("Exporing decal manager '{}' to '{}'", decal_name, name, indent=2)
+            self._report.msg(
+                "Exporing decal manager '{}' to '{}'", decal_name, name, indent=2
+            )
 
             decal_mgr = exporter.mgr.add_object(pClass, bl=bo, name=name)
             self._decal_managers[decal_name].append(decal_mgr.key)
@@ -126,7 +152,9 @@ class DecalConverter:
 
             image = decal.image
             if image is None:
-                raise ExportError("'{}': decal manager '{}' has no image set", bo.name, decal_name)
+                raise ExportError(
+                    "'{}': decal manager '{}' has no image set", bo.name, decal_name
+                )
 
             blend = getattr(hsGMatState, decal.blend)
             mats = exporter.mesh.material.export_print_materials(bo, image, name, blend)
@@ -159,8 +187,13 @@ class DecalConverter:
             decal_mgr.waitOnEnable = decal_type == "footprint_wet"
             if decal_type in {"puddle", "ripple"}:
                 decal_mgr.wetLength = decal.wet_time
-                self._notifies[decal_name].update((i.name for i in decal.wet_managers
-                                                          if i.enabled and i.name != decal_name))
+                self._notifies[decal_name].update(
+                    (
+                        i.name
+                        for i in decal.wet_managers
+                        if i.enabled and i.name != decal_name
+                    )
+                )
 
             # UV Animations are hardcoded in PlasmaMAX. Any reason why we should expose this?
             # I can't think of any presently... Note testing the final instance instead of the

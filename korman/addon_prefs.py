@@ -17,31 +17,47 @@ import bpy
 from bpy.props import *
 from . import korlib
 
-game_versions = [("pvPrime", "Ages Beyond Myst (63.11)", "Targets the original Uru (Live) game"),
-                 ("pvPots", "Path of the Shell (63.12)", "Targets the most recent offline expansion pack"),
-                 ("pvMoul", "Myst Online: Uru Live (70)", "Targets the most recent online game")]
+game_versions = [
+    ("pvPrime", "Ages Beyond Myst (63.11)", "Targets the original Uru (Live) game"),
+    (
+        "pvPots",
+        "Path of the Shell (63.12)",
+        "Targets the most recent offline expansion pack",
+    ),
+    ("pvMoul", "Myst Online: Uru Live (70)", "Targets the most recent online game"),
+]
+
 
 class PlasmaGame(bpy.types.PropertyGroup):
-    name = StringProperty(name="Name",
-                          description="Name of the Plasma Game",
-                          options=set())
-    path = StringProperty(name="Path",
-                          description="Path to this Plasma Game",
-                          options=set())
-    version = EnumProperty(name="Version",
-                           description="Plasma version of this game",
-                           items=game_versions,
-                           options=set())
+    name = StringProperty(
+        name="Name", description="Name of the Plasma Game", options=set()
+    )
+    path = StringProperty(
+        name="Path", description="Path to this Plasma Game", options=set()
+    )
+    version = EnumProperty(
+        name="Version",
+        description="Plasma version of this game",
+        items=game_versions,
+        options=set(),
+    )
 
-    player = StringProperty(name="Player",
-                            description="Name of the player to use when launching the game",
-                            options=set())
-    ki = IntProperty(name="KI",
-                     description="KI Number of the player to use when launching the game",
-                     options=set(), min=0)
-    serverini = StringProperty(name="Server INI",
-                               description="Name of the server configuation to use when launching the game",
-                               options=set())
+    player = StringProperty(
+        name="Player",
+        description="Name of the player to use when launching the game",
+        options=set(),
+    )
+    ki = IntProperty(
+        name="KI",
+        description="KI Number of the player to use when launching the game",
+        options=set(),
+        min=0,
+    )
+    serverini = StringProperty(
+        name="Server INI",
+        description="Name of the server configuation to use when launching the game",
+        options=set(),
+    )
 
     @property
     def can_launch(self):
@@ -60,28 +76,36 @@ class KormanAddonPreferences(bpy.types.AddonPreferences):
     def _check_py22_exe(self, context):
         if self._ensure_abspath((2, 2)):
             self._check_python((2, 2))
+
     def _check_py23_exe(self, context):
         if self._ensure_abspath((2, 3)):
             self._check_python((2, 3))
+
     def _check_py27_exe(self, context):
         if self._ensure_abspath((2, 7)):
             self._check_python((2, 7))
 
-    python22_executable = StringProperty(name="Python 2.2",
-                                         description="Path to the Python 2.2 executable",
-                                         options=set(),
-                                         subtype="FILE_PATH",
-                                         update=_check_py22_exe)
-    python23_executable = StringProperty(name="Python 2.3",
-                                         description="Path to the Python 2.3 executable",
-                                         options=set(),
-                                         subtype="FILE_PATH",
-                                         update=_check_py23_exe)
-    python27_executable = StringProperty(name="Python 2.7",
-                                         description="Path to the Python 2.7 executable",
-                                         options=set(),
-                                         subtype="FILE_PATH",
-                                         update=_check_py27_exe)
+    python22_executable = StringProperty(
+        name="Python 2.2",
+        description="Path to the Python 2.2 executable",
+        options=set(),
+        subtype="FILE_PATH",
+        update=_check_py22_exe,
+    )
+    python23_executable = StringProperty(
+        name="Python 2.3",
+        description="Path to the Python 2.3 executable",
+        options=set(),
+        subtype="FILE_PATH",
+        update=_check_py23_exe,
+    )
+    python27_executable = StringProperty(
+        name="Python 2.7",
+        description="Path to the Python 2.7 executable",
+        options=set(),
+        subtype="FILE_PATH",
+        update=_check_py27_exe,
+    )
 
     def _validate_py_exes(self):
         if not self.is_property_set("python22_valid"):
@@ -96,7 +120,9 @@ class KormanAddonPreferences(bpy.types.AddonPreferences):
     python22_valid = BoolProperty(options={"HIDDEN", "SKIP_SAVE"})
     python23_valid = BoolProperty(options={"HIDDEN", "SKIP_SAVE"})
     python27_valid = BoolProperty(options={"HIDDEN", "SKIP_SAVE"})
-    python_validated = BoolProperty(get=_validate_py_exes, options={"HIDDEN", "SKIP_SAVE"})
+    python_validated = BoolProperty(
+        get=_validate_py_exes, options={"HIDDEN", "SKIP_SAVE"}
+    )
 
     def _check_python(self, py_version):
         py_exe = getattr(self, "python{}{}_executable".format(*py_version))
@@ -121,8 +147,15 @@ class KormanAddonPreferences(bpy.types.AddonPreferences):
 
         main_col.label("Plasma Games:")
         row = main_col.row()
-        row.template_list("PlasmaGameListRW", "games", self, "games", self,
-                          "active_game_index", rows=3)
+        row.template_list(
+            "PlasmaGameListRW",
+            "games",
+            self,
+            "games",
+            self,
+            "active_game_index",
+            rows=3,
+        )
         col = row.column(align=True)
         col.operator("world.plasma_game_add", icon="ZOOMIN", text="")
         col.operator("world.plasma_game_remove", icon="ZOOMOUT", text="")
@@ -171,4 +204,5 @@ class KormanAddonPreferences(bpy.types.AddonPreferences):
         # Register the old-timey per-world Plasma Games for use in the conversion
         # operator. What fun. I guess....
         from .properties.prop_world import PlasmaGames
+
         PlasmaGames.games = CollectionProperty(type=PlasmaGame)

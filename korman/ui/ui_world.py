@@ -86,7 +86,9 @@ class PlasmaGameExportMenu(PlasmaGameHelper, bpy.types.Menu):
         row.operator_context = "EXEC_DEFAULT"
         age_path = self.format_path()
         row.active = legal_game and active_game.can_launch and age_path.exists()
-        op = row.operator("export.plasma_age", icon="RENDER_ANIMATION", text="Launch Age")
+        op = row.operator(
+            "export.plasma_age", icon="RENDER_ANIMATION", text="Launch Age"
+        )
         if active_game is not None:
             op.actions = {"LAUNCH"}
             op.dat_only = False
@@ -133,8 +135,15 @@ class PlasmaGamePanel(AgeButtonsPanel, PlasmaGameHelper, bpy.types.Panel):
 
         row = layout.row()
         # Remember: game storage moved to addon preferences!
-        row.template_list("PlasmaGameListRO", "games", prefs, "games", games,
-                          "active_game_index", rows=2)
+        row.template_list(
+            "PlasmaGameListRO",
+            "games",
+            prefs,
+            "games",
+            games,
+            "active_game_index",
+            rows=2,
+        )
         row.operator("ui.korman_open_prefs", icon="PREFERENCES", text="")
 
         layout.separator()
@@ -168,20 +177,54 @@ class PlasmaGamePanel(AgeButtonsPanel, PlasmaGameHelper, bpy.types.Panel):
         # Special Menu
         row = row.row(align=True)
         row.enabled = True
-        row.menu("PlasmaGameExportMenu", icon='DOWNARROW_HLT', text="")
+        row.menu("PlasmaGameExportMenu", icon="DOWNARROW_HLT", text="")
 
 
 class PlasmaGameListRO(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_property,
+        index=0,
+        flt_flag=0,
+    ):
         layout.label(item.name, icon="BOOKMARKS")
 
+
 class PlasmaGameListRW(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_property,
+        index=0,
+        flt_flag=0,
+    ):
         layout.prop(item, "name", text="", emboss=False, icon="BOOKMARKS")
 
 
 class PlasmaPageList(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_property,
+        index=0,
+        flt_flag=0,
+    ):
         layout.prop(item, "name", text="", emboss=False, icon="BOOKMARKS")
         layout.prop(item, "enabled", text="")
 
@@ -195,8 +238,9 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
 
         # We want a list of pages and an editor below that
         row = layout.row()
-        row.template_list("PlasmaPageList", "pages", age, "pages", age,
-                          "active_page_index", rows=2)
+        row.template_list(
+            "PlasmaPageList", "pages", age, "pages", age, "active_page_index", rows=2
+        )
         col = row.column(align=True)
         col.operator("world.plasma_page_add", icon="ZOOMIN", text="")
         col.operator("world.plasma_page_remove", icon="ZOOMOUT", text="")
@@ -222,8 +266,11 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
 
         # Age Names should really be legal Python 2.x identifiers for AgeSDLHooks
         legal_identifier = korlib.is_legal_python2_identifier(age.age_name)
-        illegal_age_name = not legal_identifier or '_' in age.age_name
-        bad_prefix = age.seq_prefix >= age.MOUL_PREFIX_RANGE[1] or age.seq_prefix <= age.MOUL_PREFIX_RANGE[0]
+        illegal_age_name = not legal_identifier or "_" in age.age_name
+        bad_prefix = (
+            age.seq_prefix >= age.MOUL_PREFIX_RANGE[1]
+            or age.seq_prefix <= age.MOUL_PREFIX_RANGE[0]
+        )
 
         # Core settings
         layout.separator()
@@ -242,22 +289,36 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
         col.prop(age, "age_name", text="")
 
         if age.seq_prefix >= age.MOUL_PREFIX_RANGE[1]:
-            layout.label(text="Your sequence prefix is too high for Myst Online: Uru Live", icon="ERROR")
+            layout.label(
+                text="Your sequence prefix is too high for Myst Online: Uru Live",
+                icon="ERROR",
+            )
         elif age.seq_prefix <= age.MOUL_PREFIX_RANGE[0]:
             # Unlikely.
-            layout.label(text="Your sequence prefix is too low for Myst Online: Uru Live", icon="ERROR")
+            layout.label(
+                text="Your sequence prefix is too low for Myst Online: Uru Live",
+                icon="ERROR",
+            )
 
         # Display a hint if the identifier is illegal
         if illegal_age_name:
             if not age.age_name:
                 layout.label(text="Age names cannot be empty", icon="ERROR")
             elif korlib.is_python_keyword(age.age_name):
-                layout.label(text="Ages should not be named the same as a Python keyword", icon="ERROR")
+                layout.label(
+                    text="Ages should not be named the same as a Python keyword",
+                    icon="ERROR",
+                )
             elif age.age_sdl:
                 fixed_identifier = korlib.replace_python2_identifier(age.age_name)
-                layout.label(text="Age's SDL will use the name '{}'".format(fixed_identifier), icon="ERROR")
-            if '_' in age.age_name:
-                layout.label(text="Age names should not contain underscores", icon="ERROR")
+                layout.label(
+                    text="Age's SDL will use the name '{}'".format(fixed_identifier),
+                    icon="ERROR",
+                )
+            if "_" in age.age_name:
+                layout.label(
+                    text="Age names should not contain underscores", icon="ERROR"
+                )
 
         layout.separator()
         split = layout.split()
@@ -289,8 +350,14 @@ class PlasmaEnvironmentPanel(AgeButtonsPanel, bpy.types.Panel):
         fni = context.world.plasma_fni
 
         # warn about reversed linear fog values
-        if fni.fog_method == "linear" and fni.fog_start >= fni.fog_end and (fni.fog_start + fni.fog_end) != 0:
-            layout.label(text="Fog Start Value should be less than the End Value", icon="ERROR")
+        if (
+            fni.fog_method == "linear"
+            and fni.fog_start >= fni.fog_end
+            and (fni.fog_start + fni.fog_end) != 0
+        ):
+            layout.label(
+                text="Fog Start Value should be less than the End Value", icon="ERROR"
+            )
 
         # basic colors
         split = layout.split()

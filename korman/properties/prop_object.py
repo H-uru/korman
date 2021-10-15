@@ -17,6 +17,7 @@ import bpy
 from bpy.props import *
 from PyHSPlasma import *
 
+
 class PlasmaObject(bpy.types.PropertyGroup):
     def _enabled(self, context):
         if not self.is_property_set("page"):
@@ -37,18 +38,18 @@ class PlasmaObject(bpy.types.PropertyGroup):
                 o.plasma_object.page = page.name
                 break
 
-
-    enabled = BoolProperty(name="Export",
-                           description="Export this as a discrete object",
-                           default=False,
-                           update=_enabled)
-    page = StringProperty(name="Page",
-                          description="Page this object will be exported to")
+    enabled = BoolProperty(
+        name="Export",
+        description="Export this as a discrete object",
+        default=False,
+        update=_enabled,
+    )
+    page = StringProperty(
+        name="Page", description="Page this object will be exported to"
+    )
 
     # DEAD - leaving in just in case external code uses it
-    is_inited = BoolProperty(description="DEAD",
-                             default=False,
-                             options={"HIDDEN"})
+    is_inited = BoolProperty(description="DEAD", default=False, options={"HIDDEN"})
 
     @property
     def ci_type(self):
@@ -75,8 +76,16 @@ class PlasmaObject(bpy.types.PropertyGroup):
         bo = self.id_data
         if bo.animation_data is not None:
             if bo.animation_data.action is not None:
-                data_paths = frozenset((i.data_path for i in bo.animation_data.action.fcurves))
-                return {"location", "rotation_euler", "rotation_quaternion", "rotation_axis_angle", "scale"} & data_paths
+                data_paths = frozenset(
+                    (i.data_path for i in bo.animation_data.action.fcurves)
+                )
+                return {
+                    "location",
+                    "rotation_euler",
+                    "rotation_quaternion",
+                    "rotation_axis_angle",
+                    "scale",
+                } & data_paths
         return False
 
     @property
@@ -91,9 +100,11 @@ class PlasmaObject(bpy.types.PropertyGroup):
 
 
 class PlasmaNet(bpy.types.PropertyGroup):
-    manual_sdl = BoolProperty(name="Override SDL",
-                              description="ADVANCED: Manually track high level states on this object",
-                              default=False)
+    manual_sdl = BoolProperty(
+        name="Override SDL",
+        description="ADVANCED: Manually track high level states on this object",
+        default=False,
+    )
     sdl_names = set()
 
     def propagate_synch_options(self, scnobj, synobj):
@@ -108,14 +119,16 @@ class PlasmaNet(bpy.types.PropertyGroup):
         else:
             # This SynchedObject may have already excluded or volatile'd everything
             # If so, bail.
-            if synobj.synchFlags & plSynchedObject.kExcludeAllPersistentState or \
-               synobj.synchFlags & plSynchedObject.kAllStateIsVolatile:
+            if (
+                synobj.synchFlags & plSynchedObject.kExcludeAllPersistentState
+                or synobj.synchFlags & plSynchedObject.kAllStateIsVolatile
+            ):
                 return
 
             # Is this a kickable?
             if scnobj.sim is not None:
                 phys = scnobj.sim.object.physical.object
-                has_kickable = (phys.memberGroup == plSimDefs.kGroupDynamic)
+                has_kickable = phys.memberGroup == plSimDefs.kGroupDynamic
             else:
                 has_kickable = False
 
@@ -159,16 +172,27 @@ class PlasmaNet(bpy.types.PropertyGroup):
     @classmethod
     def register(cls):
         def SdlEnumProperty(name):
-            value = bpy.props.EnumProperty(name=name,
-                                           description="{} state synchronization".format(name),
-                                           items=[
-                                               ("save", "Save to Server", "Save state on the server"),
-                                               ("volatile", "Volatile on Server", "Throw away state when the age shuts down"),
-                                               ("exclude", "Don't Send to Server", "Don't synchronize with the server"),
-                                            ],
-                                            default="exclude")
+            value = bpy.props.EnumProperty(
+                name=name,
+                description="{} state synchronization".format(name),
+                items=[
+                    ("save", "Save to Server", "Save state on the server"),
+                    (
+                        "volatile",
+                        "Volatile on Server",
+                        "Throw away state when the age shuts down",
+                    ),
+                    (
+                        "exclude",
+                        "Don't Send to Server",
+                        "Don't synchronize with the server",
+                    ),
+                ],
+                default="exclude",
+            )
             setattr(PlasmaNet, name, value)
             PlasmaNet.sdl_names.add(name)
+
         agmaster = SdlEnumProperty("AGMaster")
         avatar = SdlEnumProperty("Avatar")
         avatar_phys = SdlEnumProperty("AvatarPhysical")

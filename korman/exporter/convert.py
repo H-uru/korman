@@ -40,17 +40,24 @@ from . import physics
 from . import rtlight
 from . import utils
 
+
 class Exporter:
     def __init__(self, op):
-        self._op = op # Blender export operator
+        self._op = op  # Blender export operator
         self._objects = []
         self.actors = set()
         self.want_node_trees = defaultdict(set)
         self.exported_nodes = {}
 
     def run(self):
-        log = logger.ExportVerboseLogger if self._op.verbose else logger.ExportProgressLogger
-        with ConsoleToggler(self._op.show_console), log(self._op.filepath) as self.report, ExitStack() as self.exit_stack:
+        log = (
+            logger.ExportVerboseLogger
+            if self._op.verbose
+            else logger.ExportProgressLogger
+        )
+        with ConsoleToggler(self._op.show_console), log(
+            self._op.filepath
+        ) as self.report, ExitStack() as self.exit_stack:
             # Step 0: Init export resmgr and stuff
             self.mgr = manager.ExportManager(self)
             self.mesh = mesh.MeshConverter(self)
@@ -153,7 +160,13 @@ class Exporter:
 
         # Grab a naive listing of enabled pages
         age = scene.world.plasma_age
-        pages_enabled = frozenset((page.name for page in age.pages if page.enabled and self._op.version in page.version))
+        pages_enabled = frozenset(
+            (
+                page.name
+                for page in age.pages
+                if page.enabled and self._op.version in page.version
+            )
+        )
         all_pages = frozenset((page.name for page in age.pages))
 
         # Because we can have an unnamed or a named default page, we need to see if that is enabled...
@@ -228,13 +241,18 @@ class Exporter:
         parent = bo.parent
         if parent is not None:
             if parent.plasma_object.enabled:
-                self.report.msg("Attaching to parent SceneObject '{}'", parent.name, indent=1)
+                self.report.msg(
+                    "Attaching to parent SceneObject '{}'", parent.name, indent=1
+                )
                 parent_ci = self._export_coordinate_interface(None, parent)
                 parent_ci.addChild(so.key)
             else:
-                self.report.warn("You have parented Plasma Object '{}' to '{}', which has not been marked for export. \
+                self.report.warn(
+                    "You have parented Plasma Object '{}' to '{}', which has not been marked for export. \
                                  The object may not appear in the correct location or animate properly.".format(
-                                    bo.name, parent.name))
+                        bo.name, parent.name
+                    )
+                )
 
     def _export_coordinate_interface(self, so, bl):
         """Ensures that the SceneObject has a CoordinateInterface"""
@@ -260,7 +278,10 @@ class Exporter:
         self.report.msg("\nExporting localization...")
 
         for bl_obj in self._objects:
-            for mod in filter(lambda x: hasattr(x, "export_localization"), bl_obj.plasma_modifiers.modifiers):
+            for mod in filter(
+                lambda x: hasattr(x, "export_localization"),
+                bl_obj.plasma_modifiers.modifiers,
+            ):
                 mod.export_localization(self)
             inc_progress()
 
@@ -279,10 +300,17 @@ class Exporter:
             try:
                 export_fn = getattr(self, export_fn)
             except AttributeError:
-                self.report.warn("""'{}' is a Plasma Object of Blender type '{}'
-                                 ... And I have NO IDEA what to do with that! Tossing.""".format(bl_obj.name, bl_obj.type))
+                self.report.warn(
+                    """'{}' is a Plasma Object of Blender type '{}'
+                                 ... And I have NO IDEA what to do with that! Tossing.""".format(
+                        bl_obj.name, bl_obj.type
+                    )
+                )
                 continue
-            log_msg("Blender Object '{}' of type '{}'".format(bl_obj.name, bl_obj.type), indent=1)
+            log_msg(
+                "Blender Object '{}' of type '{}'".format(bl_obj.name, bl_obj.type),
+                indent=1,
+            )
 
             # Create a sceneobject if one does not exist.
             # Before we call the export_fn, we need to determine if this object is an actor of any
@@ -300,7 +328,9 @@ class Exporter:
     def _export_camera_blobj(self, so, bo):
         # Hey, guess what? Blender's camera data is utter crap!
         camera = bo.data.plasma_camera
-        self.camera.export_camera(so, bo, camera.camera_type, camera.settings, camera.transitions)
+        self.camera.export_camera(
+            so, bo, camera.camera_type, camera.settings, camera.transitions
+        )
 
     def _export_empty_blobj(self, so, bo):
         pass
@@ -319,7 +349,9 @@ class Exporter:
             if bo.data.materials:
                 self.mesh.export_object(meshObj, so)
             else:
-                self.report.msg("No material(s) on the ObData, so no drawables", indent=1)
+                self.report.msg(
+                    "No material(s) on the ObData, so no drawables", indent=1
+                )
 
     def _export_referenced_node_trees(self):
         self.report.progress_advance()
@@ -398,7 +430,12 @@ class Exporter:
             for mod in bl_obj.plasma_modifiers.modifiers:
                 proc = getattr(mod, "post_export", None)
                 if proc is not None:
-                    self.report.msg("Post processing '{}' modifier '{}'", bl_obj.name, mod.bl_label, indent=1)
+                    self.report.msg(
+                        "Post processing '{}' modifier '{}'",
+                        bl_obj.name,
+                        mod.bl_label,
+                        indent=1,
+                    )
                     proc(self, bl_obj, sceneobject)
             inc_progress()
 
@@ -413,13 +450,24 @@ class Exporter:
 
         @functools.singledispatch
         def handle_temporary(temporary, parent):
-            raise RuntimeError("Temporary object of type '{}' generated by '{}' was unhandled".format(temporary.__class__, parent.name))
+            raise RuntimeError(
+                "Temporary object of type '{}' generated by '{}' was unhandled".format(
+                    temporary.__class__, parent.name
+                )
+            )
 
         @handle_temporary.register(bpy.types.Object)
         def _(temporary, parent):
-            self.exit_stack.enter_context(TemporaryObject(temporary, bpy.data.objects.remove))
-            self.report.msg("'{}': generated Object '{}' (Plasma Object: {})", parent.name,
-                            temporary.name, temporary.plasma_object.enabled, indent=1)
+            self.exit_stack.enter_context(
+                TemporaryObject(temporary, bpy.data.objects.remove)
+            )
+            self.report.msg(
+                "'{}': generated Object '{}' (Plasma Object: {})",
+                parent.name,
+                temporary.name,
+                temporary.plasma_object.enabled,
+                indent=1,
+            )
             if temporary.plasma_object.enabled:
                 new_objects.append(temporary)
 
@@ -435,7 +483,9 @@ class Exporter:
 
         @handle_temporary.register(bpy.types.NodeTree)
         def _(temporary, parent):
-            self.exit_stack.enter_context(TemporaryObject(temporary, bpy.data.node_groups.remove))
+            self.exit_stack.enter_context(
+                TemporaryObject(temporary, bpy.data.node_groups.remove)
+            )
             self.report.msg("'{}' generated NodeTree '{}'", parent.name, temporary.name)
             if temporary.bl_idname == "PlasmaNodeTree":
                 parent_so = self.mgr.find_create_object(plSceneObject, bl=parent)

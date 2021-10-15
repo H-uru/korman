@@ -16,11 +16,20 @@
 import bpy
 from bpy.props import *
 
+
 class PlasmaImage(bpy.types.PropertyGroup):
-    texcache_method = EnumProperty(name="Texture Cache",
-                                   description="Texture Cache Settings",
-                                   items=[("skip", "Don't Cache Image", "This image is never cached."),
-                                          ("use", "Use Image Cache", "This image should be cached."),
-                                          ("rebuild", "Refresh Image Cache", "Forces this image to be recached on the next export.")],
-                                   default="use",
-                                   options=set())
+    texcache_method = EnumProperty(
+        name="Texture Cache",
+        description="Texture Cache Settings",
+        items=[
+            ("skip", "Don't Cache Image", "This image is never cached."),
+            ("use", "Use Image Cache", "This image should be cached."),
+            (
+                "rebuild",
+                "Refresh Image Cache",
+                "Forces this image to be recached on the next export.",
+            ),
+        ],
+        default="use",
+        options=set(),
+    )

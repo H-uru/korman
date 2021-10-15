@@ -16,6 +16,7 @@
 import bpy
 from .. import ui_camera
 
+
 def camera_rgn(modifier, layout, context):
     layout.prop(modifier, "camera_type")
     if modifier.camera_type == "manual":
@@ -29,19 +30,27 @@ def camera_rgn(modifier, layout, context):
                 layout.separator()
                 i(layout, cam_type, cam_props)
 
-        _draw_props(layout, (ui_camera.draw_camera_mode_props,
-                             ui_camera.draw_camera_poa_props,
-                             ui_camera.draw_camera_pos_props,
-                             ui_camera.draw_camera_manipulation_props))
+        _draw_props(
+            layout,
+            (
+                ui_camera.draw_camera_mode_props,
+                ui_camera.draw_camera_poa_props,
+                ui_camera.draw_camera_pos_props,
+                ui_camera.draw_camera_manipulation_props,
+            ),
+        )
+
 
 def footstep(modifier, layout, context):
     layout.prop(modifier, "bounds")
     layout.prop(modifier, "surface")
 
+
 def paniclink(modifier, layout, context):
     phys_mod = context.object.plasma_modifiers.collision
     layout.prop(phys_mod, "bounds")
     layout.prop(modifier, "play_anim")
+
 
 def softvolume(modifier, layout, context):
     row = layout.row()
@@ -58,6 +67,7 @@ def softvolume(modifier, layout, context):
         col = split.column()
         col.prop(modifier, "invert")
         col.prop(modifier, "soft_distance")
+
 
 def subworld_rgn(modifier, layout, context):
     layout.prop(modifier, "subworld")

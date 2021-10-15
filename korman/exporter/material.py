@@ -35,8 +35,15 @@ _MAX_STENCILS = 6
 
 # Blender cube map mega image to libHSPlasma plCubicEnvironmap faces mapping...
 # See https://blender.stackexchange.com/questions/46891/how-to-render-an-environment-to-a-cube-map-in-cycles
-BLENDER_CUBE_MAP = ("leftFace", "backFace", "rightFace",
-                    "bottomFace", "topFace", "frontFace")
+BLENDER_CUBE_MAP = (
+    "leftFace",
+    "backFace",
+    "rightFace",
+    "bottomFace",
+    "topFace",
+    "frontFace",
+)
+
 
 class _Texture:
     _DETAIL_BLEND = {
@@ -78,8 +85,9 @@ class _Texture:
                 self.alpha_type = TextureAlpha.full
             else:
                 self.alpha_type = kwargs.get("alpha_type", TextureAlpha.opaque)
-            self.allowed_formats = kwargs.get("allowed_formats",
-                                              {"DDS"} if self.mipmap else {"PNG", "JPG"})
+            self.allowed_formats = kwargs.get(
+                "allowed_formats", {"DDS"} if self.mipmap else {"PNG", "JPG"}
+            )
             self.is_cube_map = kwargs.get("is_cube_map", False)
 
         # Basic format sanity
@@ -120,10 +128,14 @@ class _Texture:
             name = "ALPHAGEN_{}".format(self.name)
 
         if self.is_detail_map:
-            name = "DETAILGEN_{}-{}-{}-{}-{}_{}".format(self._DETAIL_BLEND[self.detail_blend],
-                                                        self.detail_fade_start, self.detail_fade_stop,
-                                                        self.detail_opacity_start, self.detail_opacity_stop,
-                                                        self.name)
+            name = "DETAILGEN_{}-{}-{}-{}-{}_{}".format(
+                self._DETAIL_BLEND[self.detail_blend],
+                self.detail_fade_start,
+                self.detail_fade_stop,
+                self.detail_opacity_start,
+                self.detail_opacity_stop,
+                self.name,
+            )
         return name
 
     def _update(self, other):
@@ -150,10 +162,19 @@ class MaterialConverter:
             "NONE": self._export_texture_type_none,
         }
         self._animation_exporters = {
-            "ambientCtl": functools.partial(self._export_layer_diffuse_animation, converter=self.get_material_ambient),
+            "ambientCtl": functools.partial(
+                self._export_layer_diffuse_animation,
+                converter=self.get_material_ambient,
+            ),
             "opacityCtl": self._export_layer_opacity_animation,
-            "preshadeCtl": functools.partial(self._export_layer_diffuse_animation, converter=self.get_material_preshade),
-            "runtimeCtl": functools.partial(self._export_layer_diffuse_animation, converter=self.get_material_runtime),
+            "preshadeCtl": functools.partial(
+                self._export_layer_diffuse_animation,
+                converter=self.get_material_preshade,
+            ),
+            "runtimeCtl": functools.partial(
+                self._export_layer_diffuse_animation,
+                converter=self.get_material_runtime,
+            ),
             "transformCtl": self._export_layer_transform_animation,
         }
 
@@ -180,7 +201,9 @@ class MaterialConverter:
             elif method == "dcm2dem":
                 return True
             elif method == "perengine":
-                return (ver >= pvMoul and envmap.mapping == "PLANE") or envmap.mapping == "CUBE"
+                return (
+                    ver >= pvMoul and envmap.mapping == "PLANE"
+                ) or envmap.mapping == "CUBE"
             else:
                 raise NotImplementedError(method)
         else:
@@ -193,8 +216,17 @@ class MaterialConverter:
         # being a waveset, doublesided, etc.
         single_user = self._requires_single_user(bo, bm)
         if single_user:
-            mat_name = "{}_AutoSingle".format(bm.name) if bo.name == bm.name else "{}_{}".format(bo.name, bm.name)
-            self._report.msg("Exporting Material '{}' as single user '{}'", bm.name, mat_name, indent=1)
+            mat_name = (
+                "{}_AutoSingle".format(bm.name)
+                if bo.name == bm.name
+                else "{}_{}".format(bo.name, bm.name)
+            )
+            self._report.msg(
+                "Exporting Material '{}' as single user '{}'",
+                bm.name,
+                mat_name,
+                indent=1,
+            )
             hgmat = None
         else:
             # Ensure that RT-lit objects don't infect the static-lit objects.
@@ -205,7 +237,9 @@ class MaterialConverter:
                 mat_prefix = "RTLit_"
             else:
                 mat_prefix = ""
-            mat_prefix2 = "NonVtxP_" if self._exporter().mesh.is_nonpreshaded(bo, bm) else ""
+            mat_prefix2 = (
+                "NonVtxP_" if self._exporter().mesh.is_nonpreshaded(bo, bm) else ""
+            )
             mat_name = "".join((mat_prefix, mat_prefix2, bm.name))
             self._report.msg("Exporting Material '{}'", mat_name, indent=1)
             hsgmat = self._mgr.find_key(hsGMaterial, name=mat_name, bl=bo)
@@ -213,7 +247,11 @@ class MaterialConverter:
                 return hsgmat
 
         hsgmat = self._mgr.add_object(hsGMaterial, name=mat_name, bl=bo)
-        slots = [(idx, slot) for idx, slot in enumerate(bm.texture_slots) if self._can_export_texslot(slot)]
+        slots = [
+            (idx, slot)
+            for idx, slot in enumerate(bm.texture_slots)
+            if self._can_export_texslot(slot)
+        ]
 
         # There is a major difference in how Blender and Plasma handle stencils.
         # In Blender, the stencil is on top and applies to every layer below is. In Plasma, the stencil
@@ -223,7 +261,11 @@ class MaterialConverter:
         # main texture and 1 piggyback.
         num_stencils = sum((1 for i in slots if i[1].use_stencil))
         if num_stencils > _MAX_STENCILS:
-            raise ExportError("Material '{}' uses too many stencils. The maximum is {}".format(bm.name, _MAX_STENCILS))
+            raise ExportError(
+                "Material '{}' uses too many stencils. The maximum is {}".format(
+                    bm.name, _MAX_STENCILS
+                )
+            )
         stencils = []
         restart_pass_next = False
 
@@ -232,17 +274,21 @@ class MaterialConverter:
             # Prepend any BumpMapping magic layers
             if slot.use_map_normal:
                 if bo in self._bump_mats:
-                    raise ExportError("Material '{}' has more than one bumpmap layer".format(bm.name))
+                    raise ExportError(
+                        "Material '{}' has more than one bumpmap layer".format(bm.name)
+                    )
                 du, dw, dv = self.export_bumpmap_slot(bo, bm, hsgmat, slot, idx)
-                hsgmat.addLayer(du.key) # Du
-                hsgmat.addLayer(dw.key) # Dw
-                hsgmat.addLayer(dv.key) # Dv
+                hsgmat.addLayer(du.key)  # Du
+                hsgmat.addLayer(dw.key)  # Dw
+                hsgmat.addLayer(dv.key)  # Dv
 
             if slot.use_stencil:
                 stencils.append((idx, slot))
             else:
                 tex_name = "{}_{}".format(mat_name, slot.name)
-                tex_layer = self.export_texture_slot(bo, bm, hsgmat, slot, idx, name=tex_name)
+                tex_layer = self.export_texture_slot(
+                    bo, bm, hsgmat, slot, idx, name=tex_name
+                )
                 if restart_pass_next:
                     tex_layer.state.miscFlags |= hsGMatState.kMiscRestartPassHere
                     restart_pass_next = False
@@ -256,20 +302,28 @@ class MaterialConverter:
                     tex_state = tex_layer.state
                     if not tex_state.blendFlags & hsGMatState.kBlendMask:
                         tex_state.blendFlags |= hsGMatState.kBlendAlpha
-                    tex_state.miscFlags |= hsGMatState.kMiscRestartPassHere | hsGMatState.kMiscBindNext
+                    tex_state.miscFlags |= (
+                        hsGMatState.kMiscRestartPassHere | hsGMatState.kMiscBindNext
+                    )
                     curr_stencils = len(stencils)
                     for i in range(curr_stencils):
                         stencil_idx, stencil = stencils[i]
-                        stencil_name = "STENCILGEN_{}@{}_{}".format(stencil.name, bm.name, slot.name)
-                        stencil_layer = self.export_texture_slot(bo, bm, hsgmat, stencil, stencil_idx, name=stencil_name)
-                        if i+1 < curr_stencils:
+                        stencil_name = "STENCILGEN_{}@{}_{}".format(
+                            stencil.name, bm.name, slot.name
+                        )
+                        stencil_layer = self.export_texture_slot(
+                            bo, bm, hsgmat, stencil, stencil_idx, name=stencil_name
+                        )
+                        if i + 1 < curr_stencils:
                             stencil_layer.state.miscFlags |= hsGMatState.kMiscBindNext
                         hsgmat.addLayer(stencil_layer.key)
 
         # Plasma makes several assumptions that every hsGMaterial has at least one layer. If this
         # material had no Textures, we will need to initialize a default layer
         if not hsgmat.layers:
-            layer = self._mgr.find_create_object(plLayer, name="{}_AutoLayer".format(mat_name), bl=bo)
+            layer = self._mgr.find_create_object(
+                plLayer, name="{}_AutoLayer".format(mat_name), bl=bo
+            )
             self._obj2layer[bo][bm][None].append(layer.key)
             self._propagate_material_settings(bo, bm, layer)
             layer = self._export_layer_animations(bo, bm, None, 0, layer)
@@ -292,8 +346,14 @@ class MaterialConverter:
             layer.ambient = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
             layer.preshade = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
             layer.runtime = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
-            self.export_prepared_image(name=image_name, image=image, alpha_type=image_alpha,
-                                       owner=layer, allowed_formats={"DDS"}, indent=4)
+            self.export_prepared_image(
+                name=image_name,
+                image=image,
+                alpha_type=image_alpha,
+                owner=layer,
+                allowed_formats={"DDS"},
+                indent=4,
+            )
             material = self._mgr.add_object(hsGMaterial, bl=bo, name=name)
             material.addLayer(layer.key)
             return material, layer
@@ -302,14 +362,19 @@ class MaterialConverter:
 
         image_alpha = self._test_image_alpha(image)
         if image_alpha == TextureAlpha.opaque and want_preshade:
-            self._report.warn("Using an opaque texture with alpha blending -- this may look bad")
+            self._report.warn(
+                "Using an opaque texture with alpha blending -- this may look bad"
+            )
 
         # Non-alpha blendmodes absolutely cannot have an alpha channel. Period. Nada.
         # You can't even filter it out with blend flags. We'll try to mitigate the damage by
         # exporting a DXT1 version. As of right now, opaque vs on_off does nothing, so we still
         # get some turd-alpha data.
         if image_alpha == TextureAlpha.full and not want_preshade:
-            self._report.warn("Using an alpha texture with a non-alpha blend mode -- this may look bad", indent=3)
+            self._report.warn(
+                "Using an alpha texture with a non-alpha blend mode -- this may look bad",
+                indent=3,
+            )
             image_alpha = TextureAlpha.opaque
             image_name = "DECALPRINT_{}".format(image.name)
         else:
@@ -336,12 +401,19 @@ class MaterialConverter:
             self._report.msg("Exporting Print Material '{}'", prename, indent=3)
             pre_material, pre_layer = make_print_material(prename)
             pre_material.compFlags |= hsGMaterial.kCompNeedsBlendChannel
-            pre_layer.state.miscFlags |= hsGMatState.kMiscBindNext | hsGMatState.kMiscRestartPassHere
+            pre_layer.state.miscFlags |= (
+                hsGMatState.kMiscBindNext | hsGMatState.kMiscRestartPassHere
+            )
             pre_layer.preshade = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
 
-            blend_layer = self._mgr.add_object(plLayer, bl=bo, name="{}_AlphaBlend".format(rtname))
-            blend_layer.state.blendFlags = hsGMatState.kBlendAlpha | hsGMatState.kBlendNoTexColor | \
-                                           hsGMatState.kBlendAlphaMult
+            blend_layer = self._mgr.add_object(
+                plLayer, bl=bo, name="{}_AlphaBlend".format(rtname)
+            )
+            blend_layer.state.blendFlags = (
+                hsGMatState.kBlendAlpha
+                | hsGMatState.kBlendNoTexColor
+                | hsGMatState.kBlendAlphaMult
+            )
             blend_layer.state.clampFlags = hsGMatState.kClampTexture
             blend_layer.state.ZFlags = hsGMatState.kZNoZWrite
             blend_layer.ambient = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
@@ -374,9 +446,15 @@ class MaterialConverter:
         self._report.msg("Exporting Plasma Bumpmap Layers for '{}'", name, indent=2)
 
         # Okay, now we need to make 3 layers for the Du, Dw, and Dv
-        du_layer = self._mgr.find_create_object(plLayer, name="{}_DU_BumpLut".format(name), bl=bo)
-        dw_layer = self._mgr.find_create_object(plLayer, name="{}_DW_BumpLut".format(name), bl=bo)
-        dv_layer = self._mgr.find_create_object(plLayer, name="{}_DV_BumpLut".format(name), bl=bo)
+        du_layer = self._mgr.find_create_object(
+            plLayer, name="{}_DU_BumpLut".format(name), bl=bo
+        )
+        dw_layer = self._mgr.find_create_object(
+            plLayer, name="{}_DW_BumpLut".format(name), bl=bo
+        )
+        dv_layer = self._mgr.find_create_object(
+            plLayer, name="{}_DV_BumpLut".format(name), bl=bo
+        )
 
         for layer in (du_layer, dw_layer, dv_layer):
             layer.ambient = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
@@ -393,7 +471,9 @@ class MaterialConverter:
         if not slot.use_map_specular:
             du_layer.state.blendFlags = hsGMatState.kBlendMADD
 
-        du_layer.state.miscFlags |= hsGMatState.kMiscBumpDu | hsGMatState.kMiscRestartPassHere
+        du_layer.state.miscFlags |= (
+            hsGMatState.kMiscBumpDu | hsGMatState.kMiscRestartPassHere
+        )
         dw_layer.state.miscFlags |= hsGMatState.kMiscBumpDw
         dv_layer.state.miscFlags |= hsGMatState.kMiscBumpDv
 
@@ -406,7 +486,9 @@ class MaterialConverter:
         LUT_key = self._mgr.find_key(plMipmap, loc=page, name="BumpLutTexture")
 
         if LUT_key is None:
-            bumpLUT = plMipmap("BumpLutTexture", 16, 16, 1, plBitmap.kUncompressed, plBitmap.kRGB8888)
+            bumpLUT = plMipmap(
+                "BumpLutTexture", 16, 16, 1, plBitmap.kUncompressed, plBitmap.kRGB8888
+            )
             create_bump_LUT(bumpLUT)
             self._mgr.AddObject(page, bumpLUT)
             LUT_key = bumpLUT.key
@@ -417,7 +499,9 @@ class MaterialConverter:
 
         return (du_layer, dw_layer, dv_layer)
 
-    def export_texture_slot(self, bo, bm, hsgmat, slot, idx, name=None, blend_flags=True):
+    def export_texture_slot(
+        self, bo, bm, hsgmat, slot, idx, name=None, blend_flags=True
+    ):
         if name is None:
             name = "{}_{}".format(bm.name if bm is not None else bo.name, slot.name)
         self._report.msg("Exporting Plasma Layer '{}'", name, indent=2)
@@ -433,25 +517,39 @@ class MaterialConverter:
                     self._report.msg("Using UV Map #{} '{}'", i, name, indent=3)
                     break
             else:
-                self._report.msg("No UVMap specified... Blindly using the first one, maybe it exists :|", indent=3)
+                self._report.msg(
+                    "No UVMap specified... Blindly using the first one, maybe it exists :|",
+                    indent=3,
+                )
 
         # Transform
         xform = hsMatrix44()
-        translation = hsVector3(slot.offset.x - (slot.scale.x - 1.0) / 2.0,
-                                -slot.offset.y - (slot.scale.y - 1.0) / 2.0,
-                                slot.offset.z - (slot.scale.z - 1.0) / 2.0)
+        translation = hsVector3(
+            slot.offset.x - (slot.scale.x - 1.0) / 2.0,
+            -slot.offset.y - (slot.scale.y - 1.0) / 2.0,
+            slot.offset.z - (slot.scale.z - 1.0) / 2.0,
+        )
         xform.setTranslate(translation)
         xform.setScale(hsVector3(*slot.scale))
         layer.transform = xform
 
-        wantStencil, canStencil = slot.use_stencil, slot.use_stencil and bm is not None and not slot.use_map_normal
+        wantStencil, canStencil = (
+            slot.use_stencil,
+            slot.use_stencil and bm is not None and not slot.use_map_normal,
+        )
         if wantStencil and not canStencil:
-            self._exporter().report.warn("{} wants to stencil, but this is not a real Material".format(slot.name))
+            self._exporter().report.warn(
+                "{} wants to stencil, but this is not a real Material".format(slot.name)
+            )
 
         state = layer.state
         if canStencil:
             hsgmat.compFlags |= hsGMaterial.kCompNeedsBlendChannel
-            state.blendFlags |= hsGMatState.kBlendAlpha | hsGMatState.kBlendAlphaMult | hsGMatState.kBlendNoTexColor
+            state.blendFlags |= (
+                hsGMatState.kBlendAlpha
+                | hsGMatState.kBlendAlphaMult
+                | hsGMatState.kBlendNoTexColor
+            )
             state.ZFlags |= hsGMatState.kZNoZWrite
             layer.ambient = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
         elif blend_flags:
@@ -518,7 +616,9 @@ class MaterialConverter:
         converter = self._exporter().animation
         texture = tex_slot.texture if tex_slot is not None else None
 
-        def attach_layer(pClass: type, anim_name: str, controllers: Dict[str, plController]):
+        def attach_layer(
+            pClass: type, anim_name: str, controllers: Dict[str, plController]
+        ):
             nonlocal top_layer
             name = "{}_{}".format(base_layer.key.name, anim_name)
             layer_animation = self._mgr.find_create_object(pClass, bl=bo, name=name)
@@ -543,15 +643,18 @@ class MaterialConverter:
                     start, end = anim.start, anim.end
                 else:
                     start, end = None, None
-                controllers = self._export_layer_controllers(bo, bm, tex_slot, idx, base_layer,
-                                                             start=start, end=end)
+                controllers = self._export_layer_controllers(
+                    bo, bm, tex_slot, idx, base_layer, start=start, end=end
+                )
                 if not controllers:
                     continue
 
                 pClass = plLayerSDLAnimation if anim.sdl_var else plLayerAnimation
                 attach_layer(pClass, anim.animation_name, controllers)
                 atc = top_layer.timeConvert
-                atc.begin, atc.end = converter.get_frame_time_range(*controllers.values())
+                atc.begin, atc.end = converter.get_frame_time_range(
+                    *controllers.values()
+                )
                 atc.loopBegin, atc.loopEnd = atc.begin, atc.end
                 if not anim.auto_start:
                     atc.flags |= plAnimTimeConvert.kStopped
@@ -561,21 +664,32 @@ class MaterialConverter:
                     top_layer.varName = anim.sdl_var
         else:
             # Crappy automatic entire layer animation. Loop it by default.
-            controllers = self._export_layer_controllers(bo, bm, tex_slot, idx, base_layer)
+            controllers = self._export_layer_controllers(
+                bo, bm, tex_slot, idx, base_layer
+            )
             if controllers:
                 attach_layer(plLayerAnimation, "(Entire Animation)", controllers)
                 atc = top_layer.timeConvert
                 atc.flags |= plAnimTimeConvert.kLoop
-                atc.begin, atc.end = converter.get_frame_time_range(*controllers.values())
+                atc.begin, atc.end = converter.get_frame_time_range(
+                    *controllers.values()
+                )
                 atc.loopBegin = atc.begin
                 atc.loopEnd = atc.end
 
         return top_layer
 
-
-    def _export_layer_controllers(self, bo: bpy.types.Object, bm: bpy.types.Material, tex_slot,
-                                  idx: int, base_layer, *, start: Optional[int] = None,
-                                  end: Optional[int] = None) -> Dict[str, plController]:
+    def _export_layer_controllers(
+        self,
+        bo: bpy.types.Object,
+        bm: bpy.types.Material,
+        tex_slot,
+        idx: int,
+        base_layer,
+        *,
+        start: Optional[int] = None,
+        end: Optional[int] = None
+    ) -> Dict[str, plController]:
         """Convert animations on this material/texture combo in the requested range to Plasma controllers"""
 
         def harvest_fcurves(bl_id, collection, data_path=None):
@@ -589,7 +703,13 @@ class MaterialConverter:
                     if data_path is None:
                         collection.extend(action.fcurves)
                     else:
-                        collection.extend((i for i in action.fcurves if i.data_path.startswith(data_path)))
+                        collection.extend(
+                            (
+                                i
+                                for i in action.fcurves
+                                if i.data_path.startswith(data_path)
+                            )
+                        )
                     return action
             return None
 
@@ -609,12 +729,16 @@ class MaterialConverter:
         # animation controllers.
         controllers = {}
         for attr, converter in self._animation_exporters.items():
-            ctrl = converter(bo, bm, tex_slot, base_layer, fcurves, start=start, end=end)
+            ctrl = converter(
+                bo, bm, tex_slot, base_layer, fcurves, start=start, end=end
+            )
             if ctrl is not None:
                 controllers[attr] = ctrl
         return controllers
 
-    def _export_layer_diffuse_animation(self, bo, bm, tex_slot, base_layer, fcurves, *, start, end, converter):
+    def _export_layer_diffuse_animation(
+        self, bo, bm, tex_slot, base_layer, fcurves, *, start, end, converter
+    ):
         assert converter is not None
 
         # If there's no material, then this is simply impossible.
@@ -626,12 +750,19 @@ class MaterialConverter:
             result = converter(bo, bm, mathutils.Color(color_sequence))
             return result.red, result.green, result.blue
 
-        ctrl = self._exporter().animation.make_pos_controller(fcurves, "diffuse_color",
-                                                              bm.diffuse_color, translate_color,
-                                                              start=start, end=end)
+        ctrl = self._exporter().animation.make_pos_controller(
+            fcurves,
+            "diffuse_color",
+            bm.diffuse_color,
+            translate_color,
+            start=start,
+            end=end,
+        )
         return ctrl
 
-    def _export_layer_opacity_animation(self, bo, bm, tex_slot, base_layer, fcurves, *, start, end):
+    def _export_layer_opacity_animation(
+        self, bo, bm, tex_slot, base_layer, fcurves, *, start, end
+    ):
         # Dumb function to intercept the opacity values and properly flag the base layer
         def process_opacity(value):
             self._handle_layer_opacity(base_layer, value)
@@ -639,20 +770,30 @@ class MaterialConverter:
 
         for i in fcurves:
             if i.data_path == "plasma_layer.opacity":
-                ctrl = self._exporter().animation.make_scalar_leaf_controller(i, process_opacity, start=start, end=end)
+                ctrl = self._exporter().animation.make_scalar_leaf_controller(
+                    i, process_opacity, start=start, end=end
+                )
                 return ctrl
         return None
 
-    def _export_layer_transform_animation(self, bo, bm, tex_slot, base_layer, fcurves, *, start, end):
+    def _export_layer_transform_animation(
+        self, bo, bm, tex_slot, base_layer, fcurves, *, start, end
+    ):
         if tex_slot is not None:
             path = tex_slot.path_from_id()
             pos_path = "{}.offset".format(path)
             scale_path = "{}.scale".format(path)
 
             # Plasma uses the controller to generate a matrix44... so we have to produce a leaf controller
-            ctrl = self._exporter().animation.make_matrix44_controller(fcurves, pos_path, scale_path,
-                                                                       tex_slot.offset, tex_slot.scale,
-                                                                       start=start, end=end)
+            ctrl = self._exporter().animation.make_matrix44_controller(
+                fcurves,
+                pos_path,
+                scale_path,
+                tex_slot.offset,
+                tex_slot.scale,
+                start=start,
+                end=end,
+            )
             return ctrl
         return None
 
@@ -683,9 +824,13 @@ class MaterialConverter:
         # Sanity check: the image here should be 3x2 faces, so we should not have any
         #               dam remainder...
         if width % 3 != 0:
-            raise ExportError("CubeMap '{}' width must be a multiple of 3".format(texture.image.name))
+            raise ExportError(
+                "CubeMap '{}' width must be a multiple of 3".format(texture.image.name)
+            )
         if height % 2 != 0:
-            raise ExportError("CubeMap '{}' height must be a multiple of 2".format(texture.image.name))
+            raise ExportError(
+                "CubeMap '{}' height must be a multiple of 2".format(texture.image.name)
+            )
 
         # According to PlasmaMAX, we don't give a rip about UVs...
         layer.UVWSrc = plLayerInterface.kUVWReflect
@@ -696,10 +841,16 @@ class MaterialConverter:
         # to a big "finalize" save step to prevent races. The texture cache would
         # prevent that as well, so we could theoretically slice-and-dice the single
         # image here... but... meh. Offloading taim.
-        self.export_prepared_image(texture=texture, owner=layer, indent=3,
-                                   alpha_type=TextureAlpha.opaque, mipmap=True,
-                                   allowed_formats={"DDS"}, is_cube_map=True, tag="cubemap")
-
+        self.export_prepared_image(
+            texture=texture,
+            owner=layer,
+            indent=3,
+            alpha_type=TextureAlpha.opaque,
+            mipmap=True,
+            allowed_formats={"DDS"},
+            is_cube_map=True,
+            tag="cubemap",
+        )
 
     def export_dynamic_env(self, bo, layer, texture, pl_class):
         bl_env = texture.environment_map
@@ -713,7 +864,9 @@ class MaterialConverter:
         oRes = bl_env.resolution
         eRes = helpers.ensure_power_of_two(oRes)
         if oRes != eRes:
-            self._report.msg("Overriding EnvMap size to ({}x{}) -- POT", eRes, eRes, indent=3)
+            self._report.msg(
+                "Overriding EnvMap size to ({}x{}) -- POT", eRes, eRes, indent=3
+            )
 
         # And now for the general ho'hum-ness
         pl_env = self._mgr.find_create_object(pl_class, bl=bo, name=name)
@@ -733,9 +886,13 @@ class MaterialConverter:
         for region in texture.plasma_layer.vis_regions:
             rgn = region.control_region
             if rgn is None:
-                raise ExportError("'{}': Has an invalid Visibility Control".format(texture.name))
+                raise ExportError(
+                    "'{}': Has an invalid Visibility Control".format(texture.name)
+                )
             if not rgn.plasma_modifiers.visregion.enabled:
-                raise ExportError("'{}': '{}' is not a VisControl".format(texture.name, rgn.name))
+                raise ExportError(
+                    "'{}': '{}' is not a VisControl".format(texture.name, rgn.name)
+                )
             visregions.append(self._mgr.find_create_key(plVisRegion, bl=rgn))
         pl_env.visRegions = visregions
 
@@ -756,7 +913,9 @@ class MaterialConverter:
             # This is really just so we don't raise any eyebrows if anyone is looking at the files.
             # If you're disabling DCMs, then you're obviuously trolling!
             # Cyan generates a single color image, but we'll just set the layer colors and go away.
-            fake_layer = self._mgr.find_create_object(plLayer, bl=bo, name="{}_DisabledDynEnvMap".format(texture.name))
+            fake_layer = self._mgr.find_create_object(
+                plLayer, bl=bo, name="{}_DisabledDynEnvMap".format(texture.name)
+            )
             fake_layer.ambient = layer.ambient
             fake_layer.preshade = layer.preshade
             fake_layer.runtime = layer.runtime
@@ -765,15 +924,25 @@ class MaterialConverter:
 
             if pl_env.camera is None:
                 layer.UVWSrc = plLayerInterface.kUVWPosition
-                layer.state.miscFlags |= (hsGMatState.kMiscCam2Screen | hsGMatState.kMiscPerspProjection)
+                layer.state.miscFlags |= (
+                    hsGMatState.kMiscCam2Screen | hsGMatState.kMiscPerspProjection
+                )
         else:
             faces = pl_env.faces + (pl_env,)
 
             # If the user specifies a camera object, this might be worthy of a notice.
             if viewpt.type == "CAMERA":
-                warn = self._report.port if bl_env.mapping == "PLANE" else self._report.warn
-                warn("Environment Map '{}' is exporting as a cube map. The viewpoint '{}' is a camera, but only its position will be used.",
-                     bl_env.id_data.name, viewpt.name, indent=5)
+                warn = (
+                    self._report.port
+                    if bl_env.mapping == "PLANE"
+                    else self._report.warn
+                )
+                warn(
+                    "Environment Map '{}' is exporting as a cube map. The viewpoint '{}' is a camera, but only its position will be used.",
+                    bl_env.id_data.name,
+                    viewpt.name,
+                    indent=5,
+                )
 
             # DEMs can do just a position vector. We actually prefer this because the WaveSet exporter
             # will probably want to steal it for diabolical purposes... In MOUL, root objects are
@@ -810,9 +979,15 @@ class MaterialConverter:
         # Does the image have any alpha at all?
         if texture.image is not None:
             alpha_type = self._test_image_alpha(texture.image)
-            has_alpha = texture.use_calculate_alpha or slot.use_stencil or alpha_type != TextureAlpha.opaque
+            has_alpha = (
+                texture.use_calculate_alpha
+                or slot.use_stencil
+                or alpha_type != TextureAlpha.opaque
+            )
             if (texture.image.use_alpha and texture.use_alpha) and not has_alpha:
-                warning = "'{}' wants to use alpha, but '{}' is opaque".format(texture.name, texture.image.name)
+                warning = "'{}' wants to use alpha, but '{}' is opaque".format(
+                    texture.name, texture.image.name
+                )
                 self._exporter().report.warn(warning, indent=3)
         else:
             alpha_type, has_alpha = TextureAlpha.opaque, False
@@ -845,7 +1020,9 @@ class MaterialConverter:
         # Otherwise, we toss this layer and some info into our pending texture dict and process it
         #     when the exporter tells us to finalize all our shit
         if texture.image is None:
-            dtm = self._mgr.find_create_object(plDynamicTextMap, name="{}_DynText".format(layer.key.name), bl=bo)
+            dtm = self._mgr.find_create_object(
+                plDynamicTextMap, name="{}_DynText".format(layer.key.name), bl=bo
+            )
             if texture.use_alpha:
                 dtm.hasAlpha = True
                 if not state.blendFlags & hsGMatState.kBlendMask:
@@ -864,20 +1041,28 @@ class MaterialConverter:
                     detail_blend = TEX_DETAIL_MULTIPLY
 
             # Herp, derp... Detail blends are all based on alpha
-            if layer_props.is_detail_map and not state.blendFlags & hsGMatState.kBlendMask:
+            if (
+                layer_props.is_detail_map
+                and not state.blendFlags & hsGMatState.kBlendMask
+            ):
                 state.blendFlags |= hsGMatState.kBlendDetail
 
             allowed_formats = {"DDS"} if mipmap else {"PNG", "BMP"}
-            self.export_prepared_image(texture=texture, owner=layer,
-                                       alpha_type=alpha_type, force_calc_alpha=slot.use_stencil,
-                                       is_detail_map=layer_props.is_detail_map,
-                                       detail_blend=detail_blend,
-                                       detail_fade_start=layer_props.detail_fade_start,
-                                       detail_fade_stop=layer_props.detail_fade_stop,
-                                       detail_opacity_start=layer_props.detail_opacity_start,
-                                       detail_opacity_stop=layer_props.detail_opacity_stop,
-                                       mipmap=mipmap, allowed_formats=allowed_formats,
-                                       indent=3)
+            self.export_prepared_image(
+                texture=texture,
+                owner=layer,
+                alpha_type=alpha_type,
+                force_calc_alpha=slot.use_stencil,
+                is_detail_map=layer_props.is_detail_map,
+                detail_blend=detail_blend,
+                detail_fade_start=layer_props.detail_fade_start,
+                detail_fade_stop=layer_props.detail_fade_stop,
+                detail_opacity_start=layer_props.detail_opacity_start,
+                detail_opacity_stop=layer_props.detail_opacity_stop,
+                mipmap=mipmap,
+                allowed_formats=allowed_formats,
+                indent=3,
+            )
 
     def _export_texture_type_none(self, bo, layer, slot, idx):
         # We'll allow this, just for sanity's sake...
@@ -885,7 +1070,11 @@ class MaterialConverter:
 
     def _export_texture_type_blend(self, bo, layer, slot, idx):
         state = layer.state
-        state.blendFlags |= hsGMatState.kBlendAlpha | hsGMatState.kBlendAlphaMult | hsGMatState.kBlendNoTexColor
+        state.blendFlags |= (
+            hsGMatState.kBlendAlpha
+            | hsGMatState.kBlendAlphaMult
+            | hsGMatState.kBlendNoTexColor
+        )
         state.clampFlags |= hsGMatState.kClampTexture
         state.ZFlags |= hsGMatState.kZNoZWrite
 
@@ -895,12 +1084,12 @@ class MaterialConverter:
 
     def export_alpha_blend(self, progression, axis, owner, indent=2):
         """This exports an alpha blend texture as exposed by bpy.types.BlendTexture.
-           The following arguments are expected:
-           - progression: (required)
-           - axis: (required)
-           - owner: (required) the Plasma object using this image
-           - indent: (optional) indentation level for log messages
-                     default: 2
+        The following arguments are expected:
+        - progression: (required)
+        - axis: (required)
+        - owner: (required) the Plasma object using this image
+        - indent: (optional) indentation level for log messages
+                  default: 2
         """
 
         # Certain blend types don't use an axis...
@@ -913,6 +1102,7 @@ class MaterialConverter:
 
         image = bpy.data.images.get(filename)
         if image is None:
+
             def _calc_diagonal(x, y, width, height):
                 distance = math.sqrt(pow(x, 2) + pow(y, 2))
                 total = math.sqrt(pow(width, 2) + pow(height, 2))
@@ -960,16 +1150,26 @@ class MaterialConverter:
                 ("QUADRATIC", "VERTICAL"): (4, 64),
             }
             funcs = {
-                ("DIAGONAL", ""):  _calc_diagonal,
-                ("EASING", "HORIZONTAL"): lambda x, y, width, height: 0.5 - math.cos(x / width * math.pi) * 0.5,
-                ("EASING", "VERTICAL"): lambda x, y, width, height: 0.5 - math.cos(y / height * math.pi) * 0.5,
+                ("DIAGONAL", ""): _calc_diagonal,
+                ("EASING", "HORIZONTAL"): lambda x, y, width, height: 0.5
+                - math.cos(x / width * math.pi) * 0.5,
+                ("EASING", "VERTICAL"): lambda x, y, width, height: 0.5
+                - math.cos(y / height * math.pi) * 0.5,
                 ("LINEAR", "HORIZONTAL"): lambda x, y, width, height: x / width,
                 ("LINEAR", "VERTICAL"): lambda x, y, width, height: y / height,
-                ("QUADRATIC", "HORIZONTAL"): lambda x, y, width, height: pow(x / width, 2),
-                ("QUADRATIC", "VERTICAL"): lambda x, y, width, height: pow(y / height, 2),
+                ("QUADRATIC", "HORIZONTAL"): lambda x, y, width, height: pow(
+                    x / width, 2
+                ),
+                ("QUADRATIC", "VERTICAL"): lambda x, y, width, height: pow(
+                    y / height, 2
+                ),
                 ("QUADRATIC_SPHERE", ""): _calc_quad_sphere,
-                ("RADIAL", "HORIZONTAL"): functools.partial(_calc_radial, horizontal=True),
-                ("RADIAL", "VERTICAL"): functools.partial(_calc_radial, horizontal=False),
+                ("RADIAL", "HORIZONTAL"): functools.partial(
+                    _calc_radial, horizontal=True
+                ),
+                ("RADIAL", "VERTICAL"): functools.partial(
+                    _calc_radial, horizontal=False
+                ),
                 ("SPHERICAL", ""): _calc_lin_sphere,
             }
 
@@ -987,31 +1187,39 @@ class MaterialConverter:
                 for y in range(height):
                     offset = (y * width * 4) + (x * 4)
                     value = func(x, y, width, height)
-                    pixels[offset:offset+4] = (value,) * 4
-            image = bpy.data.images.new(filename, width=width, height=height, alpha=True)
+                    pixels[offset : offset + 4] = (value,) * 4
+            image = bpy.data.images.new(
+                filename, width=width, height=height, alpha=True
+            )
             image.pixels = pixels
 
-        self.export_prepared_image(image=image, owner=owner, allowed_formats={"BMP"},
-                                   alpha_type=TextureAlpha.full, indent=indent, ephemeral=True)
+        self.export_prepared_image(
+            image=image,
+            owner=owner,
+            allowed_formats={"BMP"},
+            alpha_type=TextureAlpha.full,
+            indent=indent,
+            ephemeral=True,
+        )
 
     def export_prepared_image(self, **kwargs):
         """This exports an externally prepared image and an optional owning layer.
-           The following arguments are typical:
-           - texture: (co-required) the image texture datablock to export
-           - image: (co-required) the image datablock to export
-           - owner: (required) the Plasma object using this image
-           - mipmap: (optional) should the image be mipmapped?
-           - allowed_formats: (optional) set of string *hints* for desired image export type
-                              valid options: BMP, DDS, JPG, PNG
-           - extension: (optional) file extension to use for the image object
-                        to use the image datablock extension, set this to None
-           - indent: (optional) indentation level for log messages
-                     default: 2
-           - ephemeral: (optional) never cache this image
-           - tag: (optional) an optional identifier hint that allows multiple images with the
-                             same name to coexist in the cache
-           - is_cube_map: (optional) indicates the provided image contains six cube faces
-                                     that must be split into six separate images for Plasma
+        The following arguments are typical:
+        - texture: (co-required) the image texture datablock to export
+        - image: (co-required) the image datablock to export
+        - owner: (required) the Plasma object using this image
+        - mipmap: (optional) should the image be mipmapped?
+        - allowed_formats: (optional) set of string *hints* for desired image export type
+                           valid options: BMP, DDS, JPG, PNG
+        - extension: (optional) file extension to use for the image object
+                     to use the image datablock extension, set this to None
+        - indent: (optional) indentation level for log messages
+                  default: 2
+        - ephemeral: (optional) never cache this image
+        - tag: (optional) an optional identifier hint that allows multiple images with the
+                          same name to coexist in the cache
+        - is_cube_map: (optional) indicates the provided image contains six cube faces
+                                  that must be split into six separate images for Plasma
         """
         owner = kwargs.pop("owner", None)
         indent = kwargs.pop("indent", 2)
@@ -1019,8 +1227,12 @@ class MaterialConverter:
         image = key.image
 
         if key not in self._pending:
-            self._report.msg("Stashing '{}' for conversion as '{}'", image.name, key, indent=indent)
-            self._pending[key] = [owner.key,]
+            self._report.msg(
+                "Stashing '{}' for conversion as '{}'", image.name, key, indent=indent
+            )
+            self._pending[key] = [
+                owner.key,
+            ]
         else:
             self._report.msg("Found another user of '{}'", key, indent=indent)
             self._pending[key].append(owner.key)
@@ -1059,14 +1271,30 @@ class MaterialConverter:
                     compression = plBitmap.kUncompressed
                 else:
                     raise RuntimeError(allowed_formats)
-                dxt = plBitmap.kDXT5 if key.alpha_type == TextureAlpha.full else plBitmap.kDXT1
+                dxt = (
+                    plBitmap.kDXT5
+                    if key.alpha_type == TextureAlpha.full
+                    else plBitmap.kDXT1
+                )
 
                 # Mayhaps we have a cached version of this that has already been exported
                 cached_image = texcache.get_from_texture(key, compression)
 
                 if cached_image is None:
-                    numLevels, width, height, data = self._finalize_cache(texcache, key, image, name, compression, dxt)
-                    self._finalize_bitmap(key, owners, name, numLevels, width, height, compression, dxt, data)
+                    numLevels, width, height, data = self._finalize_cache(
+                        texcache, key, image, name, compression, dxt
+                    )
+                    self._finalize_bitmap(
+                        key,
+                        owners,
+                        name,
+                        numLevels,
+                        width,
+                        height,
+                        compression,
+                        dxt,
+                        data,
+                    )
                 else:
                     width, height = cached_image.export_size
                     data = cached_image.image_data
@@ -1075,15 +1303,41 @@ class MaterialConverter:
                     # If the cached image data is junk, PyHSPlasma will raise a RuntimeError,
                     # so we'll attempt a recache...
                     try:
-                        self._finalize_bitmap(key, owners, name, numLevels, width, height, compression, dxt, data)
+                        self._finalize_bitmap(
+                            key,
+                            owners,
+                            name,
+                            numLevels,
+                            width,
+                            height,
+                            compression,
+                            dxt,
+                            data,
+                        )
                     except RuntimeError:
-                        self._report.warn("Cached image is corrupted! Recaching image...", indent=1)
-                        numLevels, width, height, data = self._finalize_cache(texcache, key, image, name, compression, dxt)
-                        self._finalize_bitmap(key, owners, name, numLevels, width, height, compression, dxt, data)
+                        self._report.warn(
+                            "Cached image is corrupted! Recaching image...", indent=1
+                        )
+                        numLevels, width, height, data = self._finalize_cache(
+                            texcache, key, image, name, compression, dxt
+                        )
+                        self._finalize_bitmap(
+                            key,
+                            owners,
+                            name,
+                            numLevels,
+                            width,
+                            height,
+                            compression,
+                            dxt,
+                            data,
+                        )
 
                 inc_progress()
 
-    def _finalize_bitmap(self, key, owners, name, numLevels, width, height, compression, dxt, data):
+    def _finalize_bitmap(
+        self, key, owners, name, numLevels, width, height, compression, dxt, data
+    ):
         mgr = self._mgr
 
         # Now we poke our new bitmap into the pending layers. Note that we have to do some funny
@@ -1093,15 +1347,24 @@ class MaterialConverter:
         self._report.msg("Adding to...", indent=1)
         for owner_key in owners:
             owner = owner_key.object
-            self._report.msg("[{} '{}']", owner.ClassName()[2:], owner_key.name, indent=2)
-            page = mgr.get_textures_page(owner_key) # Layer's page or Textures.prp
+            self._report.msg(
+                "[{} '{}']", owner.ClassName()[2:], owner_key.name, indent=2
+            )
+            page = mgr.get_textures_page(owner_key)  # Layer's page or Textures.prp
 
             # If we haven't created this texture in the page (either layer's page or Textures.prp),
             # then we need to do that and stuff the level data. This is a little tedious, but we
             # need to be careful to manage our resources correctly
             if page not in pages:
-                mipmap = plMipmap(name=name, width=width, height=height, numLevels=numLevels,
-                                  compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
+                mipmap = plMipmap(
+                    name=name,
+                    width=width,
+                    height=height,
+                    numLevels=numLevels,
+                    compType=compression,
+                    format=plBitmap.kRGB8888,
+                    dxtLevel=dxt,
+                )
                 if key.is_cube_map:
                     assert len(data) == 6
                     texture = plCubicEnvironmap(name)
@@ -1132,9 +1395,13 @@ class MaterialConverter:
 
     def _finalize_cache(self, texcache, key, image, name, compression, dxt):
         if key.is_cube_map:
-            numLevels, width, height, data = self._finalize_cube_map(key, image, name, compression, dxt)
+            numLevels, width, height, data = self._finalize_cube_map(
+                key, image, name, compression, dxt
+            )
         else:
-            numLevels, width, height, data = self._finalize_single_image(key, image, name, compression, dxt)
+            numLevels, width, height, data = self._finalize_single_image(
+                key, image, name, compression, dxt
+            )
         texcache.add_texture(key, numLevels, (width, height), compression, data)
         return numLevels, width, height, data
 
@@ -1155,8 +1422,14 @@ class MaterialConverter:
         # in the case of POT faces. So, we will scale the image AGAIN, if Blender did
         # something funky.
         if oWidth != cWidth or oHeight != cHeight:
-            self._report.warn("Image was resized by Blender to ({}x{})--resizing the resize to ({}x{})",
-                              cWidth, cHeight, oWidth, oHeight, indent=1)
+            self._report.warn(
+                "Image was resized by Blender to ({}x{})--resizing the resize to ({}x{})",
+                cWidth,
+                cHeight,
+                oWidth,
+                oHeight,
+                indent=1,
+            )
             data = scale_image(data, cWidth, cHeight, oWidth, oHeight)
 
         # Face dimensions
@@ -1192,18 +1465,31 @@ class MaterialConverter:
             name = face_name[:-4].upper()
             if compression == plBitmap.kDirectXCompression:
                 numLevels = glimage.num_levels
-                self._report.msg("Generating mip levels for cube face '{}'", name, indent=1)
+                self._report.msg(
+                    "Generating mip levels for cube face '{}'", name, indent=1
+                )
 
                 # If we're compressing this mofo, we'll need a temporary mipmap to do that here...
-                mipmap = plMipmap(name=name, width=eWidth, height=eHeight, numLevels=numLevels,
-                                  compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
+                mipmap = plMipmap(
+                    name=name,
+                    width=eWidth,
+                    height=eHeight,
+                    numLevels=numLevels,
+                    compType=compression,
+                    format=plBitmap.kRGB8888,
+                    dxtLevel=dxt,
+                )
             else:
                 numLevels = 1
-                self._report.msg("Compressing single level for cube face '{}'", name, indent=1)
+                self._report.msg(
+                    "Compressing single level for cube face '{}'", name, indent=1
+                )
 
             face_images[i] = [None] * numLevels
             for j in range(numLevels):
-                level_data = glimage.get_level_data(j, key.calc_alpha, report=self._report)
+                level_data = glimage.get_level_data(
+                    j, key.calc_alpha, report=self._report
+                )
                 if compression == plBitmap.kDirectXCompression:
                     mipmap.CompressImage(j, level_data)
                     level_data = mipmap.getLevel(j)
@@ -1227,8 +1513,15 @@ class MaterialConverter:
 
                 # If this is a DXT-compressed mipmap, we need to use a temporary mipmap
                 # to do the compression. We'll then steal the data from it.
-                mipmap = plMipmap(name=name, width=eWidth, height=eHeight, numLevels=numLevels,
-                                  compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
+                mipmap = plMipmap(
+                    name=name,
+                    width=eWidth,
+                    height=eHeight,
+                    numLevels=numLevels,
+                    compType=compression,
+                    format=plBitmap.kRGB8888,
+                    dxtLevel=dxt,
+                )
             else:
                 numLevels = 1
                 self._report.msg("Compressing single level", indent=1)
@@ -1237,30 +1530,47 @@ class MaterialConverter:
             # this mipmap for per-page textures :(
             data = [None] * numLevels
             for i in range(numLevels):
-                level_data = glimage.get_level_data(i, key.calc_alpha, report=self._report)
+                level_data = glimage.get_level_data(
+                    i, key.calc_alpha, report=self._report
+                )
                 if compression == plBitmap.kDirectXCompression:
                     mipmap.CompressImage(i, level_data)
                     level_data = mipmap.getLevel(i)
                 data[i] = level_data
-        return numLevels, eWidth, eHeight, [data,]
+        return (
+            numLevels,
+            eWidth,
+            eHeight,
+            [
+                data,
+            ],
+        )
 
-    def get_materials(self, bo: bpy.types.Object, bm: Optional[bpy.types.Material] = None) -> Iterator[plKey]:
+    def get_materials(
+        self, bo: bpy.types.Object, bm: Optional[bpy.types.Material] = None
+    ) -> Iterator[plKey]:
         material_dict = self._obj2mat.get(bo, {})
         if bm is None:
             return material_dict.values()
         else:
             return material_dict.get(bm, [])
 
-    def get_layers(self, bo: Optional[bpy.types.Object] = None,
-                   bm: Optional[bpy.types.Material] = None,
-                   tex: Optional[bpy.types.Texture] = None) -> Iterator[plKey]:
+    def get_layers(
+        self,
+        bo: Optional[bpy.types.Object] = None,
+        bm: Optional[bpy.types.Material] = None,
+        tex: Optional[bpy.types.Texture] = None,
+    ) -> Iterator[plKey]:
 
         # All three? Simple.
         if bo is not None and bm is not None and tex is not None:
             yield from filter(None, self._obj2layer[bo][bm][tex])
             return
         if bo is None and bm is None and tex is None:
-            self._exporter().report.warn("Asking for all the layers we've ever exported, eh? You like living dangerously.", indent=2)
+            self._exporter().report.warn(
+                "Asking for all the layers we've ever exported, eh? You like living dangerously.",
+                indent=2,
+            )
 
         # What we want to do is filter _obj2layers:
         # bo if set, or all objects
@@ -1272,7 +1582,12 @@ class MaterialConverter:
         elif tex is not None:
             material_seq = tex.users_material
         else:
-            _iter = filter(lambda x: x and x.material, itertools.chain.from_iterable((i.material_slots for i in object_iter())))
+            _iter = filter(
+                lambda x: x and x.material,
+                itertools.chain.from_iterable(
+                    (i.material_slots for i in object_iter())
+                ),
+            )
             # Performance turd: this could, in the worst case, block on creating a list of every material
             # attached to every single Plasma Object in the current scene. This whole algorithm sucks,
             # though, so whatever.
@@ -1281,7 +1596,11 @@ class MaterialConverter:
         for filtered_obj in object_iter():
             for filtered_mat in material_seq:
                 all_texes = self._obj2layer[filtered_obj][filtered_mat]
-                filtered_texes = all_texes[tex] if tex is not None else itertools.chain.from_iterable(all_texes.values())
+                filtered_texes = (
+                    all_texes[tex]
+                    if tex is not None
+                    else itertools.chain.from_iterable(all_texes.values())
+                )
                 yield from filter(None, filtered_texes)
 
     def get_base_layer(self, hsgmat):
@@ -1295,20 +1614,23 @@ class MaterialConverter:
     def get_bump_layer(self, bo):
         return self._bump_mats.get(bo, None)
 
-    def get_material_ambient(self, bo, bm, color: Union[None, mathutils.Color] = None) -> hsColorRGBA:
+    def get_material_ambient(
+        self, bo, bm, color: Union[None, mathutils.Color] = None
+    ) -> hsColorRGBA:
         # Although Plasma calls this the ambient color, it is actually always used as the emissive color.
         emit_scale = bm.emit * 0.5
         if emit_scale > 0.0:
             if color is None:
                 color = bm.diffuse_color
-            return hsColorRGBA(color.r * emit_scale,
-                               color.g * emit_scale,
-                               color.b * emit_scale,
-                               1.0)
+            return hsColorRGBA(
+                color.r * emit_scale, color.g * emit_scale, color.b * emit_scale, 1.0
+            )
         else:
             return utils.color(bpy.context.scene.world.ambient_color)
 
-    def get_material_preshade(self, bo, bm, color: Union[None, mathutils.Color] = None) -> hsColorRGBA:
+    def get_material_preshade(
+        self, bo, bm, color: Union[None, mathutils.Color] = None
+    ) -> hsColorRGBA:
         # This color is always used for shading. In all lighting equations, it represents the world
         # ambient color. Anyway, if we have a manual (read: animated color), just dump that out.
         if color is not None:
@@ -1320,7 +1642,10 @@ class MaterialConverter:
         # we'll want black if it's ONLY runtime lighting (and white for lightmaps). Otherwise,
         # just use the material color for now.
         if self._exporter().mesh.is_nonpreshaded(bo, bm):
-            if bo.plasma_modifiers.lightmap.bake_lightmap and not bo.plasma_modifiers.lighting.rt_lights:
+            if (
+                bo.plasma_modifiers.lightmap.bake_lightmap
+                and not bo.plasma_modifiers.lighting.rt_lights
+            ):
                 return hsColorRGBA.kWhite
             elif not bo.plasma_modifiers.lighting.preshade:
                 return hsColorRGBA.kBlack
@@ -1328,7 +1653,9 @@ class MaterialConverter:
         # Gulp
         return utils.color(bm.diffuse_color)
 
-    def get_material_runtime(self, bo, bm, color: Union[None, mathutils.Color] = None) -> hsColorRGBA:
+    def get_material_runtime(
+        self, bo, bm, color: Union[None, mathutils.Color] = None
+    ) -> hsColorRGBA:
         # The layer runstime color has no effect if the lighting equation is kLiteVtxNonPreshaded,
         # so return black to prevent animations from being exported.
         if self._exporter().mesh.is_nonpreshaded(bo, bm):
@@ -1339,12 +1666,17 @@ class MaterialConverter:
             color = bm.diffuse_color
         return utils.color(color)
 
-    def get_texture_animation_key(self, bo, bm, texture, anim_name: str) -> Iterator[plKey]:
+    def get_texture_animation_key(
+        self, bo, bm, texture, anim_name: str
+    ) -> Iterator[plKey]:
         """Finds the appropriate key for sending messages to an animated Texture"""
         if not anim_name:
             anim_name = "(Entire Animation)"
 
-        for top_layer in filter(lambda x: isinstance(x.object, plLayerAnimationBase), self.get_layers(bo, bm, texture)):
+        for top_layer in filter(
+            lambda x: isinstance(x.object, plLayerAnimationBase),
+            self.get_layers(bo, bm, texture),
+        ):
             base_layer = top_layer.object.bottomOfStack
             needle = top_layer
             while needle is not None:
@@ -1371,13 +1703,15 @@ class MaterialConverter:
         is_waveset = bo.plasma_modifiers.water_basic.enabled
         if bo.data.show_double_sided:
             if is_waveset:
-                self._report.warn("FORCING single sided--this is a waveset (are you insane?)")
+                self._report.warn(
+                    "FORCING single sided--this is a waveset (are you insane?)"
+                )
             else:
                 state.miscFlags |= hsGMatState.kMiscTwoSided
 
         # Shade Flags
         if not bm.use_mist:
-            state.shadeFlags |= hsGMatState.kShadeNoFog # Dead in CWE
+            state.shadeFlags |= hsGMatState.kShadeNoFog  # Dead in CWE
             state.shadeFlags |= hsGMatState.kShadeReallyNoFog
 
         if bm.use_shadeless:
@@ -1387,7 +1721,10 @@ class MaterialConverter:
             # Lightmapped emissive layers seem to cause cascading render issues. Skip flagging it
             # and just hope that the ambient color bump is good enough.
             if bo.plasma_modifiers.lightmap.bake_lightmap:
-                self._report.warn("A lightmapped and emissive material??? You like living dangerously...", indent=3)
+                self._report.warn(
+                    "A lightmapped and emissive material??? You like living dangerously...",
+                    indent=3,
+                )
             else:
                 state.shadeFlags |= hsGMatState.kShadeEmissive
 
@@ -1402,9 +1739,14 @@ class MaterialConverter:
 
     def requires_material_shading(self, bm: bpy.types.Material) -> bool:
         """Determines if this material requires the lighting equation we all know and love
-           (kLiteMaterial) in order to display opacity and color animations."""
+        (kLiteMaterial) in order to display opacity and color animations."""
         if bm.animation_data is not None and bm.animation_data.action is not None:
-            if any((i.data_path == "diffuse_color" for i in bm.animation_data.action.fcurves)):
+            if any(
+                (
+                    i.data_path == "diffuse_color"
+                    for i in bm.animation_data.action.fcurves
+                )
+            ):
                 return True
 
         for slot in filter(lambda x: x and x.use and x.texture, bm.texture_slots):
@@ -1416,7 +1758,12 @@ class MaterialConverter:
                 return True
 
             if tex.animation_data is not None and tex.animation_data.action is not None:
-                if any((i.data_path == "plasma_layer.opacity" for i in tex.animation_data.action.fcurves)):
+                if any(
+                    (
+                        i.data_path == "plasma_layer.opacity"
+                        for i in tex.animation_data.action.fcurves
+                    )
+                ):
                     return True
         return False
 

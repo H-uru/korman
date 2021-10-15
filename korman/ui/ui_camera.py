@@ -18,7 +18,10 @@ import bpy
 from .. import helpers
 from . import ui_list
 
-def _draw_alert_prop(layout, props, the_prop, cam_type, alert_cam="", min=None, max=None, **kwargs):
+
+def _draw_alert_prop(
+    layout, props, the_prop, cam_type, alert_cam="", min=None, max=None, **kwargs
+):
     can_alert = not alert_cam or alert_cam == cam_type
     if can_alert:
         value = getattr(props, the_prop)
@@ -31,12 +34,14 @@ def _draw_alert_prop(layout, props, the_prop, cam_type, alert_cam="", min=None, 
     else:
         layout.prop(props, the_prop, **kwargs)
 
+
 def _draw_gated_prop(layout, props, gate_prop, actual_prop):
     row = layout.row(align=True)
     row.prop(props, gate_prop, text="")
     row = row.row(align=True)
     row.active = getattr(props, gate_prop)
     row.prop(props, actual_prop)
+
 
 def draw_camera_manipulation_props(layout, cam_type, props):
     # Camera Panning
@@ -53,6 +58,7 @@ def draw_camera_manipulation_props(layout, cam_type, props):
     _draw_gated_prop(col, props, "limit_zoom", "zoom_min")
     _draw_gated_prop(col, props, "limit_zoom", "zoom_max")
     _draw_gated_prop(col, props, "limit_zoom", "zoom_rate")
+
 
 def draw_camera_mode_props(layout, cam_type, props):
     # Point of Attention
@@ -81,6 +87,7 @@ def draw_camera_mode_props(layout, cam_type, props):
     col_target.active = props.poa_type != "none"
     col_target.prop(props, "ignore_subworld")
 
+
 def draw_camera_poa_props(layout, cam_type, props):
     trans = props.transition
 
@@ -101,6 +108,7 @@ def draw_camera_poa_props(layout, cam_type, props):
     col.prop(props, "poa_offset", text="")
     col.prop(props, "poa_worldspace")
 
+
 def draw_camera_pos_props(layout, cam_type, props):
     trans = props.transition
 
@@ -111,12 +119,33 @@ def draw_camera_pos_props(layout, cam_type, props):
     # Position Transitions
     col.active = cam_type != "circle"
     col.label("Default Position Transition:")
-    _draw_alert_prop(col, trans, "pos_acceleration", cam_type,
-                     alert_cam="rail", max=10.0, text="Acceleration")
-    _draw_alert_prop(col, trans, "pos_deceleration", cam_type,
-                     alert_cam="rail", max=10.0, text="Deceleration")
-    _draw_alert_prop(col, trans, "pos_velocity", cam_type,
-                     alert_cam="rail", max=10.0, text="Maximum Velocity")
+    _draw_alert_prop(
+        col,
+        trans,
+        "pos_acceleration",
+        cam_type,
+        alert_cam="rail",
+        max=10.0,
+        text="Acceleration",
+    )
+    _draw_alert_prop(
+        col,
+        trans,
+        "pos_deceleration",
+        cam_type,
+        alert_cam="rail",
+        max=10.0,
+        text="Deceleration",
+    )
+    _draw_alert_prop(
+        col,
+        trans,
+        "pos_velocity",
+        cam_type,
+        alert_cam="rail",
+        max=10.0,
+        text="Maximum Velocity",
+    )
     col = col.column()
     col.active = cam_type in {"firstperson", "follow"}
     col.prop(trans, "pos_cut", text="Cut Animation")
@@ -128,6 +157,7 @@ def draw_camera_pos_props(layout, cam_type, props):
     col.prop(props, "pos_offset", text="")
     col.prop(props, "pos_worldspace")
 
+
 def draw_circle_camera_props(layout, props):
     # Circle Camera Stuff
     layout.prop(props, "circle_center")
@@ -137,6 +167,7 @@ def draw_circle_camera_props(layout, props):
     row.active = props.circle_center is None
     row.prop(props, "circle_radius_ui")
 
+
 class CameraButtonsPanel:
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
@@ -144,7 +175,7 @@ class CameraButtonsPanel:
 
     @classmethod
     def poll(cls, context):
-        return (context.camera and context.scene.render.engine == "PLASMA_GAME")
+        return context.camera and context.scene.render.engine == "PLASMA_GAME"
 
 
 class PlasmaCameraTypePanel(CameraButtonsPanel, bpy.types.Panel):
@@ -189,7 +220,10 @@ class PlasmaCameraCirclePanel(CameraButtonsPanel, bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return super().poll(context) and context.camera.plasma_camera.camera_type == "circle"
+        return (
+            super().poll(context)
+            and context.camera.plasma_camera.camera_type == "circle"
+        )
 
 
 class PlasmaCameraAnimationPanel(CameraButtonsPanel, bpy.types.Panel):
@@ -204,7 +238,9 @@ class PlasmaCameraAnimationPanel(CameraButtonsPanel, bpy.types.Panel):
         split = layout.split()
         col = split.column()
         col.label("Animation:")
-        anim_enabled = props.anim_enabled or context.object.plasma_modifiers.animation.enabled
+        anim_enabled = (
+            props.anim_enabled or context.object.plasma_modifiers.animation.enabled
+        )
         col.active = anim_enabled and context.object.plasma_object.has_animation_data
         col.prop(props, "start_on_push")
         col.prop(props, "stop_on_pop")
@@ -212,17 +248,24 @@ class PlasmaCameraAnimationPanel(CameraButtonsPanel, bpy.types.Panel):
 
         col = split.column()
         col.active = camera.camera_type == "rail"
-        invalid = camera.camera_type == "rail" and not context.object.plasma_object.has_transform_animation
+        invalid = (
+            camera.camera_type == "rail"
+            and not context.object.plasma_object.has_transform_animation
+        )
         col.alert = invalid
         col.label("Rail:")
         col.prop(props, "rail_pos", text="")
         if invalid:
-            col.label("Rail cameras must have a transformation animation!", icon="ERROR")
+            col.label(
+                "Rail cameras must have a transformation animation!", icon="ERROR"
+            )
 
     def draw_header(self, context):
         self.layout.active = context.object.plasma_object.has_animation_data
         if not context.object.plasma_modifiers.animation.enabled:
-            self.layout.prop(context.camera.plasma_camera.settings, "anim_enabled", text="")
+            self.layout.prop(
+                context.camera.plasma_camera.settings, "anim_enabled", text=""
+            )
 
 
 class PlasmaCameraViewPanel(CameraButtonsPanel, bpy.types.Panel):
@@ -234,7 +277,18 @@ class PlasmaCameraViewPanel(CameraButtonsPanel, bpy.types.Panel):
 
 
 class TransitionListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_property,
+        index=0,
+        flt_flag=0,
+    ):
         if item.camera is None:
             layout.label("[Default Transition]")
         else:
@@ -249,8 +303,16 @@ class PlasmaCameraTransitionPanel(CameraButtonsPanel, bpy.types.Panel):
         layout = self.layout
         camera = context.camera.plasma_camera
 
-        ui_list.draw_list(layout, "TransitionListUI", "camera", camera, "transitions",
-                          "active_transition_index", rows=3, maxrows=4)
+        ui_list.draw_list(
+            layout,
+            "TransitionListUI",
+            "camera",
+            camera,
+            "transitions",
+            "active_transition_index",
+            rows=3,
+            maxrows=4,
+        )
 
         try:
             item = camera.transitions[camera.active_transition_index]

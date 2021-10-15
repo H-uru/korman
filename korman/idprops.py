@@ -16,6 +16,7 @@
 import bpy
 from bpy.props import *
 
+
 class IDPropMixin:
     """
     So, here's the rub.
@@ -43,7 +44,9 @@ class IDPropMixin:
 
         # Let's make sure no one is trying to access an old version...
         if attr in _getattribute("_idprop_mapping")().values():
-            raise AttributeError("'{}' has been deprecated... Please use the ID Property".format(attr))
+            raise AttributeError(
+                "'{}' has been deprecated... Please use the ID Property".format(attr)
+            )
 
         # I have some bad news for you... Unfortunately, this might have been called
         # during Blender's draw() context. Blender locks all properties during the draw loop.
@@ -64,7 +67,9 @@ class IDPropMixin:
 
         # Disallow any attempts to set the old string property
         if attr in idprops.values():
-            raise AttributeError("'{}' has been deprecated... Please use the ID Property".format(attr))
+            raise AttributeError(
+                "'{}' has been deprecated... Please use the ID Property".format(attr)
+            )
 
         # Inappropriate touching?
         super().__getattribute__("_try_upgrade_idprops")()
@@ -77,14 +82,18 @@ class IDPropMixin:
         if hasattr(super(), "register"):
             super().register()
 
-        cls.idprops_upgraded = BoolProperty(name="INTERNAL: ID Property Upgrader HACK",
-                                            description="HAAAX *throws CRT monitor*",
-                                            get=cls._try_upgrade_idprops,
-                                            options={"HIDDEN"})
-        cls.idprops_upgraded_value = BoolProperty(name="INTERNAL: ID Property Upgrade Status",
-                                                  description="Have old StringProperties been upgraded to ID Datablock Properties?",
-                                                  default=False,
-                                                  options={"HIDDEN"})
+        cls.idprops_upgraded = BoolProperty(
+            name="INTERNAL: ID Property Upgrader HACK",
+            description="HAAAX *throws CRT monitor*",
+            get=cls._try_upgrade_idprops,
+            options={"HIDDEN"},
+        )
+        cls.idprops_upgraded_value = BoolProperty(
+            name="INTERNAL: ID Property Upgrade Status",
+            description="Have old StringProperties been upgraded to ID Datablock Properties?",
+            default=False,
+            options={"HIDDEN"},
+        )
         for str_prop in cls._idprop_mapping().values():
             setattr(cls, str_prop, StringProperty(description="deprecated"))
 
@@ -115,35 +124,44 @@ class IDPropObjectMixin(IDPropMixin):
         # NOTE: bad problems result when using super() here, so we'll manually reference object
         cls = object.__getattribute__(self, "__class__")
         idprops = cls._idprop_mapping()
-        return { i: bpy.data.objects for i in idprops.values() }
+        return {i: bpy.data.objects for i in idprops.values()}
 
 
 def poll_animated_objects(self, value):
     return value.plasma_object.has_animation_data
 
+
 def poll_camera_objects(self, value):
     return value.type == "CAMERA"
+
 
 def poll_drawable_objects(self, value):
     return value.type == "MESH" and any(value.data.materials)
 
+
 def poll_empty_objects(self, value):
     return value.type == "EMPTY"
+
 
 def poll_mesh_objects(self, value):
     return value.type == "MESH"
 
+
 def poll_softvolume_objects(self, value):
     return value.plasma_modifiers.softvolume.enabled
+
 
 def poll_subworld_objects(self, value):
     return value.plasma_modifiers.subworld_def.enabled
 
+
 def poll_visregion_objects(self, value):
     return value.plasma_modifiers.visregion.enabled
 
+
 def poll_envmap_textures(self, value):
     return isinstance(value, bpy.types.EnvironmentMapTexture)
+
 
 @bpy.app.handlers.persistent
 def _upgrade_node_trees(dummy):
@@ -160,4 +178,6 @@ def _upgrade_node_trees(dummy):
         for node in tree.nodes:
             if isinstance(node, IDPropMixin):
                 assert node._try_upgrade_idprops()
+
+
 bpy.app.handlers.load_post.append(_upgrade_node_trees)

@@ -37,10 +37,12 @@ class PlasmaAttributeVisitor(ast.NodeVisitor):
             #  - assignments with targets
             #  - that are taking a function call (the ptAttrib Constructor)
             #  - whose name starts with ptAttrib
-            if (len(assign.targets) == 1
+            if (
+                len(assign.targets) == 1
                 and isinstance(assign.value, ast.Call)
                 and hasattr(assign.value.func, "id")
-                and assign.value.func.id.startswith("ptAttrib")):
+                and assign.value.func.id.startswith("ptAttrib")
+            ):
                 # Start pulling apart that delicious information
                 ptVar = assign.targets[0].id
                 ptType = assign.value.func.id
@@ -53,7 +55,11 @@ class PlasmaAttributeVisitor(ast.NodeVisitor):
                 # which only have an index.  We don't want those.
                 if len(ptArgs) > 1:
                     # Add the common arguments as named items.
-                    self._attributes[ptArgs[0]] = {"name": ptVar, "type": ptType, "desc": ptArgs[1]}
+                    self._attributes[ptArgs[0]] = {
+                        "name": ptVar,
+                        "type": ptType,
+                        "desc": ptArgs[1],
+                    }
                     # Add the class-specific arguments under the 'args' item.
                     if ptArgs[2:]:
                         self._attributes[ptArgs[0]]["args"] = ptArgs[2:]
@@ -61,13 +67,15 @@ class PlasmaAttributeVisitor(ast.NodeVisitor):
                 # Add the keyword arguments, if any.
                 if assign.value.keywords:
                     for keyword in assign.value.keywords:
-                        self._attributes[ptArgs[0]][keyword.arg] = self.visit(keyword.value)
+                        self._attributes[ptArgs[0]][keyword.arg] = self.visit(
+                            keyword.value
+                        )
         return self.generic_visit(node)
 
     def visit_Name(self, node):
         # Workaround for old Cyan scripts: replace variables named "true" or "false"
         # with the respective constant values True or False.
-        if node.id.lower() in  {"true", "false"}:
+        if node.id.lower() in {"true", "false"}:
             return ast.literal_eval(node.id.capitalize())
         return node.id
 
@@ -104,9 +112,10 @@ class PlasmaAttributeVisitor(ast.NodeVisitor):
 
 def get_attributes_from_file(filepath):
     """Scan the file for assignments matching our regex, let our visitor parse them, and return the
-       file's ptAttribs, if any."""
+    file's ptAttribs, if any."""
     with open(str(filepath)) as script:
         return get_attributes_from_str(script.read())
+
 
 def get_attributes_from_str(code):
     results = funcregex.findall(code)
@@ -118,6 +127,7 @@ def get_attributes_from_str(code):
         if v._attributes:
             return v._attributes
     return {}
+
 
 if __name__ == "__main__":
     import json

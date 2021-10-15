@@ -20,6 +20,7 @@ import time
 from ..ordered_set import OrderedSet
 from ..properties import modifiers
 
+
 def _fetch_modifiers():
     items = []
 
@@ -27,16 +28,19 @@ def _fetch_modifiers():
     for i in sorted(mapping.keys()):
         items.append(("", i, ""))
         items.extend(mapping[i])
-        #yield ("", i, "")
-        #yield mapping[i]
+        # yield ("", i, "")
+        # yield mapping[i]
     return items
+
 
 class ModifierOperator:
     def _get_modifier(self, context):
         if self.active_modifier == -1:
             return None
         pl_mods = context.object.plasma_modifiers.modifiers
-        pl_mod = next((i for i in pl_mods if self.active_modifier == i.display_order), None)
+        pl_mod = next(
+            (i for i in pl_mods if self.active_modifier == i.display_order), None
+        )
         if pl_mod is None:
             raise IndexError(self.active_modifier)
         return pl_mod
@@ -51,9 +55,11 @@ class ModifierAddOperator(ModifierOperator, bpy.types.Operator):
     bl_label = "Add Modifier"
     bl_description = "Adds a Plasma Modifier"
 
-    types = EnumProperty(name="Modifier Type",
-                         description="The type of modifier we add to the list",
-                         items=_fetch_modifiers())
+    types = EnumProperty(
+        name="Modifier Type",
+        description="The type of modifier we add to the list",
+        items=_fetch_modifiers(),
+    )
 
     def execute(self, context):
         plmods = context.object.plasma_modifiers
@@ -122,9 +128,9 @@ class ModifierCopyOperator(ModifierOperator, bpy.types.Operator):
     bl_label = "Copy Modifiers"
     bl_description = "Copy Modifiers from an Object"
 
-    active_modifier = IntProperty(name="Modifier Display Order",
-                                  default=-1,
-                                  options={"HIDDEN"})
+    active_modifier = IntProperty(
+        name="Modifier Display Order", default=-1, options={"HIDDEN"}
+    )
 
     def execute(self, context):
         pl_scene = context.scene.plasma_scene
@@ -181,7 +187,9 @@ class ModifierPasteOperator(ModifierClipboard, ModifierOperator, bpy.types.Opera
     @classmethod
     def poll(cls, context):
         pl_scene = context.scene.plasma_scene
-        return super().poll(context) and pl_scene.is_property_set("modifier_copy_object")
+        return super().poll(context) and pl_scene.is_property_set(
+            "modifier_copy_object"
+        )
 
 
 class ModifierRemoveOperator(ModifierOperator, bpy.types.Operator):
@@ -189,9 +197,9 @@ class ModifierRemoveOperator(ModifierOperator, bpy.types.Operator):
     bl_label = "Remove Modifier"
     bl_description = "Removes this Plasma Modifier"
 
-    active_modifier = IntProperty(name="Modifier Display Order",
-                                  default=-1,
-                                  options={"HIDDEN"})
+    active_modifier = IntProperty(
+        name="Modifier Display Order", default=-1, options={"HIDDEN"}
+    )
 
     mods2delete = CollectionProperty(type=modifiers.PlasmaModifierSpec, options=set())
 
@@ -203,11 +211,15 @@ class ModifierRemoveOperator(ModifierOperator, bpy.types.Operator):
         layout = layout.column_flow(align=True)
         for i in self.mods2delete:
             mod = getattr(mods, i.name)
-            layout.label("    {}".format(mod.bl_label), icon=getattr(mod, "bl_icon", "NONE"))
+            layout.label(
+                "    {}".format(mod.bl_label), icon=getattr(mod, "bl_icon", "NONE")
+            )
 
     def execute(self, context):
         want2delete = set((i.name for i in self.mods2delete))
-        mods = sorted(context.object.plasma_modifiers.modifiers, key=lambda x: x.display_order)
+        mods = sorted(
+            context.object.plasma_modifiers.modifiers, key=lambda x: x.display_order
+        )
         subtract = 0
 
         for mod in mods:
@@ -225,7 +237,9 @@ class ModifierRemoveOperator(ModifierOperator, bpy.types.Operator):
 
         want2delete = OrderedSet()
         if self.active_modifier == -1:
-            want2delete.update((i.pl_id for i in context.object.plasma_modifiers.modifiers))
+            want2delete.update(
+                (i.pl_id for i in context.object.plasma_modifiers.modifiers)
+            )
         else:
             want2delete.add(self._get_modifier(context).pl_id)
 
@@ -254,9 +268,9 @@ class ModifierResetOperator(ModifierOperator, bpy.types.Operator):
     bl_label = "Reset the modifier(s) to the default state?"
     bl_description = "Reset the modifier(s) to the default state"
 
-    active_modifier = IntProperty(name="Modifier Display Order",
-                                  default=-1,
-                                  options={"HIDDEN"})
+    active_modifier = IntProperty(
+        name="Modifier Display Order", default=-1, options={"HIDDEN"}
+    )
 
     def draw(self, context):
         pass
@@ -297,15 +311,17 @@ class ModifierMoveUpOperator(ModifierMoveOperator, bpy.types.Operator):
     bl_label = "Move Up"
     bl_description = "Move the modifier up in the stack"
 
-    active_modifier = IntProperty(name="Modifier Display Order",
-                                  default=-1,
-                                  options={"HIDDEN"})
+    active_modifier = IntProperty(
+        name="Modifier Display Order", default=-1, options={"HIDDEN"}
+    )
 
     def execute(self, context):
         assert self.active_modifier >= 0
         if self.active_modifier > 0:
             plmods = context.object.plasma_modifiers
-            self.swap_modifier_ids(plmods, self.active_modifier, self.active_modifier-1)
+            self.swap_modifier_ids(
+                plmods, self.active_modifier, self.active_modifier - 1
+            )
         return {"FINISHED"}
 
 
@@ -314,9 +330,9 @@ class ModifierMoveDownOperator(ModifierMoveOperator, bpy.types.Operator):
     bl_label = "Move Down"
     bl_description = "Move the modifier down in the stack"
 
-    active_modifier = IntProperty(name="Modifier Display Order",
-                                  default=-1,
-                                  options={"HIDDEN"})
+    active_modifier = IntProperty(
+        name="Modifier Display Order", default=-1, options={"HIDDEN"}
+    )
 
     def execute(self, context):
         assert self.active_modifier >= 0
@@ -324,7 +340,9 @@ class ModifierMoveDownOperator(ModifierMoveOperator, bpy.types.Operator):
         plmods = context.object.plasma_modifiers
         last = max([mod.display_order for mod in plmods.modifiers])
         if self.active_modifier < last:
-            self.swap_modifier_ids(plmods, self.active_modifier, self.active_modifier+1)
+            self.swap_modifier_ids(
+                plmods, self.active_modifier, self.active_modifier + 1
+            )
         return {"FINISHED"}
 
 
@@ -348,5 +366,5 @@ class ModifierLogicWizOperator(ModifierOperator, bpy.types.Operator):
         start = time.process_time()
         mod.create_logic(obj)
         end = time.process_time()
-        print("\nLogicWiz finished in {:.2f} seconds".format(end-start))
+        print("\nLogicWiz finished in {:.2f} seconds".format(end - start))
         return {"FINISHED"}

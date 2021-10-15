@@ -26,6 +26,7 @@ class PlasmaRenderEngine(bpy.types.RenderEngine):
 
 # Explicitly whitelist compatible Blender panels...
 from bl_ui import properties_material
+
 properties_material.MATERIAL_PT_context_material.COMPAT_ENGINES.add("PLASMA_GAME")
 properties_material.MATERIAL_PT_diffuse.COMPAT_ENGINES.add("PLASMA_GAME")
 properties_material.MATERIAL_PT_shading.COMPAT_ENGINES.add("PLASMA_GAME")
@@ -37,10 +38,12 @@ properties_material.MATERIAL_PT_shadow.COMPAT_ENGINES.add("PLASMA_GAME")
 del properties_material
 
 from bl_ui import properties_data_mesh
+
 properties_data_mesh.DATA_PT_normals.COMPAT_ENGINES.add("PLASMA_GAME")
 properties_data_mesh.DATA_PT_uv_texture.COMPAT_ENGINES.add("PLASMA_GAME")
 properties_data_mesh.DATA_PT_vertex_colors.COMPAT_ENGINES.add("PLASMA_GAME")
 del properties_data_mesh
+
 
 def _whitelist_all(mod):
     for i in dir(mod):
@@ -48,7 +51,9 @@ def _whitelist_all(mod):
         if hasattr(attr, "COMPAT_ENGINES"):
             getattr(attr, "COMPAT_ENGINES").add("PLASMA_GAME")
 
+
 from bl_ui import properties_data_lamp
+
 properties_data_lamp.DATA_PT_context_lamp.COMPAT_ENGINES.add("PLASMA_GAME")
 properties_data_lamp.DATA_PT_preview.COMPAT_ENGINES.add("PLASMA_GAME")
 properties_data_lamp.DATA_PT_lamp.COMPAT_ENGINES.add("PLASMA_GAME")
@@ -60,14 +65,17 @@ properties_data_lamp.DATA_PT_custom_props_lamp.COMPAT_ENGINES.add("PLASMA_GAME")
 del properties_data_lamp
 
 from bl_ui import properties_render
+
 _whitelist_all(properties_render)
 del properties_render
 
 from bl_ui import properties_texture
+
 _whitelist_all(properties_texture)
 del properties_texture
 
 from bl_ui import properties_world
+
 properties_world.WORLD_PT_context_world.COMPAT_ENGINES.add("PLASMA_GAME")
 properties_world.WORLD_PT_ambient_occlusion.COMPAT_ENGINES.add("PLASMA_GAME")
 properties_world.WORLD_PT_environment_lighting.COMPAT_ENGINES.add("PLASMA_GAME")

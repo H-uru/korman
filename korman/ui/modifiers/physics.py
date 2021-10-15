@@ -13,6 +13,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+
 def collision(modifier, layout, context):
     layout.prop(modifier, "bounds")
     layout.prop(modifier, "surface")
@@ -44,6 +45,7 @@ def collision(modifier, layout, context):
     row = layout.row()
     row.active = modifier.bounds == "trimesh"
     row.prop(modifier, "proxy_object")
+
 
 def subworld_def(modifier, layout, context):
     layout.prop(modifier, "sub_type")

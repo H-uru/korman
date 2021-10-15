@@ -32,21 +32,32 @@ class PlasmaLadderModifier(PlasmaModifierProperties):
     bl_description = "Climbable Ladder"
     bl_icon = "COLLAPSEMENU"
 
-    is_enabled = BoolProperty(name="Enabled",
-                              description="Ladder enabled by default at Age start",
-                              default=True)
-    direction = EnumProperty(name="Direction",
-                             description="Direction of climb",
-                             items=[("UP", "Up", "The avatar will mount the ladder and climb upward"),
-                                    ("DOWN", "Down", "The avatar will mount the ladder and climb downward"),],
-                             default="DOWN")
-    num_loops = IntProperty(name="Loops",
-                            description="How many full animation loops after the first to play before dismounting",
-                            min=0, default=4)
-    facing_object = PointerProperty(name="Facing Object",
-                                    description="Target object the avatar must be facing through this region to trigger climb (optional)",
-                                    type=bpy.types.Object,
-                                    poll=idprops.poll_mesh_objects)
+    is_enabled = BoolProperty(
+        name="Enabled",
+        description="Ladder enabled by default at Age start",
+        default=True,
+    )
+    direction = EnumProperty(
+        name="Direction",
+        description="Direction of climb",
+        items=[
+            ("UP", "Up", "The avatar will mount the ladder and climb upward"),
+            ("DOWN", "Down", "The avatar will mount the ladder and climb downward"),
+        ],
+        default="DOWN",
+    )
+    num_loops = IntProperty(
+        name="Loops",
+        description="How many full animation loops after the first to play before dismounting",
+        min=0,
+        default=4,
+    )
+    facing_object = PointerProperty(
+        name="Facing Object",
+        description="Target object the avatar must be facing through this region to trigger climb (optional)",
+        type=bpy.types.Object,
+        poll=idprops.poll_mesh_objects,
+    )
 
     def export(self, exporter, bo, so):
         # Create the ladder modifier
@@ -61,7 +72,10 @@ class PlasmaLadderModifier(PlasmaModifierProperties):
         # engine-defined (45 degree) tolerance
         if self.facing_object is not None:
             # Use object if one has been selected
-            ladderVec = self.facing_object.matrix_world.translation - bo.matrix_world.translation
+            ladderVec = (
+                self.facing_object.matrix_world.translation
+                - bo.matrix_world.translation
+            )
         else:
             # Make our own artificial target -1.0 units back on the local Y axis.
             ladderVec = mathutils.Vector((0, -1, 0)) * bo.matrix_world.inverted()
@@ -69,48 +83,75 @@ class PlasmaLadderModifier(PlasmaModifierProperties):
         mod.ladderView.normalize()
 
         # Generate the detector's physical bounds
-        bounds = "hull" if not bo.plasma_modifiers.collision.enabled else bo.plasma_modifiers.collision.bounds
-        exporter.physics.generate_physical(bo, so, bounds=bounds, member_group="kGroupDetector",
-                                           report_groups=["kGroupAvatar"], properties=["kPinned"])
+        bounds = (
+            "hull"
+            if not bo.plasma_modifiers.collision.enabled
+            else bo.plasma_modifiers.collision.bounds
+        )
+        exporter.physics.generate_physical(
+            bo,
+            so,
+            bounds=bounds,
+            member_group="kGroupDetector",
+            report_groups=["kGroupAvatar"],
+            properties=["kPinned"],
+        )
 
     @property
     def requires_actor(self):
         return True
 
 
-sitting_approach_flags = [("kApproachFront", "Front", "Approach from the font"),
-                          ("kApproachLeft", "Left", "Approach from the left"),
-                          ("kApproachRight", "Right", "Approach from the right"),
-                          ("kApproachRear", "Rear", "Approach from the rear guard")]
+sitting_approach_flags = [
+    ("kApproachFront", "Front", "Approach from the font"),
+    ("kApproachLeft", "Left", "Approach from the left"),
+    ("kApproachRight", "Right", "Approach from the right"),
+    ("kApproachRear", "Rear", "Approach from the rear guard"),
+]
 
-class PlasmaSittingBehavior(idprops.IDPropObjectMixin, PlasmaModifierProperties, PlasmaModifierLogicWiz):
+
+class PlasmaSittingBehavior(
+    idprops.IDPropObjectMixin, PlasmaModifierProperties, PlasmaModifierLogicWiz
+):
     pl_id = "sittingmod"
 
     bl_category = "Avatar"
     bl_label = "Sitting Behavior"
     bl_description = "Avatar sitting position"
 
-    approach = EnumProperty(name="Approach",
-                            description="Directions an avatar can approach the seat from",
-                            items=sitting_approach_flags,
-                            default={"kApproachFront", "kApproachLeft", "kApproachRight"},
-                            options={"ENUM_FLAG"})
+    approach = EnumProperty(
+        name="Approach",
+        description="Directions an avatar can approach the seat from",
+        items=sitting_approach_flags,
+        default={"kApproachFront", "kApproachLeft", "kApproachRight"},
+        options={"ENUM_FLAG"},
+    )
 
-    clickable_object = PointerProperty(name="Clickable",
-                                       description="Object that defines the clickable area",
-                                       type=bpy.types.Object,
-                                       poll=idprops.poll_mesh_objects)
-    region_object = PointerProperty(name="Region",
-                                    description="Object that defines the region mesh",
-                                    type=bpy.types.Object,
-                                    poll=idprops.poll_mesh_objects)
+    clickable_object = PointerProperty(
+        name="Clickable",
+        description="Object that defines the clickable area",
+        type=bpy.types.Object,
+        poll=idprops.poll_mesh_objects,
+    )
+    region_object = PointerProperty(
+        name="Region",
+        description="Object that defines the region mesh",
+        type=bpy.types.Object,
+        poll=idprops.poll_mesh_objects,
+    )
 
-    facing_enabled = BoolProperty(name="Avatar Facing",
-                                  description="The avatar must be facing the clickable's Y-axis",
-                                  default=True)
-    facing_degrees = IntProperty(name="Tolerance",
-                                 description="How far away we will tolerate the avatar facing the clickable",
-                                 min=-180, max=180, default=45)
+    facing_enabled = BoolProperty(
+        name="Avatar Facing",
+        description="The avatar must be facing the clickable's Y-axis",
+        default=True,
+    )
+    facing_degrees = IntProperty(
+        name="Tolerance",
+        description="How far away we will tolerate the avatar facing the clickable",
+        min=-180,
+        max=180,
+        default=45,
+    )
 
     def harvest_actors(self):
         if self.facing_enabled:
@@ -153,8 +194,7 @@ class PlasmaSittingBehavior(idprops.IDPropObjectMixin, PlasmaModifierProperties,
 
     @classmethod
     def _idprop_mapping(cls):
-        return {"clickable_object": "clickable_obj",
-                "region_object": "region_obj"}
+        return {"clickable_object": "clickable_obj", "region_object": "region_obj"}
 
     @property
     def key_name(self):
@@ -168,4 +208,8 @@ class PlasmaSittingBehavior(idprops.IDPropObjectMixin, PlasmaModifierProperties,
     def sanity_check(self):
         # The user absolutely MUST specify a clickable or this won't export worth crap.
         if self.clickable_object is None:
-            raise ExportError("'{}': Sitting Behavior's clickable object is invalid".format(self.key_name))
+            raise ExportError(
+                "'{}': Sitting Behavior's clickable object is invalid".format(
+                    self.key_name
+                )
+            )

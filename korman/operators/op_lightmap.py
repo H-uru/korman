@@ -25,6 +25,7 @@ from ..exporter.explosions import ExportError
 from ..helpers import UiHelper
 from ..korlib import ConsoleToggler
 
+
 class _LightingOperator:
     @contextmanager
     def _oven(self, context):
@@ -34,7 +35,9 @@ class _LightingOperator:
         else:
             verbose = False
             console = True
-        with UiHelper(context), ConsoleToggler(console), LightBaker(verbose=verbose) as oven:
+        with UiHelper(context), ConsoleToggler(console), LightBaker(
+            verbose=verbose
+        ) as oven:
             yield oven
 
     @classmethod
@@ -63,7 +66,11 @@ class LightmapAutobakePreviewOperator(_LightingOperator, bpy.types.Operator):
                 bake.lightmap_uvtex_name = "LIGHTMAPGEN_PREVIEW"
             bake.force = True
             bake.retain_lightmap_uvtex = self.final
-            if not bake.bake_static_lighting([context.object,]):
+            if not bake.bake_static_lighting(
+                [
+                    context.object,
+                ]
+            ):
                 self.report({"WARNING"}, "No valid lights found to bake.")
                 return {"FINISHED"}
 
@@ -89,9 +96,11 @@ class LightmapBakeMultiOperator(_LightingOperator, bpy.types.Operator):
     bl_label = "Bake Lighting"
     bl_description = "Bake scene lighting to object(s)"
 
-    bake_selection = BoolProperty(name="Bake Selection",
-                                  description="Bake only the selected objects (else all objects)",
-                                  options=set())
+    bake_selection = BoolProperty(
+        name="Bake Selection",
+        description="Bake only the selected objects (else all objects)",
+        options=set(),
+    )
 
     def __init__(self):
         super().__init__()
@@ -101,7 +110,9 @@ class LightmapBakeMultiOperator(_LightingOperator, bpy.types.Operator):
 
         try:
             if profile_me:
-                cProfile.runctx("self._run(context)", globals(), locals(), "bake_cProfile")
+                cProfile.runctx(
+                    "self._run(context)", globals(), locals(), "bake_cProfile"
+                )
             else:
                 self._run(context)
         except ExportError as error:
@@ -116,8 +127,12 @@ class LightmapBakeMultiOperator(_LightingOperator, bpy.types.Operator):
         return {"FINISHED"}
 
     def _run(self, context):
-        all_objects = context.selected_objects if self.bake_selection else context.scene.objects
-        filtered_objects = [i for i in all_objects if i.type == "MESH" and i.plasma_object.enabled]
+        all_objects = (
+            context.selected_objects if self.bake_selection else context.scene.objects
+        )
+        filtered_objects = [
+            i for i in all_objects if i.type == "MESH" and i.plasma_object.enabled
+        ]
 
         with self._oven(context) as bake:
             bake.force = True
@@ -136,21 +151,32 @@ class LightmapClearMultiOperator(_LightingOperator, bpy.types.Operator):
     bl_label = "Clear Lighting"
     bl_description = "Clear baked lighting"
 
-    clear_selection = BoolProperty(name="Clear Selection",
-                                   description="Clear only the selected objects (else all objects)",
-                                   options=set())
+    clear_selection = BoolProperty(
+        name="Clear Selection",
+        description="Clear only the selected objects (else all objects)",
+        options=set(),
+    )
 
     def __init__(self):
         super().__init__()
 
     def _iter_lightmaps(self, objects):
-        yield from filter(lambda x: x.type == "MESH" and x.plasma_modifiers.lightmap.bake_lightmap, objects)
+        yield from filter(
+            lambda x: x.type == "MESH" and x.plasma_modifiers.lightmap.bake_lightmap,
+            objects,
+        )
 
     def _iter_vcols(self, objects):
-        yield from filter(lambda x: x.type == "MESH" and not x.plasma_modifiers.lightmap.bake_lightmap, objects)
+        yield from filter(
+            lambda x: x.type == "MESH"
+            and not x.plasma_modifiers.lightmap.bake_lightmap,
+            objects,
+        )
 
     def execute(self, context):
-        all_objects = context.selected_objects if self.clear_selection else context.scene.objects
+        all_objects = (
+            context.selected_objects if self.clear_selection else context.scene.objects
+        )
 
         for i in self._iter_lightmaps(all_objects):
             i.plasma_modifiers.lightmap.image = None
@@ -178,6 +204,7 @@ def _toss_garbage(scene):
         uvtex = i.uv_textures.get("LIGHTMAPGEN_PREVIEW")
         if uvtex is not None:
             i.uv_textures.remove(uvtex)
+
 
 # collects light baking garbage
 bpy.app.handlers.save_pre.append(_toss_garbage)

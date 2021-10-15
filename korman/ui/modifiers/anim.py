@@ -18,6 +18,7 @@ import bpy
 from .. import ui_list
 from .. import ui_anim
 
+
 def _check_for_anim(layout, modifier):
     try:
         action = modifier.blender_action
@@ -27,6 +28,7 @@ def _check_for_anim(layout, modifier):
     else:
         return action if action is not None else False
 
+
 def animation(modifier, layout, context):
     action = _check_for_anim(layout, modifier)
     if action is None:
@@ -34,10 +36,13 @@ def animation(modifier, layout, context):
 
     if modifier.id_data.type == "CAMERA":
         if not modifier.id_data.data.plasma_camera.allow_animations:
-            layout.label("Animation modifiers are not allowed on this camera type!", icon="ERROR")
+            layout.label(
+                "Animation modifiers are not allowed on this camera type!", icon="ERROR"
+            )
             return
 
     ui_anim.draw_multi_animation(layout, "object", modifier, "subanimations")
+
 
 def animation_filter(modifier, layout, context):
     split = layout.split()
@@ -52,9 +57,25 @@ def animation_filter(modifier, layout, context):
     col.label("Rotation:")
     col.prop(modifier, "no_rotation", text="Filter Rotation")
 
+
 class GroupListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        label = item.child_anim.name if item.child_anim is not None else "[No Child Specified]"
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_property,
+        index=0,
+        flt_flag=0,
+    ):
+        label = (
+            item.child_anim.name
+            if item.child_anim is not None
+            else "[No Child Specified]"
+        )
         icon = "ACTION" if item.child_anim is not None else "ERROR"
         layout.label(text=label, icon=icon)
 
@@ -64,14 +85,34 @@ def animation_group(modifier, layout, context):
     if action is None:
         return
 
-    ui_list.draw_modifier_list(layout, "GroupListUI", modifier, "children",
-                               "active_child_index", rows=3, maxrows=4)
+    ui_list.draw_modifier_list(
+        layout,
+        "GroupListUI",
+        modifier,
+        "children",
+        "active_child_index",
+        rows=3,
+        maxrows=4,
+    )
     if modifier.children:
-        layout.prop(modifier.children[modifier.active_child_index], "child_anim", icon="ACTION")
+        layout.prop(
+            modifier.children[modifier.active_child_index], "child_anim", icon="ACTION"
+        )
 
 
 class LoopListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_property,
+        index=0,
+        flt_flag=0,
+    ):
         layout.prop(item, "loop_name", emboss=False, text="", icon="PMARKER_ACT")
 
 
@@ -83,9 +124,17 @@ def animation_loop(modifier, layout, context):
     elif action is None:
         return
 
-    ui_list.draw_modifier_list(layout, "LoopListUI", modifier, "loops",
-                               "active_loop_index", name_prefix="Loop",
-                               name_prop="loop_name", rows=2, maxrows=3)
+    ui_list.draw_modifier_list(
+        layout,
+        "LoopListUI",
+        modifier,
+        "loops",
+        "active_loop_index",
+        name_prefix="Loop",
+        name_prop="loop_name",
+        rows=2,
+        maxrows=3,
+    )
     # Modify the loop points
     if modifier.loops:
         loop = modifier.loops[modifier.active_loop_index]

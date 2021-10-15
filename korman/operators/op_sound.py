@@ -16,6 +16,7 @@
 import bpy
 from bpy.props import *
 
+
 class SoundOperator:
     @classmethod
     def poll(cls, context):
@@ -69,13 +70,18 @@ class PlasmaSoundUnpackOperator(SoundOperator, bpy.types.Operator):
     bl_label = "Unpack"
     bl_options = {"INTERNAL"}
 
-    method = EnumProperty(name="Method", description="How to unpack",
-                          # See blender/makesrna/intern/rna_packedfile.c
-                          items=[("USE_LOCAL", "Use local file", "", 5),
-                                 ("WRITE_LOCAL", "Write Local File (overwrite existing)", "", 4),
-                                 ("USE_ORIGINAL", "Use Original File", "", 6),
-                                 ("WRITE_ORIGINAL", "Write Original File (overwrite existing)", "", 3)],
-                          options=set())
+    method = EnumProperty(
+        name="Method",
+        description="How to unpack",
+        # See blender/makesrna/intern/rna_packedfile.c
+        items=[
+            ("USE_LOCAL", "Use local file", "", 5),
+            ("WRITE_LOCAL", "Write Local File (overwrite existing)", "", 4),
+            ("USE_ORIGINAL", "Use Original File", "", 6),
+            ("WRITE_ORIGINAL", "Write Original File (overwrite existing)", "", 3),
+        ],
+        options=set(),
+    )
 
     def execute(self, context):
         soundemit = context.active_object.plasma_modifiers.soundemit

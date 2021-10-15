@@ -17,20 +17,41 @@ import bpy
 
 from . import ui_list
 
+
 class AnimListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_property,
+        index=0,
+        flt_flag=0,
+    ):
         layout.label(item.animation_name, icon="ANIM")
 
 
-def draw_multi_animation(layout, context_attr, prop_base, anims_collection_name, *, use_box=False, **kwargs):
+def draw_multi_animation(
+    layout, context_attr, prop_base, anims_collection_name, *, use_box=False, **kwargs
+):
     # Yeah, I know this looks weird, but it lets us pretend that the PlasmaAnimationCollection
     # is a first class collection property. Fancy.
     anims = getattr(prop_base, anims_collection_name)
     kwargs.setdefault("rows", 2)
-    ui_list.draw_list(layout, "AnimListUI", context_attr, anims,
-                        "animation_collection", "active_animation_index",
-                        name_prop="animation_name", name_prefix="Animation",
-                        **kwargs)
+    ui_list.draw_list(
+        layout,
+        "AnimListUI",
+        context_attr,
+        anims,
+        "animation_collection",
+        "active_animation_index",
+        name_prop="animation_name",
+        name_prefix="Animation",
+        **kwargs
+    )
     try:
         anim = anims.animation_collection[anims.active_animation_index]
     except IndexError:
@@ -38,6 +59,7 @@ def draw_multi_animation(layout, context_attr, prop_base, anims_collection_name,
     else:
         sub = layout.box() if use_box else layout
         draw_single_animation(sub, anim)
+
 
 def draw_single_animation(layout, anim):
     row = layout.row()
@@ -62,7 +84,9 @@ def draw_single_animation(layout, anim):
         action = getattr(anim.id_data.animation_data, "action", None)
         if action:
             layout.separator()
-            layout.prop_search(anim, "initial_marker", action, "pose_markers", icon="PMARKER")
+            layout.prop_search(
+                anim, "initial_marker", action, "pose_markers", icon="PMARKER"
+            )
             col = layout.column()
             col.active = anim.loop and not anim.sdl_var
             col.prop_search(anim, "loop_start", action, "pose_markers", icon="PMARKER")

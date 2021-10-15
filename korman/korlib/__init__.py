@@ -17,6 +17,7 @@ _KORLIB_API_VERSION = 2
 
 try:
     from _korlib import _KORLIB_API_VERSION as _C_API_VERSION
+
     if _KORLIB_API_VERSION != _C_API_VERSION:
         raise ImportError()
 
@@ -24,10 +25,12 @@ except ImportError as ex:
     from .texture import *
 
     if "_C_API_VERSION" in locals():
-        msg = "Korlib C Module Version mismatch (expected {}, got {}).".format(_KORLIB_API_VERSION, _C_API_VERSION)
+        msg = "Korlib C Module Version mismatch (expected {}, got {}).".format(
+            _KORLIB_API_VERSION, _C_API_VERSION
+        )
     else:
         msg = "Korlib C Module did not load correctly."
-    print(msg, "Using PyKorlib :(", sep=' ')
+    print(msg, "Using PyKorlib :(", sep=" ")
 
     def create_bump_LUT(mipmap):
         kLUTHeight = 16
@@ -41,32 +44,51 @@ except ImportError as ex:
         doneH = 0
 
         doneH = startH * kLUTWidth * 4
-        buf[0:doneH] = [b for x in range(kLUTWidth) for b in (0, 0, int((x / denom) * 255.9), 255)] * startH
+        buf[0:doneH] = [
+            b for x in range(kLUTWidth) for b in (0, 0, int((x / denom) * 255.9), 255)
+        ] * startH
 
         startH = doneH
         doneH += delH * kLUTWidth * 4
-        buf[startH:doneH] = [b for x in range(kLUTWidth) for b in (127, 127, int((x / denom) * 255.9), 255)] * delH
+        buf[startH:doneH] = [
+            b
+            for x in range(kLUTWidth)
+            for b in (127, 127, int((x / denom) * 255.9), 255)
+        ] * delH
 
         startH = doneH
         doneH += delH * kLUTWidth * 4
-        buf[startH:doneH] = [b for x in range(kLUTWidth) for b in (0, int((x / denom) * 255.9), 0, 255)] * delH
+        buf[startH:doneH] = [
+            b for x in range(kLUTWidth) for b in (0, int((x / denom) * 255.9), 0, 255)
+        ] * delH
 
         startH = doneH
         doneH += delH * kLUTWidth * 4
-        buf[startH:doneH] = [b for x in range(kLUTWidth) for b in (127, int((x / denom) * 255.9), 127, 255)] * delH
+        buf[startH:doneH] = [
+            b
+            for x in range(kLUTWidth)
+            for b in (127, int((x / denom) * 255.9), 127, 255)
+        ] * delH
 
         startH = doneH
         doneH += delH * kLUTWidth * 4
-        buf[startH:doneH] = [b for x in range(kLUTWidth) for b in (int((x / denom) * 255.9), 0, 0, 255)] * delH
+        buf[startH:doneH] = [
+            b for x in range(kLUTWidth) for b in (int((x / denom) * 255.9), 0, 0, 255)
+        ] * delH
 
         startH = doneH
         doneH += delH * kLUTWidth * 4
-        buf[startH:doneH] = [b for x in range(kLUTWidth) for b in (int((x / denom) * 255.9), 127, 127, 255)] * startH
+        buf[startH:doneH] = [
+            b
+            for x in range(kLUTWidth)
+            for b in (int((x / denom) * 255.9), 127, 127, 255)
+        ] * startH
 
         mipmap.setRawImage(bytes(buf))
 
     def inspect_voribsfile(stream, header):
         raise NotImplementedError("Ogg Vorbis not supported unless _korlib is compiled")
+
 
 else:
     from _korlib import *
@@ -77,8 +99,13 @@ finally:
     from .python import *
     from .texture import TEX_DETAIL_ALPHA, TEX_DETAIL_ADD, TEX_DETAIL_MULTIPLY
 
-    _IDENTIFIER_RANGES = ((ord('0'), ord('9')), (ord('A'), ord('Z')), (ord('a'), ord('z')))
+    _IDENTIFIER_RANGES = (
+        (ord("0"), ord("9")),
+        (ord("A"), ord("Z")),
+        (ord("a"), ord("z")),
+    )
     from keyword import kwlist as _kwlist
+
     _KEYWORDS = set(_kwlist)
     # Python 2.x keywords
     _KEYWORDS.add("exec")
@@ -128,10 +155,19 @@ finally:
 
         def process(identifier):
             # No leading digits in identifiers, so skip the first range element (0...9)
-            yield next((identifier[0] for low, high in _IDENTIFIER_RANGES[1:]
-                                      if low <= ord(identifier[0]) <= high), '_')
+            yield next(
+                (
+                    identifier[0]
+                    for low, high in _IDENTIFIER_RANGES[1:]
+                    if low <= ord(identifier[0]) <= high
+                ),
+                "_",
+            )
             for i in identifier[1:]:
-                yield next((i for low, high in _IDENTIFIER_RANGES if low <= ord(i) <= high), '_')
+                yield next(
+                    (i for low, high in _IDENTIFIER_RANGES if low <= ord(i) <= high),
+                    "_",
+                )
 
         if identifier:
             return "".join(process(identifier))

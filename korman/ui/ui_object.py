@@ -15,6 +15,7 @@
 
 import bpy
 
+
 class ObjectButtonsPanel:
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"

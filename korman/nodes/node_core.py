@@ -21,14 +21,20 @@ import time
 
 from ..exporter import ExportError
 
+
 class PlasmaNodeBase:
     def generate_notify_msg(self, exporter, so, socket_id, idname=None):
         notify = plNotifyMsg()
-        notify.BCastFlags = (plMessage.kNetPropagate | plMessage.kLocalPropagate)
+        notify.BCastFlags = plMessage.kNetPropagate | plMessage.kLocalPropagate
         for i in self.find_outputs(socket_id, idname):
             key = i.get_key(exporter, so)
             if key is None:
-                exporter.report.warn(" '{}' Node '{}' doesn't expose a key. It won't be triggered by '{}'!".format(i.bl_idname, i.name, self.name), indent=3)
+                exporter.report.warn(
+                    " '{}' Node '{}' doesn't expose a key. It won't be triggered by '{}'!".format(
+                        i.bl_idname, i.name, self.name
+                    ),
+                    indent=3,
+                )
             elif isinstance(key, tuple):
                 for i in key:
                     notify.addReceiver(key)
@@ -44,7 +50,9 @@ class PlasmaNodeBase:
         if single:
             name = bl.name if bl is not None else so.key.name
             if suffix:
-                working_name = "{}_{}_{}_{}".format(name, self.id_data.name, self.name, suffix)
+                working_name = "{}_{}_{}_{}".format(
+                    name, self.id_data.name, self.name, suffix
+                )
             else:
                 working_name = "{}_{}_{}".format(name, self.id_data.name, self.name)
         else:
@@ -70,17 +78,23 @@ class PlasmaNodeBase:
     def _find_create_object(self, pClass, exporter, **kwargs):
         """Finds or creates an hsKeyedObject specific to this node."""
         assert "name" not in kwargs
-        kwargs["name"] = self.get_key_name(issubclass(pClass, (plObjInterface, plSingleModifier)),
-                                           kwargs.pop("suffix", ""), kwargs.get("bl"),
-                                           kwargs.get("so"))
+        kwargs["name"] = self.get_key_name(
+            issubclass(pClass, (plObjInterface, plSingleModifier)),
+            kwargs.pop("suffix", ""),
+            kwargs.get("bl"),
+            kwargs.get("so"),
+        )
         return exporter.mgr.find_create_object(pClass, **kwargs)
 
     def _find_create_key(self, pClass, exporter, **kwargs):
         """Finds or creates a plKey specific to this node."""
         assert "name" not in kwargs
-        kwargs["name"] = self.get_key_name(issubclass(pClass, (plObjInterface, plSingleModifier)),
-                                           kwargs.pop("suffix", ""), kwargs.get("bl"),
-                                           kwargs.get("so"))
+        kwargs["name"] = self.get_key_name(
+            issubclass(pClass, (plObjInterface, plSingleModifier)),
+            kwargs.pop("suffix", ""),
+            kwargs.get("bl"),
+            kwargs.get("so"),
+        )
         return exporter.mgr.find_create_key(pClass, **kwargs)
 
     def find_input(self, key, idname=None):
@@ -181,19 +195,27 @@ class PlasmaNodeBase:
         """Generates valid node sockets that can be linked to a specific socket on this node."""
         from .node_deprecated import PlasmaDeprecatedNode
 
-        source_socket_props = getattr(self.__class__, "output_sockets", {}) if is_output else \
-                              getattr(self.__class__, "input_sockets", {})
+        source_socket_props = (
+            getattr(self.__class__, "output_sockets", {})
+            if is_output
+            else getattr(self.__class__, "input_sockets", {})
+        )
         source_socket_def = source_socket_props.get(socket.alias, {})
         valid_dest_sockets = source_socket_def.get("valid_link_sockets")
         valid_dest_nodes = source_socket_def.get("valid_link_nodes")
 
         for dest_node_cls in bpy.types.Node.__subclasses__():
-            if not issubclass(dest_node_cls, PlasmaNodeBase) or issubclass(dest_node_cls, PlasmaDeprecatedNode):
+            if not issubclass(dest_node_cls, PlasmaNodeBase) or issubclass(
+                dest_node_cls, PlasmaDeprecatedNode
+            ):
                 continue
 
             # Korman standard node socket definitions
-            socket_defs = getattr(dest_node_cls, "input_sockets", {}) if is_output else \
-                          getattr(dest_node_cls, "output_sockets", {})
+            socket_defs = (
+                getattr(dest_node_cls, "input_sockets", {})
+                if is_output
+                else getattr(dest_node_cls, "output_sockets", {})
+            )
             for socket_name, socket_def in socket_defs.items():
                 if socket_def.get("can_link") is False:
                     continue
@@ -201,17 +223,29 @@ class PlasmaNodeBase:
                     continue
 
                 # Can this socket link to the socket_def on the destination node?
-                if valid_dest_nodes is not None and dest_node_cls.bl_idname not in valid_dest_nodes:
+                if (
+                    valid_dest_nodes is not None
+                    and dest_node_cls.bl_idname not in valid_dest_nodes
+                ):
                     continue
-                if valid_dest_sockets is not None and socket_def["type"] not in valid_dest_sockets:
+                if (
+                    valid_dest_sockets is not None
+                    and socket_def["type"] not in valid_dest_sockets
+                ):
                     continue
 
                 # Can the socket_def on the destination node link to this socket?
                 valid_source_nodes = socket_def.get("valid_link_nodes")
                 valid_source_sockets = socket_def.get("valid_link_sockets")
-                if valid_source_nodes is not None and self.bl_idname not in valid_source_nodes:
+                if (
+                    valid_source_nodes is not None
+                    and self.bl_idname not in valid_source_nodes
+                ):
                     continue
-                if valid_source_sockets is not None and socket.bl_idname not in valid_source_sockets:
+                if (
+                    valid_source_sockets is not None
+                    and socket.bl_idname not in valid_source_sockets
+                ):
                     continue
                 if valid_source_sockets is None and valid_source_nodes is None:
                     if socket.bl_idname != socket_def["type"]:
@@ -222,10 +256,12 @@ class PlasmaNodeBase:
                 if poll_add is not None and not poll_add(context):
                     continue
 
-                yield { "node_idname": dest_node_cls.bl_idname,
-                        "node_text": dest_node_cls.bl_label,
-                        "socket_name": socket_name,
-                        "socket_text": socket_def["text"] }
+                yield {
+                    "node_idname": dest_node_cls.bl_idname,
+                    "node_text": dest_node_cls.bl_label,
+                    "socket_name": socket_name,
+                    "socket_text": socket_def["text"],
+                }
 
             # Some node types (eg Python) may auto-generate their own sockets, so we ask them now.
             for i in dest_node_cls.generate_valid_links_to(context, socket, is_output):
@@ -273,10 +309,12 @@ class PlasmaNodeBase:
 
     @classmethod
     def poll(cls, context):
-        return (context.bl_idname == "PlasmaNodeTree")
+        return context.bl_idname == "PlasmaNodeTree"
 
     def raise_error(self, message):
-        final = "Plasma Node Tree '{}' Node '{}': {}".format(self.id_data.name, self.name, message)
+        final = "Plasma Node Tree '{}' Node '{}': {}".format(
+            self.id_data.name, self.name, message
+        )
         raise ExportError(final)
 
     @property
@@ -285,8 +323,10 @@ class PlasmaNodeBase:
 
     @property
     def _socket_defs(self):
-        return (getattr(self.__class__, "input_sockets", {}),
-                getattr(self.__class__, "output_sockets", {}))
+        return (
+            getattr(self.__class__, "input_sockets", {}),
+            getattr(self.__class__, "output_sockets", {}),
+        )
 
     def _spawn_socket(self, key, options, sockets):
         socket = sockets.new(options["type"], options["text"], key)
@@ -299,7 +339,11 @@ class PlasmaNodeBase:
 
     def _tattle(self, socket, link, reason):
         direction = "->" if socket.is_output else "<-"
-        print("Removing {} {} {} {}".format(link.from_node.name, direction, link.to_node.name, reason))
+        print(
+            "Removing {} {} {} {}".format(
+                link.from_node.name, direction, link.to_node.name, reason
+            )
+        )
 
     def unlink_outputs(self, alias, reason=None):
         links = self.id_data.links
@@ -320,7 +364,9 @@ class PlasmaNodeBase:
     def _update_init_sockets(self, defs, sockets):
         # Create any missing sockets and spawn any required empties.
         for alias, options in defs.items():
-            working_sockets = [(i, socket) for i, socket in enumerate(sockets) if socket.alias == alias]
+            working_sockets = [
+                (i, socket) for i, socket in enumerate(sockets) if socket.alias == alias
+            ]
             if not working_sockets:
                 self._spawn_socket(alias, options, sockets)
             elif options.get("spawn_empty", False):
@@ -382,7 +428,9 @@ class PlasmaNodeBase:
             if allowed_sockets or allowed_nodes:
                 for link in socket.links:
                     if allowed_nodes:
-                        to_from_node = link.to_node if socket.is_output else link.from_node
+                        to_from_node = (
+                            link.to_node if socket.is_output else link.from_node
+                        )
                         if to_from_node.bl_idname not in allowed_nodes:
                             try:
                                 self._tattle(socket, link, "(bad node)")
@@ -392,8 +440,13 @@ class PlasmaNodeBase:
                                 pass
                             continue
                     if allowed_sockets:
-                        to_from_socket = link.to_socket if socket.is_output else link.from_socket
-                        if to_from_socket is None or to_from_socket.bl_idname not in allowed_sockets:
+                        to_from_socket = (
+                            link.to_socket if socket.is_output else link.from_socket
+                        )
+                        if (
+                            to_from_socket is None
+                            or to_from_socket.bl_idname not in allowed_sockets
+                        ):
                             try:
                                 self._tattle(socket, link, "(bad socket)")
                                 self.id_data.links.remove(link)
@@ -407,16 +460,21 @@ class PlasmaNodeBase:
     def _whine(self, msg, *args):
         if args:
             msg = msg.format(*args)
-        print("'{}' Node '{}': Whinging about {}".format(self.bl_idname, self.name, msg))
+        print(
+            "'{}' Node '{}': Whinging about {}".format(self.bl_idname, self.name, msg)
+        )
 
 
 class PlasmaTreeOutputNodeBase(PlasmaNodeBase):
     """Represents the final output of a node tree"""
+
     @classmethod
     def poll_add(cls, context):
         # There can only be one of these nodes per tree, so we will only allow this to be
         # added if no other output nodes are found.
-        return not any((isinstance(node, cls) for node in context.space_data.node_tree.nodes))
+        return not any(
+            (isinstance(node, cls) for node in context.space_data.node_tree.nodes)
+        )
 
 
 class PlasmaNodeSocketBase:
@@ -424,9 +482,9 @@ class PlasmaNodeSocketBase:
     def alias(self):
         """Blender appends .000 stuff if it's a dupe. We don't care about dupe identifiers..."""
         ident = self.identifier
-        if ident.find('.') == -1:
+        if ident.find(".") == -1:
             return ident
-        return ident.rsplit('.', 1)[0]
+        return ident.rsplit(".", 1)[0]
 
     def draw(self, context, layout, node, text):
         if not self.is_output:
@@ -462,9 +520,11 @@ class PlasmaNodeSocketBase:
             # loaded. So, only check in that case.
             hval = str(hash((i for i in bpy.data.texts)))
             if hval != self.possible_links_texts_hash:
-                self.has_possible_links_value = any(self.node.generate_valid_links_for(bpy.context,
-                                                                                       self,
-                                                                                       self.is_output))
+                self.has_possible_links_value = any(
+                    self.node.generate_valid_links_for(
+                        bpy.context, self, self.is_output
+                    )
+                )
                 self.possible_links_texts_hash = hval
             self.possible_links_update_time = tval
         return self.has_possible_links_value
@@ -475,8 +535,9 @@ class PlasmaNodeSocketBase:
 
     @classmethod
     def register(cls):
-        cls.has_possible_links = BoolProperty(options={"HIDDEN", "SKIP_SAVE"},
-                                              get=cls._has_possible_links)
+        cls.has_possible_links = BoolProperty(
+            options={"HIDDEN", "SKIP_SAVE"}, get=cls._has_possible_links
+        )
         cls.has_possible_links_value = BoolProperty(options={"HIDDEN", "SKIP_SAVE"})
         cls.possible_links_update_time = FloatProperty(options={"HIDDEN", "SKIP_SAVE"})
         cls.possible_links_texts_hash = StringProperty(options={"HIDDEN", "SKIP_SAVE"})
@@ -484,6 +545,7 @@ class PlasmaNodeSocketBase:
 
 class PlasmaNodeSocketInputGeneral(PlasmaNodeSocketBase, bpy.types.NodeSocket):
     """A general input socket that will steal the output's color"""
+
     def draw_color(self, context, node):
         if self.is_linked:
             return self.links[0].from_socket.draw_color(context, node)
@@ -516,12 +578,16 @@ class PlasmaNodeTree(bpy.types.NodeTree):
             if harvest_method is not None:
                 actors.update(harvest_method())
             elif not isinstance(node, PlasmaNodeBase):
-                raise ExportError("Plasma Node Tree '{}' Node '{}': is not a valid node for this tree".format(self.id_data.name, node.name))
+                raise ExportError(
+                    "Plasma Node Tree '{}' Node '{}': is not a valid node for this tree".format(
+                        self.id_data.name, node.name
+                    )
+                )
         return actors
 
     @classmethod
     def poll(cls, context):
-        return (context.scene.render.engine == "PLASMA_GAME")
+        return context.scene.render.engine == "PLASMA_GAME"
 
     @property
     def requires_actor(self):
@@ -539,4 +605,6 @@ def _nuke_plasma_nodes(dummy):
     for i in bpy.data.node_groups:
         if isinstance(i, PlasmaNodeTree):
             i.nodes.clear()
+
+
 bpy.app.handlers.load_pre.append(_nuke_plasma_nodes)

@@ -19,20 +19,26 @@ import math
 import sys
 
 if sys.platform == "win32":
+
     class _Coord(ctypes.Structure):
-        _fields_ = [("x", ctypes.c_short),
-                    ("y", ctypes.c_short)]
+        _fields_ = [("x", ctypes.c_short), ("y", ctypes.c_short)]
+
     class _SmallRect(ctypes.Structure):
-        _fields_ = [("Left", ctypes.c_short),
-                    ("Top", ctypes.c_short),
-                    ("Right", ctypes.c_short),
-                    ("Bottom", ctypes.c_short),]
+        _fields_ = [
+            ("Left", ctypes.c_short),
+            ("Top", ctypes.c_short),
+            ("Right", ctypes.c_short),
+            ("Bottom", ctypes.c_short),
+        ]
+
     class _ConsoleScreenBufferInfo(ctypes.Structure):
-        _fields_ = [("dwSize", _Coord),
-                    ("dwCursorPosition", _Coord),
-                    ("wAttributes", ctypes.c_ushort),
-                    ("srWindow", _SmallRect),
-                    ("dwMaximumWindowSize", _Coord)]
+        _fields_ = [
+            ("dwSize", _Coord),
+            ("dwCursorPosition", _Coord),
+            ("wAttributes", ctypes.c_ushort),
+            ("srWindow", _SmallRect),
+            ("dwMaximumWindowSize", _Coord),
+        ]
 
     class _ConsoleCursor:
         def __init__(self):
@@ -42,7 +48,9 @@ if sys.platform == "win32":
         @property
         def _screen_buffer_info(self):
             info = _ConsoleScreenBufferInfo()
-            ctypes.windll.kernel32.GetConsoleScreenBufferInfo(self._handle, ctypes.pointer(info))
+            ctypes.windll.kernel32.GetConsoleScreenBufferInfo(
+                self._handle, ctypes.pointer(info)
+            )
             return info
 
         def clear(self):
@@ -53,19 +61,28 @@ if sys.platform == "win32":
             num_chars = (info.dwSize.x * num_cols) + num_rows
             if num_chars:
                 nWrite = ctypes.c_ulong()
-                empty_char = ctypes.c_char(b' ')
-                ctypes.windll.kernel32.FillConsoleOutputCharacterA(self._handle, empty_char,
-                                                                   num_chars, self.position,
-                                                                   ctypes.pointer(nWrite))
+                empty_char = ctypes.c_char(b" ")
+                ctypes.windll.kernel32.FillConsoleOutputCharacterA(
+                    self._handle,
+                    empty_char,
+                    num_chars,
+                    self.position,
+                    ctypes.pointer(nWrite),
+                )
 
         def reset(self):
             ctypes.windll.kernel32.SetConsoleCursorPosition(self._handle, self.position)
 
         def update(self):
             info = _ConsoleScreenBufferInfo()
-            ctypes.windll.kernel32.GetConsoleScreenBufferInfo(self._handle, ctypes.pointer(info))
+            ctypes.windll.kernel32.GetConsoleScreenBufferInfo(
+                self._handle, ctypes.pointer(info)
+            )
             self.position = info.dwCursorPosition
+
+
 else:
+
     class _ConsoleCursor:
         def clear(self):
             # Only clears the current line, unfortunately.

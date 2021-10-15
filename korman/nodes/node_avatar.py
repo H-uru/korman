@@ -22,6 +22,7 @@ from .node_core import PlasmaNodeBase, PlasmaNodeSocketBase
 from ..properties.modifiers.avatar import sitting_approach_flags
 from ..exporter.explosions import ExportError
 
+
 class PlasmaSittingBehaviorNode(PlasmaNodeBase, bpy.types.Node):
     bl_category = "AVATAR"
     bl_idname = "PlasmaSittingBehaviorNode"
@@ -30,26 +31,41 @@ class PlasmaSittingBehaviorNode(PlasmaNodeBase, bpy.types.Node):
 
     pl_attrib = {"ptAttribActivator", "ptAttribActivatorList", "ptAttribNamedActivator"}
 
-    approach = EnumProperty(name="Approach",
-                            description="Directions an avatar can approach the seat from",
-                            items=sitting_approach_flags,
-                            default={"kApproachFront", "kApproachLeft", "kApproachRight"},
-                            options={"ENUM_FLAG"})
+    approach = EnumProperty(
+        name="Approach",
+        description="Directions an avatar can approach the seat from",
+        items=sitting_approach_flags,
+        default={"kApproachFront", "kApproachLeft", "kApproachRight"},
+        options={"ENUM_FLAG"},
+    )
 
-    input_sockets = OrderedDict([
-        ("condition", {
-            "text": "Condition",
-            "type": "PlasmaConditionSocket",
-        }),
-    ])
+    input_sockets = OrderedDict(
+        [
+            (
+                "condition",
+                {
+                    "text": "Condition",
+                    "type": "PlasmaConditionSocket",
+                },
+            ),
+        ]
+    )
 
-    output_sockets = OrderedDict([
-        ("satisfies", {
-            "text": "Satisfies",
-            "type": "PlasmaConditionSocket",
-            "valid_link_sockets": {"PlasmaConditionSocket", "PlasmaPythonFileNodeSocket"},
-        }),
-    ])
+    output_sockets = OrderedDict(
+        [
+            (
+                "satisfies",
+                {
+                    "text": "Satisfies",
+                    "type": "PlasmaConditionSocket",
+                    "valid_link_sockets": {
+                        "PlasmaConditionSocket",
+                        "PlasmaPythonFileNodeSocket",
+                    },
+                },
+            ),
+        ]
+    )
 
     def draw_buttons(self, context, layout):
         col = layout.column()
@@ -70,7 +86,12 @@ class PlasmaSittingBehaviorNode(PlasmaNodeBase, bpy.types.Node):
             if i is not None:
                 sitmod.addNotifyKey(i.get_key(exporter, so))
             else:
-                exporter.report.warn("'{}' Node '{}' doesn't expose a key. It won't be triggered by '{}'!".format(i.bl_idname, i.name, self.name), indent=3)
+                exporter.report.warn(
+                    "'{}' Node '{}' doesn't expose a key. It won't be triggered by '{}'!".format(
+                        i.bl_idname, i.name, self.name
+                    ),
+                    indent=3,
+                )
 
     @property
     def requires_actor(self):
@@ -80,9 +101,11 @@ class PlasmaSittingBehaviorNode(PlasmaNodeBase, bpy.types.Node):
 class PlasmaAnimStageAdvanceSocketIn(PlasmaNodeSocketBase, bpy.types.NodeSocket):
     bl_color = (0.412, 0.2, 0.055, 1.0)
 
-    auto_advance = BoolProperty(name="Advance to Next Stage",
-                                description="Automatically advance to the next stage when the animation completes instead of halting",
-                                default=True)
+    auto_advance = BoolProperty(
+        name="Advance to Next Stage",
+        description="Automatically advance to the next stage when the animation completes instead of halting",
+        default=True,
+    )
 
     def draw_content(self, context, layout, node, text):
         if not self.is_linked:
@@ -97,9 +120,11 @@ class PlasmaAnimStageAdvanceSocketIn(PlasmaNodeSocketBase, bpy.types.NodeSocket)
 class PlasmaAnimStageRegressSocketIn(PlasmaNodeSocketBase, bpy.types.NodeSocket):
     bl_color = (0.412, 0.2, 0.055, 1.0)
 
-    auto_regress = BoolProperty(name="Regress to Previous Stage",
-                                description="Automatically regress to the previous stage when the animation completes instead of halting",
-                                default=True)
+    auto_regress = BoolProperty(
+        name="Regress to Previous Stage",
+        description="Automatically regress to the previous stage when the animation completes instead of halting",
+        default=True,
+    )
 
     def draw_content(self, context, layout, node, text):
         if not self.is_linked:
@@ -115,17 +140,59 @@ class PlasmaAnimStageOrderSocketOut(PlasmaNodeSocketBase, bpy.types.NodeSocket):
     bl_color = (0.412, 0.2, 0.055, 1.0)
 
 
-anim_play_flags = [("kPlayNone", "None", "Play stage only when directed by a message"),
-                   ("kPlayKey", "Keyboard", "Play stage when the user presses the forward/backward key"),
-                   ("kPlayAuto", "Automatic", "Play stage automatically")]
-anim_stage_adv_flags = [("kAdvanceNone", "None", "Advance to the next stage only when directed by a message"),
-                        ("kAdvanceOnMove", "Movement", "Advance to the next stage when the user presses a movement key"),
-                        ("kAdvanceAuto", "Automatic", "Advance to the next stage automatically when this one completes"),
-                        ("kAdvanceOnAnyKey", "Any Keypress", "Advance to the next stage when the user presses any key")]
-anim_stage_rgr_flags = [("kAdvanceNone", "None", "Regress to the previous stage only when directed by a message"),
-                        ("kAdvanceOnMove", "Movement", "Regress to the previous stage when the user presses a movement key"),
-                        ("kAdvanceAuto", "Automatic", "Regress to the previous stage automatically when this one completes"),
-                        ("kAdvanceOnAnyKey", "Any Keypress", "Regress to the previous stage when the user presses any key")]
+anim_play_flags = [
+    ("kPlayNone", "None", "Play stage only when directed by a message"),
+    (
+        "kPlayKey",
+        "Keyboard",
+        "Play stage when the user presses the forward/backward key",
+    ),
+    ("kPlayAuto", "Automatic", "Play stage automatically"),
+]
+anim_stage_adv_flags = [
+    (
+        "kAdvanceNone",
+        "None",
+        "Advance to the next stage only when directed by a message",
+    ),
+    (
+        "kAdvanceOnMove",
+        "Movement",
+        "Advance to the next stage when the user presses a movement key",
+    ),
+    (
+        "kAdvanceAuto",
+        "Automatic",
+        "Advance to the next stage automatically when this one completes",
+    ),
+    (
+        "kAdvanceOnAnyKey",
+        "Any Keypress",
+        "Advance to the next stage when the user presses any key",
+    ),
+]
+anim_stage_rgr_flags = [
+    (
+        "kAdvanceNone",
+        "None",
+        "Regress to the previous stage only when directed by a message",
+    ),
+    (
+        "kAdvanceOnMove",
+        "Movement",
+        "Regress to the previous stage when the user presses a movement key",
+    ),
+    (
+        "kAdvanceAuto",
+        "Automatic",
+        "Regress to the previous stage automatically when this one completes",
+    ),
+    (
+        "kAdvanceOnAnyKey",
+        "Any Keypress",
+        "Regress to the previous stage when the user presses any key",
+    ),
+]
 
 
 class PlasmaAnimStageSettingsSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
@@ -138,63 +205,94 @@ class PlasmaAnimStageSettingsNode(PlasmaNodeBase, bpy.types.Node):
     bl_label = "Animation Stage Settings"
     bl_width_default = 325
 
-    forward = EnumProperty(name="Forward",
-                           description="Selects which events cause this stage to play forward",
-                           items=anim_play_flags,
-                           default="kPlayNone")
-    backward = EnumProperty(name="Backward",
-                           description="Selects which events cause this stage to play backward",
-                           items=anim_play_flags,
-                           default="kPlayNone")
-    stage_advance = EnumProperty(name="Stage Advance",
-                                 description="Selects which events cause this stage to advance to the next stage",
-                                 items=anim_stage_adv_flags,
-                                 default="kAdvanceNone")
-    stage_regress = EnumProperty(name="Stage Regress",
-                                 description="Selects which events cause this stage to regress to the previous stage",
-                                 items=anim_stage_rgr_flags,
-                                 default="kAdvanceNone")
+    forward = EnumProperty(
+        name="Forward",
+        description="Selects which events cause this stage to play forward",
+        items=anim_play_flags,
+        default="kPlayNone",
+    )
+    backward = EnumProperty(
+        name="Backward",
+        description="Selects which events cause this stage to play backward",
+        items=anim_play_flags,
+        default="kPlayNone",
+    )
+    stage_advance = EnumProperty(
+        name="Stage Advance",
+        description="Selects which events cause this stage to advance to the next stage",
+        items=anim_stage_adv_flags,
+        default="kAdvanceNone",
+    )
+    stage_regress = EnumProperty(
+        name="Stage Regress",
+        description="Selects which events cause this stage to regress to the previous stage",
+        items=anim_stage_rgr_flags,
+        default="kAdvanceNone",
+    )
 
-    notify_on = EnumProperty(name="Notify",
-                             description="Which events should send notifications",
-                             items=[
-                                ("kNotifyEnter", "Enter",
-                                "Send notification when animation first begins to play"),
-                                ("kNotifyLoop", "Loop",
-                                "Send notification when animation starts a loop"),
-                                ("kNotifyAdvance", "Advance",
-                                "Send notification when animation is advanced"),
-                                ("kNotifyRegress", "Regress",
-                                "Send notification when animation is regressed")
-                             ],
-                             default={"kNotifyEnter"},
-                             options={"ENUM_FLAG"})
+    notify_on = EnumProperty(
+        name="Notify",
+        description="Which events should send notifications",
+        items=[
+            (
+                "kNotifyEnter",
+                "Enter",
+                "Send notification when animation first begins to play",
+            ),
+            ("kNotifyLoop", "Loop", "Send notification when animation starts a loop"),
+            (
+                "kNotifyAdvance",
+                "Advance",
+                "Send notification when animation is advanced",
+            ),
+            (
+                "kNotifyRegress",
+                "Regress",
+                "Send notification when animation is regressed",
+            ),
+        ],
+        default={"kNotifyEnter"},
+        options={"ENUM_FLAG"},
+    )
 
-    input_sockets = OrderedDict([
-        ("advance_to", {
-            "text": "Advance to Stage",
-            "type": "PlasmaAnimStageAdvanceSocketIn",
-            "valid_link_nodes": "PlasmaAnimStageNode",
-            "valid_link_sockets": "PlasmaAnimStageOrderSocketOut",
-            "link_limit": 1,
-        }),
-        ("regress_to", {
-            "text": "Regress to Stage",
-            "type": "PlasmaAnimStageRegressSocketIn",
-            "valid_link_nodes": "PlasmaAnimStageNode",
-            "valid_link_sockets": "PlasmaAnimStageOrderSocketOut",
-            "link_limit": 1,
-        }),
-    ])
+    input_sockets = OrderedDict(
+        [
+            (
+                "advance_to",
+                {
+                    "text": "Advance to Stage",
+                    "type": "PlasmaAnimStageAdvanceSocketIn",
+                    "valid_link_nodes": "PlasmaAnimStageNode",
+                    "valid_link_sockets": "PlasmaAnimStageOrderSocketOut",
+                    "link_limit": 1,
+                },
+            ),
+            (
+                "regress_to",
+                {
+                    "text": "Regress to Stage",
+                    "type": "PlasmaAnimStageRegressSocketIn",
+                    "valid_link_nodes": "PlasmaAnimStageNode",
+                    "valid_link_sockets": "PlasmaAnimStageOrderSocketOut",
+                    "link_limit": 1,
+                },
+            ),
+        ]
+    )
 
-    output_sockets = OrderedDict([
-        ("stage", {
-            "text": "Stage",
-            "type": "PlasmaAnimStageSettingsSocket",
-            "valid_link_nodes": "PlasmaAnimStageNode",
-            "valid_link_sockets": "PlasmaAnimStageSettingsSocket",
-        }),
-    ])
+    output_sockets = OrderedDict(
+        [
+            (
+                "stage",
+                {
+                    "text": "Stage",
+                    "type": "PlasmaAnimStageSettingsSocket",
+                    "valid_link_nodes": "PlasmaAnimStageNode",
+                    "valid_link_sockets": "PlasmaAnimStageSettingsSocket",
+                },
+            ),
+        ]
+    )
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "forward")
@@ -215,45 +313,66 @@ class PlasmaAnimStageNode(PlasmaNodeBase, bpy.types.Node):
     bl_label = "Animation Stage"
     bl_width_default = 325
 
-    pl_attrib = ("ptAttribAnimation")
+    pl_attrib = "ptAttribAnimation"
 
-    anim_name = StringProperty(name="Animation Name",
-                               description="Name of animation to play")
+    anim_name = StringProperty(
+        name="Animation Name", description="Name of animation to play"
+    )
 
-    loop_option = EnumProperty(name="Looping",
-                               description="Loop options for animation playback",
-                               items=[("kDontLoop", "Don't Loop", "Don't loop the animation"),
-                                      ("kLoop", "Loop", "Loop the animation a finite number of times"),
-                                      ("kLoopForever", "Loop Forever", "Continue playing animation indefinitely")],
-                               default="kDontLoop")
-    num_loops = IntProperty(name="Num Loops",
-                            description="Number of times to loop animation",
-                            default=0)
+    loop_option = EnumProperty(
+        name="Looping",
+        description="Loop options for animation playback",
+        items=[
+            ("kDontLoop", "Don't Loop", "Don't loop the animation"),
+            ("kLoop", "Loop", "Loop the animation a finite number of times"),
+            ("kLoopForever", "Loop Forever", "Continue playing animation indefinitely"),
+        ],
+        default="kDontLoop",
+    )
+    num_loops = IntProperty(
+        name="Num Loops", description="Number of times to loop animation", default=0
+    )
 
-    input_sockets = OrderedDict([
-        ("stage_settings", {
-            "text": "Stage Settings",
-            "type": "PlasmaAnimStageSettingsSocket",
-            "valid_link_nodes": "PlasmaAnimStageSettingsNode",
-            "valid_link_sockets": "PlasmaAnimStageSettingsSocket",
-            "link_limit": 1,
-        }),
-    ])
+    input_sockets = OrderedDict(
+        [
+            (
+                "stage_settings",
+                {
+                    "text": "Stage Settings",
+                    "type": "PlasmaAnimStageSettingsSocket",
+                    "valid_link_nodes": "PlasmaAnimStageSettingsNode",
+                    "valid_link_sockets": "PlasmaAnimStageSettingsSocket",
+                    "link_limit": 1,
+                },
+            ),
+        ]
+    )
 
-    output_sockets = OrderedDict([
-        ("stage", {
-            "text": "Behavior",
-            "type": "PlasmaAnimStageRefSocket",
-            "valid_link_nodes": "PlasmaMultiStageBehaviorNode",
-            "valid_link_sockets": "PlasmaAnimStageRefSocket",
-        }),
-        ("stage_reference", {
-            "text": "Stage Progression",
-            "type": "PlasmaAnimStageOrderSocketOut",
-            "valid_link_nodes": "PlasmaAnimStageSettingsNode",
-            "valid_link_sockets": {"PlasmaAnimStageAdvanceSocketIn", "PlasmaAnimStageRegressSocketIn"} ,
-        }),
-    ])
+    output_sockets = OrderedDict(
+        [
+            (
+                "stage",
+                {
+                    "text": "Behavior",
+                    "type": "PlasmaAnimStageRefSocket",
+                    "valid_link_nodes": "PlasmaMultiStageBehaviorNode",
+                    "valid_link_sockets": "PlasmaAnimStageRefSocket",
+                },
+            ),
+            (
+                "stage_reference",
+                {
+                    "text": "Stage Progression",
+                    "type": "PlasmaAnimStageOrderSocketOut",
+                    "valid_link_nodes": "PlasmaAnimStageSettingsNode",
+                    "valid_link_sockets": {
+                        "PlasmaAnimStageAdvanceSocketIn",
+                        "PlasmaAnimStageRegressSocketIn",
+                    },
+                },
+            ),
+        ]
+    )
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "anim_name")
@@ -270,7 +389,15 @@ class PlasmaAnimStageNode(PlasmaNodeBase, bpy.types.Node):
         stage_socket = self.find_output_socket("stage")
         if stage_socket.is_linked:
             msbmod = stage_socket.links[0].to_node
-            idx = next((idx for idx, socket in enumerate(msbmod.find_input_sockets("stage_refs")) if socket.is_linked and socket.links[0].from_node == self))
+            idx = next(
+                (
+                    idx
+                    for idx, socket in enumerate(
+                        msbmod.find_input_sockets("stage_refs")
+                    )
+                    if socket.is_linked and socket.links[0].from_node == self
+                )
+            )
         return idx
 
 
@@ -284,48 +411,69 @@ class PlasmaMultiStageBehaviorNode(PlasmaNodeBase, bpy.types.Node):
     bl_label = "Multistage Behavior"
     bl_width_default = 200
 
-    pl_attrib = ("ptAttribBehavior")
+    pl_attrib = "ptAttribBehavior"
 
-    freeze_phys = BoolProperty(name="Freeze Physical",
-                              description="Freeze physical at end",
-                              default=False)
-    reverse_control = BoolProperty(name="Reverse Controls",
-                              description="Reverse forward/back controls at end",
-                              default=False)
+    freeze_phys = BoolProperty(
+        name="Freeze Physical", description="Freeze physical at end", default=False
+    )
+    reverse_control = BoolProperty(
+        name="Reverse Controls",
+        description="Reverse forward/back controls at end",
+        default=False,
+    )
 
-    input_sockets = OrderedDict([
-        ("seek_target", {
-            "text": "Seek Target",
-            "type": "PlasmaSeekTargetSocketIn",
-            "valid_link_sockets": "PlasmaSeekTargetSocketOut",
-        }),
-        ("stage_refs", {
-            "text": "Stage",
-            "type": "PlasmaAnimStageRefSocket",
-            "valid_link_nodes": "PlasmaAnimStageNode",
-            "valid_link_sockets": "PlasmaAnimStageRefSocket",
-            "link_limit": 1,
-            "spawn_empty": True,
-        }),
-        ("condition", {
-            "text": "Triggered By",
-            "type": "PlasmaConditionSocket",
-            "spawn_empty": True,
-        }),
-    ])
+    input_sockets = OrderedDict(
+        [
+            (
+                "seek_target",
+                {
+                    "text": "Seek Target",
+                    "type": "PlasmaSeekTargetSocketIn",
+                    "valid_link_sockets": "PlasmaSeekTargetSocketOut",
+                },
+            ),
+            (
+                "stage_refs",
+                {
+                    "text": "Stage",
+                    "type": "PlasmaAnimStageRefSocket",
+                    "valid_link_nodes": "PlasmaAnimStageNode",
+                    "valid_link_sockets": "PlasmaAnimStageRefSocket",
+                    "link_limit": 1,
+                    "spawn_empty": True,
+                },
+            ),
+            (
+                "condition",
+                {
+                    "text": "Triggered By",
+                    "type": "PlasmaConditionSocket",
+                    "spawn_empty": True,
+                },
+            ),
+        ]
+    )
 
-    output_sockets = OrderedDict([
-        ("hosts", {
-            "text": "Host Script",
-            "type": "PlasmaBehaviorSocket",
-            "valid_link_nodes": {"PlasmaPythonFileNode"},
-            "spawn_empty": True,
-        }),
-        ("satisfies", {
-            "text": "Trigger",
-            "type": "PlasmaConditionSocket",
-        })
-    ])
+    output_sockets = OrderedDict(
+        [
+            (
+                "hosts",
+                {
+                    "text": "Host Script",
+                    "type": "PlasmaBehaviorSocket",
+                    "valid_link_nodes": {"PlasmaPythonFileNode"},
+                    "spawn_empty": True,
+                },
+            ),
+            (
+                "satisfies",
+                {
+                    "text": "Trigger",
+                    "type": "PlasmaConditionSocket",
+                },
+            ),
+        ]
+    )
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "freeze_phys")
@@ -337,7 +485,9 @@ class PlasmaMultiStageBehaviorNode(PlasmaNodeBase, bpy.types.Node):
         if seek_socket.is_linked:
             seek_target = seek_socket.links[0].from_node.target
             if seek_target is not None:
-                seek_object = exporter.mgr.find_create_object(plSceneObject, bl=seek_target)
+                seek_object = exporter.mgr.find_create_object(
+                    plSceneObject, bl=seek_target
+                )
             else:
                 self.raise_error("MultiStage Behavior's seek point object is invalid")
         else:
@@ -349,7 +499,9 @@ class PlasmaMultiStageBehaviorNode(PlasmaNodeBase, bpy.types.Node):
         seek_socket = self.find_input_socket("seek_target")
         msbmod = self.get_key(exporter, so).object
 
-        msbmod.smartSeek = True if seek_socket.is_linked or seek_socket.auto_target else False
+        msbmod.smartSeek = (
+            True if seek_socket.is_linked or seek_socket.auto_target else False
+        )
         msbmod.freezePhys = self.freeze_phys
         msbmod.reverseFBControlsOnRelease = self.reverse_control
 
@@ -365,7 +517,7 @@ class PlasmaMultiStageBehaviorNode(PlasmaNodeBase, bpy.types.Node):
             settings = stage.find_input("stage_settings")
             if settings:
                 animstage.forwardType = getattr(plAnimStage, settings.forward)
-                animstage.backType =getattr(plAnimStage, settings.backward)
+                animstage.backType = getattr(plAnimStage, settings.backward)
                 animstage.advanceType = getattr(plAnimStage, settings.stage_advance)
                 animstage.regressType = getattr(plAnimStage, settings.stage_regress)
                 for flag in settings.notify_on:
@@ -395,13 +547,20 @@ class PlasmaMultiStageBehaviorNode(PlasmaNodeBase, bpy.types.Node):
 
             msbmod.addStage(animstage)
 
-        receivers = ((i, i.get_key(exporter, so)) for i in self.find_outputs("satisfies"))
+        receivers = (
+            (i, i.get_key(exporter, so)) for i in self.find_outputs("satisfies")
+        )
         for node, key in receivers:
             if key is not None:
                 msbmod.addReceiver(key)
             else:
-                exporter.report.warn("'{}' Node '{}' doesn't expose a key. It won't be triggered by '{}'!",
-                                     node.bl_idname, node.name, self.name, indent=3)
+                exporter.report.warn(
+                    "'{}' Node '{}' doesn't expose a key. It won't be triggered by '{}'!",
+                    node.bl_idname,
+                    node.name,
+                    self.name,
+                    indent=3,
+                )
 
     @property
     def requires_actor(self):
@@ -423,7 +582,15 @@ class PlasmaAnimStageRefSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
     def draw_content(self, context, layout, node, text):
         if isinstance(node, PlasmaMultiStageBehaviorNode):
             try:
-                idx = next((idx for idx, socket in enumerate(node.find_input_sockets("stage_refs")) if socket == self))
+                idx = next(
+                    (
+                        idx
+                        for idx, socket in enumerate(
+                            node.find_input_sockets("stage_refs")
+                        )
+                        if socket == self
+                    )
+                )
             except StopIteration:
                 layout.label(text)
             else:
@@ -434,9 +601,11 @@ class PlasmaAnimStageRefSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
 
 class PlasmaSeekTargetSocketIn(PlasmaNodeSocketBase, bpy.types.NodeSocket):
     bl_color = (0.180, 0.350, 0.180, 1.0)
-    auto_target = BoolProperty(name="Auto Smart Seek",
-                               description="Smart Seek causes the avatar to seek to the provided position before starting the behavior ('auto' will use the current object as the seek point)",
-                               default=False)
+    auto_target = BoolProperty(
+        name="Auto Smart Seek",
+        description="Smart Seek causes the avatar to seek to the provided position before starting the behavior ('auto' will use the current object as the seek point)",
+        default=False,
+    )
 
     def draw_content(self, context, layout, node, text):
         if not self.is_linked:
@@ -459,18 +628,28 @@ class PlasmaSeekTargetNode(PlasmaNodeBase, bpy.types.Node):
     bl_label = "Seek Target"
     bl_width_default = 200
 
-    target = PointerProperty(name="Position",
-                             description="Object defining the Seek Point's position",
-                             type=bpy.types.Object)
+    target = PointerProperty(
+        name="Position",
+        description="Object defining the Seek Point's position",
+        type=bpy.types.Object,
+    )
 
-    output_sockets = OrderedDict([
-        ("seekers", {
-            "text": "Seekers",
-            "type": "PlasmaSeekTargetSocketOut",
-            "valid_link_nodes": {"PlasmaMultiStageBehaviorNode", "PlasmaOneShotMsgNode"},
-            "valid_link_sockets": {"PlasmaSeekTargetSocketIn"},
-        })
-    ])
+    output_sockets = OrderedDict(
+        [
+            (
+                "seekers",
+                {
+                    "text": "Seekers",
+                    "type": "PlasmaSeekTargetSocketOut",
+                    "valid_link_nodes": {
+                        "PlasmaMultiStageBehaviorNode",
+                        "PlasmaOneShotMsgNode",
+                    },
+                    "valid_link_sockets": {"PlasmaSeekTargetSocketIn"},
+                },
+            )
+        ]
+    )
 
     def draw_buttons(self, context, layout):
         col = layout.column()

@@ -20,6 +20,7 @@ from collections import OrderedDict
 
 from .node_core import *
 
+
 class PlasmaDeprecatedNode(PlasmaNodeBase):
     @abc.abstractmethod
     def upgrade(self):
@@ -53,28 +54,44 @@ class PlasmaResponderCommandNode(PlasmaDeprecatedNode, bpy.types.Node):
     bl_idname = "PlasmaResponderCommandNode"
     bl_label = "Responder Command"
 
-    input_sockets = OrderedDict([
-        ("whodoneit", {
-            "text": "Condition",
-            "type": "PlasmaRespCommandSocket",
-        }),
-    ])
+    input_sockets = OrderedDict(
+        [
+            (
+                "whodoneit",
+                {
+                    "text": "Condition",
+                    "type": "PlasmaRespCommandSocket",
+                },
+            ),
+        ]
+    )
 
-    output_sockets = OrderedDict([
-        ("msg", {
-            "link_limit": 1,
-            "text": "Message",
-            "type": "PlasmaMessageSocket",
-        }),
-        ("trigger", {
-            "text": "Trigger",
-            "type": "PlasmaRespCommandSocket",
-        }),
-        ("reenable", {
-            "text": "Local Reenable",
-            "type": "PlasmaEnableMessageSocket",
-        }),
-    ])
+    output_sockets = OrderedDict(
+        [
+            (
+                "msg",
+                {
+                    "link_limit": 1,
+                    "text": "Message",
+                    "type": "PlasmaMessageSocket",
+                },
+            ),
+            (
+                "trigger",
+                {
+                    "text": "Trigger",
+                    "type": "PlasmaRespCommandSocket",
+                },
+            ),
+            (
+                "reenable",
+                {
+                    "text": "Local Reenable",
+                    "type": "PlasmaEnableMessageSocket",
+                },
+            ),
+        ]
+    )
 
     def _find_message_sender_node(self, parentCmdNode=None):
         if parentCmdNode is None:
@@ -103,7 +120,6 @@ class PlasmaResponderCommandNode(PlasmaDeprecatedNode, bpy.types.Node):
             self._whine("unexpected command node type '{}'", parentCmdNode.bl_idname)
             return None
 
-
     def upgrade(self):
         senderNode = self._find_message_sender_node()
         if senderNode is None:
@@ -130,6 +146,7 @@ class PlasmaResponderCommandNode(PlasmaDeprecatedNode, bpy.types.Node):
                     continue
                 tree.links.new(link.to_socket, fromSocket)
 
+
 @bpy.app.handlers.persistent
 def _upgrade_node_trees(dummy):
     for tree in bpy.data.node_groups:
@@ -150,4 +167,6 @@ def _upgrade_node_trees(dummy):
         # toss deprecated nodes
         for node in nuke:
             tree.nodes.remove(node)
+
+
 bpy.app.handlers.load_post.append(_upgrade_node_trees)

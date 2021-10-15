@@ -17,10 +17,12 @@ import bpy
 
 from .. import ui_list
 
+
 def random_sound(modifier, layout, context):
     parent_bo = modifier.id_data.parent
-    collision_bad = (modifier.mode == "collision" and (parent_bo is None or
-                                                       not parent_bo.plasma_modifiers.collision.enabled))
+    collision_bad = modifier.mode == "collision" and (
+        parent_bo is None or not parent_bo.plasma_modifiers.collision.enabled
+    )
     layout.alert = collision_bad
     layout.prop(modifier, "mode")
     if collision_bad:
@@ -50,13 +52,26 @@ def random_sound(modifier, layout, context):
         layout.alert = len(modifier.surfaces) == 0
         layout.prop_menu_enum(modifier, "surfaces")
 
+
 def _draw_fade_ui(modifier, layout, label):
     layout.label(label)
     layout.prop(modifier, "fade_type", text="")
     layout.prop(modifier, "length")
 
+
 class SoundListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_property,
+        index=0,
+        flt_flag=0,
+    ):
         if item.sound:
             layout.prop(item, "name", emboss=False, icon="SOUND", text="")
             layout.prop(item, "enabled", text="")
@@ -65,8 +80,15 @@ class SoundListUI(bpy.types.UIList):
 
 
 def soundemit(modifier, layout, context):
-    ui_list.draw_modifier_list(layout, "SoundListUI", modifier, "sounds",
-                               "active_sound_index", rows=2, maxrows=3)
+    ui_list.draw_modifier_list(
+        layout,
+        "SoundListUI",
+        modifier,
+        "sounds",
+        "active_sound_index",
+        rows=2,
+        maxrows=3,
+    )
 
     try:
         sound = modifier.sounds[modifier.active_sound_index]
@@ -89,7 +111,9 @@ def soundemit(modifier, layout, context):
             if data.packed_file is None:
                 row.operator("sound.plasma_pack", icon="UGLYPACKAGE", text="")
             else:
-                row.operator_menu_enum("sound.plasma_unpack", "method", icon="PACKAGE", text="")
+                row.operator_menu_enum(
+                    "sound.plasma_unpack", "method", icon="PACKAGE", text=""
+                )
 
         col = split.column()
         col.enabled = data is not None

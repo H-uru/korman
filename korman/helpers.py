@@ -18,6 +18,7 @@ import bpy
 from contextlib import contextmanager
 import math
 
+
 @contextmanager
 def bmesh_from_object(bl):
     """Converts a Blender Object to a BMesh with modifiers applied."""
@@ -28,6 +29,7 @@ def bmesh_from_object(bl):
         yield mesh
     finally:
         mesh.free()
+
 
 class GoodNeighbor:
     """Leave Things the Way You Found Them! (TM)"""
@@ -63,6 +65,7 @@ class TemporaryObject:
 
 class UiHelper:
     """This fun little helper makes sure that we don't wreck the UI"""
+
     def __init__(self, context):
         self.active_object = context.active_object
         self.selected_objects = context.selected_objects
@@ -82,7 +85,7 @@ class UiHelper:
 
     def __exit__(self, type, value, traceback):
         for i in bpy.data.objects:
-            i.select = (i in self.selected_objects)
+            i.select = i in self.selected_objects
 
         scene = bpy.context.scene
         scene.objects.active = self.active_object
@@ -94,8 +97,10 @@ class UiHelper:
 def ensure_power_of_two(value):
     return pow(2, math.floor(math.log(value, 2)))
 
+
 def fetch_fcurves(id_data, data_fcurves=True):
     """Given a Blender ID, yields its FCurves"""
+
     def _fetch(source):
         if source is not None and source.action is not None:
             for i in source.action.fcurves:
@@ -107,6 +112,7 @@ def fetch_fcurves(id_data, data_fcurves=True):
     if data_fcurves:
         for i in _fetch(id_data.data.animation_data):
             yield i
+
 
 def find_modifier(bo, modid):
     """Given a Blender Object, finds a given modifier and returns it or None"""

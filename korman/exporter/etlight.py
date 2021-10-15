@@ -25,6 +25,7 @@ from ..helpers import *
 
 _NUM_RENDER_LAYERS = 20
 
+
 class LightBaker:
     """ExportTime Lighting"""
 
@@ -132,7 +133,9 @@ class LightBaker:
         # Lightmap passes are expensive, so we will warn about any passes that seem
         # particularly wasteful.
         try:
-            largest_pass = max((len(value) for key, value in bake.items() if key[0] != "vcol"))
+            largest_pass = max(
+                (len(value) for key, value in bake.items() if key[0] != "vcol")
+            )
         except ValueError:
             largest_pass = 0
 
@@ -146,19 +149,25 @@ class LightBaker:
         self._report.msg("Preparing to bake...", indent=1)
         for key, value in bake.items():
             if key[0] == "lightmap":
-                for i in range(len(value)-1, -1, -1):
+                for i in range(len(value) - 1, -1, -1):
                     obj = value[i]
                     if not self._prep_for_lightmap(obj, toggle):
-                        self._report.msg("Lightmap '{}' will not be baked -- no applicable lights",
-                                         obj.name, indent=2)
+                        self._report.msg(
+                            "Lightmap '{}' will not be baked -- no applicable lights",
+                            obj.name,
+                            indent=2,
+                        )
                         value.pop(i)
             elif key[0] == "vcol":
-                for i in range(len(value)-1, -1, -1):
+                for i in range(len(value) - 1, -1, -1):
                     obj = value[i]
                     if not self._prep_for_vcols(obj, toggle):
                         if self._has_valid_material(obj):
-                            self._report.msg("VCols '{}' will not be baked -- no applicable lights",
-                                             obj.name, indent=2)
+                            self._report.msg(
+                                "VCols '{}' will not be baked -- no applicable lights",
+                                obj.name,
+                                indent=2,
+                            )
                         value.pop(i)
             else:
                 raise RuntimeError(key[0])
@@ -172,14 +181,28 @@ class LightBaker:
             if value:
                 if key[0] == "lightmap":
                     num_objs = len(value)
-                    self._report.msg("{} Lightmap(s) [H:{:X}]", num_objs, hash(key[1:]), indent=1)
+                    self._report.msg(
+                        "{} Lightmap(s) [H:{:X}]", num_objs, hash(key[1:]), indent=1
+                    )
                     if largest_pass > 1 and num_objs < round(largest_pass * 0.02):
-                        pass_names = set((i.plasma_modifiers.lightmap.bake_pass_name for i in value))
+                        pass_names = set(
+                            (i.plasma_modifiers.lightmap.bake_pass_name for i in value)
+                        )
                         pass_msg = ", ".join(pass_names)
-                        self._report.warn("Small lightmap bake pass! Bake Pass(es): {}".format(pass_msg), indent=2)
+                        self._report.warn(
+                            "Small lightmap bake pass! Bake Pass(es): {}".format(
+                                pass_msg
+                            ),
+                            indent=2,
+                        )
                     self._bake_lightmaps(value, key[1:])
                 elif key[0] == "vcol":
-                    self._report.msg("{} Vertex Color(s) [H:{:X}]", len(value), hash(key[1:]), indent=1)
+                    self._report.msg(
+                        "{} Vertex Color(s) [H:{:X}]",
+                        len(value),
+                        hash(key[1:]),
+                        indent=1,
+                    )
                     self._bake_vcols(value, key[1:])
                     self._fix_vertex_colors(value)
                 else:
@@ -232,8 +255,10 @@ class LightBaker:
                             if len(edge.link_faces) != 2:
                                 # Either a border edge, or an abomination.
                                 continue
-                            if mesh.use_auto_smooth and (not edge.smooth
-                                    or edge.calc_face_angle() > mesh.auto_smooth_angle):
+                            if mesh.use_auto_smooth and (
+                                not edge.smooth
+                                or edge.calc_face_angle() > mesh.auto_smooth_angle
+                            ):
                                 # Normals are split for edges marked as sharp by the user, and edges
                                 # whose angle is above the theshold. Auto smooth must be on in both cases.
                                 continue
@@ -241,10 +266,16 @@ class LightBaker:
                                 # Alright, this edge is connected to our loop AND our face.
                                 # Now for the Fun Stuff(c)... First, actually get ahold of the other
                                 # face (the one we're connected to via this edge).
-                                other_face = next(f for f in edge.link_faces if f != face)
+                                other_face = next(
+                                    f for f in edge.link_faces if f != face
+                                )
                                 # Now get ahold of the loop sharing our vertex on the OTHER SIDE
                                 # of that damnable edge...
-                                other_loop = next(loop for loop in other_face.loops if loop.vert == vert)
+                                other_loop = next(
+                                    loop
+                                    for loop in other_face.loops
+                                    if loop.vert == vert
+                                )
                                 other_color = other_loop[light_vcol]
                                 # Phew ! Good, now just pick whichever color has the highest average value
                                 if sum(max_color) / 3 < sum(other_color) / 3:
@@ -256,7 +287,7 @@ class LightBaker:
 
     def _generate_lightgroup(self, bo, user_lg=None):
         """Makes a new light group for the baking process that excludes all Plasma RT lamps"""
-        shouldibake = (user_lg is not None and bool(user_lg.objects))
+        shouldibake = user_lg is not None and bool(user_lg.objects)
         mesh = bo.data
 
         for material in mesh.materials:
@@ -274,7 +305,9 @@ class LightBaker:
                     source = [i for i in bpy.context.scene.objects if i.type == "LAMP"]
                 else:
                     source = lg.objects
-                dest = bpy.data.groups.new("_LIGHTMAPGEN_{}_{}".format(bo.name, mat_name))
+                dest = bpy.data.groups.new(
+                    "_LIGHTMAPGEN_{}_{}".format(bo.name, mat_name)
+                )
 
                 # Rules:
                 # 1) No animated lights, period.
@@ -321,9 +354,17 @@ class LightBaker:
                 if mod.image is not None:
                     uv_texture_names = frozenset((i.name for i in obj.data.uv_textures))
                     if self.lightmap_uvtex_name in uv_texture_names:
-                        self._report.msg("'{}': Skipping due to valid lightmap override", obj.name, indent=1)
+                        self._report.msg(
+                            "'{}': Skipping due to valid lightmap override",
+                            obj.name,
+                            indent=1,
+                        )
                     else:
-                        self._report.warn("'{}': Have lightmap, but regenerating UVs", obj.name, indent=1)
+                        self._report.warn(
+                            "'{}': Have lightmap, but regenerating UVs",
+                            obj.name,
+                            indent=1,
+                        )
                         self._prep_for_lightmap_uvs(obj, mod.image, toggle)
                     return False
                 return True
@@ -332,15 +373,27 @@ class LightBaker:
         def vcol_bake_required(obj) -> bool:
             if obj.plasma_modifiers.lightmap.bake_lightmap:
                 return False
-            vcol_layer_names = frozenset((vcol_layer.name.lower() for vcol_layer in obj.data.vertex_colors))
+            vcol_layer_names = frozenset(
+                (vcol_layer.name.lower() for vcol_layer in obj.data.vertex_colors)
+            )
             manual_layer_names = _VERTEX_COLOR_LAYERS & vcol_layer_names
             if manual_layer_names:
-                self._report.msg("'{}': Skipping due to valid manual vertex color layer(s): '{}'", obj.name, manual_layer_names.pop(), indent=1)
+                self._report.msg(
+                    "'{}': Skipping due to valid manual vertex color layer(s): '{}'",
+                    obj.name,
+                    manual_layer_names.pop(),
+                    indent=1,
+                )
                 return False
             if self.force:
                 return True
             if self.vcol_layer_name.lower() in vcol_layer_names:
-                self._report.msg("'{}': Skipping due to valid matching vertex color layer(s): '{}'", obj.name, self.vcol_layer_name, indent=1)
+                self._report.msg(
+                    "'{}': Skipping due to valid matching vertex color layer(s): '{}'",
+                    obj.name,
+                    self.vcol_layer_name,
+                    indent=1,
+                )
                 return False
             return True
 
@@ -351,7 +404,11 @@ class LightBaker:
                 if lightmap_mod.bake_pass_name:
                     bake_pass = bake_passes.get(lightmap_mod.bake_pass_name, None)
                     if bake_pass is None:
-                        raise ExportError("Bake Lighting '{}': Could not find pass '{}'".format(i.name, lightmap_mod.bake_pass_name))
+                        raise ExportError(
+                            "Bake Lighting '{}': Could not find pass '{}'".format(
+                                i.name, lightmap_mod.bake_pass_name
+                            )
+                        )
                     lm_layers = tuple(bake_pass.render_layers)
                 else:
                     lm_layers = default_layers
@@ -359,12 +416,23 @@ class LightBaker:
                 # In order for Blender to be able to bake this properly, at least one of the
                 # layers this object is on must be selected. We will sanity check this now.
                 obj_layers = tuple(i.layers)
-                lm_active_layers = set((i for i, value in enumerate(lm_layers) if value))
-                obj_active_layers = set((i for i, value in enumerate(obj_layers) if value))
+                lm_active_layers = set(
+                    (i for i, value in enumerate(lm_layers) if value)
+                )
+                obj_active_layers = set(
+                    (i for i, value in enumerate(obj_layers) if value)
+                )
                 if not lm_active_layers & obj_active_layers:
-                    raise ExportError("Bake Lighting '{}': At least one layer the object is on must be selected".format(i.name))
+                    raise ExportError(
+                        "Bake Lighting '{}': At least one layer the object is on must be selected".format(
+                            i.name
+                        )
+                    )
 
-                if lightmap_bake_required(i) is False and vcol_bake_required(i) is False:
+                if (
+                    lightmap_bake_required(i) is False
+                    and vcol_bake_required(i) is False
+                ):
                     continue
 
                 method = "lightmap" if lightmap_mod.bake_lightmap else "vcol"
@@ -407,7 +475,11 @@ class LightBaker:
         # Due to our batching, however, materials that are transparent cannot be lightmapped.
         for material in (i for i in mesh.materials if i is not None):
             if material.use_transparency:
-                raise ExportError("'{}': Cannot lightmap material '{}' because it is transparnt".format(bo.name, material.name))
+                raise ExportError(
+                    "'{}': Cannot lightmap material '{}' because it is transparnt".format(
+                        bo.name, material.name
+                    )
+                )
             for slot in (j for j in material.texture_slots if j is not None):
                 toggle.track(slot, "use", False)
 
@@ -485,8 +557,12 @@ class LightBaker:
             # from sharing UVs. Sigh.
             if self._mesh.is_collapsed(bo):
                 # Danger: uv_base.name -> UnicodeDecodeError (wtf? another blender bug?)
-                self._report.warn("'{}': packing islands in UV Texture '{}' due to modifier collapse",
-                                  bo.name, modifier.uv_map, indent=2)
+                self._report.warn(
+                    "'{}': packing islands in UV Texture '{}' due to modifier collapse",
+                    bo.name,
+                    modifier.uv_map,
+                    indent=2,
+                )
                 with self._set_mode("EDIT"):
                     bpy.ops.mesh.select_all(action="SELECT")
                     bpy.ops.uv.select_all(action="SELECT")
@@ -534,13 +610,19 @@ class LightBaker:
         # future exports as an optimization. We won't reach this point if there is already an
         # autocolor layer (gulp).
         if not self.force and needs_vcol_layer:
-            self._mesh.context_stack.enter_context(TemporaryObject(vcol_layer.name, lambda layer_name: vcols.remove(vcols[layer_name])))
+            self._mesh.context_stack.enter_context(
+                TemporaryObject(
+                    vcol_layer.name, lambda layer_name: vcols.remove(vcols[layer_name])
+                )
+            )
 
         # Indicate we should bake
         return True
 
     def _remove_stale_uvtexes(self, bake):
-        lightmap_iter = itertools.chain.from_iterable((value for key, value in bake.items() if key[0] == "lightmap"))
+        lightmap_iter = itertools.chain.from_iterable(
+            (value for key, value in bake.items() if key[0] == "lightmap")
+        )
         for bo in lightmap_iter:
             uv_textures = bo.data.uv_textures
             uvtex = uv_textures.get(self.lightmap_uvtex_name, None)
@@ -571,7 +653,9 @@ class LightBaker:
                 else:
                     i.select = False
 
-                if isinstance(i.data, bpy.types.Mesh) and not self._has_valid_material(i):
+                if isinstance(i.data, bpy.types.Mesh) and not self._has_valid_material(
+                    i
+                ):
                     toggle.track(i, "hide_render", True)
         else:
             for i in bpy.data.objects:
@@ -581,7 +665,9 @@ class LightBaker:
                     for mat in (j for j in i.data.materials if j is not None):
                         toggle.track(mat, "use_vertex_color_paint", False)
                     toggle.track(i, "hide_render", False)
-                elif isinstance(i.data, bpy.types.Mesh) and not self._has_valid_material(i):
+                elif isinstance(
+                    i.data, bpy.types.Mesh
+                ) and not self._has_valid_material(i):
                     toggle.track(i, "hide_render", True)
                 i.select = value
 

@@ -23,6 +23,7 @@ _HEADING_SIZE = 60
 _MAX_ELIPSES = 3
 _MAX_TIME_UNTIL_ELIPSES = 2.0
 
+
 class _ExportLogger:
     def __init__(self, print_logs, age_path=None):
         self._errors = []
@@ -37,7 +38,9 @@ class _ExportLogger:
         if self._age_path is not None:
             # Make the log file name from the age file path -- this ensures we're not trying to write
             # the log file to the same directory Blender.exe is in, which might be a permission error
-            my_path = self._age_path.with_name("{}_export".format(self._age_path.stem)).with_suffix(".log")
+            my_path = self._age_path.with_name(
+                "{}_export".format(self._age_path.stem)
+            ).with_suffix(".log")
             self._file = open(str(my_path), "w")
         return self
 
@@ -85,7 +88,6 @@ class _ExportLogger:
         cache = args[0] if len(args) == 1 else args[0].format(*args[1:])
         self._porting.append(cache)
 
-
     def progress_add_step(self, name):
         pass
 
@@ -113,8 +115,12 @@ class _ExportLogger:
         if num_errors == 1:
             raise NonfatalExportError(self._errors[0])
         elif num_errors:
-            raise NonfatalExportError("""{} errors were encountered during export. Check the export log for more details:
-                                         {}""", num_errors, self._file.name)
+            raise NonfatalExportError(
+                """{} errors were encountered during export. Check the export log for more details:
+                                         {}""",
+                num_errors,
+                self._file.name,
+            )
 
     def save(self):
         # TODO
@@ -160,7 +166,9 @@ class ExportProgressLogger(_ExportLogger):
         if value is not None:
             export_time = time.perf_counter() - self._time_start_overall
             with self._print_condition:
-                self._progress_print_step(done=(self._step_progress == self._step_max), error=True)
+                self._progress_print_step(
+                    done=(self._step_progress == self._step_max), error=True
+                )
                 self._progress_print_line("\nABORTED AFTER {:.2f}s".format(export_time))
                 self._progress_print_heading("ERROR")
                 self._progress_print_line(str(value))
@@ -191,13 +199,17 @@ class ExportProgressLogger(_ExportLogger):
 
     def progress_end(self):
         self._progress_print_step(done=True)
-        assert self._step_id+1 == len(self._progress_steps)
+        assert self._step_id + 1 == len(self._progress_steps)
 
         export_time = time.perf_counter() - self._time_start_overall
         with self._print_condition:
             if self._age_path is not None:
                 self.msg("\nExported '{}' in {:.2f}s", self._age_path.name, export_time)
-                self._progress_print_line("\nEXPORTED '{}' IN {:.2f}s".format(self._age_path.name, export_time))
+                self._progress_print_line(
+                    "\nEXPORTED '{}' IN {:.2f}s".format(
+                        self._age_path.name, export_time
+                    )
+                )
             else:
                 self._progress_print_line("\nCOMPLETED IN {:.2f}s".format(export_time))
             self._progress_print_heading()
@@ -230,7 +242,9 @@ class ExportProgressLogger(_ExportLogger):
             num_chars = len(text)
             border = "-" * int((_HEADING_SIZE - (num_chars + 2)) / 2)
             pad = " " if num_chars % 2 == 1 else ""
-            line = "{border} {pad}{text} {border}".format(border=border, pad=pad, text=text)
+            line = "{border} {pad}{text} {border}".format(
+                border=border, pad=pad, text=text
+            )
             self._progress_print_line(line)
         else:
             self._progress_print_line("-" * _HEADING_SIZE)
@@ -238,7 +252,9 @@ class ExportProgressLogger(_ExportLogger):
     def _progress_print_step(self, done=False, error=False):
         with self._print_condition:
             if done:
-                stage = "DONE IN {:.2f}s".format(time.perf_counter() - self._time_start_step)
+                stage = "DONE IN {:.2f}s".format(
+                    time.perf_counter() - self._time_start_step
+                )
                 print_func = self._progress_print_line
                 self._progress_print_volatile("")
             else:
@@ -246,28 +262,39 @@ class ExportProgressLogger(_ExportLogger):
                     stage = "{} of {}".format(self._step_progress, self._step_max)
                 else:
                     stage = ""
-                print_func = self._progress_print_line if error else self._progress_print_volatile
+                print_func = (
+                    self._progress_print_line
+                    if error
+                    else self._progress_print_volatile
+                )
 
             # ALLLLL ABOARD!!!!! HAHAHAHA
             step_name = self._progress_steps[self._step_id]
-            whitespace = ' ' * (self._step_spacing - len(step_name))
+            whitespace = " " * (self._step_spacing - len(step_name))
             num_steps = len(self._progress_steps)
             step_id = self._step_id + 1
             stage_max_whitespace = len(str(num_steps)) * 2
             stage_space_used = len(str(step_id)) + len(str(num_steps))
-            stage_whitespace = ' ' * (stage_max_whitespace - stage_space_used + 1)
+            stage_whitespace = " " * (stage_max_whitespace - stage_space_used + 1)
             # f-strings would be nice here...
             line = "{step_name}{step_whitespace}(step {step_id}/{num_steps}):{stage_whitespace}{stage}".format(
-                step_name=step_name, step_whitespace=whitespace, step_id=step_id, num_steps=num_steps,
-                stage_whitespace=stage_whitespace, stage=stage)
+                step_name=step_name,
+                step_whitespace=whitespace,
+                step_id=step_id,
+                num_steps=num_steps,
+                stage_whitespace=stage_whitespace,
+                stage=stage,
+            )
             print_func(line)
 
     def _progress_get_max(self):
         return self._step_max
+
     def _progress_set_max(self, value):
         assert self._step_id != -1
         self._step_max = value
         self._progress_print_step()
+
     progress_range = property(_progress_get_max, _progress_set_max)
 
     def progress_start(self, action):
@@ -289,13 +316,13 @@ class ExportProgressLogger(_ExportLogger):
         while self._progress_alive:
             with self._print_condition:
                 signalled = self._print_condition.wait(timeout=1.0)
-                print(end='\r')
+                print(end="\r")
 
                 # First, we need to print out any queued whole lines.
                 # NOTE: no need to lock anything here as Blender uses CPython (GIL)
                 with self._cursor:
                     if self._queued_lines:
-                        print(*self._queued_lines, sep='\n')
+                        print(*self._queued_lines, sep="\n")
                         self._queued_lines.clear()
 
                 # Now, we need to print out the current volatile line, if any.
@@ -307,20 +334,28 @@ class ExportProgressLogger(_ExportLogger):
 
                     # If the proc is long running, let us display some elipses so as to not alarm the user
                     if self._time_start_step != 0:
-                        if (time.perf_counter() - self._time_start_step) > _MAX_TIME_UNTIL_ELIPSES:
-                            num_dots = 0 if signalled or num_dots == _MAX_ELIPSES else num_dots + 1
+                        if (
+                            time.perf_counter() - self._time_start_step
+                        ) > _MAX_TIME_UNTIL_ELIPSES:
+                            num_dots = (
+                                0
+                                if signalled or num_dots == _MAX_ELIPSES
+                                else num_dots + 1
+                            )
                         else:
                             num_dots = 0
-                    print('.' * num_dots, end=" " * (_MAX_ELIPSES - num_dots))
+                    print("." * num_dots, end=" " * (_MAX_ELIPSES - num_dots))
                     self._cursor.update()
 
     def _progress_get_current(self):
         return self._step_progress
+
     def _progress_set_current(self, value):
         assert self._step_id != -1
         self._step_progress = value
         if self._step_max != 0:
             self._progress_print_step()
+
     progress_value = property(_progress_get_current, _progress_set_current)
 
 

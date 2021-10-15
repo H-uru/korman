@@ -33,6 +33,7 @@ _CUBE_FACES = {
     "frontFace": "FR",
 }
 
+
 class ImageOperator:
     @classmethod
     def poll(cls, context):
@@ -44,19 +45,25 @@ class PlasmaBuildCubeMapOperator(ImageOperator, bpy.types.Operator):
     bl_label = "Build Cubemap"
     bl_description = "Builds a Blender cubemap from six images"
 
-    overwrite_existing = BoolProperty(name="Check Existing",
-                                      description="Checks for an existing image and overwrites it",
-                                      default=True,
-                                      options=set())
+    overwrite_existing = BoolProperty(
+        name="Check Existing",
+        description="Checks for an existing image and overwrites it",
+        default=True,
+        options=set(),
+    )
     filepath = StringProperty(subtype="FILE_PATH")
-    require_cube = BoolProperty(name="Require Square Faces",
-                                description="Resize cubemap faces to be square if they are not",
-                                default=True,
-                                options=set())
-    texture_name = StringProperty(name="Texture",
-                                  description="Environment Map Texture to stuff this into",
-                                  default="",
-                                  options={"HIDDEN"})
+    require_cube = BoolProperty(
+        name="Require Square Faces",
+        description="Resize cubemap faces to be square if they are not",
+        default=True,
+        options=set(),
+    )
+    texture_name = StringProperty(
+        name="Texture",
+        description="Environment Map Texture to stuff this into",
+        default="",
+        options={"HIDDEN"},
+    )
 
     def __init__(self):
         self._report = ExportProgressLogger()
@@ -91,15 +98,17 @@ class PlasmaBuildCubeMapOperator(ImageOperator, bpy.types.Operator):
         face_widths, face_heights, face_data = zip(*face_data)
 
         # All widths and heights must be the same... so, if needed, scale the stupid images.
-        width, height, face_data = self._scale_images(face_widths, face_heights, face_data)
+        width, height, face_data = self._scale_images(
+            face_widths, face_heights, face_data
+        )
 
         # Now generate the stoopid cube map
         image_name = Path(self.filepath).name
-        idx = image_name.rfind('_')
+        idx = image_name.rfind("_")
         if idx != -1:
-            suffix = image_name[idx+1:idx+3]
+            suffix = image_name[idx + 1 : idx + 3]
             if suffix in _CUBE_FACES.values():
-                image_name = image_name[:idx] + image_name[idx+3:]
+                image_name = image_name[:idx] + image_name[idx + 3 :]
         cubemap_image = self._generate_cube_map(image_name, width, height, face_data)
 
         # If a texture was provided, we can assign this generated cube map to it...
@@ -116,18 +125,22 @@ class PlasmaBuildCubeMapOperator(ImageOperator, bpy.types.Operator):
         self._report.progress_range = len(BLENDER_CUBE_MAP)
         self._report.msg("Searching for cubemap faces...")
 
-        idx = filepath.rfind('_')
+        idx = filepath.rfind("_")
         if idx != -1:
             files = []
             for key in BLENDER_CUBE_MAP:
                 suffix = _CUBE_FACES[key]
-                face_path = filepath[:idx+1] + suffix + filepath[idx+3:]
+                face_path = filepath[: idx + 1] + suffix + filepath[idx + 3 :]
                 face_name = key[:-4].upper()
                 if Path(face_path).is_file():
-                    self._report.msg("Found face '{}': {}", face_name, face_path, indent=1)
+                    self._report.msg(
+                        "Found face '{}': {}", face_name, face_path, indent=1
+                    )
                     files.append(face_path)
                 else:
-                    self._report.warn("Using default face data for face '{}'", face_name, indent=1)
+                    self._report.warn(
+                        "Using default face data for face '{}'", face_name, indent=1
+                    )
                     files.append(None)
                 self._report.progress_increment()
             return tuple(files)
@@ -138,7 +151,9 @@ class PlasmaBuildCubeMapOperator(ImageOperator, bpy.types.Operator):
         self._report.msg("Generating cubemap image...")
 
         # If a texture was provided, we should check to see if we have an image we can replace...
-        image = bpy.data.textures[self.texture_name].image if self.texture_name else None
+        image = (
+            bpy.data.textures[self.texture_name].image if self.texture_name else None
+        )
 
         # Init our image
         image_width = face_width * 3
@@ -167,9 +182,13 @@ class PlasmaBuildCubeMapOperator(ImageOperator, bpy.types.Operator):
             for row_current in range(row_start, row_end, 1):
                 src_start_idx = (row_current - row_start) * face_width * 4
                 src_end_idx = src_start_idx + (face_width * 4)
-                dst_start_idx = (row_current * image_width * 4) + (col_id * face_width * 4)
+                dst_start_idx = (row_current * image_width * 4) + (
+                    col_id * face_width * 4
+                )
                 dst_end_idx = dst_start_idx + (face_width * 4)
-                image_data[dst_start_idx:dst_end_idx] = face_data[j][src_start_idx:src_end_idx]
+                image_data[dst_start_idx:dst_end_idx] = face_data[j][
+                    src_start_idx:src_end_idx
+                ]
 
         # FFFUUUUU... Blender wants a list of floats
         pixels = [None] * image_datasz
@@ -182,7 +201,6 @@ class PlasmaBuildCubeMapOperator(ImageOperator, bpy.types.Operator):
         image.pack(True)
         image.plasma_image.texcache_method = "rebuild"
         return image
-
 
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)
@@ -230,10 +248,17 @@ class PlasmaBuildCubeMapOperator(ImageOperator, bpy.types.Operator):
             face_width, face_height = face_widths[i], face_heights[i]
             if face_width != min_width or face_height != min_height:
                 face_name = BLENDER_CUBE_MAP[i][:-4].upper()
-                self._report.msg("Resizing face '{}' from {}x{} to {}x{}", face_name,
-                                 face_width, face_height, min_width, min_height,
-                                 indent=1)
-                result_data[i] = scale_image(face_data[i], face_width, face_height,
-                                                         min_width, min_height)
+                self._report.msg(
+                    "Resizing face '{}' from {}x{} to {}x{}",
+                    face_name,
+                    face_width,
+                    face_height,
+                    min_width,
+                    min_height,
+                    indent=1,
+                )
+                result_data[i] = scale_image(
+                    face_data[i], face_width, face_height, min_width, min_height
+                )
             self._report.progress_increment()
         return min_width, min_height, tuple(result_data)

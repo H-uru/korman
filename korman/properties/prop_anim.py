@@ -23,6 +23,7 @@ import functools
 import itertools
 from typing import Iterable, Iterator
 
+
 class PlasmaAnimation(bpy.types.PropertyGroup):
     ENTIRE_ANIMATION = "(Entire Animation)"
 
@@ -103,7 +104,7 @@ class PlasmaAnimation(bpy.types.PropertyGroup):
             "entire_animation": {
                 bpy.types.Object: "plasma_modifiers.animation.initial_marker",
                 bpy.types.Texture: "plasma_layer.anim_initial_marker",
-            }
+            },
         },
         "loop_start": {
             "type": StringProperty,
@@ -144,10 +145,16 @@ class PlasmaAnimation(bpy.types.PropertyGroup):
     def iter_frame_numbers(cls, id_data) -> Iterator[int]:
         # It would be nice if this could use self.iter_fcurves, but the property that uses this
         # is not actually of type PlasmaAnimation. Meaning that self is some other object (great).
-        fcurves = itertools.chain.from_iterable((id.animation_data.action.fcurves
-                                                 for id in cls._iter_my_ids(id_data)
-                                                 if id.animation_data and id.animation_data.action))
-        frame_numbers = (keyframe.co[0] for fcurve in fcurves for keyframe in fcurve.keyframe_points)
+        fcurves = itertools.chain.from_iterable(
+            (
+                id.animation_data.action.fcurves
+                for id in cls._iter_my_ids(id_data)
+                if id.animation_data and id.animation_data.action
+            )
+        )
+        frame_numbers = (
+            keyframe.co[0] for fcurve in fcurves for keyframe in fcurve.keyframe_points
+        )
         yield from frame_numbers
 
     @classmethod
@@ -203,13 +210,14 @@ class PlasmaAnimation(bpy.types.PropertyGroup):
             if self.is_entire_animation:
                 attr_path = cls._get_from_class_lut(self.id_data, lut)
                 if attr_path is not None:
-                    prop_delim = attr_path.rfind('.')
+                    prop_delim = attr_path.rfind(".")
                     prop_group = self.id_data.path_resolve(attr_path[:prop_delim])
-                    return getattr(prop_group, attr_path[prop_delim+1:])
+                    return getattr(prop_group, attr_path[prop_delim + 1 :])
                 else:
                     return default
             else:
                 return getattr(self, "{}_value".format(prop_name))
+
         return proc
 
     @classmethod
@@ -218,11 +226,12 @@ class PlasmaAnimation(bpy.types.PropertyGroup):
             if self.is_entire_animation:
                 attr_path = cls._get_from_class_lut(self.id_data, lut)
                 if attr_path is not None:
-                    prop_delim = attr_path.rfind('.')
+                    prop_delim = attr_path.rfind(".")
                     prop_group = self.id_data.path_resolve(attr_path[:prop_delim])
-                    setattr(prop_group, attr_path[prop_delim+1:], value)
+                    setattr(prop_group, attr_path[prop_delim + 1 :], value)
             else:
                 setattr(self, "{}_value".format(prop_name), value)
+
         return proc
 
     @classmethod
@@ -238,27 +247,39 @@ class PlasmaAnimation(bpy.types.PropertyGroup):
 
             value_kwargs = deepcopy(kwargs)
             value_kwargs["options"].add("HIDDEN")
-            value_props = { key: value for key, value in props.items() if key not in {"get", "set", "update"} }
-            setattr(cls, "{}_value".format(prop_name), definitions["type"](**value_props, **value_kwargs))
+            value_props = {
+                key: value
+                for key, value in props.items()
+                if key not in {"get", "set", "update"}
+            }
+            setattr(
+                cls,
+                "{}_value".format(prop_name),
+                definitions["type"](**value_props, **value_kwargs),
+            )
 
             needs_accessors = "get" not in props and "set" not in props
             if needs_accessors:
                 # We have to use these weirdo wrappers because Blender only accepts function objects
                 # for its property callbacks, not arbitrary callables eg lambdas, functools.partials.
-                kwargs["get"] = cls._make_prop_getter(prop_name, definitions["entire_animation"], props.get("default"))
-                kwargs["set"] = cls._make_prop_setter(prop_name, definitions["entire_animation"])
+                kwargs["get"] = cls._make_prop_getter(
+                    prop_name, definitions["entire_animation"], props.get("default")
+                )
+                kwargs["set"] = cls._make_prop_setter(
+                    prop_name, definitions["entire_animation"]
+                )
             setattr(cls, prop_name, definitions["type"](**props, **kwargs))
 
     @classmethod
     def register_entire_animation(cls, id_type, rna_type):
         """Registers all of the properties for the old style single animation per ID animations onto
-           the property group given by `rna_type`. These were previously directly registered but are
-           now abstracted away to serve as the backing store for the new "entire animation" method."""
+        the property group given by `rna_type`. These were previously directly registered but are
+        now abstracted away to serve as the backing store for the new "entire animation" method."""
         for prop_name, definitions in cls._PROPERTIES.items():
             lut = definitions.get("entire_animation", {})
             path_from_id = lut.get(id_type)
             if path_from_id:
-                attr_name = path_from_id[path_from_id.rfind('.')+1:]
+                attr_name = path_from_id[path_from_id.rfind(".") + 1 :]
                 kwargs = deepcopy(definitions["property"])
                 kwargs.update(cls._ENTIRE_ANIMATION_PROPERTIES.get(prop_name, {}))
                 setattr(rna_type, attr_name, definitions["type"](**kwargs))
@@ -277,8 +298,9 @@ class PlasmaAnimationCollection(bpy.types.PropertyGroup):
     def _set_active_index(self, value: int) -> None:
         self.active_animation_index_value = value
 
-    active_animation_index = IntProperty(get=_get_active_index, set=_set_active_index,
-                                         options={"HIDDEN"})
+    active_animation_index = IntProperty(
+        get=_get_active_index, set=_set_active_index, options={"HIDDEN"}
+    )
     active_animation_index_value = IntProperty(options={"HIDDEN"})
 
     # Animations backing store--don't use this except to display the list in Blender's UI.
@@ -298,7 +320,9 @@ class PlasmaAnimationCollection(bpy.types.PropertyGroup):
     # want to observe it in the UI. That restriction is dropped, however, when RNA poperties are
     # being observed or set. So, this will allow us to initialize the entire animation in the
     # UI phase at the penalty of potentially having to loop through the animation collection twice.
-    request_entire_animation = BoolProperty(get=_get_hack, set=_set_hack, options={"HIDDEN"})
+    request_entire_animation = BoolProperty(
+        get=_get_hack, set=_set_hack, options={"HIDDEN"}
+    )
 
     @property
     def animations(self) -> Iterable[PlasmaAnimation]:

@@ -22,6 +22,7 @@ from . import logger
 from .. import korlib
 from ..plasma_magic import plasma_python_glue, very_very_special_python
 
+
 class PythonPackageExporter:
     def __init__(self, filepath, version):
         self._filepath = filepath
@@ -52,9 +53,13 @@ class PythonPackageExporter:
                 code = source
 
             code = "{}\n\n{}\n".format(code, plasma_python_glue)
-            success, result = korlib.compyle(filename, code, py_version, report, indent=1)
+            success, result = korlib.compyle(
+                filename, code, py_version, report, indent=1
+            )
             if not success:
-                raise ExportError("Failed to compyle '{}':\n{}".format(filename, result))
+                raise ExportError(
+                    "Failed to compyle '{}':\n{}".format(filename, result)
+                )
             py_code.append((filename, result))
             inc_progress()
 
@@ -68,9 +73,13 @@ class PythonPackageExporter:
                 code = source
 
             # no glue needed here, ma!
-            success, result = korlib.compyle(filename, code, py_version, report, indent=1)
+            success, result = korlib.compyle(
+                filename, code, py_version, report, indent=1
+            )
             if not success:
-                raise ExportError("Failed to compyle '{}':\n{}".format(filename, result))
+                raise ExportError(
+                    "Failed to compyle '{}':\n{}".format(filename, result)
+                )
             py_code.append((filename, result))
             inc_progress()
 
@@ -88,12 +97,19 @@ class PythonPackageExporter:
                 if age_py.plasma_text.package or age.python_method == "all":
                     self._pfms[py_filename] = age_py
                 else:
-                    report.warn("AgeSDL Python Script provided, but not requested for packing... Using default Python.", indent=1)
-                    self._pfms[py_filename] = very_very_special_python.format(age_name=fixed_agename)
+                    report.warn(
+                        "AgeSDL Python Script provided, but not requested for packing... Using default Python.",
+                        indent=1,
+                    )
+                    self._pfms[py_filename] = very_very_special_python.format(
+                        age_name=fixed_agename
+                    )
             else:
                 report.msg("Packing default AgeSDL Python", indent=1)
                 very_very_special_python.format(age_name=age_props.age_name)
-                self._pfms[py_filename] = very_very_special_python.format(age_name=fixed_agename)
+                self._pfms[py_filename] = very_very_special_python.format(
+                    age_name=fixed_agename
+                )
 
     def _harvest_pfms(self, report):
         objects = bpy.context.scene.objects
@@ -131,8 +147,14 @@ class PythonPackageExporter:
     def run(self):
         """Runs a stripped-down version of the Exporter that only handles Python files"""
         age_props = bpy.context.scene.world.plasma_age
-        log = logger.ExportVerboseLogger if age_props.verbose else logger.ExportProgressLogger
-        with korlib.ConsoleToggler(age_props.show_console), log(self._filepath) as report:
+        log = (
+            logger.ExportVerboseLogger
+            if age_props.verbose
+            else logger.ExportProgressLogger
+        )
+        with korlib.ConsoleToggler(age_props.show_console), log(
+            self._filepath
+        ) as report:
             report.progress_add_step("Harvesting Plasma PythonFileMods")
             report.progress_add_step("Harvesting Helper Python Modules")
             report.progress_add_step("Compyling Python Code")
@@ -170,7 +192,9 @@ class PythonPackageExporter:
         if enc is None:
             stream = hsFileStream(self._version).open(self._filepath, fmCreate)
         else:
-            stream = plEncryptedStream(self._version).open(self._filepath, fmCreate, enc)
+            stream = plEncryptedStream(self._version).open(
+                self._filepath, fmCreate, enc
+            )
         try:
             korlib.package_python(stream, py_code)
         finally:

@@ -13,6 +13,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+
 class NonfatalExportError(Exception):
     def __init__(self, *args, **kwargs):
         assert args
@@ -34,12 +35,16 @@ class ExportError(Exception):
 
 class BlendNotSupported(ExportError):
     def __init__(self, progression, axis):
-        super(ExportError, self).__init__("Alpha Blend not supported: {}, {}", progression, axis)
+        super(ExportError, self).__init__(
+            "Alpha Blend not supported: {}, {}", progression, axis
+        )
 
 
 class BlenderOptionNotSupportedError(ExportError):
     def __init__(self, opt):
-        super(ExportError, self).__init__("Unsupported Blender Option: '{}'".format(opt))
+        super(ExportError, self).__init__(
+            "Unsupported Blender Option: '{}'".format(opt)
+        )
 
 
 class ExportAssertionError(ExportError):
@@ -60,14 +65,15 @@ class PlasmaLaunchError(ExportError):
 class TooManyUVChannelsError(ExportError):
     def __init__(self, obj, mat, numUVTexs, maxUVTexCount=8):
         msg = "There are too many UV Textures on the material '{}' associated with object '{}'. You can have at most {} (there are {})".format(
-           mat.name, obj.name, maxUVTexCount, numUVTexs)
+            mat.name, obj.name, maxUVTexCount, numUVTexs
+        )
         super(ExportError, self).__init__(msg)
 
 
 class TooManyVerticesError(ExportError):
     def __init__(self, mesh, matname, vertcount):
         msg = "There are too many vertices ({}) on the mesh data '{}' associated with material '{}'".format(
-           vertcount, mesh, matname
+            vertcount, mesh, matname
         )
         super(ExportError, self).__init__(msg)
 
@@ -76,11 +82,15 @@ class UndefinedPageError(ExportError):
     mistakes = {}
 
     def __init__(self):
-        super(ExportError, self).__init__("You have objects in pages that do not exist!")
+        super(ExportError, self).__init__(
+            "You have objects in pages that do not exist!"
+        )
 
     def add(self, page, obj):
         if page not in self.mistakes:
-            self.mistakes[page] = [obj,]
+            self.mistakes[page] = [
+                obj,
+            ]
         else:
             self.mistakes[page].append(obj)
 
@@ -93,4 +103,8 @@ class UndefinedPageError(ExportError):
 
 class UnsupportedTextureError(ExportError):
     def __init__(self, texture, material):
-        super(ExportError, self).__init__("Cannot export texture '{}' on material '{}' -- unsupported type '{}'".format(texture.name, material.name, texture.type))
+        super(ExportError, self).__init__(
+            "Cannot export texture '{}' on material '{}' -- unsupported type '{}'".format(
+                texture.name, material.name, texture.type
+            )
+        )

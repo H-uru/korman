@@ -21,17 +21,23 @@ from PyHSPlasma import *
 from .node_core import PlasmaNodeBase, PlasmaNodeSocketBase, PlasmaTreeOutputNodeBase
 from .. import idprops
 
+
 class PlasmaSoftVolumeOutputNode(PlasmaTreeOutputNodeBase, bpy.types.Node):
     bl_category = "SV"
     bl_idname = "PlasmaSoftVolumeOutputNode"
     bl_label = "Soft Volume Output"
 
-    input_sockets = OrderedDict([
-        ("input", {
-            "text": "Final Volume",
-            "type": "PlasmaSoftVolumeNodeSocket",
-        }),
-    ])
+    input_sockets = OrderedDict(
+        [
+            (
+                "input",
+                {
+                    "text": "Final Volume",
+                    "type": "PlasmaSoftVolumeNodeSocket",
+                },
+            ),
+        ]
+    )
 
     def get_key(self, exporter, so):
         svNode = self.find_input("input")
@@ -42,6 +48,8 @@ class PlasmaSoftVolumeOutputNode(PlasmaTreeOutputNodeBase, bpy.types.Node):
 
 class PlasmaSoftVolumeNodeSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
     bl_color = (0.133, 0.094, 0.345, 1.0)
+
+
 class PlasmaSoftVolumePropertiesNodeSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
     bl_color = (0.067, 0.40, 0.067, 1.0)
 
@@ -51,17 +59,31 @@ class PlasmaSoftVolumePropertiesNode(PlasmaNodeBase, bpy.types.Node):
     bl_idname = "PlasmaSoftVolumePropertiesNode"
     bl_label = "Soft Volume Properties"
 
-    output_sockets = OrderedDict([
-        ("target", {
-            "text": "Volume",
-            "type": "PlasmaSoftVolumePropertiesNodeSocket"
-        }),
-    ])
+    output_sockets = OrderedDict(
+        [
+            (
+                "target",
+                {"text": "Volume", "type": "PlasmaSoftVolumePropertiesNodeSocket"},
+            ),
+        ]
+    )
 
-    inside_strength = IntProperty(name="Inside", description="Strength inside the region",
-                                  subtype="PERCENTAGE", default=100, min=0, max=100)
-    outside_strength = IntProperty(name="Outside", description="Strength outside the region",
-                                   subtype="PERCENTAGE", default=0, min=0, max=100)
+    inside_strength = IntProperty(
+        name="Inside",
+        description="Strength inside the region",
+        subtype="PERCENTAGE",
+        default=100,
+        min=0,
+        max=100,
+    )
+    outside_strength = IntProperty(
+        name="Outside",
+        description="Strength outside the region",
+        subtype="PERCENTAGE",
+        default=0,
+        min=0,
+        max=100,
+    )
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "inside_strength")
@@ -72,23 +94,26 @@ class PlasmaSoftVolumePropertiesNode(PlasmaNodeBase, bpy.types.Node):
         softvolume.outsideStrength = self.outside_strength / 100
 
 
-class PlasmaSoftVolumeReferenceNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.Node):
+class PlasmaSoftVolumeReferenceNode(
+    idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.Node
+):
     bl_category = "SV"
     bl_idname = "PlasmaSoftVolumeReferenceNode"
     bl_label = "Soft Region"
     bl_width_default = 150
 
-    output_sockets = OrderedDict([
-        ("output", {
-            "text": "Volume",
-            "type": "PlasmaSoftVolumeNodeSocket"
-        }),
-    ])
+    output_sockets = OrderedDict(
+        [
+            ("output", {"text": "Volume", "type": "PlasmaSoftVolumeNodeSocket"}),
+        ]
+    )
 
-    soft_volume = PointerProperty(name="Soft Volume",
-                                  description="Object whose Soft Volume modifier we should use",
-                                  type=bpy.types.Object,
-                                  poll=idprops.poll_softvolume_objects)
+    soft_volume = PointerProperty(
+        name="Soft Volume",
+        description="Object whose Soft Volume modifier we should use",
+        type=bpy.types.Object,
+        poll=idprops.poll_softvolume_objects,
+    )
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "soft_volume", text="")
@@ -111,23 +136,30 @@ class PlasmaSoftVolumeInvertNode(PlasmaNodeBase, bpy.types.Node):
     bl_label = "Soft Volume Invert"
 
     # The only difference between this and PlasmaSoftVolumeLinkNode is this can only have ONE input
-    input_sockets = OrderedDict([
-        ("properties", {
-            "text": "Properties",
-            "type": "PlasmaSoftVolumePropertiesNodeSocket",
-        }),
-        ("input", {
-            "text": "Input Volume",
-            "type": "PlasmaSoftVolumeNodeSocket",
-        }),
-    ])
+    input_sockets = OrderedDict(
+        [
+            (
+                "properties",
+                {
+                    "text": "Properties",
+                    "type": "PlasmaSoftVolumePropertiesNodeSocket",
+                },
+            ),
+            (
+                "input",
+                {
+                    "text": "Input Volume",
+                    "type": "PlasmaSoftVolumeNodeSocket",
+                },
+            ),
+        ]
+    )
 
-    output_sockets = OrderedDict([
-        ("output", {
-            "text": "Output Volume",
-            "type": "PlasmaSoftVolumeNodeSocket"
-        }),
-    ])
+    output_sockets = OrderedDict(
+        [
+            ("output", {"text": "Output Volume", "type": "PlasmaSoftVolumeNodeSocket"}),
+        ]
+    )
 
     def get_key(self, exporter, so):
         return self._find_create_key(plSoftVolumeInvert, exporter, so=so)
@@ -153,24 +185,31 @@ class PlasmaSoftVolumeInvertNode(PlasmaNodeBase, bpy.types.Node):
 
 
 class PlasmaSoftVolumeLinkNode(PlasmaNodeBase):
-    input_sockets = OrderedDict([
-        ("properties", {
-            "text": "Properties",
-            "type": "PlasmaSoftVolumePropertiesNodeSocket",
-        }),
-        ("input", {
-            "text": "Input Volume",
-            "type": "PlasmaSoftVolumeNodeSocket",
-            "spawn_empty": True,
-        }),
-    ])
+    input_sockets = OrderedDict(
+        [
+            (
+                "properties",
+                {
+                    "text": "Properties",
+                    "type": "PlasmaSoftVolumePropertiesNodeSocket",
+                },
+            ),
+            (
+                "input",
+                {
+                    "text": "Input Volume",
+                    "type": "PlasmaSoftVolumeNodeSocket",
+                    "spawn_empty": True,
+                },
+            ),
+        ]
+    )
 
-    output_sockets = OrderedDict([
-        ("output", {
-            "text": "Output Volume",
-            "type": "PlasmaSoftVolumeNodeSocket"
-        }),
-    ])
+    output_sockets = OrderedDict(
+        [
+            ("output", {"text": "Output Volume", "type": "PlasmaSoftVolumeNodeSocket"}),
+        ]
+    )
 
     def export(self, exporter, bo, so):
         sv = self.get_key(exporter, so).object

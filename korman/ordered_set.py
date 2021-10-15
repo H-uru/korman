@@ -19,7 +19,7 @@ Updated for Python 3.5 by Adam Johnson
 import collections.abc
 
 SLICE_ALL = slice(None)
-__version__ = '2.0.1'
+__version__ = "2.0.1"
 
 
 def is_iterable(obj):
@@ -35,7 +35,11 @@ def is_iterable(obj):
     We don't need to check for the Python 2 `unicode` type, because it doesn't
     have an `__iter__` attribute anyway.
     """
-    return hasattr(obj, '__iter__') and not isinstance(obj, str) and not isinstance(obj, tuple)
+    return (
+        hasattr(obj, "__iter__")
+        and not isinstance(obj, str)
+        and not isinstance(obj, tuple)
+    )
 
 
 class OrderedSet(collections.abc.MutableSet):
@@ -43,6 +47,7 @@ class OrderedSet(collections.abc.MutableSet):
     An OrderedSet is a custom MutableSet that remembers its order, so that
     every entry has an index that can be looked up.
     """
+
     def __init__(self, iterable=None):
         self.items = []
         self.map = {}
@@ -66,7 +71,7 @@ class OrderedSet(collections.abc.MutableSet):
         """
         if index == SLICE_ALL:
             return self
-        elif hasattr(index, '__index__') or isinstance(index, slice):
+        elif hasattr(index, "__index__") or isinstance(index, slice):
             result = self.items[index]
             if isinstance(result, list):
                 return OrderedSet(result)
@@ -75,8 +80,7 @@ class OrderedSet(collections.abc.MutableSet):
         elif is_iterable(index):
             return OrderedSet([self.items[i] for i in index])
         else:
-            raise TypeError("Don't know how to index an OrderedSet by %r" %
-                    index)
+            raise TypeError("Don't know how to index an OrderedSet by %r" % index)
 
     def copy(self):
         return OrderedSet(self)
@@ -113,6 +117,7 @@ class OrderedSet(collections.abc.MutableSet):
             self.map[key] = len(self.items)
             self.items.append(key)
         return self.map[key]
+
     append = add
 
     def update(self, sequence):
@@ -125,7 +130,9 @@ class OrderedSet(collections.abc.MutableSet):
             for item in sequence:
                 item_index = self.add(item)
         except TypeError:
-            raise ValueError('Argument needs to be an iterable, got %s' % type(sequence))
+            raise ValueError(
+                "Argument needs to be an iterable, got %s" % type(sequence)
+            )
         return item_index
 
     def index(self, key):
@@ -147,7 +154,7 @@ class OrderedSet(collections.abc.MutableSet):
         Raises KeyError if the set is empty.
         """
         if not self.items:
-            raise KeyError('Set is empty')
+            raise KeyError("Set is empty")
 
         elem = self.items[-1]
         del self.items[-1]
@@ -184,8 +191,8 @@ class OrderedSet(collections.abc.MutableSet):
 
     def __repr__(self):
         if not self:
-            return '%s()' % (self.__class__.__name__,)
-        return '%s(%r)' % (self.__class__.__name__, list(self))
+            return "%s()" % (self.__class__.__name__,)
+        return "%s(%r)" % (self.__class__.__name__, list(self))
 
     def __eq__(self, other):
         if isinstance(other, OrderedSet):
@@ -197,4 +204,3 @@ class OrderedSet(collections.abc.MutableSet):
             return False
         else:
             return set(self) == other_as_set
-

@@ -26,6 +26,7 @@ _ENTRY_MAGICK = b"KTE\x00"
 _IMAGE_MAGICK = b"KTT\x00"
 _MIP_MAGICK = b"KTM\x00"
 
+
 @enum.unique
 class _HeaderBits(enum.IntEnum):
     last_export = 0
@@ -79,7 +80,10 @@ class ImageCache:
         image, tag = texture.image, texture.tag
         image_name = str(texture)
         key = (image_name, tag, compression)
-        ex_method, im_method = self._exporter().texcache_method, image.plasma_image.texcache_method
+        ex_method, im_method = (
+            self._exporter().texcache_method,
+            image.plasma_image.texcache_method,
+        )
         method = set((ex_method, im_method))
         if texture.ephemeral or "skip" in method:
             self._images.pop(key, None)
@@ -122,7 +126,10 @@ class ImageCache:
         # If the texture is ephemeral (eg a lightmap) or has been marked "rebuild" or "skip"
         # in the UI, we don't want anything from the cache. In the first two cases, we never
         # want to cache that crap. In the latter case, we just want to signal a recache is needed.
-        ex_method, im_method = self._exporter().texcache_method, texture.image.plasma_image.texcache_method
+        ex_method, im_method = (
+            self._exporter().texcache_method,
+            texture.image.plasma_image.texcache_method,
+        )
         method = set((ex_method, im_method))
         if method != {"use"} or texture.ephemeral:
             return None
@@ -150,7 +157,10 @@ class ImageCache:
             finally:
                 if exists:
                     cached_image.modify_time = path.stat().st_mtime
-                    if cached_image.export_time and cached_image.export_time < cached_image.modify_time:
+                    if (
+                        cached_image.export_time
+                        and cached_image.export_time < cached_image.modify_time
+                    ):
                         return None
                 else:
                     cached_image.modify_time = 0
@@ -158,9 +168,15 @@ class ImageCache:
         # ensure the data has been loaded from the cache
         if cached_image.image_data is None:
             try:
-                cached_image.image_data = tuple(self._read_image_data(cached_image, self._read_stream))
+                cached_image.image_data = tuple(
+                    self._read_image_data(cached_image, self._read_stream)
+                )
             except AssertionError:
-                self._report.warn("Cached copy of '{}' is corrupt and will be discarded", cached_image.name, indent=2)
+                self._report.warn(
+                    "Cached copy of '{}' is corrupt and will be discarded",
+                    cached_image.name,
+                    indent=2,
+                )
                 self._images.pop(key)
                 return None
         return cached_image
@@ -228,7 +244,6 @@ class ImageCache:
             if stream.pos != pos:
                 stream.seek(pos)
             yield tuple(_read_image_mips())
-
 
     def _read_index(self, index_pos, stream):
         stream.seek(index_pos)

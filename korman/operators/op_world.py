@@ -17,6 +17,7 @@ import bpy
 from bpy.props import *
 from pathlib import Path
 
+
 class AgeOperator:
     @classmethod
     def poll(cls, context):
@@ -40,7 +41,9 @@ class GameAddOperator(AgeOperator, bpy.types.Operator):
         # Blendsucks likes to tack filenames onto our doggone directories...
         if not path.is_dir():
             path = path.parent
-        if not ((path / "UruExplorer.exe").is_file() or (path / "plClient.exe").is_file()):
+        if not (
+            (path / "UruExplorer.exe").is_file() or (path / "plClient.exe").is_file()
+        ):
             self.report({"ERROR"}, "The selected directory is not a copy of URU.")
             return {"CANCELLED"}
 
@@ -61,7 +64,6 @@ class GameAddOperator(AgeOperator, bpy.types.Operator):
         game.name = path.name
 
         return {"FINISHED"}
-
 
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)

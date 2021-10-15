@@ -18,6 +18,7 @@ from bpy.props import *
 import itertools
 import pickle
 
+
 class NodeOperator:
     @classmethod
     def poll(cls, context):
@@ -40,7 +41,9 @@ class CreateLinkNodeOperator(NodeOperator, bpy.types.Operator):
     _hack = []
 
     def _link_search_list(self, context):
-        CreateLinkNodeOperator._hack = list(CreateLinkNodeOperator._link_search_list_imp(self, context))
+        CreateLinkNodeOperator._hack = list(
+            CreateLinkNodeOperator._link_search_list_imp(self, context)
+        )
         return CreateLinkNodeOperator._hack
 
     def _link_search_list_imp(self, context):
@@ -50,14 +53,18 @@ class CreateLinkNodeOperator(NodeOperator, bpy.types.Operator):
         src_node = tree.nodes[self.node_name]
         src_socket = CreateLinkNodeOperator._find_source_socket(self, src_node)
 
-        links = list(src_node.generate_valid_links_for(context, src_socket, self.is_output))
+        links = list(
+            src_node.generate_valid_links_for(context, src_socket, self.is_output)
+        )
         max_node = max((len(i["node_text"]) for i in links)) if links else 0
         for i, link in enumerate(links):
             # Pickle protocol 0 uses only ASCII bytes, so we can pretend it's a string easily...
             id_string = pickle.dumps(link, protocol=0).decode()
-            desc_string = "{node}:{node_sock_space}{sock}".format(node=link["node_text"],
+            desc_string = "{node}:{node_sock_space}{sock}".format(
+                node=link["node_text"],
                 node_sock_space=(" " * (max_node - len(link["node_text"]) + 4)),
-                sock=link["socket_text"])
+                sock=link["socket_text"],
+            )
             yield (id_string, desc_string, "", i)
 
     node_item = EnumProperty(items=_link_search_list)
@@ -101,7 +108,11 @@ class CreateLinkNodeOperator(NodeOperator, bpy.types.Operator):
         src_node = tree.nodes[self.node_name]
         src_socket = self._find_source_socket(src_node)
         # We need to use Korman's functions because they may generate a node socket.
-        find_socket = dest_node.find_input_socket if self.is_output else dest_node.find_output_socket
+        find_socket = (
+            dest_node.find_input_socket
+            if self.is_output
+            else dest_node.find_output_socket
+        )
         dest_socket = find_socket(link["socket_name"], True)
 
         if self.is_output:
@@ -113,7 +124,9 @@ class CreateLinkNodeOperator(NodeOperator, bpy.types.Operator):
 
     def modal(self, context, event):
         # Ugh. The Blender API sucks so much. We can only get the cursor pos from here???
-        context.space_data.cursor_location_from_region(event.mouse_region_x, event.mouse_region_y)
+        context.space_data.cursor_location_from_region(
+            event.mouse_region_x, event.mouse_region_y
+        )
         if len(self._hack) == 1:
             self._create_link_node(context, self._hack[0][0])
             self._hack.clear()
@@ -132,9 +145,12 @@ class CreateLinkNodeOperator(NodeOperator, bpy.types.Operator):
     def poll(cls, context):
         space = context.space_data
         # needs active node editor and a tree to add nodes to
-        return (space.type == 'NODE_EDITOR' and
-                space.edit_tree and not space.edit_tree.library and
-                context.scene.render.engine == "PLASMA_GAME")
+        return (
+            space.type == "NODE_EDITOR"
+            and space.edit_tree
+            and not space.edit_tree.library
+            and context.scene.render.engine == "PLASMA_GAME"
+        )
 
 
 class SelectFileOperator(NodeOperator, bpy.types.Operator):
@@ -147,14 +163,23 @@ class SelectFileOperator(NodeOperator, bpy.types.Operator):
     filename = StringProperty(options={"HIDDEN"})
 
     data_path = StringProperty(options={"HIDDEN"})
-    filepath_property = StringProperty(description="Name of property to store filepath in", options={"HIDDEN"})
-    filename_property = StringProperty(description="Name of property to store filename in", options={"HIDDEN"})
+    filepath_property = StringProperty(
+        description="Name of property to store filepath in", options={"HIDDEN"}
+    )
+    filename_property = StringProperty(
+        description="Name of property to store filename in", options={"HIDDEN"}
+    )
 
     def execute(self, context):
         if bpy.data.texts.get(self.filename, None) is None:
             bpy.data.texts.load(self.filepath)
         else:
-            self.report({"WARNING"}, "A file named '{}' is already loaded. It will be used.".format(self.filename))
+            self.report(
+                {"WARNING"},
+                "A file named '{}' is already loaded. It will be used.".format(
+                    self.filename
+                ),
+            )
 
         dest = eval(self.data_path)
         if self.filepath_property:
@@ -167,46 +192,28 @@ class SelectFileOperator(NodeOperator, bpy.types.Operator):
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
 
-pyAttribArgMap= {
-        "ptAttribute":
-            ["vislistid", "visliststates"],
-        "ptAttribBoolean":
-            ["default"],
-        "ptAttribInt":
-            ["default", "rang"],
-        "ptAttribFloat":
-            ["default", "rang"],
-        "ptAttribString":
-            ["default"],
-        "ptAttribDropDownList":
-            ["options"],
-        "ptAttribSceneobject":
-            ["netForce"],
-        "ptAttribSceneobjectList":
-            ["byObject", "netForce"],
-        "ptAttributeKeyList":
-            ["byObject", "netForce"],
-        "ptAttribActivator":
-            ["byObject", "netForce"],
-        "ptAttribActivatorList":
-            ["byObject", "netForce"],
-        "ptAttribResponder":
-            ["stateList", "byObject", "netForce", "netPropagate"],
-        "ptAttribResponderList":
-            ["stateList", "byObject", "netForce", "netPropagate"],
-        "ptAttribNamedActivator":
-            ["byObject", "netForce"],
-        "ptAttribNamedResponder":
-            ["stateList", "byObject", "netForce", "netPropagate"],
-        "ptAttribDynamicMap":
-            ["netForce"],
-        "ptAttribAnimation":
-            ["byObject", "netForce"],
-        "ptAttribBehavior":
-            ["netForce", "netProp"],
-        "ptAttribMaterialList":
-            ["byObject", "netForce"],
-    }
+
+pyAttribArgMap = {
+    "ptAttribute": ["vislistid", "visliststates"],
+    "ptAttribBoolean": ["default"],
+    "ptAttribInt": ["default", "rang"],
+    "ptAttribFloat": ["default", "rang"],
+    "ptAttribString": ["default"],
+    "ptAttribDropDownList": ["options"],
+    "ptAttribSceneobject": ["netForce"],
+    "ptAttribSceneobjectList": ["byObject", "netForce"],
+    "ptAttributeKeyList": ["byObject", "netForce"],
+    "ptAttribActivator": ["byObject", "netForce"],
+    "ptAttribActivatorList": ["byObject", "netForce"],
+    "ptAttribResponder": ["stateList", "byObject", "netForce", "netPropagate"],
+    "ptAttribResponderList": ["stateList", "byObject", "netForce", "netPropagate"],
+    "ptAttribNamedActivator": ["byObject", "netForce"],
+    "ptAttribNamedResponder": ["stateList", "byObject", "netForce", "netPropagate"],
+    "ptAttribDynamicMap": ["netForce"],
+    "ptAttribAnimation": ["byObject", "netForce"],
+    "ptAttribBehavior": ["netForce", "netProp"],
+    "ptAttribMaterialList": ["byObject", "netForce"],
+}
 
 
 class PlPyAttributeNodeOperator(NodeOperator, bpy.types.Operator):
@@ -220,6 +227,7 @@ class PlPyAttributeNodeOperator(NodeOperator, bpy.types.Operator):
 
     def execute(self, context):
         from ..plasma_attributes import get_attributes_from_str
+
         text_id = bpy.data.texts[self.text_path]
         attribs = get_attributes_from_str(text_id.as_string())
 
@@ -250,12 +258,26 @@ class PlPyAttributeNodeOperator(NodeOperator, bpy.types.Operator):
             # Load our default argument mapping
             if args is not None:
                 if cached.attribute_type in pyAttribArgMap.keys():
-                    argmap.update(dict(zip(pyAttribArgMap[cached.attribute_type], args)))
+                    argmap.update(
+                        dict(zip(pyAttribArgMap[cached.attribute_type], args))
+                    )
                 else:
-                    print("Found ptAttribute type '{}' with unknown arguments: {}".format(cached.attribute_type, args))
+                    print(
+                        "Found ptAttribute type '{}' with unknown arguments: {}".format(
+                            cached.attribute_type, args
+                        )
+                    )
             # Add in/set any arguments provided by keyword
-            if cached.attribute_type in pyAttribArgMap.keys() and not set(pyAttribArgMap[cached.attribute_type]).isdisjoint(attrib.keys()):
-                argmap.update({key: attrib[key] for key in attrib if key in pyAttribArgMap[cached.attribute_type]})
+            if cached.attribute_type in pyAttribArgMap.keys() and not set(
+                pyAttribArgMap[cached.attribute_type]
+            ).isdisjoint(attrib.keys()):
+                argmap.update(
+                    {
+                        key: attrib[key]
+                        for key in attrib
+                        if key in pyAttribArgMap[cached.attribute_type]
+                    }
+                )
             # Attach the arguments to the attribute
             if argmap:
                 cached.attribute_arguments.set_arguments(argmap)

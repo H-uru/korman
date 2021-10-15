@@ -25,9 +25,11 @@ from ..prop_anim import PlasmaAnimationCollection
 from ...exporter import ExportError, utils
 from ... import idprops
 
+
 def _convert_frame_time(frame_num):
     fps = bpy.context.scene.render.fps
     return frame_num / fps
+
 
 class ActionModifier:
     @property
@@ -36,19 +38,30 @@ class ActionModifier:
         if bo.animation_data is not None and bo.animation_data.action is not None:
             return bo.animation_data.action
         if bo.data is not None:
-            if bo.data.animation_data is not None and bo.data.animation_data.action is not None:
+            if (
+                bo.data.animation_data is not None
+                and bo.data.animation_data.action is not None
+            ):
                 # we will not use this action for any animation logic. that must be stored on the Object
                 # datablock for simplicity's sake.
                 return None
-        raise ExportError("'{}': Object has an animation modifier but is not animated".format(bo.name))
+        raise ExportError(
+            "'{}': Object has an animation modifier but is not animated".format(bo.name)
+        )
 
     def sanity_check(self) -> None:
         if not self.id_data.plasma_object.has_animation_data:
-            raise ExportError("'{}': Has an animation modifier but no animation data.", self.id_data.name)
+            raise ExportError(
+                "'{}': Has an animation modifier but no animation data.",
+                self.id_data.name,
+            )
 
         if self.id_data.type == "CAMERA":
             if not self.id_data.data.plasma_camera.allow_animations:
-                raise ExportError("'{}': Animation modifiers are not allowed on this camera type.", self.id_data.name)
+                raise ExportError(
+                    "'{}': Animation modifiers are not allowed on this camera type.",
+                    self.id_data.name,
+                )
 
 
 class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
@@ -67,7 +80,9 @@ class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
         so = exporter.mgr.find_create_object(plSceneObject, bl=bo)
         self.convert_object_animations(exporter, bo, so, self.subanimations)
 
-    def convert_object_animations(self, exporter, bo, so, anims: Optional[Iterable] = None):
+    def convert_object_animations(
+        self, exporter, bo, so, anims: Optional[Iterable] = None
+    ):
         if not anims:
             anims = [self.subanimations.entire_animation]
         aganims = list(self._export_ag_anims(exporter, bo, so, anims))
@@ -98,16 +113,25 @@ class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
             else:
                 start, end = None, None
 
-            applicators = converter.convert_object_animations(bo, so, anim_name, start=start, end=end)
+            applicators = converter.convert_object_animations(
+                bo, so, anim_name, start=start, end=end
+            )
             if not applicators:
-                exporter.report.warn("Animation '{}' generated no applicators. Nothing will be exported.",
-                                     anim_name, indent=2)
+                exporter.report.warn(
+                    "Animation '{}' generated no applicators. Nothing will be exported.",
+                    anim_name,
+                    indent=2,
+                )
                 continue
 
             pClass = plAgeGlobalAnim if anim.sdl_var else plATCAnim
-            aganim = exporter.mgr.find_create_object(pClass, bl=bo, so=so, name="{}_{}".format(bo.name, anim_name))
+            aganim = exporter.mgr.find_create_object(
+                pClass, bl=bo, so=so, name="{}_{}".format(bo.name, anim_name)
+            )
             aganim.name = anim_name
-            aganim.start, aganim.end = converter.get_frame_time_range(*applicators, so=so)
+            aganim.start, aganim.end = converter.get_frame_time_range(
+                *applicators, so=so
+            )
             for i in applicators:
                 aganim.addApplicator(i)
 
@@ -119,18 +143,24 @@ class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
                     markers = action.pose_markers
                     initial_marker = markers.get(anim.initial_marker)
                     if initial_marker is not None:
-                        aganim.initial = converter.convert_frame_time(initial_marker.frame)
+                        aganim.initial = converter.convert_frame_time(
+                            initial_marker.frame
+                        )
                     else:
                         aganim.initial = -1.0
                     if anim.loop:
                         loop_start = markers.get(anim.loop_start)
                         if loop_start is not None:
-                            aganim.loopStart = converter.convert_frame_time(loop_start.frame)
+                            aganim.loopStart = converter.convert_frame_time(
+                                loop_start.frame
+                            )
                         else:
                             aganim.loopStart = aganim.start
                         loop_end = markers.get(anim.loop_end)
                         if loop_end is not None:
-                            aganim.loopEnd = converter.convert_frame_time(loop_end.frame)
+                            aganim.loopEnd = converter.convert_frame_time(
+                                loop_end.frame
+                            )
                         else:
                             aganim.loopEnd = aganim.end
                 else:
@@ -157,10 +187,12 @@ class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
 
 
 class AnimGroupObject(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
-    child_anim = PointerProperty(name="Child Animation",
-                                 description="Object whose action is a child animation",
-                                 type=bpy.types.Object,
-                                 poll=idprops.poll_animated_objects)
+    child_anim = PointerProperty(
+        name="Child Animation",
+        description="Object whose action is a child animation",
+        type=bpy.types.Object,
+        poll=idprops.poll_animated_objects,
+    )
 
     @classmethod
     def _idprop_mapping(cls):
@@ -175,19 +207,25 @@ class PlasmaAnimationFilterModifier(PlasmaModifierProperties):
     bl_description = "Filter animation components"
     bl_icon = "UNLINKED"
 
-    no_rotation = BoolProperty(name="Filter Rotation",
-                               description="Filter rotations",
-                               options=set())
+    no_rotation = BoolProperty(
+        name="Filter Rotation", description="Filter rotations", options=set()
+    )
 
-    no_transX = BoolProperty(name="Filter X Translation",
-                             description="Filter the X component of translations",
-                             options=set())
-    no_transY = BoolProperty(name="Filter Y Translation",
-                             description="Filter the Y component of translations",
-                             options=set())
-    no_transZ = BoolProperty(name="Filter Z Translation",
-                             description="Filter the Z component of translations",
-                             options=set())
+    no_transX = BoolProperty(
+        name="Filter X Translation",
+        description="Filter the X component of translations",
+        options=set(),
+    )
+    no_transY = BoolProperty(
+        name="Filter Y Translation",
+        description="Filter the Y component of translations",
+        options=set(),
+    )
+    no_transZ = BoolProperty(
+        name="Filter Z Translation",
+        description="Filter the Z component of translations",
+        options=set(),
+    )
 
     def export(self, exporter, bo, so):
         # By this point, the object should already have a plFilterCoordInterface
@@ -219,9 +257,11 @@ class PlasmaAnimationGroupModifier(ActionModifier, PlasmaModifierProperties):
     bl_description = "Defines related animations"
     bl_icon = "GROUP"
 
-    children = CollectionProperty(name="Child Animations",
-                                  description="Animations that will execute the same commands as this one",
-                                  type=AnimGroupObject)
+    children = CollectionProperty(
+        name="Child Animations",
+        description="Animations that will execute the same commands as this one",
+        type=AnimGroupObject,
+    )
     active_child_index = IntProperty(options={"HIDDEN"})
 
     def export(self, exporter, bo, so):
@@ -229,7 +269,9 @@ class PlasmaAnimationGroupModifier(ActionModifier, PlasmaModifierProperties):
             raise ExportError("'{}': Object is not animated".format(bo.name))
 
         # The message forwarder is the guy that makes sure that everybody knows WTF is going on
-        msgfwd = exporter.mgr.find_create_object(plMsgForwarder, so=so, name=self.key_name)
+        msgfwd = exporter.mgr.find_create_object(
+            plMsgForwarder, so=so, name=self.key_name
+        )
 
         # Now, this is da swhiz...
         agmod, agmaster = exporter.animation.get_anigraph_objects(bo, so)
@@ -250,7 +292,9 @@ class PlasmaAnimationGroupModifier(ActionModifier, PlasmaModifierProperties):
                 msg = "Animation Group '{}' specifies an object '{}' with no Plasma Animation modifier. Ignoring..."
                 exporter.report.warn(msg, self.key_name, child_bo.name, indent=2)
                 continue
-            child_agmod, child_agmaster = exporter.animation.get_anigraph_objects(bo=child_bo)
+            child_agmod, child_agmaster = exporter.animation.get_anigraph_objects(
+                bo=child_bo
+            )
             msgfwd.addForwardKey(child_agmaster.key)
         msgfwd.addForwardKey(agmaster.key)
 
@@ -260,12 +304,13 @@ class PlasmaAnimationGroupModifier(ActionModifier, PlasmaModifierProperties):
 
 
 class LoopMarker(bpy.types.PropertyGroup):
-    loop_name = StringProperty(name="Loop Name",
-                               description="Name of this loop")
-    loop_start = StringProperty(name="Loop Start",
-                                description="Marker name from whence the loop begins")
-    loop_end = StringProperty(name="Loop End",
-                                description="Marker name from whence the loop ends")
+    loop_name = StringProperty(name="Loop Name", description="Name of this loop")
+    loop_start = StringProperty(
+        name="Loop Start", description="Marker name from whence the loop begins"
+    )
+    loop_end = StringProperty(
+        name="Loop End", description="Marker name from whence the loop ends"
+    )
 
 
 class PlasmaAnimationLoopModifier(ActionModifier, PlasmaModifierProperties):
@@ -277,9 +322,9 @@ class PlasmaAnimationLoopModifier(ActionModifier, PlasmaModifierProperties):
     bl_description = "Animation loop settings"
     bl_icon = "PMARKER_SEL"
 
-    loops = CollectionProperty(name="Loops",
-                               description="Loop points within the animation",
-                               type=LoopMarker)
+    loops = CollectionProperty(
+        name="Loops", description="Loop points within the animation", type=LoopMarker
+    )
     active_loop_index = IntProperty(options={"HIDDEN"})
 
     def export(self, exporter, bo, so):
@@ -293,11 +338,23 @@ class PlasmaAnimationLoopModifier(ActionModifier, PlasmaModifierProperties):
             start = markers.get(loop.loop_start)
             end = markers.get(loop.loop_end)
             if start is None:
-                exporter.report.warn("Animation '{}' Loop '{}': Marker '{}' not found. This loop will not be exported".format(
-                    action.name, loop.loop_name, loop.loop_start), indent=2)
+                exporter.report.warn(
+                    "Animation '{}' Loop '{}': Marker '{}' not found. This loop will not be exported".format(
+                        action.name, loop.loop_name, loop.loop_start
+                    ),
+                    indent=2,
+                )
             if end is None:
-                exporter.report.warn("Animation '{}' Loop '{}': Marker '{}' not found. This loop will not be exported".format(
-                    action.name, loop.loop_name, loop.loop_end), indent=2)
+                exporter.report.warn(
+                    "Animation '{}' Loop '{}': Marker '{}' not found. This loop will not be exported".format(
+                        action.name, loop.loop_name, loop.loop_end
+                    ),
+                    indent=2,
+                )
             if start is None or end is None:
                 continue
-            atcanim.setLoop(loop.loop_name, _convert_frame_time(start.frame), _convert_frame_time(end.frame))
+            atcanim.setLoop(
+                loop.loop_name,
+                _convert_frame_time(start.frame),
+                _convert_frame_time(end.frame),
+            )

@@ -31,6 +31,7 @@ import zipfile
 _CHUNK_SIZE = 0xA00000
 _encoding = locale.getpreferredencoding(False)
 
+
 def _hashfile(filename, hasher, block=0xFFFF):
     with open(str(filename), "rb") as handle:
         h = hasher()
@@ -39,6 +40,7 @@ def _hashfile(filename, hasher, block=0xFFFF):
             h.update(data)
             data = handle.read(block)
         return h.digest()
+
 
 @enum.unique
 class _FileType(enum.Enum):
@@ -58,6 +60,7 @@ _GATHER_BUILD = {
     _FileType.video: "avi",
 }
 
+
 class _OutputFile:
     def __init__(self, **kwargs):
         self.file_type = kwargs.get("file_type")
@@ -71,7 +74,9 @@ class _OutputFile:
         if self.file_type in (_FileType.generated_dat, _FileType.generated_ancillary):
             self.file_data = kwargs.get("file_data", None)
             self.file_path = kwargs.get("file_path", None)
-            self.mod_time = Path(self.file_path).stat().st_mtime if self.file_path else None
+            self.mod_time = (
+                Path(self.file_path).stat().st_mtime if self.file_path else None
+            )
 
             # need either a data buffer OR a file path
             assert bool(self.file_data) ^ bool(self.file_path)
@@ -121,7 +126,9 @@ class _OutputFile:
         with plEncryptedStream().open(backing_stream, fmCreate, enc) as enc_stream:
             if self.file_path:
                 if plEncryptedStream.IsFileEncrypted(self.file_path):
-                    with plEncryptedStream().open(self.file_path, fmRead, plEncryptedStream.kEncAuto) as dec_stream:
+                    with plEncryptedStream().open(
+                        self.file_path, fmRead, plEncryptedStream.kEncAuto
+                    ) as dec_stream:
                         self._enc_spin_wash(enc_stream, dec_stream)
                 else:
                     with hsFileStream().open(self.file_path, fmRead) as dec_stream:
@@ -188,45 +195,63 @@ class OutputFiles:
         self._time = time.time()
 
     def add_ancillary(self, filename, dirname="", text_id=None, str_data=None):
-        of = _OutputFile(file_type=_FileType.generated_ancillary,
-                         dirname=dirname, filename=filename,
-                         id_data=text_id, file_data=str_data)
+        of = _OutputFile(
+            file_type=_FileType.generated_ancillary,
+            dirname=dirname,
+            filename=filename,
+            id_data=text_id,
+            file_data=str_data,
+        )
         self._files.add(of)
 
     def add_python_code(self, filename, text_id=None, str_data=None):
         assert filename not in self._py_files
-        of = _OutputFile(file_type=_FileType.python_code,
-                         dirname="Python", filename=filename,
-                         id_data=text_id, file_data=str_data,
-                         skip_hash=True,
-                         internal=(self._version != pvMoul),
-                         needs_glue=False)
+        of = _OutputFile(
+            file_type=_FileType.python_code,
+            dirname="Python",
+            filename=filename,
+            id_data=text_id,
+            file_data=str_data,
+            skip_hash=True,
+            internal=(self._version != pvMoul),
+            needs_glue=False,
+        )
         self._files.add(of)
         self._py_files.add(filename)
 
     def add_python_mod(self, filename, text_id=None, str_data=None):
         assert filename not in self._py_files
-        of = _OutputFile(file_type=_FileType.python_code,
-                         dirname="Python", filename=filename,
-                         id_data=text_id, file_data=str_data,
-                         skip_hash=True,
-                         internal=(self._version != pvMoul),
-                         needs_glue=True)
+        of = _OutputFile(
+            file_type=_FileType.python_code,
+            dirname="Python",
+            filename=filename,
+            id_data=text_id,
+            file_data=str_data,
+            skip_hash=True,
+            internal=(self._version != pvMoul),
+            needs_glue=True,
+        )
         self._files.add(of)
         self._py_files.add(filename)
 
     def add_sdl(self, filename, text_id=None, str_data=None):
-        of = _OutputFile(file_type=_FileType.sdl,
-                         dirname="SDL", filename=filename,
-                         id_data=text_id, file_data=str_data,
-                         enc=self.super_secure_encryption)
+        of = _OutputFile(
+            file_type=_FileType.sdl,
+            dirname="SDL",
+            filename=filename,
+            id_data=text_id,
+            file_data=str_data,
+            enc=self.super_secure_encryption,
+        )
         self._files.add(of)
 
-
     def add_sfx(self, sound_id):
-        of = _OutputFile(file_type=_FileType.sfx,
-                         dirname="sfx", filename=sound_id.name,
-                         id_data=sound_id)
+        of = _OutputFile(
+            file_type=_FileType.sfx,
+            dirname="sfx",
+            filename=sound_id.name,
+            id_data=sound_id,
+        )
         self._files.add(of)
 
     @contextmanager
@@ -243,7 +268,7 @@ class OutputFiles:
             else:
                 file_path = self._export_path.joinpath(dirname, filename)
             file_path.parent.mkdir(parents=True, exist_ok=True)
-            file_path = str(file_path) # FIXME when we bump to Python 3.6+
+            file_path = str(file_path)  # FIXME when we bump to Python 3.6+
             stream = hsFileStream(self._version)
             stream.open(file_path, fmCreate)
         backing_stream = stream
@@ -274,8 +299,9 @@ class OutputFiles:
             # instead of doing lots of buffer copying to encrypt as a post step.
             if not bogus:
                 kwargs = {
-                    "file_type": _FileType.generated_dat if dirname == "dat" else
-                                 _FileType.generated_ancillary,
+                    "file_type": _FileType.generated_dat
+                    if dirname == "dat"
+                    else _FileType.generated_ancillary,
                     "dirname": dirname,
                     "filename": filename,
                     "skip_hash": kwargs.get("skip_hash", False),
@@ -318,15 +344,24 @@ class OutputFiles:
                     py_code = "{}\n\n{}\n".format(i.file_data, plasma_python_glue)
                 else:
                     py_code = i.file_data
-                result, pyc = korlib.compyle(i.filename, py_code, py_version, report, indent=1)
+                result, pyc = korlib.compyle(
+                    i.filename, py_code, py_version, report, indent=1
+                )
                 if result:
                     pyc_objects.append((i.filename, pyc))
         except korlib.PythonNotAvailableError as error:
-            report.warn("Python {} is not available. Your Age scripts were not packaged.", error, indent=1)
+            report.warn(
+                "Python {} is not available. Your Age scripts were not packaged.",
+                error,
+                indent=1,
+            )
         else:
             if pyc_objects:
-                with self.generate_dat_file("{}.pak".format(self._exporter().age_name),
-                                            dirname="Python", enc=self.super_secure_encryption) as stream:
+                with self.generate_dat_file(
+                    "{}.pak".format(self._exporter().age_name),
+                    dirname="Python",
+                    enc=self.super_secure_encryption,
+                ) as stream:
                     korlib.package_python(stream, pyc_objects)
 
     def save(self):
@@ -376,7 +411,10 @@ class OutputFiles:
 
     def _write_deps(self):
         times = (self._time, self._time)
-        func = lambda x: not x.internal and x.file_type not in (_FileType.generated_ancillary, _FileType.generated_dat)
+        func = lambda x: not x.internal and x.file_type not in (
+            _FileType.generated_ancillary,
+            _FileType.generated_dat,
+        )
         report = self._exporter().report
 
         for i in self._generate_files(func):
@@ -391,8 +429,11 @@ class OutputFiles:
                 if i.file_path != dst_path:
                     shutil.copy2(i.file_path, dst_path)
             else:
-                report.warn("No data found for dependency file '{}'. It will not be copied into the export directory.",
-                            str(i.dirname / i.filename), indent=1)
+                report.warn(
+                    "No data found for dependency file '{}'. It will not be copied into the export directory.",
+                    str(i.dirname / i.filename),
+                    indent=1,
+                )
 
     def _write_gather_build(self):
         report = self._exporter().report
@@ -400,17 +441,26 @@ class OutputFiles:
         for i in self._generate_files():
             key = _GATHER_BUILD.get(i.file_type)
             if key is None:
-                report.warn("Output file '{}' of type '{}' is not supported by MOULa's GatherBuild format.",
-                            i.file_type, i.filename)
+                report.warn(
+                    "Output file '{}' of type '{}' is not supported by MOULa's GatherBuild format.",
+                    i.file_type,
+                    i.filename,
+                )
             else:
                 path_str = str(PureWindowsPath(i.dirname, i.filename))
                 files.setdefault(key, []).append(path_str)
-        self.add_ancillary("contents.json", str_data=json.dumps(files, ensure_ascii=False, indent=2))
+        self.add_ancillary(
+            "contents.json", str_data=json.dumps(files, ensure_ascii=False, indent=2)
+        )
 
     def _write_sumfile(self):
         version = self._version
         dat_only = self._exporter().dat_only
-        enc = plEncryptedStream.kEncAes if version >= pvEoa else plEncryptedStream.kEncXtea
+        enc = (
+            plEncryptedStream.kEncAes
+            if version >= pvEoa
+            else plEncryptedStream.kEncXtea
+        )
         filename = "{}.sum".format(self._exporter().age_name)
         if dat_only:
             func = lambda x: (not x.skip_hash and not x.internal) and x.dirname == "dat"
@@ -445,7 +495,7 @@ class OutputFiles:
             func = lambda x: not x.internal
         report = self._exporter().report
 
-        with zipfile.ZipFile(str(self._export_file), 'w', zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(str(self._export_file), "w", zipfile.ZIP_DEFLATED) as zf:
             for i in self._generate_files(func):
                 arcpath = i.filename if dat_only else str(Path(i.dirname, i.filename))
                 if i.file_data:
@@ -458,7 +508,11 @@ class OutputFiles:
                 elif i.file_path:
                     zf.write(i.file_path, arcpath)
                 else:
-                    report.warn("No data found for dependency file '{}'. It will not be archived.", arcpath, indent=1)
+                    report.warn(
+                        "No data found for dependency file '{}'. It will not be archived.",
+                        arcpath,
+                        indent=1,
+                    )
 
     @property
     def _version(self):

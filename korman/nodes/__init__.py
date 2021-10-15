@@ -29,12 +29,14 @@ from .node_python import *
 from .node_responder import *
 from .node_softvolume import *
 
+
 class PlasmaNodeCategory(NodeCategory):
     """Plasma Node Category"""
 
     @classmethod
     def poll(cls, context):
-        return (context.space_data.tree_type == "PlasmaNodeTree")
+        return context.space_data.tree_type == "PlasmaNodeTree"
+
 
 # Here's what you need to know about this...
 # If you add a new category, put the pretty name here!
@@ -49,6 +51,7 @@ _kategory_names = {
     "PYTHON": "Python",
     "SV": "Soft Volume",
 }
+
 
 class PlasmaNodeItem(NodeItem):
     def __init__(self, **kwargs):
@@ -91,11 +94,17 @@ for cls in dict(globals()).values():
 _actual_kategories = []
 for i in sorted(_kategories.keys(), key=lambda x: _kategory_names[x]):
     # Note that even though we're sorting the category names, Blender appears to not care...
-    _kat_items = [PlasmaNodeItem(**j) for j in sorted(_kategories[i], key=lambda x: x["label"])]
-    _actual_kategories.append(PlasmaNodeCategory(i, _kategory_names[i], items=_kat_items))
+    _kat_items = [
+        PlasmaNodeItem(**j) for j in sorted(_kategories[i], key=lambda x: x["label"])
+    ]
+    _actual_kategories.append(
+        PlasmaNodeCategory(i, _kategory_names[i], items=_kat_items)
+    )
+
 
 def register():
     nodeitems_utils.register_node_categories("PLASMA_NODES", _actual_kategories)
+
 
 def unregister():
     nodeitems_utils.unregister_node_categories("PLASMA_NODES")

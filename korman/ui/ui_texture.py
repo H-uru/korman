@@ -18,6 +18,7 @@ import bpy
 from . import ui_list
 from . import ui_anim
 
+
 class TextureButtonsPanel:
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
@@ -48,15 +49,25 @@ class PlasmaEnvMapPanel(TextureButtonsPanel, bpy.types.Panel):
             layout.separator()
 
             layout.label("Visibility Sets:")
-            ui_list.draw_list(layout, "VisRegionListUI", "texture", layer_props,
-                              "vis_regions", "active_region_index", rows=2, maxrows=3)
+            ui_list.draw_list(
+                layout,
+                "VisRegionListUI",
+                "texture",
+                layer_props,
+                "vis_regions",
+                "active_region_index",
+                rows=2,
+                maxrows=3,
+            )
             rgns = layer_props.vis_regions
             if layer_props.vis_regions:
                 layout.prop(rgns[layer_props.active_region_index], "control_region")
         elif envmap.source == "IMAGE_FILE":
-            op = layout.operator("image.plasma_build_cube_map",
-                                 text="Build Cubemap from Cube Faces",
-                                 icon="MATCUBE")
+            op = layout.operator(
+                "image.plasma_build_cube_map",
+                text="Build Cubemap from Cube Faces",
+                icon="MATCUBE",
+            )
             op.texture_name = context.texture.name
 
 
@@ -128,5 +139,10 @@ class PlasmaLayerAnimationPanel(TextureButtonsPanel, bpy.types.Panel):
         return False
 
     def draw(self, context):
-        ui_anim.draw_multi_animation(self.layout, "texture", context.texture.plasma_layer,
-                                     "subanimations", use_box=True)
+        ui_anim.draw_multi_animation(
+            self.layout,
+            "texture",
+            context.texture.plasma_layer,
+            "subanimations",
+            use_box=True,
+        )

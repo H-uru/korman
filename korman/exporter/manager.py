@@ -75,7 +75,7 @@ class ExportManager:
 
     def add_object(self, pl, name=None, bl=None, loc=None, so=None):
         """Automates adding a converted Blender object to our Plasma Resource Manager"""
-        assert (bl or loc or so)
+        assert bl or loc or so
         if loc is not None:
             location = loc
         elif so is not None:
@@ -98,7 +98,7 @@ class ExportManager:
 
         self.AddObject(location, pl)
         node = self._nodes[location]
-        if node: # All objects must be in the scene node
+        if node:  # All objects must be in the scene node
             if isinstance(pl, plSceneObject):
                 node.addSceneObject(pl.key)
                 pl.sceneNode = node.key
@@ -145,7 +145,9 @@ class ExportManager:
         if want_pysdl:
             self._pack_agesdl_hook(age)
             sdl = self.add_object(plSceneObject, name="AgeSDLHook", loc=builtin)
-            pfm = self.add_object(plPythonFileMod, name="VeryVerySpecialPythonFileMod", so=sdl)
+            pfm = self.add_object(
+                plPythonFileMod, name="VeryVerySpecialPythonFileMod", so=sdl
+            )
             pfm.filename = replace_python2_identifier(age)
 
         # Textures.prp
@@ -191,7 +193,7 @@ class ExportManager:
         else:
             return plEncryptedStream.kEncXtea
 
-    def find_interfaces(self, pClass, so : plSceneObject) -> Iterable[plObjInterface]:
+    def find_interfaces(self, pClass, so: plSceneObject) -> Iterable[plObjInterface]:
         assert issubclass(pClass, plObjInterface)
 
         for i in (i.object for i in so.interfaces):
@@ -231,8 +233,12 @@ class ExportManager:
                     # potentially cause URU to crash. I'm uncertain though, so we'll just warn
                     # for now.
                     if issubclass(pClass, plSingleModifier):
-                        self._exporter().report.warn("Adding SingleModifier '{}' (type: '{}'') to another SceneObject '{}'",
-                                                     key.name, pClass.__name__[2:], so.key.name)
+                        self._exporter().report.warn(
+                            "Adding SingleModifier '{}' (type: '{}'') to another SceneObject '{}'",
+                            key.name,
+                            pClass.__name__[2:],
+                            so.key.name,
+                        )
                     so.addModifier(key)
         return key
 
@@ -281,7 +287,10 @@ class ExportManager:
             generator = (i for i in bpy.data.texts if i.name.lower() == namei)
             result, collision = next(generator, None), next(generator, None)
             if collision is not None:
-                raise explosions.ExportError("There are multiple copies of case insensitive text block '{}'.", name)
+                raise explosions.ExportError(
+                    "There are multiple copies of case insensitive text block '{}'.",
+                    name,
+                )
             return result
 
         # AgeSDL Hook Python
@@ -321,24 +330,44 @@ class ExportManager:
 
         with output.generate_dat_file(f, enc=self._encryption) as stream:
             fni = bpy.context.scene.world.plasma_fni
-            stream.writeLine("Graphics.Renderer.SetClearColor {:.2f} {:.2f} {:.2f}".format(*fni.clear_color))
+            stream.writeLine(
+                "Graphics.Renderer.SetClearColor {:.2f} {:.2f} {:.2f}".format(
+                    *fni.clear_color
+                )
+            )
             stream.writeLine("Graphics.Renderer.SetYon {:.1f}".format(fni.yon))
             if fni.fog_method == "none":
                 stream.writeLine("Graphics.Renderer.Fog.SetDefLinear 0 0 0")
             else:
-                stream.writeLine("Graphics.Renderer.Fog.SetDefColor {:.2f} {:.2f} {:.2f}".format(*fni.fog_color))
+                stream.writeLine(
+                    "Graphics.Renderer.Fog.SetDefColor {:.2f} {:.2f} {:.2f}".format(
+                        *fni.fog_color
+                    )
+                )
                 if fni.fog_method == "linear":
-                    stream.writeLine("Graphics.Renderer.Fog.SetDefLinear {:.2f} {:.2f} {:.2f}".format(fni.fog_start, fni.fog_end, fni.fog_density))
+                    stream.writeLine(
+                        "Graphics.Renderer.Fog.SetDefLinear {:.2f} {:.2f} {:.2f}".format(
+                            fni.fog_start, fni.fog_end, fni.fog_density
+                        )
+                    )
                 elif fni.fog_method == "exp":
-                    stream.writeLine("Graphics.Renderer.Fog.SetDefExp {:.2f} {:.2f}".format(fni.fog_end, fni.fog_density))
+                    stream.writeLine(
+                        "Graphics.Renderer.Fog.SetDefExp {:.2f} {:.2f}".format(
+                            fni.fog_end, fni.fog_density
+                        )
+                    )
                 elif fni.fog_method == "exp2":
-                    stream.writeLine("Graphics.Renderer.Fog.SetDefExp2 {:.2f} {:.2f}".format(fni.fog_end, fni.fog_density))
+                    stream.writeLine(
+                        "Graphics.Renderer.Fog.SetDefExp2 {:.2f} {:.2f}".format(
+                            fni.fog_end, fni.fog_density
+                        )
+                    )
 
     def _write_pages(self):
         age_name = self._age_info.name
         output = self._exporter().output
         for loc in self._pages.values():
-            page = self.mgr.FindPage(loc) # not cached because it's C++ owned
+            page = self.mgr.FindPage(loc)  # not cached because it's C++ owned
             chapter = "_District_" if self.mgr.getVer() <= pvMoul else "_"
             f = "{}{}{}.prp".format(age_name, chapter, page.page)
 

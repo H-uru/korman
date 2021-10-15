@@ -18,21 +18,47 @@ from pathlib import Path
 
 from . import ui_list
 
+
 class ImageListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_property,
+        index=0,
+        flt_flag=0,
+    ):
         if item.image is None:
             layout.label("[No Image Specified]", icon="ERROR")
         else:
-            layout.label(str(Path(item.image.name).with_suffix(".hsm")), icon_value=item.image.preview.icon_id)
+            layout.label(
+                str(Path(item.image.name).with_suffix(".hsm")),
+                icon_value=item.image.preview.icon_id,
+            )
             layout.prop(item, "enabled", text="")
 
 
 def imagelibmod(modifier, layout, context):
-    ui_list.draw_modifier_list(layout, "ImageListUI", modifier, "images", "active_image_index", rows=3, maxrows=6)
+    ui_list.draw_modifier_list(
+        layout,
+        "ImageListUI",
+        modifier,
+        "images",
+        "active_image_index",
+        rows=3,
+        maxrows=6,
+    )
 
     if modifier.images:
         row = layout.row(align=True)
-        row.template_ID(modifier.images[modifier.active_image_index], "image", open="image.open")
+        row.template_ID(
+            modifier.images[modifier.active_image_index], "image", open="image.open"
+        )
+
 
 def journalbookmod(modifier, layout, context):
     layout.prop_menu_enum(modifier, "versions")
@@ -67,6 +93,7 @@ def journalbookmod(modifier, layout, context):
 
     main_col.label("Clickable Region:")
     main_col.prop(modifier, "clickable_region", text="")
+
 
 def linkingbookmod(modifier, layout, context):
     def row_alert(prop_name, **kwargs):

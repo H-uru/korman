@@ -23,6 +23,7 @@ import uuid
 from .node_core import *
 from .node_deprecated import PlasmaVersionedNode
 
+
 class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
     bl_category = "LOGIC"
     bl_idname = "PlasmaResponderNode"
@@ -32,50 +33,70 @@ class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
     # These are the Python attributes we can fill in
     pl_attrib = {"ptAttribResponder", "ptAttribResponderList", "ptAttribNamedResponder"}
 
-    detect_trigger = BoolProperty(name="Detect Trigger",
-                                  description="When notified, trigger the Responder",
-                                  default=True)
-    detect_untrigger = BoolProperty(name="Detect UnTrigger",
-                                    description="When notified, untrigger the Responder",
-                                    default=False)
-    no_ff_sounds = BoolProperty(name="Don't F-Fwd Sounds",
-                                description="When fast-forwarding, play sound effects",
-                                default=False)
-    default_state = IntProperty(name="Default State Index",
-                                options=set())
+    detect_trigger = BoolProperty(
+        name="Detect Trigger",
+        description="When notified, trigger the Responder",
+        default=True,
+    )
+    detect_untrigger = BoolProperty(
+        name="Detect UnTrigger",
+        description="When notified, untrigger the Responder",
+        default=False,
+    )
+    no_ff_sounds = BoolProperty(
+        name="Don't F-Fwd Sounds",
+        description="When fast-forwarding, play sound effects",
+        default=False,
+    )
+    default_state = IntProperty(name="Default State Index", options=set())
 
-    input_sockets = OrderedDict([
-        ("condition", {
-            "text": "Condition",
-            "type": "PlasmaConditionSocket",
-            "spawn_empty": True,
-        }),
-    ])
+    input_sockets = OrderedDict(
+        [
+            (
+                "condition",
+                {
+                    "text": "Condition",
+                    "type": "PlasmaConditionSocket",
+                    "spawn_empty": True,
+                },
+            ),
+        ]
+    )
 
-    output_sockets = OrderedDict([
-        ("keyref", {
-            "text": "References",
-            "type": "PlasmaPythonReferenceNodeSocket",
-            "valid_link_nodes": {"PlasmaPythonFileNode"},
-        }),
-        ("state_refs", {
-            "text": "State",
-            "type": "PlasmaRespStateRefSocket",
-            "valid_link_nodes": "PlasmaResponderStateNode",
-            "valid_link_sockets": "PlasmaRespStateRefSocket",
-            "link_limit": 1,
-            "spawn_empty": True,
-        }),
-
-        # This version of the states socket has been deprecated.
-        # We need to be able to track 1 socket -> 1 state to manage
-        # responder state IDs
-        ("states", {
-            "text": "States",
-            "type": "PlasmaRespStateSocket",
-            "hidden": True,
-        }),
-    ])
+    output_sockets = OrderedDict(
+        [
+            (
+                "keyref",
+                {
+                    "text": "References",
+                    "type": "PlasmaPythonReferenceNodeSocket",
+                    "valid_link_nodes": {"PlasmaPythonFileNode"},
+                },
+            ),
+            (
+                "state_refs",
+                {
+                    "text": "State",
+                    "type": "PlasmaRespStateRefSocket",
+                    "valid_link_nodes": "PlasmaResponderStateNode",
+                    "valid_link_sockets": "PlasmaRespStateRefSocket",
+                    "link_limit": 1,
+                    "spawn_empty": True,
+                },
+            ),
+            # This version of the states socket has been deprecated.
+            # We need to be able to track 1 socket -> 1 state to manage
+            # responder state IDs
+            (
+                "states",
+                {
+                    "text": "States",
+                    "type": "PlasmaRespStateSocket",
+                    "hidden": True,
+                },
+            ),
+        ]
+    )
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "detect_trigger")
@@ -154,6 +175,7 @@ class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
         # linked to other states will be converted at the end of the list.
         if self.version == 1:
             states = set()
+
             def _link_states(state):
                 if state in states:
                     return
@@ -162,6 +184,7 @@ class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
                 goto = state.find_output("gotostate")
                 if goto is not None:
                     _link_states(goto)
+
             for i in self.find_outputs("states"):
                 _link_states(i)
             self.unlink_outputs("states", "socket deprecated (upgrade complete)")
@@ -177,63 +200,98 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
         resp_node = self.find_input("resp")
         if resp_node is not None:
             try:
-                state_idx = next((idx for idx, node in enumerate(resp_node.find_outputs("state_refs")) if node == self))
+                state_idx = next(
+                    (
+                        idx
+                        for idx, node in enumerate(resp_node.find_outputs("state_refs"))
+                        if node == self
+                    )
+                )
             except StopIteration:
                 return False
             else:
                 return resp_node.default_state == state_idx
         return False
+
     def _set_default_state(self, value):
         if value:
             resp_node = self.find_input("resp")
             if resp_node is not None:
                 try:
-                    state_idx = next((idx for idx, node in enumerate(resp_node.find_outputs("state_refs")) if node == self))
+                    state_idx = next(
+                        (
+                            idx
+                            for idx, node in enumerate(
+                                resp_node.find_outputs("state_refs")
+                            )
+                            if node == self
+                        )
+                    )
                 except StopIteration:
                     self._whine("unable to set default state on responder")
                 else:
                     resp_node.default_state = state_idx
 
-    default_state = BoolProperty(name="Default State",
-                                 description="This state is the responder's default",
-                                 get=_get_default_state,
-                                 set=_set_default_state,
-                                 options=set())
+    default_state = BoolProperty(
+        name="Default State",
+        description="This state is the responder's default",
+        get=_get_default_state,
+        set=_set_default_state,
+        options=set(),
+    )
 
-    input_sockets = OrderedDict([
-        ("condition", {
-            "text": "Triggers State",
-            "type": "PlasmaRespStateSocket",
-            "spawn_empty": True,
-        }),
-        ("resp", {
-            "text": "Responder",
-            "type": "PlasmaRespStateRefSocket",
-            "valid_link_nodes": "PlasmaResponderNode",
-            "valid_link_sockets": "PlasmaRespStateRefSocket",
-        }),
-    ])
+    input_sockets = OrderedDict(
+        [
+            (
+                "condition",
+                {
+                    "text": "Triggers State",
+                    "type": "PlasmaRespStateSocket",
+                    "spawn_empty": True,
+                },
+            ),
+            (
+                "resp",
+                {
+                    "text": "Responder",
+                    "type": "PlasmaRespStateRefSocket",
+                    "valid_link_nodes": "PlasmaResponderNode",
+                    "valid_link_sockets": "PlasmaRespStateRefSocket",
+                },
+            ),
+        ]
+    )
 
-    output_sockets = OrderedDict([
-        # This socket has been deprecated.
-        ("cmds", {
-            "text": "Commands",
-            "type": "PlasmaRespCommandSocket",
-            "hidden": True,
-        }),
-
-        # These sockets are valid.
-        ("msgs", {
-            "text": "Send Message",
-            "type": "PlasmaMessageSocket",
-            "valid_link_sockets": "PlasmaMessageSocket",
-        }),
-        ("gotostate", {
-            "link_limit": 1,
-            "text": "Triggers State",
-            "type": "PlasmaRespStateSocket",
-        }),
-    ])
+    output_sockets = OrderedDict(
+        [
+            # This socket has been deprecated.
+            (
+                "cmds",
+                {
+                    "text": "Commands",
+                    "type": "PlasmaRespCommandSocket",
+                    "hidden": True,
+                },
+            ),
+            # These sockets are valid.
+            (
+                "msgs",
+                {
+                    "text": "Send Message",
+                    "type": "PlasmaMessageSocket",
+                    "valid_link_sockets": "PlasmaMessageSocket",
+                },
+            ),
+            (
+                "gotostate",
+                {
+                    "link_limit": 1,
+                    "text": "Triggers State",
+                    "type": "PlasmaRespStateSocket",
+                },
+            ),
+        ]
+    )
 
     def draw_buttons(self, context, layout):
         layout.active = self.find_input("resp") is not None
@@ -274,11 +332,17 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
                 return -1
 
             def find_create_wait(self, exporter, so, node):
-                i, cmd = next(((i, cmd) for i, cmd in enumerate(self.commands) if cmd[0] == node))
-                wait = next((key for key, value in self.waits.items() if value == i), None)
+                i, cmd = next(
+                    ((i, cmd) for i, cmd in enumerate(self.commands) if cmd[0] == node)
+                )
+                wait = next(
+                    (key for key, value in self.waits.items() if value == i), None
+                )
                 if wait is None:
                     wait = self.add_wait(i)
-                    node.convert_callback_message(exporter, so, cmd[1].msg, self.responder.key, wait)
+                    node.convert_callback_message(
+                        exporter, so, cmd[1].msg, self.responder.key, wait
+                    )
                 return wait
 
             def save(self, state):
@@ -317,7 +381,9 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
             pfmNotify.addEvent(proCallbackEventData())
             state.addCommand(pfmNotify, lastWait)
 
-    def _generate_command(self, exporter, so, responder, commandMgr, msgNode, waitOn=-1):
+    def _generate_command(
+        self, exporter, so, responder, commandMgr, msgNode, waitOn=-1
+    ):
         def prepare_message(exporter, so, responder, commandMgr, waitOn, msg):
             idx, command = commandMgr.add_command(msgNode, waitOn)
             if msg.sender is None:
@@ -342,7 +408,9 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
             commandMgr.add_waitable_node(msgNode)
             if msgNode.has_linked_callbacks:
                 childWaitOn = commandMgr.add_wait(idx)
-                msgNode.convert_callback_message(exporter, so, msg, responder.key, childWaitOn)
+                msgNode.convert_callback_message(
+                    exporter, so, msg, responder.key, childWaitOn
+                )
         else:
             childWaitOn = waitOn
 
@@ -352,11 +420,14 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
 
     def _get_child_messages(self, node=None):
         """Returns a list of the message nodes sent by `node`. The list is sorted such that any
-           messages with callbacks are last in the list, allowing proper wait generation.
+        messages with callbacks are last in the list, allowing proper wait generation.
         """
         if node is None:
             node = self
-        return sorted(node.find_outputs("msgs"), key=lambda x: x.has_callbacks and x.has_linked_callbacks)
+        return sorted(
+            node.find_outputs("msgs"),
+            key=lambda x: x.has_callbacks and x.has_linked_callbacks,
+        )
 
 
 class PlasmaRespStateSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
@@ -369,7 +440,15 @@ class PlasmaRespStateRefSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
     def draw_content(self, context, layout, node, text):
         if isinstance(node, PlasmaResponderNode):
             try:
-                idx = next((idx for idx, socket in enumerate(node.find_output_sockets("state_refs")) if socket == self))
+                idx = next(
+                    (
+                        idx
+                        for idx, socket in enumerate(
+                            node.find_output_sockets("state_refs")
+                        )
+                        if socket == self
+                    )
+                )
             except StopIteration:
                 layout.label(text)
             else:

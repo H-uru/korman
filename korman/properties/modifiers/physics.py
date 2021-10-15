@@ -27,7 +27,7 @@ bounds_types = (
     ("box", "Bounding Box", "Use a perfect bounding box"),
     ("sphere", "Bounding Sphere", "Use a perfect bounding sphere"),
     ("hull", "Convex Hull", "Use a convex set encompasing all vertices"),
-    ("trimesh", "Triangle Mesh", "Use the exact triangle mesh (SLOW!)")
+    ("trimesh", "Triangle Mesh", "Use the exact triangle mesh (SLOW!)"),
 )
 
 # These are the collision sound surface types
@@ -49,11 +49,14 @@ surface_types = (
     ("kUser3", "User 3", ""),
 )
 
+
 def bounds_type_index(key):
     return list(zip(*bounds_types))[0].index(key)
 
+
 def bounds_type_str(idx):
     return bounds_types[idx][0]
+
 
 def _set_phys_prop(prop, sim, phys, value=True):
     """Sets properties on plGenericPhysical and plSimulationInterface (seeing as how they are duped)"""
@@ -69,29 +72,58 @@ class PlasmaCollider(PlasmaModifierProperties):
     bl_icon = "MOD_PHYSICS"
     bl_description = "Simple physical collider"
 
-    bounds = EnumProperty(name="Bounds Type", description="", items=bounds_types, default="hull")
+    bounds = EnumProperty(
+        name="Bounds Type", description="", items=bounds_types, default="hull"
+    )
 
-    avatar_blocker = BoolProperty(name="Blocks Avatars", description="Object blocks avatars", default=True)
-    camera_blocker = BoolProperty(name="Blocks Camera LOS", description="Object blocks camera line-of-sight", default=True)
+    avatar_blocker = BoolProperty(
+        name="Blocks Avatars", description="Object blocks avatars", default=True
+    )
+    camera_blocker = BoolProperty(
+        name="Blocks Camera LOS",
+        description="Object blocks camera line-of-sight",
+        default=True,
+    )
 
     friction = FloatProperty(name="Friction", min=0.0, default=0.5)
-    restitution = FloatProperty(name="Restitution", description="Coefficient of collision elasticity", min=0.0, max=1.0)
-    terrain = BoolProperty(name="Terrain", description="Object represents the ground", default=False)
+    restitution = FloatProperty(
+        name="Restitution",
+        description="Coefficient of collision elasticity",
+        min=0.0,
+        max=1.0,
+    )
+    terrain = BoolProperty(
+        name="Terrain", description="Object represents the ground", default=False
+    )
 
-    dynamic = BoolProperty(name="Dynamic", description="Object can be influenced by other objects (ie is kickable)", default=False)
-    mass = FloatProperty(name="Mass", description="Mass of object in pounds", min=0.0, default=1.0)
-    start_asleep = BoolProperty(name="Start Asleep", description="Object is not active until influenced by another object", default=False)
+    dynamic = BoolProperty(
+        name="Dynamic",
+        description="Object can be influenced by other objects (ie is kickable)",
+        default=False,
+    )
+    mass = FloatProperty(
+        name="Mass", description="Mass of object in pounds", min=0.0, default=1.0
+    )
+    start_asleep = BoolProperty(
+        name="Start Asleep",
+        description="Object is not active until influenced by another object",
+        default=False,
+    )
 
-    proxy_object = PointerProperty(name="Proxy",
-                                   description="Object used as the collision geometry",
-                                   type=bpy.types.Object,
-                                   poll=idprops.poll_mesh_objects)
+    proxy_object = PointerProperty(
+        name="Proxy",
+        description="Object used as the collision geometry",
+        type=bpy.types.Object,
+        poll=idprops.poll_mesh_objects,
+    )
 
-    surface = EnumProperty(name="Surface Type",
-                           description="Type of surface sound effect to play on collision",
-                           items=surface_types,
-                           default="kNone",
-                           options=set())
+    surface = EnumProperty(
+        name="Surface Type",
+        description="Type of surface sound effect to play on collision",
+        items=surface_types,
+        default="kNone",
+        options=set(),
+    )
 
     def export(self, exporter, bo, so):
         # All modifier properties are examined by this little stinker...
@@ -110,17 +142,34 @@ class PlasmaSubworld(PlasmaModifierProperties):
     bl_description = "Subworld definition"
     bl_icon = "WORLD"
 
-    sub_type = EnumProperty(name="Subworld Type",
-                            description="Specifies the physics strategy to use for this subworld",
-                            items=[("auto", "Auto", "Korman will decide which physics strategy to use"),
-                                   ("dynamicav", "Dynamic Avatar", "Allows the avatar to affected by dynamic physicals"),
-                                   ("subworld", "Separate World", "Causes all objects to be placed in a separate physics simulation")],
-                            default="auto",
-                            options=set())
-    gravity = FloatVectorProperty(name="Gravity",
+    sub_type = EnumProperty(
+        name="Subworld Type",
+        description="Specifies the physics strategy to use for this subworld",
+        items=[
+            ("auto", "Auto", "Korman will decide which physics strategy to use"),
+            (
+                "dynamicav",
+                "Dynamic Avatar",
+                "Allows the avatar to affected by dynamic physicals",
+            ),
+            (
+                "subworld",
+                "Separate World",
+                "Causes all objects to be placed in a separate physics simulation",
+            ),
+        ],
+        default="auto",
+        options=set(),
+    )
+    gravity = FloatVectorProperty(
+        name="Gravity",
         description="Subworld's gravity defined in feet per second squared",
-        size=3, default=(0.0, 0.0, -32.174), precision=3,
-        subtype="ACCELERATION", unit="ACCELERATION")
+        size=3,
+        default=(0.0, 0.0, -32.174),
+        precision=3,
+        subtype="ACCELERATION",
+        unit="ACCELERATION",
+    )
 
     def export(self, exporter, bo, so):
         if self.is_dedicated_subworld(exporter):
@@ -147,9 +196,22 @@ class PlasmaSubworld(PlasmaModifierProperties):
         # plCoordinateInterface::IGetRoot. Not really sure why this happens (nor do I care),
         # but we definitely don't want it to happen.
         if bo.type != "EMPTY":
-            exporter.report.warn("Subworld '{}' is attached to a '{}'--this should be an empty.", bo.name, bo.type, indent=1)
+            exporter.report.warn(
+                "Subworld '{}' is attached to a '{}'--this should be an empty.",
+                bo.name,
+                bo.type,
+                indent=1,
+            )
         if so.sim:
             if exporter.mgr.getVer() > pvPots:
-                exporter.report.port("Subworld '{}' has physics data--this will cause PotS to crash.", bo.name, indent=1)
+                exporter.report.port(
+                    "Subworld '{}' has physics data--this will cause PotS to crash.",
+                    bo.name,
+                    indent=1,
+                )
             else:
-                raise ExportError("Subworld '{}' cannot have physics data (should be an empty).".format(bo.name))
+                raise ExportError(
+                    "Subworld '{}' cannot have physics data (should be an empty).".format(
+                        bo.name
+                    )
+                )

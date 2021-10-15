@@ -18,51 +18,78 @@ from bpy.props import *
 
 from .. import idprops
 
+
 class PlasmaLamp(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
-    affect_characters = BoolProperty(name="Affect Avatars",
-                                     description="This lamp affects avatars",
-                                     options=set(),
-                                     default=True)
+    affect_characters = BoolProperty(
+        name="Affect Avatars",
+        description="This lamp affects avatars",
+        options=set(),
+        default=True,
+    )
 
     # Shadow settings
-    cast_shadows = BoolProperty(name="Cast",
-                                description="This lamp casts runtime shadows",
-                                default=True)
-    shadow_falloff = FloatProperty(name="Falloff",
-                                   description="Distance from the Lamp past which we don't cast shadows",
-                                   min=5.0, max=50.0, default=10.0,
-                                   options=set())
-    shadow_distance = FloatProperty(name="Fade Distance",
-                                    description="Distance at which the shadow has completely faded out",
-                                    min=0.0, max=500.0, default=0.0,
-                                    options=set())
-    shadow_power = IntProperty(name="Power",
-                                 description="Multiplier for the shadow's intensity",
-                                 min=0, max=200, default=100,
-                                 options=set(), subtype="PERCENTAGE")
-    shadow_self = BoolProperty(name="Self-Shadow",
-                               description="This light can cause objects to cast shadows on themselves",
-                               default=False,
-                               options=set())
-    shadow_quality = EnumProperty(name="Shadow Quality",
-                                  description="Maximum resolution the shadow is rendered",
-                                  items=[("ABYSMAL", "Abysmal Quality", "64x64 pixels"),
-                                         ("LOW", "Low Quality", "128x128 pixels"),
-                                         ("NORMAL", "Normal Quality", "256x256 pixels"),
-                                         ("HIGH", "High Quality", "512x512 pixels")],
-                                  default="NORMAL",
-                                  options=set())
+    cast_shadows = BoolProperty(
+        name="Cast", description="This lamp casts runtime shadows", default=True
+    )
+    shadow_falloff = FloatProperty(
+        name="Falloff",
+        description="Distance from the Lamp past which we don't cast shadows",
+        min=5.0,
+        max=50.0,
+        default=10.0,
+        options=set(),
+    )
+    shadow_distance = FloatProperty(
+        name="Fade Distance",
+        description="Distance at which the shadow has completely faded out",
+        min=0.0,
+        max=500.0,
+        default=0.0,
+        options=set(),
+    )
+    shadow_power = IntProperty(
+        name="Power",
+        description="Multiplier for the shadow's intensity",
+        min=0,
+        max=200,
+        default=100,
+        options=set(),
+        subtype="PERCENTAGE",
+    )
+    shadow_self = BoolProperty(
+        name="Self-Shadow",
+        description="This light can cause objects to cast shadows on themselves",
+        default=False,
+        options=set(),
+    )
+    shadow_quality = EnumProperty(
+        name="Shadow Quality",
+        description="Maximum resolution the shadow is rendered",
+        items=[
+            ("ABYSMAL", "Abysmal Quality", "64x64 pixels"),
+            ("LOW", "Low Quality", "128x128 pixels"),
+            ("NORMAL", "Normal Quality", "256x256 pixels"),
+            ("HIGH", "High Quality", "512x512 pixels"),
+        ],
+        default="NORMAL",
+        options=set(),
+    )
 
-    lamp_region = PointerProperty(name="Soft Volume",
-                                  description="Soft region this light is active inside",
-                                  type=bpy.types.Object,
-                                  poll=idprops.poll_softvolume_objects)
+    lamp_region = PointerProperty(
+        name="Soft Volume",
+        description="Soft region this light is active inside",
+        type=bpy.types.Object,
+        poll=idprops.poll_softvolume_objects,
+    )
 
     # For LimitedDirLights
-    size_height = FloatProperty(name="Height",
-                               description="Size of the area for the Area Lamp in the Z direction",
-                               min=0.0, default=200.0,
-                               options=set())
+    size_height = FloatProperty(
+        name="Height",
+        description="Size of the area for the Area Lamp in the Z direction",
+        min=0.0,
+        default=200.0,
+        options=set(),
+    )
 
     def has_light_group(self, bo):
         return bool(bo.users_group)

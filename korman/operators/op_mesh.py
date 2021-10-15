@@ -20,6 +20,7 @@ import mathutils
 
 from ..exporter import utils
 
+
 class PlasmaMeshOperator:
     @classmethod
     def poll(cls, context):
@@ -37,18 +38,25 @@ class PlasmaAddFlareOperator(PlasmaMeshOperator, bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     # Allows user to specify their own name stem
-    flare_name = bpy.props.StringProperty(name="Name",
-                                         description="Flare name stem",
-                                         default="Flare",
-                                         options=set())
-    flare_distance = bpy.props.FloatProperty(name="Distance",
-                                             description="Flare's distance from the illuminating object",
-                                             min=0.1, max=2.0, step=10, precision=1, default=1.0,
-                                             options=set())
-    flare_material_name = bpy.props.StringProperty(name="Material",
-                                                   description="A specially-crafted material to use for this flare",
-                                                   default=FLARE_MATERIAL_BASE_NAME,
-                                                   options=set())
+    flare_name = bpy.props.StringProperty(
+        name="Name", description="Flare name stem", default="Flare", options=set()
+    )
+    flare_distance = bpy.props.FloatProperty(
+        name="Distance",
+        description="Flare's distance from the illuminating object",
+        min=0.1,
+        max=2.0,
+        step=10,
+        precision=1,
+        default=1.0,
+        options=set(),
+    )
+    flare_material_name = bpy.props.StringProperty(
+        name="Material",
+        description="A specially-crafted material to use for this flare",
+        default=FLARE_MATERIAL_BASE_NAME,
+        options=set(),
+    )
 
     @classmethod
     def poll(cls, context):
@@ -100,14 +108,26 @@ class PlasmaAddFlareOperator(PlasmaMeshOperator, bpy.types.Operator):
         flare_root.plasma_modifiers.viewfacemod.preset_options = "Sprite"
 
         # Create a textured Plane
-        with utils.bmesh_object("{}_Visible".format(self.name_stem)) as (flare_plane, bm):
+        with utils.bmesh_object("{}_Visible".format(self.name_stem)) as (
+            flare_plane,
+            bm,
+        ):
             flare_plane.hide_render = True
             flare_plane.plasma_object.enabled = True
             bpyscene.objects.active = flare_plane
 
             # Make the actual plane mesh, facing away from the empty
-            bmesh.ops.create_grid(bm, size=(0.5 + self.flare_distance * 0.5), matrix=mathutils.Matrix.Rotation(math.radians(180.0), 4, 'X'))
-            bmesh.ops.transform(bm, matrix=mathutils.Matrix.Translation((0.0, 0.0, -self.flare_distance)), space=flare_plane.matrix_world, verts=bm.verts)
+            bmesh.ops.create_grid(
+                bm,
+                size=(0.5 + self.flare_distance * 0.5),
+                matrix=mathutils.Matrix.Rotation(math.radians(180.0), 4, "X"),
+            )
+            bmesh.ops.transform(
+                bm,
+                matrix=mathutils.Matrix.Translation((0.0, 0.0, -self.flare_distance)),
+                space=flare_plane.matrix_world,
+                verts=bm.verts,
+            )
             bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY")
 
         # Give the plane a basic UV unwrap, so that it's texture-ready
@@ -141,7 +161,9 @@ class PlasmaAddFlareOperator(PlasmaMeshOperator, bpy.types.Operator):
             auto_mat.use_cast_shadows = False
             self.flare_material_name = auto_mat.name
 
-            auto_tex = bpy.data.textures.new(name=FLARE_MATERIAL_BASE_NAME, type="IMAGE")
+            auto_tex = bpy.data.textures.new(
+                name=FLARE_MATERIAL_BASE_NAME, type="IMAGE"
+            )
             auto_tex.use_alpha = True
             auto_tex.plasma_layer.skip_depth_write = True
             auto_tex.plasma_layer.skip_depth_test = True
@@ -166,60 +188,104 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     # Allows user to specify their own name stem
-    ladder_name = bpy.props.StringProperty(name="Name",
-                                           description="Ladder name stem",
-                                           default="Ladder",
-                                           options=set())
+    ladder_name = bpy.props.StringProperty(
+        name="Name", description="Ladder name stem", default="Ladder", options=set()
+    )
     # Basic stats
-    ladder_height = bpy.props.FloatProperty(name="Height",
-                                          description="Height of ladder in feet",
-                                          min=6, max=1000, step=200, precision=0, default=6,
-                                          unit="LENGTH", subtype="DISTANCE",
-                                          options=set())
-    ladder_width = bpy.props.FloatProperty(name="Width",
-                                           description="Width of ladder in inches",
-                                           min=30, max=42, step=100, precision=0, default=30,
-                                           options=set())
-    rung_height = bpy.props.FloatProperty(name="Rung height",
-                                          description="Height of rungs in inches",
-                                          min=1, max=6, step=100, precision=0, default=6,
-                                          options=set())
+    ladder_height = bpy.props.FloatProperty(
+        name="Height",
+        description="Height of ladder in feet",
+        min=6,
+        max=1000,
+        step=200,
+        precision=0,
+        default=6,
+        unit="LENGTH",
+        subtype="DISTANCE",
+        options=set(),
+    )
+    ladder_width = bpy.props.FloatProperty(
+        name="Width",
+        description="Width of ladder in inches",
+        min=30,
+        max=42,
+        step=100,
+        precision=0,
+        default=30,
+        options=set(),
+    )
+    rung_height = bpy.props.FloatProperty(
+        name="Rung height",
+        description="Height of rungs in inches",
+        min=1,
+        max=6,
+        step=100,
+        precision=0,
+        default=6,
+        options=set(),
+    )
     # Template generation
-    gen_back_guide = bpy.props.BoolProperty(name="Ladder",
-                                            description="Generates helper object where ladder back should be placed",
-                                            default=True,
-                                            options=set())
-    gen_ground_guides = bpy.props.BoolProperty(name="Ground",
-                                               description="Generates helper objects where ground should be placed",
-                                               default=True,
-                                               options=set())
-    gen_rung_guides = bpy.props.BoolProperty(name="Rungs",
-                                             description="Generates helper objects where rungs should be placed",
-                                             default=True,
-                                             options=set())
-    rung_width_type = bpy.props.EnumProperty(name="Rung Width",
-                                             description="Type of rungs to generate",
-                                             items=[("FULL", "Full Width Rungs", "The rungs cross the entire width of the ladder"),
-                                                    ("HALF", "Half Width Rungs", "The rungs only cross half the ladder's width, on the side where the avatar will contact them"),],
-                                             default="FULL",
-                                             options=set())
+    gen_back_guide = bpy.props.BoolProperty(
+        name="Ladder",
+        description="Generates helper object where ladder back should be placed",
+        default=True,
+        options=set(),
+    )
+    gen_ground_guides = bpy.props.BoolProperty(
+        name="Ground",
+        description="Generates helper objects where ground should be placed",
+        default=True,
+        options=set(),
+    )
+    gen_rung_guides = bpy.props.BoolProperty(
+        name="Rungs",
+        description="Generates helper objects where rungs should be placed",
+        default=True,
+        options=set(),
+    )
+    rung_width_type = bpy.props.EnumProperty(
+        name="Rung Width",
+        description="Type of rungs to generate",
+        items=[
+            (
+                "FULL",
+                "Full Width Rungs",
+                "The rungs cross the entire width of the ladder",
+            ),
+            (
+                "HALF",
+                "Half Width Rungs",
+                "The rungs only cross half the ladder's width, on the side where the avatar will contact them",
+            ),
+        ],
+        default="FULL",
+        options=set(),
+    )
     # Game options
-    has_upper_entry = bpy.props.BoolProperty(name="Has Upper Entry Point",
-                                             description="Specifies whether the ladder has an upper entry",
-                                             default=True,
-                                             options=set())
-    upper_entry_enabled = bpy.props.BoolProperty(name="Upper Entry Enabled",
-                                                 description="Specifies whether the ladder's upper entry is enabled by default at Age start",
-                                                 default=True,
-                                                 options=set())
-    has_lower_entry = bpy.props.BoolProperty(name="Has Lower Entry Point",
-                                             description="Specifies whether the ladder has a lower entry",
-                                             default=True,
-                                             options=set())
-    lower_entry_enabled = bpy.props.BoolProperty(name="Lower Entry Enabled",
-                                                 description="Specifies whether the ladder's lower entry is enabled by default at Age start",
-                                                 default=True,
-                                                 options=set())
+    has_upper_entry = bpy.props.BoolProperty(
+        name="Has Upper Entry Point",
+        description="Specifies whether the ladder has an upper entry",
+        default=True,
+        options=set(),
+    )
+    upper_entry_enabled = bpy.props.BoolProperty(
+        name="Upper Entry Enabled",
+        description="Specifies whether the ladder's upper entry is enabled by default at Age start",
+        default=True,
+        options=set(),
+    )
+    has_lower_entry = bpy.props.BoolProperty(
+        name="Has Lower Entry Point",
+        description="Specifies whether the ladder has a lower entry",
+        default=True,
+        options=set(),
+    )
+    lower_entry_enabled = bpy.props.BoolProperty(
+        name="Lower Entry Enabled",
+        description="Specifies whether the ladder's lower entry is enabled by default at Age start",
+        default=True,
+        options=set(),
+    )
 
     def draw(self, context):
         layout = self.layout
@@ -269,7 +335,9 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
 
         else:
             row = layout.row()
-            row.label("Warning: Operator does not work in local view mode", icon="ERROR")
+            row.label(
+                "Warning: Operator does not work in local view mode", icon="ERROR"
+            )
 
     def execute(self, context):
         if context.space_data.local_view:
@@ -292,15 +360,18 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
             rung_yoffset = rung_width_ft / 4
 
         rungs_scale = mathutils.Matrix(
-            ((0.5, 0.0, 0.0),
-             (0.0, rung_width, 0.0),
-             (0.0, 0.0, rung_height_ft)))
+            ((0.5, 0.0, 0.0), (0.0, rung_width, 0.0), (0.0, 0.0, rung_height_ft))
+        )
 
         for rung_num in range(0, int(self.ladder_height)):
             side = "L" if (rung_num % 2) == 0 else "R"
 
-            mesh = bpy.data.meshes.new("{}_Rung_{}_{}".format(self.name_stem, side, rung_num))
-            rungs = bpy.data.objects.new("{}_Rung_{}_{}".format(self.name_stem, side, rung_num), mesh)
+            mesh = bpy.data.meshes.new(
+                "{}_Rung_{}_{}".format(self.name_stem, side, rung_num)
+            )
+            rungs = bpy.data.objects.new(
+                "{}_Rung_{}_{}".format(self.name_stem, side, rung_num), mesh
+            )
             rungs.hide_render = True
             rungs.draw_type = "BOUNDS"
 
@@ -314,11 +385,27 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
             # Move each rung up, based on:
             # its place in the array, aligned to the top of the rung position, shifted up to start at the ladder's base
             if (rung_num % 2) == 0:
-                rung_pos = mathutils.Matrix.Translation((0.5, -rung_yoffset, rung_num + (1.0 - rung_height_ft) + (rung_height_ft / 2)))
+                rung_pos = mathutils.Matrix.Translation(
+                    (
+                        0.5,
+                        -rung_yoffset,
+                        rung_num + (1.0 - rung_height_ft) + (rung_height_ft / 2),
+                    )
+                )
             else:
-                rung_pos = mathutils.Matrix.Translation((0.5, rung_yoffset, rung_num + (1.0 - rung_height_ft) + (rung_height_ft / 2)))
-            bmesh.ops.transform(bm, matrix=cursor_shift, space=rungs.matrix_world, verts=bm.verts)
-            bmesh.ops.transform(bm, matrix=rung_pos, space=rungs.matrix_world, verts=bm.verts)
+                rung_pos = mathutils.Matrix.Translation(
+                    (
+                        0.5,
+                        rung_yoffset,
+                        rung_num + (1.0 - rung_height_ft) + (rung_height_ft / 2),
+                    )
+                )
+            bmesh.ops.transform(
+                bm, matrix=cursor_shift, space=rungs.matrix_world, verts=bm.verts
+            )
+            bmesh.ops.transform(
+                bm, matrix=rung_pos, space=rungs.matrix_world, verts=bm.verts
+            )
             bm.to_mesh(mesh)
             bm.free()
 
@@ -341,15 +428,22 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
         # Construct the bmesh and assign it to the blender mesh.
         bm = bmesh.new()
         ladder_scale = mathutils.Matrix(
-            ((0.5, 0.0, 0.0),
-             (0.0, self.ladder_width / 12, 0.0),
-             (0.0, 0.0, self.ladder_height)))
+            (
+                (0.5, 0.0, 0.0),
+                (0.0, self.ladder_width / 12, 0.0),
+                (0.0, 0.0, self.ladder_height),
+            )
+        )
         bmesh.ops.create_cube(bm, size=(1.0), matrix=ladder_scale)
 
         # Shift the ladder up so that its base is at the 3D cursor
         back_pos = mathutils.Matrix.Translation((0.0, 0.0, self.ladder_height / 2))
-        bmesh.ops.transform(bm, matrix=cursor_shift, space=back.matrix_world, verts=bm.verts)
-        bmesh.ops.transform(bm, matrix=back_pos, space=back.matrix_world, verts=bm.verts)
+        bmesh.ops.transform(
+            bm, matrix=cursor_shift, space=back.matrix_world, verts=bm.verts
+        )
+        bmesh.ops.transform(
+            bm, matrix=back_pos, space=back.matrix_world, verts=bm.verts
+        )
         bm.to_mesh(mesh)
         bm.free()
 
@@ -374,17 +468,28 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
             bm = bmesh.new()
             ground_depth = 3.0
             ground_scale = mathutils.Matrix(
-                ((ground_depth, 0.0, 0.0),
-                 (0.0, self.ladder_width / 12, 0.0),
-                 (0.0, 0.0, 0.5)))
+                (
+                    (ground_depth, 0.0, 0.0),
+                    (0.0, self.ladder_width / 12, 0.0),
+                    (0.0, 0.0, 0.5),
+                )
+            )
             bmesh.ops.create_cube(bm, size=(1.0), matrix=ground_scale)
 
             if pos == "Upper":
-                ground_pos = mathutils.Matrix.Translation((-(ground_depth / 2) + 0.25, 0.0, self.ladder_height + 0.25))
+                ground_pos = mathutils.Matrix.Translation(
+                    (-(ground_depth / 2) + 0.25, 0.0, self.ladder_height + 0.25)
+                )
             else:
-                ground_pos = mathutils.Matrix.Translation(((ground_depth / 2) + 0.25, 0.0, 0.25))
-            bmesh.ops.transform(bm, matrix=cursor_shift, space=ground.matrix_world, verts=bm.verts)
-            bmesh.ops.transform(bm, matrix=ground_pos, space=ground.matrix_world, verts=bm.verts)
+                ground_pos = mathutils.Matrix.Translation(
+                    ((ground_depth / 2) + 0.25, 0.0, 0.25)
+                )
+            bmesh.ops.transform(
+                bm, matrix=cursor_shift, space=ground.matrix_world, verts=bm.verts
+            )
+            bmesh.ops.transform(
+                bm, matrix=ground_pos, space=ground.matrix_world, verts=bm.verts
+            )
             bm.to_mesh(mesh)
             bm.free()
 
@@ -408,14 +513,17 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
         # Construct the bmesh and assign it to the blender mesh.
         bm = bmesh.new()
         rgn_scale = mathutils.Matrix(
-            ((self.ladder_width / 12, 0.0, 0.0),
-             (0.0, 2.5, 0.0),
-             (0.0, 0.0, 2.0)))
+            ((self.ladder_width / 12, 0.0, 0.0), (0.0, 2.5, 0.0), (0.0, 0.0, 2.0))
+        )
         bmesh.ops.create_cube(bm, size=(1.0), matrix=rgn_scale)
 
         rgn_pos = mathutils.Matrix.Translation((-1.80, 0.0, 1.5 + self.ladder_height))
-        bmesh.ops.transform(bm, matrix=cursor_shift, space=upper_rgn.matrix_world, verts=bm.verts)
-        bmesh.ops.transform(bm, matrix=rgn_pos, space=upper_rgn.matrix_world, verts=bm.verts)
+        bmesh.ops.transform(
+            bm, matrix=cursor_shift, space=upper_rgn.matrix_world, verts=bm.verts
+        )
+        bmesh.ops.transform(
+            bm, matrix=rgn_pos, space=upper_rgn.matrix_world, verts=bm.verts
+        )
 
         bm.to_mesh(mesh)
         bm.free()
@@ -449,14 +557,17 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
         # Construct the bmesh and assign it to the blender mesh.
         bm = bmesh.new()
         rgn_scale = mathutils.Matrix(
-            ((self.ladder_width / 12, 0.0, 0.0),
-             (0.0, 2.5, 0.0),
-             (0.0, 0.0, 2.0)))
+            ((self.ladder_width / 12, 0.0, 0.0), (0.0, 2.5, 0.0), (0.0, 0.0, 2.0))
+        )
         bmesh.ops.create_cube(bm, size=(1.0), matrix=rgn_scale)
 
         rgn_pos = mathutils.Matrix.Translation((2.70, 0.0, 1.5))
-        bmesh.ops.transform(bm, matrix=cursor_shift, space=lower_rgn.matrix_world, verts=bm.verts)
-        bmesh.ops.transform(bm, matrix=rgn_pos, space=lower_rgn.matrix_world, verts=bm.verts)
+        bmesh.ops.transform(
+            bm, matrix=cursor_shift, space=lower_rgn.matrix_world, verts=bm.verts
+        )
+        bmesh.ops.transform(
+            bm, matrix=rgn_pos, space=lower_rgn.matrix_world, verts=bm.verts
+        )
 
         bm.to_mesh(mesh)
         bm.free()
@@ -495,6 +606,7 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
     def name_stem(self):
         return self.ladder_name if self.ladder_name else "Ladder"
 
+
 def origin_to_bottom(obj):
     # Modified from https://blender.stackexchange.com/a/42110/3055
     mw = obj.matrix_world
@@ -532,16 +644,30 @@ class PlasmaAddLinkingBookMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
     }
 
     # Allows user to specify their own name stem
-    panel_name = bpy.props.StringProperty(name="Name",
-                                         description="Linking Book name stem",
-                                         default="LinkingBook",
-                                         options=set())
-    link_anim_type = bpy.props.EnumProperty(name="Link Animation",
-                                            description="Type of Linking Animation to use",
-                                            items=[("LinkOut", "Standing", "The avatar steps up to the book and places their hand on the panel"),
-                                                   ("FishBookLinkOut", "Kneeling", "The avatar kneels in front of the book and places their hand on the panel"),],
-                                            default="LinkOut",
-                                            options=set())
+    panel_name = bpy.props.StringProperty(
+        name="Name",
+        description="Linking Book name stem",
+        default="LinkingBook",
+        options=set(),
+    )
+    link_anim_type = bpy.props.EnumProperty(
+        name="Link Animation",
+        description="Type of Linking Animation to use",
+        items=[
+            (
+                "LinkOut",
+                "Standing",
+                "The avatar steps up to the book and places their hand on the panel",
+            ),
+            (
+                "FishBookLinkOut",
+                "Kneeling",
+                "The avatar kneels in front of the book and places their hand on the panel",
+            ),
+        ],
+        default="LinkOut",
+        options=set(),
+    )
 
     def draw(self, context):
         layout = self.layout
@@ -558,7 +684,9 @@ class PlasmaAddLinkingBookMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
             row.prop(self, "link_anim_type", text="Type")
         else:
             row = layout.row()
-            row.label("Warning: Operator does not work in local view mode", icon="ERROR")
+            row.label(
+                "Warning: Operator does not work in local view mode", icon="ERROR"
+            )
 
     def execute(self, context):
         if context.space_data.local_view:
@@ -587,7 +715,9 @@ class PlasmaAddLinkingBookMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
         bpy.context.scene.objects.link(seek_point)
         seek_point.show_name = True
         seek_point.empty_draw_type = "ARROWS"
-        link_anim_offset = mathutils.Matrix.Translation(self.anim_offsets[self.link_anim_type])
+        link_anim_offset = mathutils.Matrix.Translation(
+            self.anim_offsets[self.link_anim_type]
+        )
         seek_point.matrix_local = link_anim_offset
         seek_point.plasma_object.enabled = True
 
@@ -595,7 +725,9 @@ class PlasmaAddLinkingBookMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
         clk_rgn_name = "{}_ClkRegion".format(self.name_stem)
         clk_rgn_size = 6.0
         with utils.bmesh_object(clk_rgn_name) as (clk_rgn, bm):
-            bmesh.ops.create_cube(bm, size=(1.0), matrix=(mathutils.Matrix.Scale(clk_rgn_size, 4)))
+            bmesh.ops.create_cube(
+                bm, size=(1.0), matrix=(mathutils.Matrix.Scale(clk_rgn_size, 4))
+            )
 
         clk_rgn.hide_render = True
         clk_rgn.plasma_object.enabled = True
@@ -624,6 +756,7 @@ class PlasmaAddLinkingBookMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
 
 def register():
     bpy.utils.register_module(__name__)
+
 
 def unregister():
     bpy.utils.unregister_module(__name__)

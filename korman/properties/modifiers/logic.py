@@ -22,15 +22,18 @@ from .base import PlasmaModifierProperties
 from ...exporter import ExportError
 from ... import idprops
 
+
 class PlasmaVersionedNodeTree(idprops.IDPropMixin, bpy.types.PropertyGroup):
-    version = EnumProperty(name="Version",
-                           description="Plasma versions this node tree exports under",
-                           items=game_versions,
-                           options={"ENUM_FLAG"},
-                           default=set(list(zip(*game_versions))[0]))
-    node_tree = PointerProperty(name="Node Tree",
-                                description="Node Tree to export",
-                                type=bpy.types.NodeTree)
+    version = EnumProperty(
+        name="Version",
+        description="Plasma versions this node tree exports under",
+        items=game_versions,
+        options={"ENUM_FLAG"},
+        default=set(list(zip(*game_versions))[0]),
+    )
+    node_tree = PointerProperty(
+        name="Node Tree", description="Node Tree to export", type=bpy.types.NodeTree
+    )
 
     @classmethod
     def _idprop_mapping(cls):
@@ -57,7 +60,11 @@ class PlasmaAdvancedLogic(PlasmaModifierProperties):
             our_versions = [globals()[j] for j in i.version]
             if version in our_versions:
                 if i.node_tree is None:
-                    raise ExportError("'{}': Advanced Logic is missing a node tree for '{}'".format(bo.name, i.name))
+                    raise ExportError(
+                        "'{}': Advanced Logic is missing a node tree for '{}'".format(
+                            bo.name, i.name
+                        )
+                    )
 
                 # Defer node tree export until all trees are harvested.
                 exporter.want_node_trees[i.node_tree.name].add((bo, so))
@@ -71,7 +78,9 @@ class PlasmaAdvancedLogic(PlasmaModifierProperties):
 
     @property
     def requires_actor(self):
-        return any((i.node_tree.requires_actor for i in self.logic_groups if i.node_tree))
+        return any(
+            (i.node_tree.requires_actor for i in self.logic_groups if i.node_tree)
+        )
 
 
 class PlasmaSpawnPoint(PlasmaModifierProperties):
@@ -96,22 +105,37 @@ class PlasmaMaintainersMarker(PlasmaModifierProperties):
 
     bl_category = "Logic"
     bl_label = "Maintainer's Marker"
-    bl_description = "Designates an object as the D'ni coordinate origin point of the Age."
+    bl_description = (
+        "Designates an object as the D'ni coordinate origin point of the Age."
+    )
     bl_icon = "OUTLINER_DATA_EMPTY"
 
-    calibration = EnumProperty(name="Calibration",
-                               description="State of repair for the Marker",
-                               items=[
-                                  ("kBroken", "Broken",
-                                   "A marker which reports scrambled coordinates to the KI."),
-                                  ("kRepaired", "Repaired",
-                                   "A marker which reports blank coordinates to the KI."),
-                                  ("kCalibrated", "Calibrated",
-                                   "A marker which reports accurate coordinates to the KI.")
-                               ])
+    calibration = EnumProperty(
+        name="Calibration",
+        description="State of repair for the Marker",
+        items=[
+            (
+                "kBroken",
+                "Broken",
+                "A marker which reports scrambled coordinates to the KI.",
+            ),
+            (
+                "kRepaired",
+                "Repaired",
+                "A marker which reports blank coordinates to the KI.",
+            ),
+            (
+                "kCalibrated",
+                "Calibrated",
+                "A marker which reports accurate coordinates to the KI.",
+            ),
+        ],
+    )
 
     def export(self, exporter, bo, so):
-        maintmark = exporter.mgr.add_object(pl=plMaintainersMarkerModifier, so=so, name=self.key_name)
+        maintmark = exporter.mgr.add_object(
+            pl=plMaintainersMarkerModifier, so=so, name=self.key_name
+        )
         maintmark.calibration = getattr(plMaintainersMarkerModifier, self.calibration)
 
     @property

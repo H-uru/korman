@@ -18,6 +18,7 @@ from bpy.props import *
 import pickle
 import itertools
 
+
 class ToolboxOperator:
     @classmethod
     def poll(cls, context):
@@ -40,7 +41,9 @@ class PageSearchOperator(ToolboxOperator):
         pages = [(pickle.dumps(i.name, 0).decode(), i.name, "") for i in page_defns]
 
         # Ensure an entry exists for the default page
-        manual_default_page = next((i.name for i in page_defns if i.seq_suffix == 0), None)
+        manual_default_page = next(
+            (i.name for i in page_defns if i.seq_suffix == 0), None
+        )
         if not manual_default_page:
             pages.append((pickle.dumps("", 0).decode(), "Default", "Default Page"))
 
@@ -87,7 +90,7 @@ class PlasmaConvertPlasmaObjectOperator(ToolboxOperator, bpy.types.Operator):
         # is either inserted into a valid page using the old-style text properties or is lacking
         # a page property. Unfortunately, unless we start bundling some YAML interpreter, we cannot
         # use the old AlcScript schtuff.
-        pages = { i.seq_suffix: i.name for i in context.scene.world.plasma_age.pages }
+        pages = {i.seq_suffix: i.name for i in context.scene.world.plasma_age.pages}
         for i in bpy.data.objects:
             pageid = i.game.properties.get("page_num", None)
             if pageid is None:
@@ -99,7 +102,11 @@ class PlasmaConvertPlasmaObjectOperator(ToolboxOperator, bpy.types.Operator):
                 # a common hack to prevent exporting in PyPRP was to set page_num == -1,
                 # so don't warn about that.
                 if pageid.value != -1:
-                    print("Object '{}' in page_num '{}', which is not available :/".format(i.name, pageid.value))
+                    print(
+                        "Object '{}' in page_num '{}', which is not available :/".format(
+                            i.name, pageid.value
+                        )
+                    )
             else:
                 i.plasma_object.enabled = True
                 i.plasma_object.page = page_name
@@ -130,10 +137,12 @@ class PlasmaMovePageObjectsOperator(PageSearchOperator, bpy.types.Operator):
     bl_description = "Moves all selected objects to a new page"
     bl_property = "page"
 
-    page = EnumProperty(name="Page",
-                        description= "Page whose objects should be selected",
-                        items=PageSearchOperator._get_pages,
-                        options=set())
+    page = EnumProperty(
+        name="Page",
+        description="Page whose objects should be selected",
+        items=PageSearchOperator._get_pages,
+        options=set(),
+    )
 
     def execute(self, context):
         desired_page = self.desired_page
@@ -148,10 +157,12 @@ class PlasmaSelectPageObjectsOperator(PageSearchOperator, bpy.types.Operator):
     bl_description = "Selects all objects in a specific page"
     bl_property = "page"
 
-    page = EnumProperty(name="Page",
-                        description= "Page whose objects should be selected",
-                        items=PageSearchOperator._get_pages,
-                        options=set())
+    page = EnumProperty(
+        name="Page",
+        description="Page whose objects should be selected",
+        items=PageSearchOperator._get_pages,
+        options=set(),
+    )
 
     def execute(self, context):
         desired_page = self.desired_page
@@ -172,14 +183,14 @@ class PlasmaToggleAllPlasmaObjectsOperator(ToolboxOperator, bpy.types.Operator):
             i.plasma_object.enabled = self.enable
         return {"FINISHED"}
 
-        
+
 class PlasmaToggleDoubleSidedOperator(ToolboxOperator, bpy.types.Operator):
     bl_idname = "mesh.plasma_toggle_double_sided"
     bl_label = "Toggle All Double Sided"
     bl_description = "Toggles all meshes to be double sided"
-    
+
     enable = BoolProperty(name="Enable", description="Enable Double Sided")
-    
+
     def execute(self, context):
         enable = self.enable
         for mesh in bpy.data.meshes:
@@ -191,7 +202,7 @@ class PlasmaToggleDoubleSidedSelectOperator(ToolboxOperator, bpy.types.Operator)
     bl_idname = "mesh.plasma_toggle_double_sided_selected"
     bl_label = "Toggle Selected Double Sided"
     bl_description = "Toggles selected meshes double sided value"
-    
+
     @classmethod
     def poll(cls, context):
         return super().poll(context) and hasattr(bpy.context, "selected_objects")
@@ -232,7 +243,9 @@ class PlasmaTogglePlasmaObjectsOperator(ToolboxOperator, bpy.types.Operator):
         return super().poll(context) and hasattr(bpy.context, "selected_objects")
 
     def execute(self, context):
-        enable = not all((i.plasma_object.enabled for i in bpy.context.selected_objects))
+        enable = not all(
+            (i.plasma_object.enabled for i in bpy.context.selected_objects)
+        )
         for i in context.selected_objects:
             i.plasma_object.enabled = enable
         return {"FINISHED"}
@@ -242,9 +255,9 @@ class PlasmaToggleSoundExportOperator(ToolboxOperator, bpy.types.Operator):
     bl_idname = "object.plasma_toggle_sound_export"
     bl_label = "Toggle Sound Export"
     bl_description = "Toggles the Export function of all sound emitters' files"
-    
+
     enable = BoolProperty(name="Enable", description="Sound Export Enable")
-    
+
     def execute(self, context):
         enable = self.enable
         for i in bpy.data.objects:
@@ -259,13 +272,21 @@ class PlasmaToggleSoundExportSelectedOperator(ToolboxOperator, bpy.types.Operato
     bl_idname = "object.plasma_toggle_sound_export_selected"
     bl_label = "Toggle Selected Sound Export"
     bl_description = "Toggles the Export function of selected sound emitters' files."
-    
+
     @classmethod
     def poll(cls, context):
         return super().poll(context) and hasattr(bpy.context, "selected_objects")
-    
+
     def execute(self, context):
-        enable = not all((i.package for i in itertools.chain.from_iterable(i.plasma_modifiers.soundemit.sounds for i in bpy.context.selected_objects)))
+        enable = not all(
+            (
+                i.package
+                for i in itertools.chain.from_iterable(
+                    i.plasma_modifiers.soundemit.sounds
+                    for i in bpy.context.selected_objects
+                )
+            )
+        )
         for i in context.selected_objects:
             if i.plasma_modifiers.soundemit is None:
                 continue

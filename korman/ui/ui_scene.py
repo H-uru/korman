@@ -17,6 +17,7 @@ import bpy
 import functools
 from . import ui_list
 
+
 class SceneButtonsPanel:
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
@@ -28,12 +29,34 @@ class SceneButtonsPanel:
 
 
 class DecalManagerListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_property,
+        index=0,
+        flt_flag=0,
+    ):
         layout.prop(item, "display_name", emboss=False, text="", icon="BRUSH_DATA")
 
 
 class WetManagerListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_property,
+        index=0,
+        flt_flag=0,
+    ):
         if item.name:
             layout.label(item.name, icon="BRUSH_DATA")
             layout.prop(item, "enabled", text="")
@@ -47,9 +70,17 @@ class PlasmaDecalManagersPanel(SceneButtonsPanel, bpy.types.Panel):
     def draw(self, context):
         layout, scene = self.layout, context.scene.plasma_scene
 
-        ui_list.draw_list(layout, "DecalManagerListUI", "scene", scene, "decal_managers",
-                          "active_decal_index", name_prefix="Decal", name_prop="display_name",
-                          rows=3)
+        ui_list.draw_list(
+            layout,
+            "DecalManagerListUI",
+            "scene",
+            scene,
+            "decal_managers",
+            "active_decal_index",
+            name_prefix="Decal",
+            name_prop="display_name",
+            rows=3,
+        )
 
         try:
             decal_mgr = scene.decal_managers[scene.active_decal_index]
@@ -68,8 +99,10 @@ class PlasmaDecalManagersPanel(SceneButtonsPanel, bpy.types.Panel):
             split = box.split()
             col = split.column(align=True)
             col.label("Scale:")
-            col.alert = decal_mgr.decal_type in {"ripple", "puddle", "bullet", "torpedo"} \
-                        and decal_mgr.length != decal_mgr.width
+            col.alert = (
+                decal_mgr.decal_type in {"ripple", "puddle", "bullet", "torpedo"}
+                and decal_mgr.length != decal_mgr.width
+            )
             col.prop(decal_mgr, "length")
             col.prop(decal_mgr, "width")
 
@@ -77,7 +110,12 @@ class PlasmaDecalManagersPanel(SceneButtonsPanel, bpy.types.Panel):
             col.label("Draw Settings:")
             col.prop(decal_mgr, "intensity")
             sub = col.row()
-            sub.active = decal_mgr.decal_type in {"footprint_dry", "footprint_wet", "bullet", "torpedo"}
+            sub.active = decal_mgr.decal_type in {
+                "footprint_dry",
+                "footprint_wet",
+                "bullet",
+                "torpedo",
+            }
             sub.prop(decal_mgr, "life_span")
             sub = col.row()
             sub.active = decal_mgr.decal_type in {"puddle", "ripple"}
@@ -86,15 +124,28 @@ class PlasmaDecalManagersPanel(SceneButtonsPanel, bpy.types.Panel):
             if decal_mgr.decal_type in {"puddle", "ripple"}:
                 box.separator()
                 box.label("Wet Footprints:")
-                ui_list.draw_list(box, "WetManagerListUI", "scene", decal_mgr, "wet_managers",
-                                  "active_wet_index", rows=2, maxrows=3)
+                ui_list.draw_list(
+                    box,
+                    "WetManagerListUI",
+                    "scene",
+                    decal_mgr,
+                    "wet_managers",
+                    "active_wet_index",
+                    rows=2,
+                    maxrows=3,
+                )
                 try:
                     wet_ref = decal_mgr.wet_managers[decal_mgr.active_wet_index]
                 except:
                     pass
                 else:
-                    wet_mgr = next((i for i in scene.decal_managers if i.name == wet_ref.name), None)
+                    wet_mgr = next(
+                        (i for i in scene.decal_managers if i.name == wet_ref.name),
+                        None,
+                    )
                     box.alert = getattr(wet_mgr, "decal_type", None) == "footprint_wet"
-                    box.prop_search(wet_ref, "name", scene, "decal_managers", icon="NONE")
+                    box.prop_search(
+                        wet_ref, "name", scene, "decal_managers", icon="NONE"
+                    )
                     if wet_ref.name == decal_mgr.name:
                         box.label(text="Circular reference", icon="ERROR")

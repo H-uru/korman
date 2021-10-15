@@ -34,6 +34,7 @@ _SP_LANGUAGES = {"English", "French", "German", "Italian", "Spanish"}
 # as CDATA instead of XML encoding the entry.
 _ESHTML_REGEX = re.compile("<.+>")
 
+
 class LocalizationConverter:
     def __init__(self, exporter=None, **kwargs):
         if exporter is not None:
@@ -49,18 +50,26 @@ class LocalizationConverter:
         self._strings = defaultdict(lambda: defaultdict(dict))
 
     def add_string(self, set_name, element_name, language, value, indent=0):
-        self._report.msg("Accepted '{}' translation for '{}'.", element_name, language, indent=indent)
+        self._report.msg(
+            "Accepted '{}' translation for '{}'.", element_name, language, indent=indent
+        )
         if isinstance(value, bpy.types.Text):
             if value.is_modified:
-                self._report.warn("'{}' translation for '{}' is modified on the disk but not reloaded in Blender.",
-                                element_name, language, indent=indent)
+                self._report.warn(
+                    "'{}' translation for '{}' is modified on the disk but not reloaded in Blender.",
+                    element_name,
+                    language,
+                    indent=indent,
+                )
             value = value.as_string()
         self._strings[set_name][element_name][language] = value
 
     @contextmanager
     def _generate_file(self, filename, **kwargs):
         if self._exporter is not None:
-            with self._exporter().output.generate_dat_file(filename, **kwargs) as handle:
+            with self._exporter().output.generate_dat_file(
+                filename, **kwargs
+            ) as handle:
                 yield handle
         else:
             dirname = kwargs.get("dirname", "dat")
@@ -77,42 +86,68 @@ class LocalizationConverter:
         age_name = self._age_name
 
         def write_text_file(language, file_name, contents):
-            with self._generate_file(dirname="ageresources", filename=file_name) as stream:
+            with self._generate_file(
+                dirname="ageresources", filename=file_name
+            ) as stream:
                 try:
                     stream.write(contents.encode("windows-1252"))
                 except UnicodeEncodeError:
-                    self._report.warn("Translation '{}': Contents contains characters that cannot be used in this version of Plasma. They will appear as a '?' in game.",
-                                    language, indent=2)
+                    self._report.warn(
+                        "Translation '{}': Contents contains characters that cannot be used in this version of Plasma. They will appear as a '?' in game.",
+                        language,
+                        indent=2,
+                    )
 
                     # Yes, there are illegal characters... As a stopgap, we will export the file with
                     # replacement characters ("?") just so it'll work dammit.
                     stream.write(contents.encode("windows-1252", "replace"))
                 return True
 
-        locs = itertools.chain(self._strings["Journals"].items(), self._strings["DynaTexts"].items())
+        locs = itertools.chain(
+            self._strings["Journals"].items(), self._strings["DynaTexts"].items()
+        )
         for journal_name, translations in locs:
             self._report.msg("Copying localization '{}'", journal_name, indent=1)
             for language_name, value in translations.items():
                 if language_name not in _SP_LANGUAGES:
-                    self._report.warn("Translation '{}' will not be used because it is not supported in this version of Plasma.",
-                                      language_name, indent=2)
+                    self._report.warn(
+                        "Translation '{}' will not be used because it is not supported in this version of Plasma.",
+                        language_name,
+                        indent=2,
+                    )
                     continue
-                suffix = "_{}".format(language_name.lower()) if language_name != "English" else ""
+                suffix = (
+                    "_{}".format(language_name.lower())
+                    if language_name != "English"
+                    else ""
+                )
                 file_name = "{}--{}{}.txt".format(age_name, journal_name, suffix)
                 write_text_file(language_name, file_name, value)
 
             # Ensure that default (read: "English") journal is available
             if "English" not in translations:
-                language_name, value = next(((language_name, value) for language_name, value in translations.items()
-                                            if language_name in _SP_LANGUAGES), (None, None))
+                language_name, value = next(
+                    (
+                        (language_name, value)
+                        for language_name, value in translations.items()
+                        if language_name in _SP_LANGUAGES
+                    ),
+                    (None, None),
+                )
                 if language_name is not None:
                     file_name = "{}--{}.txt".format(age_name, journal_name)
                     # If you manage to screw up this badly... Well, I am very sorry.
                     if write_text_file(language_name, file_name, value):
-                        self._report.warn("No 'English' translation available, so '{}' will be used as the default",
-                                          language_name, indent=2)
+                        self._report.warn(
+                            "No 'English' translation available, so '{}' will be used as the default",
+                            language_name,
+                            indent=2,
+                        )
                 else:
-                    self._report.port("No 'English' nor any other suitable default translation available", indent=2)
+                    self._report.port(
+                        "No 'English' nor any other suitable default translation available",
+                        indent=2,
+                    )
 
     def _generate_loc_files(self):
         if not self._strings:
@@ -131,7 +166,11 @@ class LocalizationConverter:
                         database[language_name][set_name][element_name] = value
 
             for language_name, sets in database.items():
-                self._generate_loc_file("{}{}.loc".format(self._age_name, language_name), sets, language_name)
+                self._generate_loc_file(
+                    "{}{}.loc".format(self._age_name, language_name),
+                    sets,
+                    language_name,
+                )
 
             # Generate an empty localization file to defeat any old ones from Korman 0.11 (and lower)
             if method == "database_back_compat":
@@ -156,21 +195,25 @@ class LocalizationConverter:
 
         enc = plEncryptedStream.kEncAes if self._version == pvEoa else None
         with self._generate_file(filename, enc=enc) as stream:
-            write_line("<?xml version=\"1.0\" encoding=\"utf-8\"?>")
+            write_line('<?xml version="1.0" encoding="utf-8"?>')
             write_line("<localizations>")
-            write_line("<age name=\"{}\">", self._age_name, indent=1)
+            write_line('<age name="{}">', self._age_name, indent=1)
 
             for set_name, elements in sets.items():
-                write_line("<set name=\"{}\">", set_name, indent=2)
+                write_line('<set name="{}">', set_name, indent=2)
                 for element_name, value in elements.items():
-                    write_line("<element name=\"{}\">", element_name, indent=3)
+                    write_line('<element name="{}">', element_name, indent=3)
                     for translation_language, translation_value in iter_element(value):
                         if _ESHTML_REGEX.search(translation_value):
                             encoded_value = "<![CDATA[{}]]>".format(translation_value)
                         else:
                             encoded_value = xml_escape(translation_value)
-                        write_line("<translation language=\"{language}\">{translation}</translation>",
-                                   language=translation_language, translation=encoded_value, indent=4)
+                        write_line(
+                            '<translation language="{language}">{translation}</translation>',
+                            language=translation_language,
+                            translation=encoded_value,
+                            indent=4,
+                        )
                     write_line("</element>", indent=3)
                 write_line("</set>", indent=2)
 
@@ -182,8 +225,14 @@ class LocalizationConverter:
     def run(self):
         age_props = bpy.context.scene.world.plasma_age
         loc_path = str(Path(self._path) / "dat" / "{}.loc".format(self._age_name))
-        log = logger.ExportVerboseLogger if age_props.verbose else logger.ExportProgressLogger
-        with korlib.ConsoleToggler(age_props.show_console), log(loc_path) as self._report:
+        log = (
+            logger.ExportVerboseLogger
+            if age_props.verbose
+            else logger.ExportProgressLogger
+        )
+        with korlib.ConsoleToggler(age_props.show_console), log(
+            loc_path
+        ) as self._report:
             self._report.progress_add_step("Harvesting Translations")
             self._report.progress_add_step("Generating Localization")
             self._report.progress_start("Exporting Localization Data")
@@ -204,15 +253,29 @@ class LocalizationConverter:
         inc_progress = self._report.progress_increment
 
         for i in objects:
-            for mod_type in filter(None, (getattr(j, "pl_id", None) for j in TranslationMixin.__subclasses__())):
+            for mod_type in filter(
+                None,
+                (getattr(j, "pl_id", None) for j in TranslationMixin.__subclasses__()),
+            ):
                 modifier = getattr(i.plasma_modifiers, mod_type)
                 if modifier.enabled:
-                    translations = [j for j in modifier.translations if j.text_id is not None]
+                    translations = [
+                        j for j in modifier.translations if j.text_id is not None
+                    ]
                     if not translations:
-                        self._report.error("'{}': No content translations available. The localization will not be exported.",
-                                        i.name, indent=2)
+                        self._report.error(
+                            "'{}': No content translations available. The localization will not be exported.",
+                            i.name,
+                            indent=2,
+                        )
                     for j in translations:
-                        self.add_string(modifier.localization_set, modifier.key_name, j.language, j.text_id, indent=1)
+                        self.add_string(
+                            modifier.localization_set,
+                            modifier.key_name,
+                            j.language,
+                            j.text_id,
+                            indent=1,
+                        )
             inc_progress()
 
     def _run_generate(self):

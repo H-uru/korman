@@ -24,10 +24,12 @@ from .explosions import ExportError, ExportAssertionError
 from ..helpers import bmesh_from_object, TemporaryObject
 from . import utils
 
+
 def _set_phys_prop(prop, sim, phys, value=True):
     """Sets properties on plGenericPhysical and plSimulationInterface (seeing as how they are duped)"""
     sim.setProperty(prop, value)
     phys.setProperty(prop, value)
+
 
 class PhysicsConverter:
     def __init__(self, exporter):
@@ -56,8 +58,16 @@ class PhysicsConverter:
             if len(v) == 3:
                 indices += v
             elif len(v) == 4:
-                indices += (v[0], v[1], v[2],)
-                indices += (v[0], v[2], v[3],)
+                indices += (
+                    v[0],
+                    v[1],
+                    v[2],
+                )
+                indices += (
+                    v[0],
+                    v[2],
+                    v[3],
+                )
         return indices
 
     def _convert_mesh_data(self, bo, physical, local_space, mat, indices=True):
@@ -75,7 +85,10 @@ class PhysicsConverter:
                     vertices = [hsVector3(*i.co) for i in mesh.vertices]
                 else:
                     # Dagnabbit...
-                    vertices = [hsVector3(i.co.x * scale.x, i.co.y * scale.y, i.co.z * scale.z) for i in mesh.vertices]
+                    vertices = [
+                        hsVector3(i.co.x * scale.x, i.co.y * scale.y, i.co.z * scale.z)
+                        for i in mesh.vertices
+                    ]
             else:
                 # apply the transform to the physical itself
                 utils.transform_mesh(mesh, mat)
@@ -114,7 +127,9 @@ class PhysicsConverter:
                     vertices = [hsVector3(*i.co) for i in mesh.vertices]
                 else:
                     # Flatten out all points to the given Z-coordinate
-                    vertices = [hsVector3(i.co.x, i.co.y, z_coord) for i in mesh.vertices]
+                    vertices = [
+                        hsVector3(i.co.x, i.co.y, z_coord) for i in mesh.vertices
+                    ]
                 physical.verts = vertices
                 physical.indices = self._convert_indices(mesh)
                 physical.boundsType = plSimDefs.kProxyBounds
@@ -126,23 +141,28 @@ class PhysicsConverter:
             simIface = so.sim.object
             physical = simIface.physical.object
 
-            member_group = getattr(plSimDefs, kwargs.get("member_group", "kGroupLOSOnly"))
-            if physical.memberGroup != member_group and member_group != plSimDefs.kGroupLOSOnly:
+            member_group = getattr(
+                plSimDefs, kwargs.get("member_group", "kGroupLOSOnly")
+            )
+            if (
+                physical.memberGroup != member_group
+                and member_group != plSimDefs.kGroupLOSOnly
+            ):
                 self._report.warn("{}: Physical memberGroup overwritten!", bo.name)
                 physical.memberGroup = member_group
         self._apply_props(simIface, physical, kwargs)
 
     def generate_physical(self, bo, so, **kwargs):
         """Generates a physical object for the given object pair.
-           The following optional arguments are allowed:
-           - bounds: (defaults to collision modifier setting)
-           - member_group: str attribute of plSimDefs, defaults to kGroupStatic
-                           NOTE that kGroupLOSOnly generation will only succeed if no one else
-                           has generated this physical in another group
-           - properties: sequence of str bit names from plSimulationInterface
-           - losdbs: sequence of str bit names from plSimDefs
-           - report_groups: sequence of str bit names from plSimDefs
-           - collide_groups: sequence of str bit names from plSimDefs
+        The following optional arguments are allowed:
+        - bounds: (defaults to collision modifier setting)
+        - member_group: str attribute of plSimDefs, defaults to kGroupStatic
+                        NOTE that kGroupLOSOnly generation will only succeed if no one else
+                        has generated this physical in another group
+        - properties: sequence of str bit names from plSimulationInterface
+        - losdbs: sequence of str bit names from plSimDefs
+        - report_groups: sequence of str bit names from plSimDefs
+        - collide_groups: sequence of str bit names from plSimDefs
         """
         if so.sim is None:
             simIface = self._mgr.add_object(pl=plSimulationInterface, bl=bo)
@@ -167,12 +187,17 @@ class PhysicsConverter:
 
                 if mod.dynamic:
                     if ver <= pvPots:
-                        physical.collideGroup = (1 << plSimDefs.kGroupDynamic) | \
-                                                (1 << plSimDefs.kGroupStatic)
+                        physical.collideGroup = (1 << plSimDefs.kGroupDynamic) | (
+                            1 << plSimDefs.kGroupStatic
+                        )
                     physical.memberGroup = plSimDefs.kGroupDynamic
                     physical.mass = mod.mass
-                    _set_phys_prop(plSimulationInterface.kStartInactive, simIface, physical,
-                                   value=mod.start_asleep)
+                    _set_phys_prop(
+                        plSimulationInterface.kStartInactive,
+                        simIface,
+                        physical,
+                        value=mod.start_asleep,
+                    )
                 elif not mod.avatar_blocker:
                     physical.memberGroup = plSimDefs.kGroupLOSOnly
                 else:
@@ -181,7 +206,9 @@ class PhysicsConverter:
                 # Line of Sight DB
                 if mod.camera_blocker:
                     physical.LOSDBs |= plSimDefs.kLOSDBCameraBlockers
-                    _set_phys_prop(plSimulationInterface.kCameraAvoidObject, simIface, physical)
+                    _set_phys_prop(
+                        plSimulationInterface.kCameraAvoidObject, simIface, physical
+                    )
                 if mod.terrain:
                     physical.LOSDBs |= plSimDefs.kLOSDBAvatarWalkable
 
@@ -189,7 +216,11 @@ class PhysicsConverter:
                 # This could result in a few orphaned PhysicalSndGroups, but I think that's preferable
                 # to having a bunch of empty objects...?
                 if mod.surface != "kNone":
-                    sndgroup = self._mgr.find_create_object(plPhysicalSndGroup, so=so, name="SURFACEGEN_{}".format(mod.surface))
+                    sndgroup = self._mgr.find_create_object(
+                        plPhysicalSndGroup,
+                        so=so,
+                        name="SURFACEGEN_{}".format(mod.surface),
+                    )
                     sndgroup.group = getattr(plPhysicalSndGroup, mod.surface)
                     physical.soundGroup = sndgroup.key
             else:
@@ -202,7 +233,9 @@ class PhysicsConverter:
             # would miss cases where we have animated detectors (subworlds!!!)
             def _iter_object_tree(bo, stop_at_subworld):
                 while bo is not None:
-                    if stop_at_subworld and self.is_dedicated_subworld(bo, sanity_check=False):
+                    if stop_at_subworld and self.is_dedicated_subworld(
+                        bo, sanity_check=False
+                    ):
                         return
                     yield bo
                     bo = bo.parent
@@ -229,7 +262,9 @@ class PhysicsConverter:
                 # Any physical that is parented by not kickable (dynamic) is passive -
                 # meaning we don't need to report back any changes from physics. Same for
                 # plFilterCoordInterface, which filters out some axes.
-                if (bo.parent is not None and not mod.dynamic) or bo.plasma_object.ci_type == plFilterCoordInterface:
+                if (
+                    bo.parent is not None and not mod.dynamic
+                ) or bo.plasma_object.ci_type == plFilterCoordInterface:
                     _set_phys_prop(plSimulationInterface.kPassive, simIface, physical)
 
                 # If the mass is zero, then we will fail to animate. Fix that.
@@ -246,7 +281,11 @@ class PhysicsConverter:
             elif ver == pvMoul:
                 if self._exporter().has_coordiface(bo):
                     local_space = True
-                    mat = subworld.matrix_world.inverted() * bo.matrix_world if subworld else bo.matrix_world
+                    mat = (
+                        subworld.matrix_world.inverted() * bo.matrix_world
+                        if subworld
+                        else bo.matrix_world
+                    )
                 else:
                     local_space, mat = False, bo.matrix_world
             else:
@@ -256,9 +295,16 @@ class PhysicsConverter:
             simIface = so.sim.object
             physical = simIface.physical.object
 
-            member_group = getattr(plSimDefs, kwargs.get("member_group", "kGroupLOSOnly"))
-            if physical.memberGroup != member_group and member_group != plSimDefs.kGroupLOSOnly:
-                self._report.warn("{}: Physical memberGroup overwritten!", bo.name, indent=2)
+            member_group = getattr(
+                plSimDefs, kwargs.get("member_group", "kGroupLOSOnly")
+            )
+            if (
+                physical.memberGroup != member_group
+                and member_group != plSimDefs.kGroupLOSOnly
+            ):
+                self._report.warn(
+                    "{}: Physical memberGroup overwritten!", bo.name, indent=2
+                )
                 physical.memberGroup = member_group
 
         self._apply_props(simIface, physical, kwargs)
@@ -267,7 +313,9 @@ class PhysicsConverter:
         """Exports box bounds based on the object"""
         physical.boundsType = plSimDefs.kBoxBounds
 
-        vertices = self._convert_mesh_data(bo, physical, local_space, mat, indices=False)
+        vertices = self._convert_mesh_data(
+            bo, physical, local_space, mat, indices=False
+        )
         physical.calcBoxBounds(vertices)
 
     def _export_hull(self, bo, physical, local_space, mat):
@@ -285,7 +333,9 @@ class PhysicsConverter:
             else:
                 mesh.transform(mat)
 
-            result = bmesh.ops.convex_hull(mesh, input=mesh.verts, use_existing_faces=False)
+            result = bmesh.ops.convex_hull(
+                mesh, input=mesh.verts, use_existing_faces=False
+            )
             BMVert = bmesh.types.BMVert
             verts = itertools.takewhile(lambda x: isinstance(x, BMVert), result["geom"])
             physical.verts = [hsVector3(*i.co) for i in verts]
@@ -294,7 +344,9 @@ class PhysicsConverter:
         """Exports sphere bounds based on the object"""
         physical.boundsType = plSimDefs.kSphereBounds
 
-        vertices = self._convert_mesh_data(bo, physical, local_space, mat, indices=False)
+        vertices = self._convert_mesh_data(
+            bo, physical, local_space, mat, indices=False
+        )
         physical.calcSphereBounds(vertices)
 
     def _export_trimesh(self, bo, physical, local_space, mat):
@@ -304,7 +356,9 @@ class PhysicsConverter:
         mod = bo.plasma_modifiers.collision
         if mod.enabled and mod.proxy_object is not None:
             physical.boundsType = plSimDefs.kProxyBounds
-            vertices, indices = self._convert_mesh_data(mod.proxy_object, physical, local_space, mat)
+            vertices, indices = self._convert_mesh_data(
+                mod.proxy_object, physical, local_space, mat
+            )
         else:
             physical.boundsType = plSimDefs.kExplicitBounds
             vertices, indices = self._convert_mesh_data(bo, physical, local_space, mat)

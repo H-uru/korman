@@ -16,8 +16,11 @@
 import bpy
 from bpy.props import *
 
+
 class PlasmaSound(bpy.types.PropertyGroup):
-    package = BoolProperty(name="Export",
-                           description="Package this file in the age export",
-                           default=True,
-                           options=set())
+    package = BoolProperty(
+        name="Export",
+        description="Package this file in the age export",
+        default=True,
+        options=set(),
+    )

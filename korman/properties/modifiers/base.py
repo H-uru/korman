@@ -19,6 +19,7 @@ from bpy.props import *
 import abc
 from typing import Any, Dict, Generator, Optional
 
+
 class PlasmaModifierProperties(bpy.types.PropertyGroup):
     @property
     def copy_material(self):
@@ -52,8 +53,8 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
 
     def export(self, exporter, bo, so):
         """This is the main phase of the modifier export where most, if not all, PRP objects should
-           be generated. No new Blender objects should be created unless their lifespan is constrained
-           to the duration of this method.
+        be generated. No new Blender objects should be created unless their lifespan is constrained
+        to the duration of this method.
         """
         pass
 
@@ -86,7 +87,7 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
     @property
     def no_span_sort(self):
         """Indicates that the geometry's Spans should never be sorted with those from other
-           Drawables that will render in the same pass"""
+        Drawables that will render in the same pass"""
         return False
 
     # This is temporarily commented out to prevent MRO failure. Revisit in Python 3.7
@@ -110,24 +111,35 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
     # you see... So, we'll store our definitions in a dict and make those properties on each subclass
     # at runtime. What joy. Python FTW. See register() in __init__.py
     _subprops = {
-        "display_order": (IntProperty, {"name": "INTERNAL: Display Ordering",
-                                        "description": "Position in the list of buttons",
-                                        "default": -1,
-                                        "options": {"HIDDEN"}}),
-        "show_expanded": (BoolProperty, {"name": "INTERNAL: Actually draw the modifier",
-                                         "default": True,
-                                         "options": {"HIDDEN"}}),
-        "current_version": (IntProperty, {"name": "INTERNAL: Modifier version",
-                                          "default": 1,
-                                          "options": {"HIDDEN"}}),
+        "display_order": (
+            IntProperty,
+            {
+                "name": "INTERNAL: Display Ordering",
+                "description": "Position in the list of buttons",
+                "default": -1,
+                "options": {"HIDDEN"},
+            },
+        ),
+        "show_expanded": (
+            BoolProperty,
+            {
+                "name": "INTERNAL: Actually draw the modifier",
+                "default": True,
+                "options": {"HIDDEN"},
+            },
+        ),
+        "current_version": (
+            IntProperty,
+            {"name": "INTERNAL: Modifier version", "default": 1, "options": {"HIDDEN"}},
+        ),
     }
 
 
 class PlasmaModifierLogicWiz:
     def convert_logic(self, bo, **kwargs):
         """Creates, converts, and returns an unmanaged NodeTree for this logic wizard. If the wizard
-           fails during conversion, the temporary tree is deleted for you. However, on success, you
-           are responsible for removing the tree from Blender, if applicable."""
+        fails during conversion, the temporary tree is deleted for you. However, on success, you
+        are responsible for removing the tree from Blender, if applicable."""
         name = kwargs.pop("name", self.key_name)
         assert not "tree" in kwargs
         tree = bpy.data.node_groups.new(name, "PlasmaNodeTree")
@@ -140,7 +152,9 @@ class PlasmaModifierLogicWiz:
         else:
             return tree
 
-    def _create_python_file_node(self, tree, filename: str, attributes: Dict[str, Any]) -> bpy.types.Node:
+    def _create_python_file_node(
+        self, tree, filename: str, attributes: Dict[str, Any]
+    ) -> bpy.types.Node:
         pfm_node = tree.nodes.new("PlasmaPythonFileNode")
         with pfm_node.NoUpdate():
             pfm_node.filename = filename
@@ -152,19 +166,36 @@ class PlasmaModifierLogicWiz:
         pfm_node.update()
         return pfm_node
 
-    def _create_python_attribute(self, pfm_node, attribute_name: str, attribute_type: Optional[str] = None, **kwargs):
+    def _create_python_attribute(
+        self,
+        pfm_node,
+        attribute_name: str,
+        attribute_type: Optional[str] = None,
+        **kwargs
+    ):
         """Creates and links a Python Attribute Node to the Python File Node given by `pfm_node`.
-           This will automatically handle simple attribute types such as numbers and strings, however,
-           for object linkage, you should specify the optional `attribute_type` to ensure the proper
-           attribute type is found. For attribute nodes that require multiple values, the `value` may
-           be set to None and handled in your code."""
+        This will automatically handle simple attribute types such as numbers and strings, however,
+        for object linkage, you should specify the optional `attribute_type` to ensure the proper
+        attribute type is found. For attribute nodes that require multiple values, the `value` may
+        be set to None and handled in your code."""
         from ...nodes.node_python import PlasmaAttribute, PlasmaAttribNodeBase
+
         if attribute_type is None:
-            assert len(kwargs) == 1 and "value" in kwargs, \
-                "In order to deduce the attribute_type, exactly one attribute value must be passed as a kw named `value`"
+            assert (
+                len(kwargs) == 1 and "value" in kwargs
+            ), "In order to deduce the attribute_type, exactly one attribute value must be passed as a kw named `value`"
             attribute_type = PlasmaAttribute.type_LUT.get(kwargs["value"].__class__)
-        node_cls = next((i for i in PlasmaAttribNodeBase.__subclasses__() if attribute_type in i.pl_attrib), None)
-        assert node_cls is not None, "'{}': Unable to find attribute node type for '{}' ('{}')".format(
+        node_cls = next(
+            (
+                i
+                for i in PlasmaAttribNodeBase.__subclasses__()
+                if attribute_type in i.pl_attrib
+            ),
+            None,
+        )
+        assert (
+            node_cls is not None
+        ), "'{}': Unable to find attribute node type for '{}' ('{}')".format(
             self.id_data.name, attribute_name, attribute_type
         )
 
@@ -180,7 +211,7 @@ class PlasmaModifierLogicWiz:
 
     def pre_export(self, exporter, bo):
         """Default implementation of the pre_export phase for logic wizards that simply triggers
-           the logic nodes to be created and for their export to be scheduled."""
+        the logic nodes to be created and for their export to be scheduled."""
         yield self.convert_logic(bo)
 
 
@@ -213,9 +244,12 @@ def _restore_properties(dummy):
             # Unregistered propertes are a sequence of (property function,
             # property keyword arguments). Interesting design decision :)
             prop_cb, prop_kwargs = getattr(mod_cls, prop_name)
-            del prop_kwargs["attr"] # Prevents proper registration
+            del prop_kwargs["attr"]  # Prevents proper registration
             setattr(mod_cls, prop_name, prop_cb(**prop_kwargs))
+
+
 bpy.app.handlers.load_pre.append(_restore_properties)
+
 
 @bpy.app.handlers.persistent
 def _upgrade_modifiers(dummy):
@@ -231,4 +265,6 @@ def _upgrade_modifiers(dummy):
     for mod_cls in PlasmaModifierUpgradable.__subclasses__():
         for prop in mod_cls.deprecated_properties:
             RemoveProperty(mod_cls, attr=prop)
+
+
 bpy.app.handlers.load_post.append(_upgrade_modifiers)

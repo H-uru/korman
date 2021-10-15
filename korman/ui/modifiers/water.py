@@ -17,6 +17,7 @@ import bpy
 
 from .. import ui_list
 
+
 def swimregion(modifier, layout, context):
     split = layout.split()
     col = split.column()
@@ -56,6 +57,7 @@ def swimregion(modifier, layout, context):
 
         layout.prop(modifier, "current")
 
+
 def water_basic(modifier, layout, context):
     layout.prop(modifier, "wind_object")
     layout.prop(modifier, "envmap")
@@ -91,6 +93,7 @@ def water_basic(modifier, layout, context):
     col.prop(modifier, "zero_wave", text="Start")
     col.prop(modifier, "depth_wave", text="End")
 
+
 def _wavestate(modifier, layout, context):
     split = layout.split()
     col = split.column()
@@ -104,18 +107,39 @@ def _wavestate(modifier, layout, context):
     col.prop(modifier, "chop")
     col.prop(modifier, "angle_dev")
 
+
 water_geostate = _wavestate
 water_texstate = _wavestate
 
+
 class ShoreListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_property,
+        index=0,
+        flt_flag=0,
+    ):
         layout.prop(item, "display_name", emboss=False, text="", icon="MOD_WAVE")
 
 
 def water_shore(modifier, layout, context):
-    ui_list.draw_modifier_list(layout, "ShoreListUI", modifier, "shores",
-                               "active_shore_index", name_prefix="Shore",
-                               name_prop="display_name", rows=2, maxrows=3)
+    ui_list.draw_modifier_list(
+        layout,
+        "ShoreListUI",
+        modifier,
+        "shores",
+        "active_shore_index",
+        name_prefix="Shore",
+        name_prop="display_name",
+        rows=2,
+        maxrows=3,
+    )
 
     # Display the active shore
     if modifier.shores:

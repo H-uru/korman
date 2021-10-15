@@ -19,22 +19,27 @@ from bpy.props import *
 import functools
 from PyHSPlasma import *
 
-from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz, PlasmaModifierUpgradable
+from .base import (
+    PlasmaModifierProperties,
+    PlasmaModifierLogicWiz,
+    PlasmaModifierUpgradable,
+)
 from ...exporter.etlight import _NUM_RENDER_LAYERS
 from ...exporter import utils
 from ...exporter.explosions import ExportError
 from .gui import languages, PlasmaJournalTranslation, TranslationMixin
 from ... import idprops
 
+
 class PlasmaBlendOntoObject(bpy.types.PropertyGroup):
-    blend_onto = PointerProperty(name="Blend Onto",
-                                 description="Object to render first",
-                                 options=set(),
-                                 type=bpy.types.Object,
-                                 poll=idprops.poll_drawable_objects)
-    enabled = BoolProperty(name="Enabled",
-                           default=True,
-                           options=set())
+    blend_onto = PointerProperty(
+        name="Blend Onto",
+        description="Object to render first",
+        options=set(),
+        type=bpy.types.Object,
+        poll=idprops.poll_drawable_objects,
+    )
+    enabled = BoolProperty(name="Enabled", default=True, options=set())
 
 
 class PlasmaBlendMod(PlasmaModifierProperties):
@@ -44,19 +49,39 @@ class PlasmaBlendMod(PlasmaModifierProperties):
     bl_label = "Blending"
     bl_description = "Advanced Blending Options"
 
-    render_level = EnumProperty(name="Render Pass",
-                                description="Suggested render pass for this object.",
-                                items=[("AUTO", "(Auto)", "Let Korman decide when to render this object."),
-                                       ("OPAQUE", "Before Avatar", "Prefer for the object to draw before the avatar."),
-                                       ("FRAMEBUF", "Frame Buffer", "Prefer for the object to draw after the avatar but before other blended objects."),
-                                       ("BLEND", "Blended", "Prefer for the object to draw after most other geometry in the blended pass.")],
-                                options=set())
-    sort_faces = EnumProperty(name="Sort Faces",
-                              description="",
-                              items=[("AUTO", "(Auto)", "Let Korman decide if faces should be sorted."),
-                                     ("ALWAYS", "Always", "Force the object's faces to be sorted."),
-                                     ("NEVER", "Never", "Force the object's faces to never be sorted.")],
-                              options=set())
+    render_level = EnumProperty(
+        name="Render Pass",
+        description="Suggested render pass for this object.",
+        items=[
+            ("AUTO", "(Auto)", "Let Korman decide when to render this object."),
+            (
+                "OPAQUE",
+                "Before Avatar",
+                "Prefer for the object to draw before the avatar.",
+            ),
+            (
+                "FRAMEBUF",
+                "Frame Buffer",
+                "Prefer for the object to draw after the avatar but before other blended objects.",
+            ),
+            (
+                "BLEND",
+                "Blended",
+                "Prefer for the object to draw after most other geometry in the blended pass.",
+            ),
+        ],
+        options=set(),
+    )
+    sort_faces = EnumProperty(
+        name="Sort Faces",
+        description="",
+        items=[
+            ("AUTO", "(Auto)", "Let Korman decide if faces should be sorted."),
+            ("ALWAYS", "Always", "Force the object's faces to be sorted."),
+            ("NEVER", "Never", "Force the object's faces to never be sorted."),
+        ],
+        options=set(),
+    )
 
     dependencies = CollectionProperty(type=PlasmaBlendOntoObject)
     active_dependency_index = IntProperty(options={"HIDDEN"})
@@ -110,21 +135,24 @@ class PlasmaBlendMod(PlasmaModifierProperties):
         return False
 
     def iter_dependencies(self):
-        for i in (j.blend_onto for j in self.dependencies if j.blend_onto is not None and j.enabled):
+        for i in (
+            j.blend_onto
+            for j in self.dependencies
+            if j.blend_onto is not None and j.enabled
+        ):
             yield i
 
     def sanity_check(self):
         if self.has_circular_dependency:
-            raise ExportError("'{}': Circular Render Dependency detected!".format(self.name))
+            raise ExportError(
+                "'{}': Circular Render Dependency detected!".format(self.name)
+            )
 
 
 class PlasmaDecalManagerRef(bpy.types.PropertyGroup):
-    enabled = BoolProperty(name="Enabled",
-                           default=True,
-                           options=set())
+    enabled = BoolProperty(name="Enabled", default=True, options=set())
 
-    name = StringProperty(name="Decal Name",
-                          options=set())
+    name = StringProperty(name="Decal Name", options=set())
 
 
 class PlasmaDecalMod:
@@ -146,25 +174,30 @@ class PlasmaDecalPrintMod(PlasmaDecalMod, PlasmaModifierProperties):
     bl_label = "Print Decal"
     bl_description = "Prints a decal onto an object"
 
-    decal_type = EnumProperty(name="Decal Type",
-                              description="Type of decal to print onto another object",
-                              items=[("DYNAMIC", "Dynamic", "This object prints a decal onto dynamic decal surfaces"),
-                                     ("STATIC", "Static", "This object is a decal itself")],
-                              options=set())
+    decal_type = EnumProperty(
+        name="Decal Type",
+        description="Type of decal to print onto another object",
+        items=[
+            (
+                "DYNAMIC",
+                "Dynamic",
+                "This object prints a decal onto dynamic decal surfaces",
+            ),
+            ("STATIC", "Static", "This object is a decal itself"),
+        ],
+        options=set(),
+    )
 
     # Dynamic Decals
-    length = FloatProperty(name="Length",
-                           min=0.1, soft_max=30.0, precision=2,
-                           default=0.45,
-                           options=set())
-    width = FloatProperty(name="Width",
-                          min=0.1, soft_max=30.0, precision=2,
-                          default=0.9,
-                          options=set())
-    height = FloatProperty(name="Height",
-                           min=0.1, soft_max=30.0, precision=2,
-                           default=1.0,
-                           options=set())
+    length = FloatProperty(
+        name="Length", min=0.1, soft_max=30.0, precision=2, default=0.45, options=set()
+    )
+    width = FloatProperty(
+        name="Width", min=0.1, soft_max=30.0, precision=2, default=0.9, options=set()
+    )
+    height = FloatProperty(
+        name="Height", min=0.1, soft_max=30.0, precision=2, default=1.0, options=set()
+    )
 
     @property
     def copy_material(self):
@@ -172,7 +205,11 @@ class PlasmaDecalPrintMod(PlasmaDecalMod, PlasmaModifierProperties):
 
     def get_key(self, exporter, so):
         if self.decal_type == "DYNAMIC":
-            pClass = plActivePrintShape if any((i.enabled for i in self.managers)) else plPrintShape
+            pClass = (
+                plActivePrintShape
+                if any((i.enabled for i in self.managers))
+                else plPrintShape
+            )
             return exporter.mgr.find_create_key(pClass, so=so)
 
     def export(self, exporter, bo, so):
@@ -189,6 +226,7 @@ class PlasmaDecalPrintMod(PlasmaDecalMod, PlasmaModifierProperties):
             print_shape = self.get_key(exporter, so).object
             f = functools.partial(exporter.decal.export_active_print_shape, print_shape)
             self._iter_decals(f)
+
 
 class PlasmaDecalReceiveMod(PlasmaDecalMod, PlasmaModifierProperties):
     pl_id = "decal_receive"
@@ -216,55 +254,99 @@ class PlasmaFadeMod(PlasmaModifierProperties):
     bl_label = "Opacity Fader"
     bl_description = "Fades an object based on distance or line-of-sight"
 
-    fader_type = EnumProperty(name="Fader Type",
-                              description="Type of opacity fade",
-                              items=[("DistOpacity", "Distance", "Fade based on distance to object"),
-                                     ("FadeOpacity", "Line-of-Sight", "Fade based on line-of-sight to object"),
-                                     ("SimpleDist",  "Simple Distance", "Fade for use as Great Zero Markers")],
-                              default="SimpleDist")
+    fader_type = EnumProperty(
+        name="Fader Type",
+        description="Type of opacity fade",
+        items=[
+            ("DistOpacity", "Distance", "Fade based on distance to object"),
+            ("FadeOpacity", "Line-of-Sight", "Fade based on line-of-sight to object"),
+            ("SimpleDist", "Simple Distance", "Fade for use as Great Zero Markers"),
+        ],
+        default="SimpleDist",
+    )
 
-    fade_in_time = FloatProperty(name="Fade In Time",
-                                 description="Number of seconds before the object is fully visible",
-                                 min=0.0, max=5.0, default=0.5, subtype="TIME", unit="TIME")
-    fade_out_time = FloatProperty(name="Fade Out Time",
-                                  description="Number of seconds before the object is fully invisible",
-                                  min=0.0, max=5.0, default=0.5, subtype="TIME", unit="TIME")
-    bounds_center = BoolProperty(name="Use Mesh Midpoint",
-                                 description="Use mesh's midpoint to calculate LOS instead of object origin",
-                                 default=False)
+    fade_in_time = FloatProperty(
+        name="Fade In Time",
+        description="Number of seconds before the object is fully visible",
+        min=0.0,
+        max=5.0,
+        default=0.5,
+        subtype="TIME",
+        unit="TIME",
+    )
+    fade_out_time = FloatProperty(
+        name="Fade Out Time",
+        description="Number of seconds before the object is fully invisible",
+        min=0.0,
+        max=5.0,
+        default=0.5,
+        subtype="TIME",
+        unit="TIME",
+    )
+    bounds_center = BoolProperty(
+        name="Use Mesh Midpoint",
+        description="Use mesh's midpoint to calculate LOS instead of object origin",
+        default=False,
+    )
 
-    near_trans = FloatProperty(name="Near Transparent",
-                               description="Nearest distance at which the object is fully transparent",
-                               min=0.0, default=0.0, subtype="DISTANCE", unit="LENGTH")
-    near_opaq = FloatProperty(name="Near Opaque",
-                              description="Nearest distance at which the object is fully opaque",
-                              min=0.0, default=0.0, subtype="DISTANCE", unit="LENGTH")
-    far_opaq = FloatProperty(name="Far Opaque",
-                             description="Farthest distance at which the object is fully opaque",
-                             min=0.0, default=15.0, subtype="DISTANCE", unit="LENGTH")
-    far_trans = FloatProperty(name="Far Transparent",
-                              description="Farthest distance at which the object is fully transparent",
-                              min=0.0, default=20.0, subtype="DISTANCE", unit="LENGTH")
+    near_trans = FloatProperty(
+        name="Near Transparent",
+        description="Nearest distance at which the object is fully transparent",
+        min=0.0,
+        default=0.0,
+        subtype="DISTANCE",
+        unit="LENGTH",
+    )
+    near_opaq = FloatProperty(
+        name="Near Opaque",
+        description="Nearest distance at which the object is fully opaque",
+        min=0.0,
+        default=0.0,
+        subtype="DISTANCE",
+        unit="LENGTH",
+    )
+    far_opaq = FloatProperty(
+        name="Far Opaque",
+        description="Farthest distance at which the object is fully opaque",
+        min=0.0,
+        default=15.0,
+        subtype="DISTANCE",
+        unit="LENGTH",
+    )
+    far_trans = FloatProperty(
+        name="Far Transparent",
+        description="Farthest distance at which the object is fully transparent",
+        min=0.0,
+        default=20.0,
+        subtype="DISTANCE",
+        unit="LENGTH",
+    )
 
     def export(self, exporter, bo, so):
         if self.fader_type == "DistOpacity":
-            mod = exporter.mgr.find_create_object(plDistOpacityMod, so=so, name=self.key_name)
+            mod = exporter.mgr.find_create_object(
+                plDistOpacityMod, so=so, name=self.key_name
+            )
             mod.nearTrans = self.near_trans
             mod.nearOpaq = self.near_opaq
             mod.farOpaq = self.far_opaq
             mod.farTrans = self.far_trans
         elif self.fader_type == "FadeOpacity":
-            mod = exporter.mgr.find_create_object(plFadeOpacityMod, so=so, name=self.key_name)
+            mod = exporter.mgr.find_create_object(
+                plFadeOpacityMod, so=so, name=self.key_name
+            )
             mod.fadeUp = self.fade_in_time
             mod.fadeDown = self.fade_out_time
             mod.boundsCenter = self.bounds_center
         elif self.fader_type == "SimpleDist":
-            mod = exporter.mgr.find_create_object(plDistOpacityMod, so=so, name=self.key_name)
+            mod = exporter.mgr.find_create_object(
+                plDistOpacityMod, so=so, name=self.key_name
+            )
             mod.nearTrans = 0.0
             mod.nearOpaq = 0.0
             mod.farOpaq = self.far_opaq
             mod.farTrans = self.far_trans
-            
+
     @property
     def requires_actor(self):
         return self.fader_type == "FadeOpacity"
@@ -277,29 +359,33 @@ class PlasmaFollowMod(idprops.IDPropObjectMixin, PlasmaModifierProperties):
     bl_label = "Follow"
     bl_description = "Follow the movement of the camera, player, or another object"
 
-    follow_mode = EnumProperty(name="Mode",
-                               description="Leader's movement to follow",
-                               items=[
-                                      ("kPositionX", "X Axis", "Follow the leader's X movements"),
-                                      ("kPositionY", "Y Axis", "Follow the leader's Y movements"),
-                                      ("kPositionZ", "Z Axis", "Follow the leader's Z movements"),
-                                      ("kRotate", "Rotation", "Follow the leader's rotation movements"),
-                                ],
-                               default={"kPositionX", "kPositionY", "kPositionZ"},
-                               options={"ENUM_FLAG"})
+    follow_mode = EnumProperty(
+        name="Mode",
+        description="Leader's movement to follow",
+        items=[
+            ("kPositionX", "X Axis", "Follow the leader's X movements"),
+            ("kPositionY", "Y Axis", "Follow the leader's Y movements"),
+            ("kPositionZ", "Z Axis", "Follow the leader's Z movements"),
+            ("kRotate", "Rotation", "Follow the leader's rotation movements"),
+        ],
+        default={"kPositionX", "kPositionY", "kPositionZ"},
+        options={"ENUM_FLAG"},
+    )
 
-    leader_type = EnumProperty(name="Leader Type",
-                               description="Leader to follow",
-                               items=[
-                                      ("kFollowCamera", "Camera", "Follow the camera"),
-                                      ("kFollowListener", "Listener", "Follow listeners"),
-                                      ("kFollowPlayer", "Player", "Follow the local player"),
-                                      ("kFollowObject", "Object", "Follow an object"),
-                                ])
+    leader_type = EnumProperty(
+        name="Leader Type",
+        description="Leader to follow",
+        items=[
+            ("kFollowCamera", "Camera", "Follow the camera"),
+            ("kFollowListener", "Listener", "Follow listeners"),
+            ("kFollowPlayer", "Player", "Follow the local player"),
+            ("kFollowObject", "Object", "Follow an object"),
+        ],
+    )
 
-    leader = PointerProperty(name="Leader Object",
-                             description="Object to follow",
-                             type=bpy.types.Object)
+    leader = PointerProperty(
+        name="Leader Object", description="Object to follow", type=bpy.types.Object
+    )
 
     def export(self, exporter, bo, so):
         fm = exporter.mgr.find_create_object(plFollowMod, so=so, name=self.key_name)
@@ -315,7 +401,11 @@ class PlasmaFollowMod(idprops.IDPropObjectMixin, PlasmaModifierProperties):
             if self.leader:
                 fm.leader = exporter.mgr.find_create_key(plSceneObject, bl=self.leader)
             else:
-                raise ExportError("'{}': Follow's leader object must be selected".format(self.key_name))
+                raise ExportError(
+                    "'{}': Follow's leader object must be selected".format(
+                        self.key_name
+                    )
+                )
 
     @classmethod
     def _idprop_mapping(cls):
@@ -327,23 +417,25 @@ class PlasmaFollowMod(idprops.IDPropObjectMixin, PlasmaModifierProperties):
 
 
 class PlasmaGrassWave(bpy.types.PropertyGroup):
-    distance = FloatVectorProperty(name="Distance",
-                                   size=3,
-                                   default=(0.2, 0.2, 0.1),
-                                   subtype="XYZ",
-                                   unit="LENGTH",
-                                   options=set())
-    direction = FloatVectorProperty(name="Direction",
-                                    size=2,
-                                    default=(0.2, 0.05),
-                                    soft_min=0.0, soft_max=1.0,
-                                    unit="LENGTH",
-                                    subtype="XYZ",
-                                    options=set())
-    speed = FloatProperty(name="Speed",
-                          default=0.1,
-                          unit="VELOCITY",
-                          options=set())
+    distance = FloatVectorProperty(
+        name="Distance",
+        size=3,
+        default=(0.2, 0.2, 0.1),
+        subtype="XYZ",
+        unit="LENGTH",
+        options=set(),
+    )
+    direction = FloatVectorProperty(
+        name="Direction",
+        size=2,
+        default=(0.2, 0.05),
+        soft_min=0.0,
+        soft_max=1.0,
+        unit="LENGTH",
+        subtype="XYZ",
+        options=set(),
+    )
+    speed = FloatProperty(name="Speed", default=0.1, unit="VELOCITY", options=set())
 
 
 class PlasmaGrassShaderMod(PlasmaModifierProperties):
@@ -359,12 +451,16 @@ class PlasmaGrassShaderMod(PlasmaModifierProperties):
     wave4 = PointerProperty(type=PlasmaGrassWave)
 
     # UI Accessor
-    wave_selector = EnumProperty(items=[("wave1", "Wave 1", ""),
-                                        ("wave2", "Wave 2", ""),
-                                        ("wave3", "Wave 3", ""),
-                                        ("wave4", "Wave 4", "")],
-                                 name="Waves",
-                                 options=set())
+    wave_selector = EnumProperty(
+        items=[
+            ("wave1", "Wave 1", ""),
+            ("wave2", "Wave 2", ""),
+            ("wave3", "Wave 3", ""),
+            ("wave4", "Wave 4", ""),
+        ],
+        name="Waves",
+        options=set(),
+    )
 
     @property
     def copy_material(self):
@@ -379,23 +475,33 @@ class PlasmaGrassShaderMod(PlasmaModifierProperties):
 
         materials = exporter.mesh.material.get_materials(bo)
         if not materials:
-            exporter.report.warning("No materials are associated with this object, no grass shader exported!",
-                                    indent=3)
+            exporter.report.warning(
+                "No materials are associated with this object, no grass shader exported!",
+                indent=3,
+            )
             return
         elif len(materials) > 1:
-            exporter.report.warning("Ah, a multiple material grass shader, eh. You like living dangerously...",
-                                    indent=3)
+            exporter.report.warning(
+                "Ah, a multiple material grass shader, eh. You like living dangerously...",
+                indent=3,
+            )
 
         for material in materials:
-            mod = exporter.mgr.find_create_object(plGrassShaderMod, so=so, name=material.name)
+            mod = exporter.mgr.find_create_object(
+                plGrassShaderMod, so=so, name=material.name
+            )
             mod.material = material
-            for mod_wave, settings in zip(mod.waves, (self.wave1, self.wave2, self.wave3, self.wave4)):
+            for mod_wave, settings in zip(
+                mod.waves, (self.wave1, self.wave2, self.wave3, self.wave4)
+            ):
                 mod_wave.dist = hsVector3(*settings.distance)
                 mod_wave.dirX, mod_wave.dirY = settings.direction
                 mod_wave.speed = settings.speed
 
 
-class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaModifierUpgradable):
+class PlasmaLightMapGen(
+    idprops.IDPropMixin, PlasmaModifierProperties, PlasmaModifierUpgradable
+):
     pl_id = "lightmap"
 
     bl_category = "Render"
@@ -404,45 +510,56 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
 
     deprecated_properties = {"render_layers"}
 
-    quality = EnumProperty(name="Quality",
-                           description="Resolution of lightmap",
-                           items=[
-                                  ("128", "128px", "128x128 pixels"),
-                                  ("256", "256px", "256x256 pixels"),
-                                  ("512", "512px", "512x512 pixels"),
-                                  ("1024", "1024px", "1024x1024 pixels"),
-                                  ("2048", "2048px", "2048x2048 pixels"),
-                            ])
+    quality = EnumProperty(
+        name="Quality",
+        description="Resolution of lightmap",
+        items=[
+            ("128", "128px", "128x128 pixels"),
+            ("256", "256px", "256x256 pixels"),
+            ("512", "512px", "512x512 pixels"),
+            ("1024", "1024px", "1024x1024 pixels"),
+            ("2048", "2048px", "2048x2048 pixels"),
+        ],
+    )
 
-    bake_type = EnumProperty(name="Bake To",
-                             description="Destination for baked lighting data",
-                             items=[
-                                ("lightmap", "Lightmap Texture", "Bakes lighting to a lightmap texture"),
-                                ("vcol", "Vertex Colors", "Bakes lighting to vertex colors"),
-                             ],
-                             options=set())
+    bake_type = EnumProperty(
+        name="Bake To",
+        description="Destination for baked lighting data",
+        items=[
+            ("lightmap", "Lightmap Texture", "Bakes lighting to a lightmap texture"),
+            ("vcol", "Vertex Colors", "Bakes lighting to vertex colors"),
+        ],
+        options=set(),
+    )
 
-    render_layers = BoolVectorProperty(name="Layers",
-                                       description="DEPRECATED: Render layers to use for baking",
-                                       options={"HIDDEN"},
-                                       subtype="LAYER",
-                                       size=_NUM_RENDER_LAYERS,
-                                       default=((True,) * _NUM_RENDER_LAYERS))
+    render_layers = BoolVectorProperty(
+        name="Layers",
+        description="DEPRECATED: Render layers to use for baking",
+        options={"HIDDEN"},
+        subtype="LAYER",
+        size=_NUM_RENDER_LAYERS,
+        default=((True,) * _NUM_RENDER_LAYERS),
+    )
 
-    bake_pass_name = StringProperty(name="Bake Pass",
-                                    description="Pass in which to bake lighting",
-                                    options=set())
+    bake_pass_name = StringProperty(
+        name="Bake Pass", description="Pass in which to bake lighting", options=set()
+    )
 
-    lights = PointerProperty(name="Light Group",
-                             description="Group that defines the collection of lights to bake",
-                             type=bpy.types.Group)
+    lights = PointerProperty(
+        name="Light Group",
+        description="Group that defines the collection of lights to bake",
+        type=bpy.types.Group,
+    )
 
-    uv_map = StringProperty(name="UV Texture",
-                            description="UV Texture used as the basis for the lightmap")
+    uv_map = StringProperty(
+        name="UV Texture", description="UV Texture used as the basis for the lightmap"
+    )
 
-    image = PointerProperty(name="Baked Image",
-                            description="Use this image instead of re-baking the lighting each export",
-                            type=bpy.types.Image)
+    image = PointerProperty(
+        name="Baked Image",
+        description="Use this image instead of re-baking the lighting each export",
+        type=bpy.types.Image,
+    )
 
     @property
     def bake_lightmap(self):
@@ -470,7 +587,9 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
 
         # If no lightmap image is found, then either lightmap generation failed (error raised by oven)
         # or baking is turned off. Either way, bail out.
-        lightmap_im = self.image if self.image is not None else exporter.oven.get_lightmap(bo)
+        lightmap_im = (
+            self.image if self.image is not None else exporter.oven.get_lightmap(bo)
+        )
         if lightmap_im is None:
             return
         mat_mgr = exporter.mesh.material
@@ -478,12 +597,25 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
 
         # Find the stupid UVTex
         uvtex_name = exporter.oven.lightmap_uvtex_name
-        uvw_src = next((i for i, uvtex in enumerate(bo.data.uv_textures) if uvtex.name == uvtex_name), None)
+        uvw_src = next(
+            (
+                i
+                for i, uvtex in enumerate(bo.data.uv_textures)
+                if uvtex.name == uvtex_name
+            ),
+            None,
+        )
         if uvw_src is None:
-            raise ExportError("'{}': Lightmap UV Texture '{}' seems to be missing. Did you delete it?", bo.name, uvtex_name)
+            raise ExportError(
+                "'{}': Lightmap UV Texture '{}' seems to be missing. Did you delete it?",
+                bo.name,
+                uvtex_name,
+            )
 
         for matKey in materials:
-            layer = exporter.mgr.add_object(plLayer, name="{}_LIGHTMAPGEN".format(matKey.name), so=so)
+            layer = exporter.mgr.add_object(
+                plLayer, name="{}_LIGHTMAPGEN".format(matKey.name), so=so
+            )
             layer.UVWSrc = uvw_src
 
             # Colors science'd from PRPs
@@ -494,7 +626,7 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
             # GMatState
             gstate = layer.state
             gstate.blendFlags |= hsGMatState.kBlendMult
-            gstate.clampFlags |= (hsGMatState.kClampTextureU | hsGMatState.kClampTextureV)
+            gstate.clampFlags |= hsGMatState.kClampTextureU | hsGMatState.kClampTextureV
             gstate.ZFlags |= hsGMatState.kZNoZWrite
             gstate.miscFlags |= hsGMatState.kMiscLightMap
 
@@ -503,11 +635,14 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
             mat.addPiggyBack(layer.key)
 
             # Mmm... cheating
-            mat_mgr.export_prepared_image(owner=layer, image=lightmap_im,
-                                          allowed_formats={"PNG", "JPG"},
-                                          extension="hsm",
-                                          ephemeral=True,
-                                          indent=2)
+            mat_mgr.export_prepared_image(
+                owner=layer,
+                image=lightmap_im,
+                allowed_formats={"PNG", "JPG"},
+                extension="hsm",
+                ephemeral=True,
+                indent=2,
+            )
 
     @classmethod
     def _idprop_mapping(cls):
@@ -537,7 +672,10 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
             render_layers = tuple(self.render_layers)
 
             # Try to find a render pass matching, if possible...
-            bake_pass = next((i for i in bake_passes if tuple(i.render_layers) == render_layers), None)
+            bake_pass = next(
+                (i for i in bake_passes if tuple(i.render_layers) == render_layers),
+                None,
+            )
             if bake_pass is None:
                 bake_pass = bake_passes.add()
                 bake_pass.display_name = "Pass {}".format(len(bake_passes))
@@ -554,14 +692,18 @@ class PlasmaLightingMod(PlasmaModifierProperties):
     bl_label = "Lighting Info"
     bl_description = "Fine tune Plasma lighting settings"
 
-    force_rt_lights = BoolProperty(name="Force RT Lighting",
-                                   description="Unleashes satan by forcing the engine to dynamically light this object",
-                                   default=False,
-                                   options=set())
-    force_preshade = BoolProperty(name="Force Vertex Shading",
-                                  description="Ensures vertex lights are baked, even if illogical",
-                                  default=False,
-                                  options=set())
+    force_rt_lights = BoolProperty(
+        name="Force RT Lighting",
+        description="Unleashes satan by forcing the engine to dynamically light this object",
+        default=False,
+        options=set(),
+    )
+    force_preshade = BoolProperty(
+        name="Force Vertex Shading",
+        description="Ensures vertex lights are baked, even if illogical",
+        default=False,
+        options=set(),
+    )
 
     @property
     def allow_preshade(self):
@@ -613,29 +755,36 @@ class PlasmaLightingMod(PlasmaModifierProperties):
 
 
 _LOCALIZED_TEXT_PFM = (
-    { 'id': 1,  'type': "ptAttribDynamicMap",   'name': "dynTextMap", },
-    { 'id': 2,  'type': "ptAttribString",       'name': "locPath" },
-    { 'id': 3,  'type': "ptAttribString",       'name': "fontFace" },
-    { 'id': 4,  'type': "ptAttribInt",          'name': "fontSize" },
-    { 'id': 5,  'type': "ptAttribFloat",        'name': "fontColorR" },
-    { 'id': 6,  'type': "ptAttribFloat",        'name': "fontColorG" },
-    { 'id': 7,  'type': "ptAttribFloat",        'name': "fontColorB" },
-    { 'id': 8,  'type': "ptAttribFloat",        'name': "fontColorA" },
-    { 'id': 9,  'type': "ptAttribInt",          'name': "marginTop" },
-    { 'id': 10, 'type': "ptAttribInt",          'name': "marginLeft" },
-    { 'id': 11, 'type': "ptAttribInt",          'name': "marginBottom" },
-    { 'id': 12, 'type': "ptAttribInt",          'name': "marginRight" },
-    { 'id': 13, 'type': "ptAttribInt",          'name': "lineSpacing" },
+    {
+        "id": 1,
+        "type": "ptAttribDynamicMap",
+        "name": "dynTextMap",
+    },
+    {"id": 2, "type": "ptAttribString", "name": "locPath"},
+    {"id": 3, "type": "ptAttribString", "name": "fontFace"},
+    {"id": 4, "type": "ptAttribInt", "name": "fontSize"},
+    {"id": 5, "type": "ptAttribFloat", "name": "fontColorR"},
+    {"id": 6, "type": "ptAttribFloat", "name": "fontColorG"},
+    {"id": 7, "type": "ptAttribFloat", "name": "fontColorB"},
+    {"id": 8, "type": "ptAttribFloat", "name": "fontColorA"},
+    {"id": 9, "type": "ptAttribInt", "name": "marginTop"},
+    {"id": 10, "type": "ptAttribInt", "name": "marginLeft"},
+    {"id": 11, "type": "ptAttribInt", "name": "marginBottom"},
+    {"id": 12, "type": "ptAttribInt", "name": "marginRight"},
+    {"id": 13, "type": "ptAttribInt", "name": "lineSpacing"},
     # Yes, it's really a ptAttribDropDownList, but those are only for use in
     # artist generated node trees.
-    { 'id': 14, 'type': "ptAttribString",       'name': "justify" },
-    { 'id': 15, 'type': "ptAttribFloat",        'name': "clearColorR" },
-    { 'id': 16, 'type': "ptAttribFloat",        'name': "clearColorG" },
-    { 'id': 17, 'type': "ptAttribFloat",        'name': "clearColorB" },
-    { 'id': 18, 'type': "ptAttribFloat",        'name': "clearColorA" },
+    {"id": 14, "type": "ptAttribString", "name": "justify"},
+    {"id": 15, "type": "ptAttribFloat", "name": "clearColorR"},
+    {"id": 16, "type": "ptAttribFloat", "name": "clearColorG"},
+    {"id": 17, "type": "ptAttribFloat", "name": "clearColorB"},
+    {"id": 18, "type": "ptAttribFloat", "name": "clearColorA"},
 )
 
-class PlasmaLocalizedTextModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz, TranslationMixin):
+
+class PlasmaLocalizedTextModifier(
+    PlasmaModifierProperties, PlasmaModifierLogicWiz, TranslationMixin
+):
     pl_id = "dynatext"
 
     bl_category = "Render"
@@ -643,16 +792,18 @@ class PlasmaLocalizedTextModifier(PlasmaModifierProperties, PlasmaModifierLogicW
     bl_description = ""
     bl_icon = "TEXT"
 
-    translations = CollectionProperty(name="Translations",
-                                      type=PlasmaJournalTranslation,
-                                      options=set())
+    translations = CollectionProperty(
+        name="Translations", type=PlasmaJournalTranslation, options=set()
+    )
     active_translation_index = IntProperty(options={"HIDDEN"})
-    active_translation = EnumProperty(name="Language",
-                                      description="Language of this translation",
-                                      items=languages,
-                                      get=TranslationMixin._get_translation,
-                                      set=TranslationMixin._set_translation,
-                                      options=set())
+    active_translation = EnumProperty(
+        name="Language",
+        description="Language of this translation",
+        items=languages,
+        get=TranslationMixin._get_translation,
+        set=TranslationMixin._set_translation,
+        options=set(),
+    )
 
     def _poll_dyna_text(self, value: bpy.types.Texture) -> bool:
         if value.type != "IMAGE":
@@ -660,54 +811,60 @@ class PlasmaLocalizedTextModifier(PlasmaModifierProperties, PlasmaModifierLogicW
         if value.image is not None:
             return False
         tex_materials = frozenset(value.users_material)
-        obj_materials = frozenset(filter(None, (i.material for i in self.id_data.material_slots)))
+        obj_materials = frozenset(
+            filter(None, (i.material for i in self.id_data.material_slots))
+        )
         return bool(tex_materials & obj_materials)
 
-    texture = PointerProperty(name="Texture",
-                              description="The texture to write the localized text on",
-                              type=bpy.types.Texture,
-                              poll=_poll_dyna_text)
+    texture = PointerProperty(
+        name="Texture",
+        description="The texture to write the localized text on",
+        type=bpy.types.Texture,
+        poll=_poll_dyna_text,
+    )
 
-    font_face = StringProperty(name="Font Face",
-                               default="Arial",
-                               options=set())
-    font_size = IntProperty(name="Font Size",
-                            default=12,
-                            min=0, soft_max=72,
-                            options=set())
-    font_color = FloatVectorProperty(name="Font Color",
-                                     default=(0.0, 0.0, 0.0, 1.0),
-                                     min=0.0, max=1.0,
-                                     subtype="COLOR", size=4,
-                                     options=set())
+    font_face = StringProperty(name="Font Face", default="Arial", options=set())
+    font_size = IntProperty(
+        name="Font Size", default=12, min=0, soft_max=72, options=set()
+    )
+    font_color = FloatVectorProperty(
+        name="Font Color",
+        default=(0.0, 0.0, 0.0, 1.0),
+        min=0.0,
+        max=1.0,
+        subtype="COLOR",
+        size=4,
+        options=set(),
+    )
 
     # Using individual properties for better UI documentation
-    margin_top = IntProperty(name="Margin Top",
-                             min=-4096, soft_min=0, max=4096,
-                             options=set())
-    margin_left = IntProperty(name="Margin Left",
-                              min=-4096, soft_min=0, max=4096,
-                              options=set())
-    margin_bottom = IntProperty(name="Margin Bottom",
-                                min=-4096, soft_min=0, max=4096,
-                                options=set())
-    margin_right = IntProperty(name="Margin Right",
-                               min=-4096, soft_min=0, max=4096,
-                               options=set())
+    margin_top = IntProperty(
+        name="Margin Top", min=-4096, soft_min=0, max=4096, options=set()
+    )
+    margin_left = IntProperty(
+        name="Margin Left", min=-4096, soft_min=0, max=4096, options=set()
+    )
+    margin_bottom = IntProperty(
+        name="Margin Bottom", min=-4096, soft_min=0, max=4096, options=set()
+    )
+    margin_right = IntProperty(
+        name="Margin Right", min=-4096, soft_min=0, max=4096, options=set()
+    )
 
-    justify = EnumProperty(name="Justification",
-                           items=[("left", "Left", ""),
-                                  ("center", "Center", ""),
-                                  ("right", "Right", "")],
-                           default="left",
-                           options=set())
-    line_spacing = IntProperty(name="Line Spacing",
-                               default=0,
-                               soft_min=0, soft_max=10,
-                               options=set())
+    justify = EnumProperty(
+        name="Justification",
+        items=[("left", "Left", ""), ("center", "Center", ""), ("right", "Right", "")],
+        default="left",
+        options=set(),
+    )
+    line_spacing = IntProperty(
+        name="Line Spacing", default=0, soft_min=0, soft_max=10, options=set()
+    )
 
     def pre_export(self, exporter, bo):
-        yield self.convert_logic(bo, age_name=exporter.age_name, version=exporter.mgr.getVer())
+        yield self.convert_logic(
+            bo, age_name=exporter.age_name, version=exporter.mgr.getVer()
+        )
 
     def logicwiz(self, bo, tree, *, age_name, version):
         # Rough justice. If the dynamic text map texture doesn't request alpha, then we'll want
@@ -715,19 +872,44 @@ class PlasmaLocalizedTextModifier(PlasmaModifierProperties, PlasmaModifierLogicW
         # add text surfaces directly to objects, opposed to where Cyan tends to use a separate
         # transparent object over the background object.
         if not self.texture.use_alpha:
-            material_filter = lambda slot: slot and slot.material and self.texture in (i.texture for i in slot.material.texture_slots if i)
+            material_filter = (
+                lambda slot: slot
+                and slot.material
+                and self.texture
+                in (i.texture for i in slot.material.texture_slots if i)
+            )
             for slot in filter(material_filter, bo.material_slots):
-                self._create_nodes(bo, tree, age_name=age_name, version=version,
-                                   material=slot.material, clear_color=slot.material.diffuse_color)
+                self._create_nodes(
+                    bo,
+                    tree,
+                    age_name=age_name,
+                    version=version,
+                    material=slot.material,
+                    clear_color=slot.material.diffuse_color,
+                )
         else:
             self._create_nodes(bo, tree, age_name=age_name, version=version)
 
-    def _create_nodes(self, bo, tree, *, age_name, version, material=None, clear_color=None):
-        pfm_node = self._create_python_file_node(tree, "xDynTextLoc.py", _LOCALIZED_TEXT_PFM)
-        loc_path = self.key_name if version <= pvPots else "{}.{}.{}".format(age_name, self.localization_set, self.key_name)
+    def _create_nodes(
+        self, bo, tree, *, age_name, version, material=None, clear_color=None
+    ):
+        pfm_node = self._create_python_file_node(
+            tree, "xDynTextLoc.py", _LOCALIZED_TEXT_PFM
+        )
+        loc_path = (
+            self.key_name
+            if version <= pvPots
+            else "{}.{}.{}".format(age_name, self.localization_set, self.key_name)
+        )
 
-        self._create_python_attribute(pfm_node, "dynTextMap", "ptAttribDynamicMap",
-                                      target_object=bo, material=material, texture=self.texture)
+        self._create_python_attribute(
+            pfm_node,
+            "dynTextMap",
+            "ptAttribDynamicMap",
+            target_object=bo,
+            material=material,
+            texture=self.texture,
+        )
         self._create_python_attribute(pfm_node, "locPath", value=loc_path)
         self._create_python_attribute(pfm_node, "fontFace", value=self.font_face)
         self._create_python_attribute(pfm_node, "fontSize", value=self.font_size)
@@ -737,7 +919,9 @@ class PlasmaLocalizedTextModifier(PlasmaModifierProperties, PlasmaModifierLogicW
         self._create_python_attribute(pfm_node, "fontColorA", value=self.font_color[3])
         self._create_python_attribute(pfm_node, "marginTop", value=self.margin_top)
         self._create_python_attribute(pfm_node, "marginLeft", value=self.margin_left)
-        self._create_python_attribute(pfm_node, "marginBottom", value=self.margin_bottom)
+        self._create_python_attribute(
+            pfm_node, "marginBottom", value=self.margin_bottom
+        )
         self._create_python_attribute(pfm_node, "marginRight", value=self.margin_right)
         self._create_python_attribute(pfm_node, "justify", value=self.justify)
 
@@ -753,7 +937,9 @@ class PlasmaLocalizedTextModifier(PlasmaModifierProperties, PlasmaModifierLogicW
 
     def sanity_check(self):
         if self.texture is None:
-            raise ExportError("'{}': Localized Text modifier requires a texture", self.id_data.name)
+            raise ExportError(
+                "'{}': Localized Text modifier requires a texture", self.id_data.name
+            )
 
 
 class PlasmaShadowCasterMod(PlasmaModifierProperties):
@@ -763,30 +949,51 @@ class PlasmaShadowCasterMod(PlasmaModifierProperties):
     bl_label = "Cast RT Shadow"
     bl_description = "Cast runtime shadows"
 
-    blur = IntProperty(name="Blur",
-                       description="Blur factor for the shadow map",
-                       min=0, max=100, default=0,
-                       subtype="PERCENTAGE", options=set())
-    boost = IntProperty(name="Boost",
-                        description="Multiplies the shadow's power",
-                        min=0, max=5000, default=100,
-                        subtype="PERCENTAGE", options=set())
-    falloff = IntProperty(name="Falloff",
-                          description="Multiplier for each lamp's falloff value",
-                          min=10, max=1000, default=100,
-                          subtype="PERCENTAGE", options=set())
+    blur = IntProperty(
+        name="Blur",
+        description="Blur factor for the shadow map",
+        min=0,
+        max=100,
+        default=0,
+        subtype="PERCENTAGE",
+        options=set(),
+    )
+    boost = IntProperty(
+        name="Boost",
+        description="Multiplies the shadow's power",
+        min=0,
+        max=5000,
+        default=100,
+        subtype="PERCENTAGE",
+        options=set(),
+    )
+    falloff = IntProperty(
+        name="Falloff",
+        description="Multiplier for each lamp's falloff value",
+        min=10,
+        max=1000,
+        default=100,
+        subtype="PERCENTAGE",
+        options=set(),
+    )
 
-    limit_resolution = BoolProperty(name="Limit Resolution",
-                                    description="Increase performance by halving the resolution of the shadow map",
-                                    default=False,
-                                    options=set())
-    self_shadow = BoolProperty(name="Self Shadow",
-                               description="Object can cast shadows on itself",
-                               default=False,
-                               options=set())
+    limit_resolution = BoolProperty(
+        name="Limit Resolution",
+        description="Increase performance by halving the resolution of the shadow map",
+        default=False,
+        options=set(),
+    )
+    self_shadow = BoolProperty(
+        name="Self Shadow",
+        description="Object can cast shadows on itself",
+        default=False,
+        options=set(),
+    )
 
     def export(self, exporter, bo, so):
-        caster = exporter.mgr.find_create_object(plShadowCaster, so=so, name=self.key_name)
+        caster = exporter.mgr.find_create_object(
+            plShadowCaster, so=so, name=self.key_name
+        )
         caster.attenScale = self.falloff / 100.0
         caster.blurScale = self.blur / 100.0
         caster.boost = self.boost / 100.0
@@ -803,39 +1010,49 @@ class PlasmaViewFaceMod(idprops.IDPropObjectMixin, PlasmaModifierProperties):
     bl_label = "Swivel"
     bl_description = "Swivel object to face the camera, player, or another object"
 
-    preset_options = EnumProperty(name="Type",
-                                  description="Type of Facing",
-                                  items=[
-                                         ("Billboard", "Billboard", "Face the camera (Y Axis only)"),
-                                         ("Sprite", "Sprite", "Face the camera (All Axis)"),
-                                         ("Custom", "Custom", "Custom Swivel"),
-                                   ])
+    preset_options = EnumProperty(
+        name="Type",
+        description="Type of Facing",
+        items=[
+            ("Billboard", "Billboard", "Face the camera (Y Axis only)"),
+            ("Sprite", "Sprite", "Face the camera (All Axis)"),
+            ("Custom", "Custom", "Custom Swivel"),
+        ],
+    )
 
-    follow_mode = EnumProperty(name="Target Type",
-                               description="Target of the swivel",
-                               items=[
-                                      ("kFaceCam", "Camera", "Face the camera"),
-                                      ("kFaceList", "Listener", "Face listeners"),
-                                      ("kFacePlay", "Player", "Face the local player"),
-                                      ("kFaceObj", "Object", "Face an object"),
-                                ])
-    target = PointerProperty(name="Target Object",
-                             description="Object to face",
-                             type=bpy.types.Object)
+    follow_mode = EnumProperty(
+        name="Target Type",
+        description="Target of the swivel",
+        items=[
+            ("kFaceCam", "Camera", "Face the camera"),
+            ("kFaceList", "Listener", "Face listeners"),
+            ("kFacePlay", "Player", "Face the local player"),
+            ("kFaceObj", "Object", "Face an object"),
+        ],
+    )
+    target = PointerProperty(
+        name="Target Object", description="Object to face", type=bpy.types.Object
+    )
 
-    pivot_on_y = BoolProperty(name="Pivot on local Y",
-                              description="Swivel only around the local Y axis",
-                              default=False)
+    pivot_on_y = BoolProperty(
+        name="Pivot on local Y",
+        description="Swivel only around the local Y axis",
+        default=False,
+    )
 
     offset = BoolProperty(name="Offset", description="Use offset vector", default=False)
-    offset_local = BoolProperty(name="Local", description="Use local coordinates", default=False)
+    offset_local = BoolProperty(
+        name="Local", description="Use local coordinates", default=False
+    )
     offset_coord = FloatVectorProperty(name="", subtype="XYZ")
 
     def export(self, exporter, bo, so):
-        vfm = exporter.mgr.find_create_object(plViewFaceModifier, so=so, name=self.key_name)
+        vfm = exporter.mgr.find_create_object(
+            plViewFaceModifier, so=so, name=self.key_name
+        )
 
         # Set a default scaling (libHSPlasma will set this to 0 otherwise).
-        vfm.scale = hsVector3(1,1,1)
+        vfm.scale = hsVector3(1, 1, 1)
         l2p = utils.matrix44(bo.matrix_local)
         vfm.localToParent = l2p
         vfm.parentToLocal = l2p.inverse()
@@ -857,9 +1074,15 @@ class PlasmaViewFaceMod(idprops.IDPropObjectMixin, PlasmaModifierProperties):
                 # If this swivel is following an object, make sure that the
                 # target has been selected and is a valid SO.
                 if self.target:
-                    vfm.faceObj = exporter.mgr.find_create_key(plSceneObject, bl=self.target)
+                    vfm.faceObj = exporter.mgr.find_create_key(
+                        plSceneObject, bl=self.target
+                    )
                 else:
-                    raise ExportError("'{}': Swivel's target object must be selected".format(self.key_name))
+                    raise ExportError(
+                        "'{}': Swivel's target object must be selected".format(
+                            self.key_name
+                        )
+                    )
 
             if self.pivot_on_y:
                 vfm.setFlag(plViewFaceModifier.kPivotY, True)
@@ -887,18 +1110,38 @@ class PlasmaVisControl(idprops.IDPropObjectMixin, PlasmaModifierProperties):
     bl_label = "Visibility Control"
     bl_description = "Controls object visibility using VisRegions"
 
-    mode = EnumProperty(name="Mode",
-                        description="Purpose of the VisRegion",
-                        items=[("normal", "Normal", "Objects are only visible when the camera is inside this region"),
-                               ("exclude", "Exclude", "Objects are only visible when the camera is outside this region"),
-                               ("fx", "Special FX", "This is a list of objects used for special effects only")])
-    soft_region = PointerProperty(name="Region",
-                                  description="Object defining the SoftVolume for this VisRegion",
-                                  type=bpy.types.Object,
-                                  poll=idprops.poll_softvolume_objects)
-    replace_normal = BoolProperty(name="Hide Drawables",
-                                  description="Hides drawables attached to this region",
-                                  default=True)
+    mode = EnumProperty(
+        name="Mode",
+        description="Purpose of the VisRegion",
+        items=[
+            (
+                "normal",
+                "Normal",
+                "Objects are only visible when the camera is inside this region",
+            ),
+            (
+                "exclude",
+                "Exclude",
+                "Objects are only visible when the camera is outside this region",
+            ),
+            (
+                "fx",
+                "Special FX",
+                "This is a list of objects used for special effects only",
+            ),
+        ],
+    )
+    soft_region = PointerProperty(
+        name="Region",
+        description="Object defining the SoftVolume for this VisRegion",
+        type=bpy.types.Object,
+        poll=idprops.poll_softvolume_objects,
+    )
+    replace_normal = BoolProperty(
+        name="Hide Drawables",
+        description="Hides drawables attached to this region",
+        default=True,
+    )
 
     def export(self, exporter, bo, so):
         rgn = exporter.mgr.find_create_object(plVisRegion, bl=bo, so=so)
@@ -913,12 +1156,20 @@ class PlasmaVisControl(idprops.IDPropObjectMixin, PlasmaModifierProperties):
                 rgn.region = this_sv.get_key(exporter, so)
             else:
                 if not self.soft_region:
-                    raise ExportError("'{}': Visibility Control must have a Soft Volume selected".format(self.key_name))
+                    raise ExportError(
+                        "'{}': Visibility Control must have a Soft Volume selected".format(
+                            self.key_name
+                        )
+                    )
                 sv_bo = self.soft_region
                 sv = sv_bo.plasma_modifiers.softvolume
                 exporter.report.msg("[VisRegion] SoftVolume '{}'", sv_bo.name, indent=1)
                 if not sv.enabled:
-                    raise ExportError("'{}': '{}' is not a SoftVolume".format(self.key_name, sv_bo.name))
+                    raise ExportError(
+                        "'{}': '{}' is not a SoftVolume".format(
+                            self.key_name, sv_bo.name
+                        )
+                    )
                 rgn.region = sv.get_key(exporter)
             rgn.setProperty(plVisRegion.kIsNot, self.mode == "exclude")
 
@@ -929,10 +1180,12 @@ class PlasmaVisControl(idprops.IDPropObjectMixin, PlasmaModifierProperties):
 
 class VisRegion(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
     enabled = BoolProperty(default=True)
-    control_region = PointerProperty(name="Control",
-                                     description="Object defining a Plasma Visibility Control",
-                                     type=bpy.types.Object,
-                                     poll=idprops.poll_visregion_objects)
+    control_region = PointerProperty(
+        name="Control",
+        description="Object defining a Plasma Visibility Control",
+        type=bpy.types.Object,
+        poll=idprops.poll_visregion_objects,
+    )
 
     @classmethod
     def _idprop_mapping(cls):
@@ -946,8 +1199,7 @@ class PlasmaVisibilitySet(PlasmaModifierProperties):
     bl_label = "Visibility Set"
     bl_description = "Defines areas where this object is visible"
 
-    regions = CollectionProperty(name="Visibility Regions",
-                                 type=VisRegion)
+    regions = CollectionProperty(name="Visibility Regions", type=VisRegion)
     active_region_index = IntProperty(options={"HIDDEN"})
 
     def export(self, exporter, bo, so):
@@ -967,5 +1219,11 @@ class PlasmaVisibilitySet(PlasmaModifierProperties):
             if not region.enabled:
                 continue
             if not region.control_region:
-                raise ExportError("{}: Not all Visibility Controls are set up properly in Visibility Set".format(bo.name))
-            addRegion(exporter.mgr.find_create_key(plVisRegion, bl=region.control_region))
+                raise ExportError(
+                    "{}: Not all Visibility Controls are set up properly in Visibility Set".format(
+                        bo.name
+                    )
+                )
+            addRegion(
+                exporter.mgr.find_create_key(plVisRegion, bl=region.control_region)
+            )

@@ -19,42 +19,44 @@ from PyHSPlasma import *
 
 from ..addon_prefs import game_versions
 
+
 class PlasmaFni(bpy.types.PropertyGroup):
     bl_idname = "world.plasma_fni"
 
-    fog_color = FloatVectorProperty(name="Fog Color",
-                                    description="The default fog color used in your age",
-                                    default=(0.4, 0.3, 0.1),
-                                    min=0.0,
-                                    max=1.0,
-                                    subtype="COLOR")
-    fog_method = EnumProperty(name="Fog Type",
-                              items=[
-                                     ("linear", "Linear", "Fog Based on Linear Distance"),
-                                     ("exp", "Exponential", "Fog Based on Exponential Distance"),
-                                     ("exp2", "Exponential 2", "Fog Based on Exponential Distance Squared"),
-                                     ("none", "None", "No Fog")
-                                    ])
-    fog_start = FloatProperty(name="Start",
-                              description="",
-                              default=-1500.0)
-    fog_end = FloatProperty(name="End",
-                            description="",
-                            default=20000.0)
-    fog_density = FloatProperty(name="Density",
-                                description="",
-                                default=1.0,
-                                min=0.0)
-    clear_color = FloatVectorProperty(name="Clear Color",
-                                      description="The default background color rendered in your age",
-                                      min=0.0,
-                                      max=1.0,
-                                      subtype="COLOR")
-    yon = IntProperty(name="Draw Distance",
-                      description="The distance (in feet) Plasma will draw",
-                      default=100000,
-                      soft_min=100,
-                      min=1)
+    fog_color = FloatVectorProperty(
+        name="Fog Color",
+        description="The default fog color used in your age",
+        default=(0.4, 0.3, 0.1),
+        min=0.0,
+        max=1.0,
+        subtype="COLOR",
+    )
+    fog_method = EnumProperty(
+        name="Fog Type",
+        items=[
+            ("linear", "Linear", "Fog Based on Linear Distance"),
+            ("exp", "Exponential", "Fog Based on Exponential Distance"),
+            ("exp2", "Exponential 2", "Fog Based on Exponential Distance Squared"),
+            ("none", "None", "No Fog"),
+        ],
+    )
+    fog_start = FloatProperty(name="Start", description="", default=-1500.0)
+    fog_end = FloatProperty(name="End", description="", default=20000.0)
+    fog_density = FloatProperty(name="Density", description="", default=1.0, min=0.0)
+    clear_color = FloatVectorProperty(
+        name="Clear Color",
+        description="The default background color rendered in your age",
+        min=0.0,
+        max=1.0,
+        subtype="COLOR",
+    )
+    yon = IntProperty(
+        name="Draw Distance",
+        description="The distance (in feet) Plasma will draw",
+        default=100000,
+        soft_min=100,
+        min=1,
+    )
 
 
 class PlasmaGames(bpy.types.PropertyGroup):
@@ -114,37 +116,47 @@ class PlasmaPage(bpy.types.PropertyGroup):
         self.name = "Page%02i" % suffix
         self.check_suffixes = True
 
-    name = StringProperty(name="Name",
-                          description="Name of the specified page",
-                          update=_rename_page)
-    seq_suffix = IntProperty(name="ID",
-                             description="A numerical ID for this page",
-                             soft_min=0,  # Negatives indicate global--advanced users only
-                             default=0,  # The add operator will autogen a default
-                             update=_check_suffix)
-    auto_load = BoolProperty(name="Auto Load",
-                             description="Load this page on link-in",
-                             default=True)
-    local_only = BoolProperty(name="Local Only",
-                              description="This page should not synchronize with the server",
-                              default=False)
-    enabled = BoolProperty(name="Export Page",
-                           description="Export this page",
-                           default=True)
-    version = EnumProperty(name="Export Versions",
-                           description="Plasma versions this page exports under",
-                           items=game_versions,
-                           options={"ENUM_FLAG"},
-                           default=set(list(zip(*game_versions))[0]))
+    name = StringProperty(
+        name="Name", description="Name of the specified page", update=_rename_page
+    )
+    seq_suffix = IntProperty(
+        name="ID",
+        description="A numerical ID for this page",
+        soft_min=0,  # Negatives indicate global--advanced users only
+        default=0,  # The add operator will autogen a default
+        update=_check_suffix,
+    )
+    auto_load = BoolProperty(
+        name="Auto Load", description="Load this page on link-in", default=True
+    )
+    local_only = BoolProperty(
+        name="Local Only",
+        description="This page should not synchronize with the server",
+        default=False,
+    )
+    enabled = BoolProperty(
+        name="Export Page", description="Export this page", default=True
+    )
+    version = EnumProperty(
+        name="Export Versions",
+        description="Plasma versions this page exports under",
+        items=game_versions,
+        options={"ENUM_FLAG"},
+        default=set(list(zip(*game_versions))[0]),
+    )
 
     # Implementation details...
-    last_name = StringProperty(description="INTERNAL: Cached page name",
-                               options={"HIDDEN"})
-    last_seq_suffix = IntProperty(description="INTERNAL: Cached sequence suffix",
-                                  options={"HIDDEN"})
-    check_suffixes = BoolProperty(description="INTERNAL: Should we sanity-check suffixes?",
-                                  options={"HIDDEN"},
-                                  default=False)
+    last_name = StringProperty(
+        description="INTERNAL: Cached page name", options={"HIDDEN"}
+    )
+    last_seq_suffix = IntProperty(
+        description="INTERNAL: Cached sequence suffix", options={"HIDDEN"}
+    )
+    check_suffixes = BoolProperty(
+        description="INTERNAL: Should we sanity-check suffixes?",
+        options={"HIDDEN"},
+        default=False,
+    )
 
 
 class PlasmaAge(bpy.types.PropertyGroup):
@@ -153,14 +165,20 @@ class PlasmaAge(bpy.types.PropertyGroup):
             log_func = exporter.report.warn
         else:
             log_func = exporter.report.port
-        if self.seq_prefix <= self.MOUL_PREFIX_RANGE[0] or self.seq_prefix >= self.MOUL_PREFIX_RANGE[1]:
-            log_func("Age Sequence Prefix {} is potentially out of range (should be between {} and {})",
-                     self.seq_prefix, *self.MOUL_PREFIX_RANGE)
+        if (
+            self.seq_prefix <= self.MOUL_PREFIX_RANGE[0]
+            or self.seq_prefix >= self.MOUL_PREFIX_RANGE[1]
+        ):
+            log_func(
+                "Age Sequence Prefix {} is potentially out of range (should be between {} and {})",
+                self.seq_prefix,
+                *self.MOUL_PREFIX_RANGE
+            )
 
         _age_info = plAgeInfo()
         _age_info.dayLength = self.day_length
-        _age_info.lingerTime = 180 # this is fairly standard
-        _age_info.maxCapacity = 50 # the server currently ignores this
+        _age_info.lingerTime = 180  # this is fairly standard
+        _age_info.maxCapacity = 50  # the server currently ignores this
         _age_info.name = exporter.age_name
         _age_info.seqPrefix = self.seq_prefix
         _age_info.startDateTime = self.start_time
@@ -170,35 +188,47 @@ class PlasmaAge(bpy.types.PropertyGroup):
     MOUL_PREFIX_RANGE = ((pow(2, 16) - pow(2, 15)) * -1, pow(2, 15) - 1)
     SP_PRFIX_RANGE = ((pow(2, 24) - pow(2, 23)) * -1, pow(2, 23) - 1)
 
-    day_length = FloatProperty(name="Day Length",
-                               description="Length of a day (in hours) on this age",
-                               default=30.230000,
-                               soft_min=0.1,
-                               min=0.0)
-    start_time = IntProperty(name="Start Time",
-                             description="Seconds from 1/1/1970 until the first day on this age",
-                             subtype="UNSIGNED",
-                             default=672211080,
-                             min=0)
-    seq_prefix = IntProperty(name="Sequence Prefix",
-                             description="A unique numerical ID for this age",
-                             min=SP_PRFIX_RANGE[0],
-                             soft_min=0,  # Negative indicates global--advanced users only
-                             soft_max=MOUL_PREFIX_RANGE[1],
-                             max=SP_PRFIX_RANGE[1],
-                             default=100)
-    pages = CollectionProperty(name="Pages",
-                               description="Registry pages for this age",
-                               type=PlasmaPage)
-    age_sdl = BoolProperty(name="Age Global SDL",
-                           description="This age has its own SDL file",
-                           default=False)
-    use_texture_page = BoolProperty(name="Use Textures Page",
-                                    description="Exports all textures to a dedicated Textures page",
-                                    default=True)
-    age_name = StringProperty(name="Age Name",
-                              description="Name of the Age to be used for data files",
-                              options=set())
+    day_length = FloatProperty(
+        name="Day Length",
+        description="Length of a day (in hours) on this age",
+        default=30.230000,
+        soft_min=0.1,
+        min=0.0,
+    )
+    start_time = IntProperty(
+        name="Start Time",
+        description="Seconds from 1/1/1970 until the first day on this age",
+        subtype="UNSIGNED",
+        default=672211080,
+        min=0,
+    )
+    seq_prefix = IntProperty(
+        name="Sequence Prefix",
+        description="A unique numerical ID for this age",
+        min=SP_PRFIX_RANGE[0],
+        soft_min=0,  # Negative indicates global--advanced users only
+        soft_max=MOUL_PREFIX_RANGE[1],
+        max=SP_PRFIX_RANGE[1],
+        default=100,
+    )
+    pages = CollectionProperty(
+        name="Pages", description="Registry pages for this age", type=PlasmaPage
+    )
+    age_sdl = BoolProperty(
+        name="Age Global SDL",
+        description="This age has its own SDL file",
+        default=False,
+    )
+    use_texture_page = BoolProperty(
+        name="Use Textures Page",
+        description="Exports all textures to a dedicated Textures page",
+        default=True,
+    )
+    age_name = StringProperty(
+        name="Age Name",
+        description="Name of the Age to be used for data files",
+        options=set(),
+    )
 
     # Implementation details
     active_page_index = IntProperty(name="Active Page Index")

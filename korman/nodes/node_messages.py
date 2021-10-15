@@ -23,21 +23,29 @@ from ..properties.modifiers.region import footstep_surfaces, footstep_surface_id
 from ..exporter import ExportError
 from .. import idprops
 
+
 class PlasmaMessageSocketBase(PlasmaNodeSocketBase):
     bl_color = (0.004, 0.282, 0.349, 1.0)
+
+
 class PlasmaMessageSocket(PlasmaMessageSocketBase, bpy.types.NodeSocket):
     pass
 
 
 class PlasmaMessageNode(PlasmaNodeBase):
-    input_sockets = OrderedDict([
-        ("sender", {
-            "text": "Sender",
-            "type": "PlasmaMessageSocket",
-            "valid_link_sockets": "PlasmaMessageSocket",
-            "spawn_empty": True,
-        }),
-    ])
+    input_sockets = OrderedDict(
+        [
+            (
+                "sender",
+                {
+                    "text": "Sender",
+                    "type": "PlasmaMessageSocket",
+                    "valid_link_sockets": "PlasmaMessageSocket",
+                    "spawn_empty": True,
+                },
+            ),
+        ]
+    )
 
     @property
     def has_callbacks(self):
@@ -46,14 +54,19 @@ class PlasmaMessageNode(PlasmaNodeBase):
 
 
 class PlasmaMessageWithCallbacksNode(PlasmaMessageNode):
-    output_sockets = OrderedDict([
-        ("msgs", {
-            "can_link": "can_link_callback",
-            "text": "Send On Completion",
-            "type": "PlasmaMessageSocket",
-            "valid_link_sockets": "PlasmaMessageSocket",
-        }),
-    ])
+    output_sockets = OrderedDict(
+        [
+            (
+                "msgs",
+                {
+                    "can_link": "can_link_callback",
+                    "text": "Send On Completion",
+                    "type": "PlasmaMessageSocket",
+                    "valid_link_sockets": "PlasmaMessageSocket",
+                },
+            ),
+        ]
+    )
 
     @property
     def can_link_callback(self):
@@ -93,17 +106,23 @@ class PlasmaMessageWithCallbacksNode(PlasmaMessageNode):
         return self.find_output("msgs") is not None
 
 
-class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, bpy.types.Node):
+class PlasmaAnimCmdMsgNode(
+    idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, bpy.types.Node
+):
     bl_category = "MSG"
     bl_idname = "PlasmaAnimCmdMsgNode"
     bl_label = "Animation Command"
     bl_width_default = 190
 
-    anim_type = EnumProperty(name="Type",
-                             description="Animation type to affect",
-                             items=[("OBJECT", "Object", "Mesh Action"),
-                                    ("TEXTURE", "Texture", "Texture Action")],
-                             default="OBJECT")
+    anim_type = EnumProperty(
+        name="Type",
+        description="Animation type to affect",
+        items=[
+            ("OBJECT", "Object", "Mesh Action"),
+            ("TEXTURE", "Texture", "Texture Action"),
+        ],
+        default="OBJECT",
+    )
 
     def _poll_texture(self, value):
         # must be a legal option... but is it a member of this material... or, if no material,
@@ -111,8 +130,14 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
         if self.target_material is not None:
             return value.name in self.target_material.texture_slots
         elif self.target_object is not None:
-            for i in (slot.material for slot in self.target_object.material_slots if slot and slot.material):
-                if value in (slot.texture for slot in i.texture_slots if slot and slot.texture):
+            for i in (
+                slot.material
+                for slot in self.target_object.material_slots
+                if slot and slot.material
+            ):
+                if value in (
+                    slot.texture for slot in i.texture_slots if slot and slot.texture
+                ):
                     return True
             return False
         else:
@@ -123,115 +148,204 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
         # in that you would have to clear the texture selection before being able to select
         # certain materials.
         if self.target_object is not None:
-            object_materials = (slot.material for slot in self.target_object.material_slots if slot and slot.material)
+            object_materials = (
+                slot.material
+                for slot in self.target_object.material_slots
+                if slot and slot.material
+            )
             return value in object_materials
         return True
 
-    target_object = PointerProperty(name="Object",
-                                    description="Target object",
-                                    type=bpy.types.Object)
-    target_material = PointerProperty(name="Material",
-                                      description="Target material",
-                                      type=bpy.types.Material,
-                                      poll=_poll_material)
-    target_texture = PointerProperty(name="Texture",
-                                     description="Target texture",
-                                     type=bpy.types.Texture,
-                                     poll=_poll_texture)
+    target_object = PointerProperty(
+        name="Object", description="Target object", type=bpy.types.Object
+    )
+    target_material = PointerProperty(
+        name="Material",
+        description="Target material",
+        type=bpy.types.Material,
+        poll=_poll_material,
+    )
+    target_texture = PointerProperty(
+        name="Texture",
+        description="Target texture",
+        type=bpy.types.Texture,
+        poll=_poll_texture,
+    )
 
-    go_to = EnumProperty(name="Go To",
-                         description="Where should the animation start?",
-                         items=[("kGoToBegin", "Beginning", "The beginning"),
-                                ("kGoToLoopBegin", "Loop Beginning", "The beginning of the active loop"),
-                                ("CURRENT", "(Don't Change)", "The current position"),
-                                ("kGoToEnd", "Ending", "The end"),
-                                ("kGoToLoopEnd", "Loop Ending", "The end of the active loop")],
-                         default="CURRENT")
-    action = EnumProperty(name="Action",
-                          description="What do you want the animation to do?",
-                          items=[("kContinue", "Play", "Plays the animation"),
-                                 ("kPlayToPercent", "Play to Percent", "Plays the animation until a given percent is complete"),
-                                 ("kPlayToTime", "Play to Frame", "Plays the animation up to a given frame number"),
-                                 ("kStop", "Stop", "Stops the animation",),
-                                 ("kToggleState", "Toggle", "Toggles between Play and Stop"),
-                                 ("CURRENT", "(Don't Change)", "Don't change the animation's playing state")],
-                          default="CURRENT")
-    play_direction = EnumProperty(name="Direction",
-                                  description="Which direction do you want to play from?",
-                                  items=[("kSetForwards", "Forward", "Play forwards"),
-                                         ("kSetBackwards", "Backwards", "Play backwards"),
-                                         ("CURRENT", "(Don't Change)", "Don't change the  play direction")],
-                                  default="CURRENT")
-    play_to_percent = IntProperty(name="Play To",
-                                  description="Percentage at which to stop the animation",
-                                  subtype="PERCENTAGE",
-                                  min=0, max=100, default=50)
-    play_to_frame = IntProperty(name="Play To",
-                                  description="Frame at which to stop the animation",
-                                  min=0)
+    go_to = EnumProperty(
+        name="Go To",
+        description="Where should the animation start?",
+        items=[
+            ("kGoToBegin", "Beginning", "The beginning"),
+            ("kGoToLoopBegin", "Loop Beginning", "The beginning of the active loop"),
+            ("CURRENT", "(Don't Change)", "The current position"),
+            ("kGoToEnd", "Ending", "The end"),
+            ("kGoToLoopEnd", "Loop Ending", "The end of the active loop"),
+        ],
+        default="CURRENT",
+    )
+    action = EnumProperty(
+        name="Action",
+        description="What do you want the animation to do?",
+        items=[
+            ("kContinue", "Play", "Plays the animation"),
+            (
+                "kPlayToPercent",
+                "Play to Percent",
+                "Plays the animation until a given percent is complete",
+            ),
+            (
+                "kPlayToTime",
+                "Play to Frame",
+                "Plays the animation up to a given frame number",
+            ),
+            (
+                "kStop",
+                "Stop",
+                "Stops the animation",
+            ),
+            ("kToggleState", "Toggle", "Toggles between Play and Stop"),
+            ("CURRENT", "(Don't Change)", "Don't change the animation's playing state"),
+        ],
+        default="CURRENT",
+    )
+    play_direction = EnumProperty(
+        name="Direction",
+        description="Which direction do you want to play from?",
+        items=[
+            ("kSetForwards", "Forward", "Play forwards"),
+            ("kSetBackwards", "Backwards", "Play backwards"),
+            ("CURRENT", "(Don't Change)", "Don't change the  play direction"),
+        ],
+        default="CURRENT",
+    )
+    play_to_percent = IntProperty(
+        name="Play To",
+        description="Percentage at which to stop the animation",
+        subtype="PERCENTAGE",
+        min=0,
+        max=100,
+        default=50,
+    )
+    play_to_frame = IntProperty(
+        name="Play To", description="Frame at which to stop the animation", min=0
+    )
 
     def _set_loop_name(self, context):
         """Updates loop_begin and loop_end when the loop name is changed"""
         pass
 
-    looping = EnumProperty(name="Looping",
-                           description="Is the animation looping?",
-                           items=[("kSetLooping", "Yes", "The animation is looping",),
-                                  ("CURRENT", "(Don't Change)", "Don't change the loop status"),
-                                  ("kSetUnLooping", "No", "The animation is NOT looping")],
-                           default="CURRENT")
-    loop_name = StringProperty(name="Active Loop",
-                               description="Name of the active loop",
-                               update=_set_loop_name)
-    loop_begin = IntProperty(name="Loop Begin",
-                             description="Frame number at which the loop begins",
-                             min=0)
-    loop_end = IntProperty(name="Loop End",
-                           description="Frame number at which the loop ends",
-                           min=0)
+    looping = EnumProperty(
+        name="Looping",
+        description="Is the animation looping?",
+        items=[
+            (
+                "kSetLooping",
+                "Yes",
+                "The animation is looping",
+            ),
+            ("CURRENT", "(Don't Change)", "Don't change the loop status"),
+            ("kSetUnLooping", "No", "The animation is NOT looping"),
+        ],
+        default="CURRENT",
+    )
+    loop_name = StringProperty(
+        name="Active Loop", description="Name of the active loop", update=_set_loop_name
+    )
+    loop_begin = IntProperty(
+        name="Loop Begin", description="Frame number at which the loop begins", min=0
+    )
+    loop_end = IntProperty(
+        name="Loop End", description="Frame number at which the loop ends", min=0
+    )
 
-    event = EnumProperty(name="Callback",
-                         description="Event upon which to callback the Responder",
-                         items=[("kEnd", "End", "When the action ends"),
-                                ("NONE", "(None)", "Don't notify the Responder at all"),
-                                ("kStop", "Stop", "When the action is stopped by a message")],
-                         default="kEnd")
+    event = EnumProperty(
+        name="Callback",
+        description="Event upon which to callback the Responder",
+        items=[
+            ("kEnd", "End", "When the action ends"),
+            ("NONE", "(None)", "Don't notify the Responder at all"),
+            ("kStop", "Stop", "When the action is stopped by a message"),
+        ],
+        default="kEnd",
+    )
 
     # Blender memory workaround
     _ENTIRE_ANIMATION = "(Entire Animation)"
+
     def _get_anim_names(self, context):
         if self.anim_type == "OBJECT":
-            items = [(anim.animation_name, anim.animation_name, "")
-                     for anim in self.target_object.plasma_modifiers.animation.subanimations]
+            items = [
+                (anim.animation_name, anim.animation_name, "")
+                for anim in self.target_object.plasma_modifiers.animation.subanimations
+            ]
         elif self.anim_type == "TEXTURE":
             if self.target_texture is not None:
-                items = [(anim.animation_name, anim.animation_name, "")
-                         for anim in self.target_texture.plasma_layer.subanimations]
+                items = [
+                    (anim.animation_name, anim.animation_name, "")
+                    for anim in self.target_texture.plasma_layer.subanimations
+                ]
             elif self.target_material is not None or self.target_object is not None:
                 if self.target_material is None:
-                    materials = (i.material for i in self.target_object.material_slots if i and i.material)
+                    materials = (
+                        i.material
+                        for i in self.target_object.material_slots
+                        if i and i.material
+                    )
                 else:
                     materials = (self.target_material,)
-                layer_props = (i.texture.plasma_layer for mat in materials for i in mat.texture_slots if i and i.texture)
-                all_anims = frozenset((anim.animation_name for i in layer_props for anim in i.subanimations))
+                layer_props = (
+                    i.texture.plasma_layer
+                    for mat in materials
+                    for i in mat.texture_slots
+                    if i and i.texture
+                )
+                all_anims = frozenset(
+                    (
+                        anim.animation_name
+                        for i in layer_props
+                        for anim in i.subanimations
+                    )
+                )
                 items = [(i, i, "") for i in all_anims]
             else:
-                items = [(PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, "")]
+                items = [
+                    (
+                        PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION,
+                        PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION,
+                        "",
+                    )
+                ]
         else:
             raise RuntimeError()
 
         # We always want "(Entire Animation)", if it exists, to be the first item.
-        entire = items.index((PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, ""))
+        entire = items.index(
+            (
+                PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION,
+                PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION,
+                "",
+            )
+        )
         if entire not in (-1, 0):
             items.pop(entire)
-            items.insert(0, (PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, ""))
+            items.insert(
+                0,
+                (
+                    PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION,
+                    PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION,
+                    "",
+                ),
+            )
 
         return items
 
-    anim_name = EnumProperty(name="Animation",
-                             description="Name of the animation to control",
-                             items=_get_anim_names,
-                             options=set())
+    anim_name = EnumProperty(
+        name="Animation",
+        description="Name of the animation to control",
+        items=_get_anim_names,
+        options=set(),
+    )
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "anim_type")
@@ -240,7 +354,9 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
         if self.anim_type == "OBJECT":
             col.alert = self.target_object is None
         else:
-            col.alert = not any((self.target_object, self.target_material, self.target_texture))
+            col.alert = not any(
+                (self.target_object, self.target_material, self.target_texture)
+            )
         col.prop(self, "target_object")
         if self.anim_type != "OBJECT":
             col.prop(self, "target_material")
@@ -261,7 +377,11 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
         if self.anim_type != "OBJECT":
             loops = None
         else:
-            loops = None if self.target_object is None else self.target_object.plasma_modifiers.animation_loop
+            loops = (
+                None
+                if self.target_object is None
+                else self.target_object.plasma_modifiers.animation_loop
+            )
         if loops is not None and loops.enabled:
             layout.prop_search(self, "loop_name", loops, "loops", icon="PMARKER_ACT")
         else:
@@ -293,10 +413,18 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
             material = self.target_material
             texture = self.target_texture
             if obj is None and material is None and texture is None:
-                self.raise_error("At least one of: target object, material, texture MUST be specified")
-            target = exporter.mesh.material.get_texture_animation_key(obj, material, texture, self.anim_name)
+                self.raise_error(
+                    "At least one of: target object, material, texture MUST be specified"
+                )
+            target = exporter.mesh.material.get_texture_animation_key(
+                obj, material, texture, self.anim_name
+            )
 
-        target = [i for i in target if not isinstance(i.object, (plAgeGlobalAnim, plLayerSDLAnimation))]
+        target = [
+            i
+            for i in target
+            if not isinstance(i.object, (plAgeGlobalAnim, plLayerSDLAnimation))
+        ]
         if not target:
             self.raise_error("No controllable animations were found.")
         for i in target:
@@ -332,14 +460,18 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
 
     @classmethod
     def _idprop_mapping(cls):
-        return {"target_object": "object_name",
-                "target_material": "material_name",
-                "target_texture": "texture_name"}
+        return {
+            "target_object": "object_name",
+            "target_material": "material_name",
+            "target_texture": "texture_name",
+        }
 
     def _idprop_sources(self):
-        return {"object_name": bpy.data.objects,
-                "material_name": bpy.data.materials,
-                "texture_name": bpy.data.textures}
+        return {
+            "object_name": bpy.data.objects,
+            "material_name": bpy.data.materials,
+            "texture_name": bpy.data.textures,
+        }
 
 
 class PlasmaCameraMsgNode(PlasmaMessageNode, bpy.types.Node):
@@ -348,20 +480,40 @@ class PlasmaCameraMsgNode(PlasmaMessageNode, bpy.types.Node):
     bl_label = "Camera"
     bl_width_default = 200
 
-    cmd = EnumProperty(name="Command",
-                       description="Command to send to the camera system",
-                       items=[("push", "Push Camera", "Pushes a new camera onto the camera stack and transitions to it"),
-                              ("pop", "Pop Camera", "Pops the camera off the camera stack"),
-                              ("disablefp", "Disable First Person", "Forces the camera into third person if it is currently in first person and disables first person mode"),
-                              ("enablefp", "Enable First Person", "Reenables the first person camera and switches back to it if the player was in first person previously")],
-                       options=set())
-    camera = PointerProperty(name="Camera",
-                             type=bpy.types.Object,
-                             poll=idprops.poll_camera_objects,
-                             options=set())
-    cut = BoolProperty(name="Cut Transition",
-                       description="Immediately swap over to the new camera without a transition animation",
-                       options=set())
+    cmd = EnumProperty(
+        name="Command",
+        description="Command to send to the camera system",
+        items=[
+            (
+                "push",
+                "Push Camera",
+                "Pushes a new camera onto the camera stack and transitions to it",
+            ),
+            ("pop", "Pop Camera", "Pops the camera off the camera stack"),
+            (
+                "disablefp",
+                "Disable First Person",
+                "Forces the camera into third person if it is currently in first person and disables first person mode",
+            ),
+            (
+                "enablefp",
+                "Enable First Person",
+                "Reenables the first person camera and switches back to it if the player was in first person previously",
+            ),
+        ],
+        options=set(),
+    )
+    camera = PointerProperty(
+        name="Camera",
+        type=bpy.types.Object,
+        poll=idprops.poll_camera_objects,
+        options=set(),
+    )
+    cut = BoolProperty(
+        name="Cut Transition",
+        description="Immediately swap over to the new camera without a transition animation",
+        options=set(),
+    )
 
     def convert_message(self, exporter, so):
         msg = plCameraMsg()
@@ -373,8 +525,11 @@ class PlasmaCameraMsgNode(PlasmaMessageNode, bpy.types.Node):
             # the presence of the kResponderTrigger command.
             msg.setCmd(plCameraMsg.kResponderTrigger, self.cmd == "push")
             msg.setCmd(plCameraMsg.kRegionPushCamera, True)
-            msg.setCmd(plCameraMsg.kSetAsPrimary, self.camera is None
-                       or self.camera.data.plasma_camera.settings.primary_camera)
+            msg.setCmd(
+                plCameraMsg.kSetAsPrimary,
+                self.camera is None
+                or self.camera.data.plasma_camera.settings.primary_camera,
+            )
             msg.setCmd(plCameraMsg.kCut, self.cut)
         elif self.cmd == "disablefp":
             msg.setCmd(plCameraMsg.kResponderSetThirdPerson)
@@ -396,31 +551,49 @@ class PlasmaEnableMsgNode(PlasmaMessageNode, bpy.types.Node):
     bl_idname = "PlasmaEnableMsgNode"
     bl_label = "Enable/Disable"
 
-    output_sockets = OrderedDict([
-        ("receivers", {
-            "text": "Send To",
-            "type": "PlasmaEnableMessageSocket",
-            "valid_link_sockets": {"PlasmaEnableMessageSocket", "PlasmaNodeSocketInputGeneral"},
-        }),
-    ])
+    output_sockets = OrderedDict(
+        [
+            (
+                "receivers",
+                {
+                    "text": "Send To",
+                    "type": "PlasmaEnableMessageSocket",
+                    "valid_link_sockets": {
+                        "PlasmaEnableMessageSocket",
+                        "PlasmaNodeSocketInputGeneral",
+                    },
+                },
+            ),
+        ]
+    )
 
-    cmd = EnumProperty(name="Command",
-                       description="How should we affect the object's state?",
-                       items=[("kDisable", "Disable", "Deactivate the object"),
-                              ("kEnable", "Enable", "Activate the object")],
-                       default="kEnable")
-    settings = EnumProperty(name="Affects",
-                            description="Which attributes should we change",
-                            items=[("kAudible", "Audio", "Sounds played by this object"),
-                                   ("kPhysical", "Physics", "Physical simulation of the object"),
-                                   ("kDrawable", "Visibility", "Visible geometry/light of the object"),
-                                   ("kModifiers", "Modifiers", "Modifiers attached to the object")],
-                            options={"ENUM_FLAG"},
-                            default={"kAudible", "kDrawable", "kPhysical", "kModifiers"})
-    bcast_to_children = BoolProperty(name="Send to Children",
-                                     description="Send the message to objects parented to the object",
-                                     default=False,
-                                     options=set())
+    cmd = EnumProperty(
+        name="Command",
+        description="How should we affect the object's state?",
+        items=[
+            ("kDisable", "Disable", "Deactivate the object"),
+            ("kEnable", "Enable", "Activate the object"),
+        ],
+        default="kEnable",
+    )
+    settings = EnumProperty(
+        name="Affects",
+        description="Which attributes should we change",
+        items=[
+            ("kAudible", "Audio", "Sounds played by this object"),
+            ("kPhysical", "Physics", "Physical simulation of the object"),
+            ("kDrawable", "Visibility", "Visible geometry/light of the object"),
+            ("kModifiers", "Modifiers", "Modifiers attached to the object"),
+        ],
+        options={"ENUM_FLAG"},
+        default={"kAudible", "kDrawable", "kPhysical", "kModifiers"},
+    )
+    bcast_to_children = BoolProperty(
+        name="Send to Children",
+        description="Send the message to objects parented to the object",
+        default=False,
+        options=set(),
+    )
 
     def convert_message(self, exporter, so):
         settings = self.settings
@@ -491,18 +664,21 @@ class PlasmaExcludeRegionMsg(PlasmaMessageNode, bpy.types.Node):
     bl_idname = "PlasmaExcludeRegionMsg"
     bl_label = "Exclude Region"
 
-    output_sockets = OrderedDict([
-        ("region", {
-            "text": "Region",
-            "type": "PlasmaExcludeMessageSocket"
-        }),
-    ])
+    output_sockets = OrderedDict(
+        [
+            ("region", {"text": "Region", "type": "PlasmaExcludeMessageSocket"}),
+        ]
+    )
 
-    cmd = EnumProperty(name="Command",
-                       description="Exclude Region State",
-                       items=[("kClear", "Clear", "Clear all avatars from the region"),
-                              ("kRelease", "Release", "Allow avatars to enter the region")],
-                       default="kClear")
+    cmd = EnumProperty(
+        name="Command",
+        description="Exclude Region State",
+        items=[
+            ("kClear", "Clear", "Clear all avatars from the region"),
+            ("kRelease", "Release", "Allow avatars to enter the region"),
+        ],
+        default="kClear",
+    )
 
     def convert_message(self, exporter, so):
         msg = plExcludeRegionMsg()
@@ -521,29 +697,60 @@ class PlasmaLinkToAgeMsg(PlasmaMessageNode, bpy.types.Node):
     bl_label = "Link to Age"
     bl_width_default = 280
 
-    rules = EnumProperty(name="Rules",
-                         description="Rules describing which age instance to link to",
-                         items=[("kOriginalBook", "Original Age", "Links to a personally owned instance, creating if none exists"),
-                                ("kOwnedBook", "Owned Age", "Links to a personally owned instance, fails if none exists"),
-                                ("kChildAgeBook", "Child Age", "Links to an age instance parented to another personal age"),
-                                ("kSubAgeBook", "Sub Age", "Links to an age instance owned by the current age instance"),
-                                ("kBasicLink", "Basic", "Links to a specific age instance")])
-    parent_filename = StringProperty(name="Parent Age",
-                                     description="Filename of the age that owns the age instance we're linking to")
+    rules = EnumProperty(
+        name="Rules",
+        description="Rules describing which age instance to link to",
+        items=[
+            (
+                "kOriginalBook",
+                "Original Age",
+                "Links to a personally owned instance, creating if none exists",
+            ),
+            (
+                "kOwnedBook",
+                "Owned Age",
+                "Links to a personally owned instance, fails if none exists",
+            ),
+            (
+                "kChildAgeBook",
+                "Child Age",
+                "Links to an age instance parented to another personal age",
+            ),
+            (
+                "kSubAgeBook",
+                "Sub Age",
+                "Links to an age instance owned by the current age instance",
+            ),
+            ("kBasicLink", "Basic", "Links to a specific age instance"),
+        ],
+    )
+    parent_filename = StringProperty(
+        name="Parent Age",
+        description="Filename of the age that owns the age instance we're linking to",
+    )
 
-    age_filename = StringProperty(name="Age Filename",
-                                  description="Filename of the age to link to (eg 'Garden'")
-    age_instance = StringProperty(name="Age Instance",
-                                  description="Instance name of the age to link to (eg 'Eder Kemo')")
-    age_uuid = StringProperty(name="Age Guid",
-                              description="Instance GUID to link to (eg 'ea489821-6c35-4bd0-9dae-bb17c585e680')")
+    age_filename = StringProperty(
+        name="Age Filename", description="Filename of the age to link to (eg 'Garden'"
+    )
+    age_instance = StringProperty(
+        name="Age Instance",
+        description="Instance name of the age to link to (eg 'Eder Kemo')",
+    )
+    age_uuid = StringProperty(
+        name="Age Guid",
+        description="Instance GUID to link to (eg 'ea489821-6c35-4bd0-9dae-bb17c585e680')",
+    )
 
-    spawn_title = StringProperty(name="Spawn Title",
-                                 description="Title of the Spawn Point to use",
-                                 default="Default")
-    spawn_point = StringProperty(name="Spawn Point",
-                                 description="Name of the Spawn Point's Plasma Object",
-                                 default="LinkInPointDefault")
+    spawn_title = StringProperty(
+        name="Spawn Title",
+        description="Title of the Spawn Point to use",
+        default="Default",
+    )
+    spawn_point = StringProperty(
+        name="Spawn Point",
+        description="Name of the Spawn Point's Plasma Object",
+        default="LinkInPointDefault",
+    )
 
     def convert_message(self, exporter, so):
         msg = plLinkToAgeMsg()
@@ -554,7 +761,9 @@ class PlasmaLinkToAgeMsg(PlasmaMessageNode, bpy.types.Node):
         if self.rules == "kChildAgeBook":
             als.parentAgeFilename = self.parent_filename
         ais.ageFilename = self.age_filename
-        ais.ageInstanceName = self.age_instance if self.age_instance else self.age_filename
+        ais.ageInstanceName = (
+            self.age_instance if self.age_instance else self.age_filename
+        )
         if self.rules == "kBasicLink":
             try:
                 ais.ageInstanceGuid = self.age_uuid
@@ -602,32 +811,45 @@ class PlasmaLinkToAgeMsg(PlasmaMessageNode, bpy.types.Node):
         layout.prop(self, "spawn_point")
 
 
-class PlasmaOneShotMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNode, bpy.types.Node):
+class PlasmaOneShotMsgNode(
+    idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNode, bpy.types.Node
+):
     bl_category = "MSG"
     bl_idname = "PlasmaOneShotMsgNode"
     bl_label = "One Shot"
     bl_width_default = 210
 
-    pos_object = PointerProperty(name="Position",
-                                 description="Object defining the OneShot position",
-                                 type=bpy.types.Object)
-    seek = EnumProperty(name="Seek",
-                        description="How the avatar should approach the OneShot position",
-                        items=[("SMART", "Smart Seek", "Let the engine figure out the best path"),
-                               ("DUMB", "Seek", "Shuffle to the OneShot position"),
-                               ("NONE", "Warp", "Warp the avatar to the OneShot position")],
-                        default="SMART")
+    pos_object = PointerProperty(
+        name="Position",
+        description="Object defining the OneShot position",
+        type=bpy.types.Object,
+    )
+    seek = EnumProperty(
+        name="Seek",
+        description="How the avatar should approach the OneShot position",
+        items=[
+            ("SMART", "Smart Seek", "Let the engine figure out the best path"),
+            ("DUMB", "Seek", "Shuffle to the OneShot position"),
+            ("NONE", "Warp", "Warp the avatar to the OneShot position"),
+        ],
+        default="SMART",
+    )
 
-    animation = StringProperty(name="Animation",
-                               description="Name of the animation the avatar should execute")
-    marker = StringProperty(name="Marker",
-                            description="Name of the marker specifying when to notify the Responder")
-    drivable = BoolProperty(name="Drivable",
-                            description="Player retains control of the avatar during the OneShot",
-                            default=False)
-    reversable = BoolProperty(name="Reversable",
-                              description="Player can reverse the OneShot",
-                              default=False)
+    animation = StringProperty(
+        name="Animation", description="Name of the animation the avatar should execute"
+    )
+    marker = StringProperty(
+        name="Marker",
+        description="Name of the marker specifying when to notify the Responder",
+    )
+    drivable = BoolProperty(
+        name="Drivable",
+        description="Player retains control of the avatar during the OneShot",
+        default=False,
+    )
+    reversable = BoolProperty(
+        name="Reversable", description="Player can reverse the OneShot", default=False
+    )
 
     def convert_callback_message(self, exporter, so, msg, target, wait):
         msg.addCallback(self.marker, target, wait)
@@ -682,31 +904,42 @@ class PlasmaOneShotMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacks
 
 
 class PlasmaOneShotCallbackSocket(PlasmaMessageSocketBase, bpy.types.NodeSocket):
-    marker = StringProperty(name="Marker",
-                            description="Marker specifying the time at which to send a callback to this Responder")
+    marker = StringProperty(
+        name="Marker",
+        description="Marker specifying the time at which to send a callback to this Responder",
+    )
 
     def draw(self, context, layout, node, text):
         layout.prop(self, "marker")
 
 
-class PlasmaSceneObjectMsgRcvrNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.Node):
+class PlasmaSceneObjectMsgRcvrNode(
+    idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.Node
+):
     bl_category = "MSG"
     bl_idname = "PlasmaSceneObjectMsgRcvrNode"
     bl_label = "Send To Object"
     bl_width_default = 190
 
-    input_sockets = OrderedDict([
-        ("message", {
-            "text": "Message",
-            "type": "PlasmaNodeSocketInputGeneral",
-            "valid_link_sockets": {"PlasmaEnableMessageSocket"},
-            "spawn_empty": True,
-        }),
-    ])
+    input_sockets = OrderedDict(
+        [
+            (
+                "message",
+                {
+                    "text": "Message",
+                    "type": "PlasmaNodeSocketInputGeneral",
+                    "valid_link_sockets": {"PlasmaEnableMessageSocket"},
+                    "spawn_empty": True,
+                },
+            ),
+        ]
+    )
 
-    target_object = PointerProperty(name="Object",
-                                    description="Object to send the message to",
-                                    type=bpy.types.Object)
+    target_object = PointerProperty(
+        name="Object",
+        description="Object to send the message to",
+        type=bpy.types.Object,
+    )
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "target_object")
@@ -723,7 +956,9 @@ class PlasmaSceneObjectMsgRcvrNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bp
         return {"target_object": "object_name"}
 
 
-class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNode, bpy.types.Node):
+class PlasmaSoundMsgNode(
+    idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNode, bpy.types.Node
+):
     bl_category = "MSG"
     bl_idname = "PlasmaSoundMsgNode"
     bl_label = "Sound"
@@ -732,48 +967,82 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
     def _poll_sound_emitters(self, value):
         return value.plasma_modifiers.soundemit.enabled
 
-    emitter_object = PointerProperty(name="Object",
-                                     description="Sound emitter object",
-                                     type=bpy.types.Object,
-                                     poll=_poll_sound_emitters)
-    sound_name = StringProperty(name="Sound",
-                                description="Sound datablock")
+    emitter_object = PointerProperty(
+        name="Object",
+        description="Sound emitter object",
+        type=bpy.types.Object,
+        poll=_poll_sound_emitters,
+    )
+    sound_name = StringProperty(name="Sound", description="Sound datablock")
 
-    go_to = EnumProperty(name="Go To",
-                         description="Where should the sound start?",
-                         items=[("BEGIN", "Beginning", "The beginning"),
-                                ("CURRENT", "(Don't Change)", "The current position"),
-                                ("TIME", "Time", "The time specified in seconds")],
-                         default="CURRENT")
-    looping = EnumProperty(name="Looping",
-                           description="Is the sound looping?",
-                           items=[("kSetLooping", "Yes", "The sound is looping",),
-                                  ("CURRENT", "(Don't Change)", "Don't change the loop status"),
-                                  ("kUnSetLooping", "No", "The sound is NOT looping")],
-                           default="CURRENT")
-    action = EnumProperty(name="Action",
-                          description="What do you want the sound to do?",
-                          items=[("kPlay", "Play", "Plays the sound"),
-                                 ("kStop", "Stop", "Stops the sound",),
-                                 ("kToggleState", "Toggle", "Toggles between Play and Stop"),
-                                 ("CURRENT", "(Don't Change)", "Don't change the sound's playing state")],
-                          default="CURRENT")
-    volume = EnumProperty(name="Volume",
-                          description="What should happen to the volume?",
-                          items=[("MUTE", "Mute", "Mutes the volume"),
-                                 ("CURRENT", "(Don't Change)", "Don't change the volume"),
-                                 ("CUSTOM", "Custom", "Manually specify the volume")],
-                          default="CURRENT")
+    go_to = EnumProperty(
+        name="Go To",
+        description="Where should the sound start?",
+        items=[
+            ("BEGIN", "Beginning", "The beginning"),
+            ("CURRENT", "(Don't Change)", "The current position"),
+            ("TIME", "Time", "The time specified in seconds"),
+        ],
+        default="CURRENT",
+    )
+    looping = EnumProperty(
+        name="Looping",
+        description="Is the sound looping?",
+        items=[
+            (
+                "kSetLooping",
+                "Yes",
+                "The sound is looping",
+            ),
+            ("CURRENT", "(Don't Change)", "Don't change the loop status"),
+            ("kUnSetLooping", "No", "The sound is NOT looping"),
+        ],
+        default="CURRENT",
+    )
+    action = EnumProperty(
+        name="Action",
+        description="What do you want the sound to do?",
+        items=[
+            ("kPlay", "Play", "Plays the sound"),
+            (
+                "kStop",
+                "Stop",
+                "Stops the sound",
+            ),
+            ("kToggleState", "Toggle", "Toggles between Play and Stop"),
+            ("CURRENT", "(Don't Change)", "Don't change the sound's playing state"),
+        ],
+        default="CURRENT",
+    )
+    volume = EnumProperty(
+        name="Volume",
+        description="What should happen to the volume?",
+        items=[
+            ("MUTE", "Mute", "Mutes the volume"),
+            ("CURRENT", "(Don't Change)", "Don't change the volume"),
+            ("CUSTOM", "Custom", "Manually specify the volume"),
+        ],
+        default="CURRENT",
+    )
 
-    time = FloatProperty(name="Time",
-                         description="Time in seconds to begin playing from",
-                         min=0.0, default=0.0,
-                         options=set(), subtype="TIME", unit="TIME")
-    volume_pct = IntProperty(name="Volume Level",
-                             description="Volume to play the sound",
-                             min=0, max=100, default=100,
-                             options=set(),
-                             subtype="PERCENTAGE")
+    time = FloatProperty(
+        name="Time",
+        description="Time in seconds to begin playing from",
+        min=0.0,
+        default=0.0,
+        options=set(),
+        subtype="TIME",
+        unit="TIME",
+    )
+    volume_pct = IntProperty(
+        name="Volume Level",
+        description="Volume to play the sound",
+        min=0,
+        max=100,
+        default=100,
+        options=set(),
+        subtype="PERCENTAGE",
+    )
 
     def convert_callback_message(self, exporter, so, msg, target, wait):
         assert not self.is_random_sound, "Callbacks are not available for random sounds"
@@ -789,7 +1058,9 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
             self.raise_error("Sound emitter must be set")
         soundemit = self.emitter_object.plasma_modifiers.soundemit
         if not soundemit.enabled:
-            self.raise_error("'{}' is not a valid Sound Emitter".format(self.emitter_object.name))
+            self.raise_error(
+                "'{}' is not a valid Sound Emitter".format(self.emitter_object.name)
+            )
 
         if self.is_random_sound:
             yield from self._convert_random_sound_msg(exporter, so)
@@ -820,12 +1091,22 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
 
         # Always test the specified audible for validity
         if self.sound_name and soundemit.sounds.get(self.sound_name, None) is None:
-            self.raise_error("Invalid Sound '{}' requested from Sound Emitter '{}'".format(self.sound_name, self.emitter_object.name))
+            self.raise_error(
+                "Invalid Sound '{}' requested from Sound Emitter '{}'".format(
+                    self.sound_name, self.emitter_object.name
+                )
+            )
 
         # Remember that 3D stereo sounds are exported as two emitters...
         # But, if we only have one sound attached, who cares, we can just address the message to all
-        audible_key = exporter.mgr.find_create_key(plAudioInterface, bl=self.emitter_object)
-        indices = (-1,) if not self.sound_name or len(soundemit.sounds) == 1 else soundemit.get_sound_indices(self.sound_name)
+        audible_key = exporter.mgr.find_create_key(
+            plAudioInterface, bl=self.emitter_object
+        )
+        indices = (
+            (-1,)
+            if not self.sound_name or len(soundemit.sounds) == 1
+            else soundemit.get_sound_indices(self.sound_name)
+        )
         for idx in indices:
             msg = plSoundMsg()
             msg.addReceiver(audible_key)
@@ -866,7 +1147,9 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
             if self.emitter_object is not None:
                 soundemit = self.emitter_object.plasma_modifiers.soundemit
                 if soundemit.enabled:
-                    layout.prop_search(self, "sound_name", soundemit, "sounds", icon="SOUND")
+                    layout.prop_search(
+                        self, "sound_name", soundemit, "sounds", icon="SOUND"
+                    )
                 else:
                     layout.label("Not a Sound Emitter", icon="ERROR")
 
@@ -901,10 +1184,12 @@ class PlasmaTimerCallbackMsgNode(PlasmaMessageWithCallbacksNode, bpy.types.Node)
     bl_idname = "PlasmaTimerCallbackMsgNode"
     bl_label = "Timed Callback"
 
-    delay = FloatProperty(name="Delay",
-                          description="Time (in seconds) to wait until continuing",
-                          min=0.1,
-                          default=1.0)
+    delay = FloatProperty(
+        name="Delay",
+        description="Time (in seconds) to wait until continuing",
+        min=0.1,
+        default=1.0,
+    )
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "delay")
@@ -924,15 +1209,20 @@ class PlasmaTriggerMultiStageMsgNode(PlasmaMessageNode, bpy.types.Node):
     bl_idname = "PlasmaTriggerMultiStageMsgNode"
     bl_label = "Trigger MultiStage"
 
-    output_sockets = OrderedDict([
-        ("satisfies", {
-            "text": "Trigger",
-            "type": "PlasmaConditionSocket",
-            "valid_link_nodes": "PlasmaMultiStageBehaviorNode",
-            "valid_link_sockets": "PlasmaConditionSocket",
-            "link_limit": 1,
-        })
-    ])
+    output_sockets = OrderedDict(
+        [
+            (
+                "satisfies",
+                {
+                    "text": "Trigger",
+                    "type": "PlasmaConditionSocket",
+                    "valid_link_nodes": "PlasmaMultiStageBehaviorNode",
+                    "valid_link_sockets": "PlasmaConditionSocket",
+                    "link_limit": 1,
+                },
+            )
+        ]
+    )
 
     def convert_message(self, exporter, so):
         # Yeah, this is not a REAL Plasma message, but the Korman way is to try to hide these little
@@ -952,16 +1242,18 @@ class PlasmaFootstepSoundMsgNode(PlasmaMessageNode, bpy.types.Node):
     bl_idname = "PlasmaFootstepSoundMsgNode"
     bl_label = "Footstep Sound"
 
-    surface = EnumProperty(name="Surface",
-                           description="What kind of surface are we walking on?",
-                           items=footstep_surfaces,
-                           default="stone")
+    surface = EnumProperty(
+        name="Surface",
+        description="What kind of surface are we walking on?",
+        items=footstep_surfaces,
+        default="stone",
+    )
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "surface")
 
     def convert_message(self, exporter, so):
         msg = plArmatureEffectStateMsg()
-        msg.BCastFlags |= (plMessage.kPropagateToModifiers | plMessage.kNetPropagate)
+        msg.BCastFlags |= plMessage.kPropagateToModifiers | plMessage.kNetPropagate
         msg.surface = footstep_surface_ids[self.surface]
         return msg
