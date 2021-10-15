@@ -264,6 +264,10 @@ class PlasmaFadeMod(PlasmaModifierProperties):
             mod.nearOpaq = 0.0
             mod.farOpaq = self.far_opaq
             mod.farTrans = self.far_trans
+            
+    @property
+    def requires_actor(self):
+        return self.fader_type == "FadeOpacity"
 
 
 class PlasmaFollowMod(idprops.IDPropObjectMixin, PlasmaModifierProperties):
