@@ -162,7 +162,8 @@ def fademod(modifier, layout, context):
         col.prop(modifier, "far_opaq")
         col.prop(modifier, "far_trans")
 
-    if not (modifier.near_trans <= modifier.near_opaq <= modifier.far_opaq <= modifier.far_trans):
+    if (modifier.fader_type in ("SimpleDist", "DistOpacity") and
+        not (modifier.near_trans <= modifier.near_opaq <= modifier.far_opaq <= modifier.far_trans)):
         # Warn the user that the values are not recommended.
         layout.label("Distance values must be equal or increasing!", icon="ERROR")
 
