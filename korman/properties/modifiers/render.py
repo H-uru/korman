@@ -267,10 +267,7 @@ class PlasmaFadeMod(PlasmaModifierProperties):
             
     @property
     def requires_actor(self):
-        if self.fader_type == "FadeOpacity":
-            return True
-        else:
-            return False
+        return self.fader_type == "FadeOpacity"
 
 
 class PlasmaFollowMod(idprops.IDPropObjectMixin, PlasmaModifierProperties):
