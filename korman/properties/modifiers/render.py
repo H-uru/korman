@@ -96,9 +96,9 @@ class PlasmaBlendMod(PlasmaModifierProperties):
     def _check_circular_dependency(self, objects=None):
         if objects is None:
             objects = set()
-        elif self.name in objects:
+        elif self.id_data.name in objects:
             return True
-        objects.add(self.name)
+        objects.add(self.id_data.name)
 
         for i in self.iter_dependencies():
             # New deep copy of the set for each dependency, so an object can be reused as a
@@ -115,7 +115,7 @@ class PlasmaBlendMod(PlasmaModifierProperties):
 
     def sanity_check(self):
         if self.has_circular_dependency:
-            raise ExportError("'{}': Circular Render Dependency detected!".format(self.name))
+            raise ExportError("'{}': Circular Render Dependency detected!".format(self.id_data.name))
 
 
 class PlasmaDecalManagerRef(bpy.types.PropertyGroup):
