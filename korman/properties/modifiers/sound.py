@@ -423,7 +423,7 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
         if sound.packed_file is None:
             stream = hsFileStream()
             try:
-                stream.open(sound.filepath, fmRead)
+                stream.open(bpy.path.abspath(sound.filepath), fmRead)
             except IOError:
                 self._raise_error("failed to open file")
         else:
