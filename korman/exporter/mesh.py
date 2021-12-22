@@ -440,7 +440,7 @@ class MeshConverter(_MeshManager):
 
             # Convert to per-material indices
             for j, vertex in enumerate(tessface.vertices):
-                uvws = tuple([uvw[j] for uvw in tessface_uvws])
+                uvws = tuple([tuple(uvw[j]) for uvw in tessface_uvws])
 
                 # Calculate vertex colors.
                 if mat2span_LUT:
