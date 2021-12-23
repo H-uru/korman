@@ -173,6 +173,8 @@ class PhysicsConverter:
                     physical.mass = mod.mass
                     _set_phys_prop(plSimulationInterface.kStartInactive, simIface, physical,
                                    value=mod.start_asleep)
+                    _set_phys_prop(plSimulationInterface.kAvAnimPushable, simIface, physical,
+                                   value=mod.pushable)
                 elif not mod.avatar_blocker:
                     physical.memberGroup = plSimDefs.kGroupLOSOnly
                 else:
