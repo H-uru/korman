@@ -43,15 +43,15 @@ class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.
 
     down_buoyancy = FloatProperty(name="Downward Buoyancy",
                                   description="Distance the avatar sinks into the water",
-                                  min=0.0, max=100.0, default=3.0,
+                                  min=0.0, max=100.0, default=11.0,
                                   options=set())
     up_buoyancy = FloatProperty(name="Up Buoyancy",
                                 description="Distance the avatar rises up after sinking",
-                                min=0.0, max=100.0, default=0.05,
+                                min=0.0, max=100.0, default=2.0,
                                 options=set())
-    up_velocity = FloatProperty(name="Up Velcocity",
+    up_velocity = FloatProperty(name="Up Velocity",
                                 description="Rate at which the avatar rises",
-                                min=0.0, max=100.0, default=3.0,
+                                min=0.0, max=100.0, default=5.0,
                                 options=set())
 
     current_type = EnumProperty(name="Water Current",
