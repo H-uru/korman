@@ -271,7 +271,7 @@ class MaterialConverter:
         if not hsgmat.layers:
             layer = self._mgr.find_create_object(plLayer, name="{}_AutoLayer".format(mat_name), bl=bo)
             self._obj2layer[bo][bm][None].append(layer.key)
-            self._propagate_material_settings(bo, bm, layer)
+            self._propagate_material_settings(bo, bm, None, layer)
             layer = self._export_layer_animations(bo, bm, None, 0, layer)
             hsgmat.addLayer(layer.key)
 
@@ -362,7 +362,7 @@ class MaterialConverter:
 
         # Materials MUST have one layer. Wavesets need alpha blending...
         layer = self._mgr.add_object(plLayer, name=unique_name, bl=bo)
-        self._propagate_material_settings(bo, bm, layer)
+        self._propagate_material_settings(bo, bm, None, layer)
         layer.state.blendFlags |= hsGMatState.kBlendAlpha
         hsgmat.addLayer(layer.key)
 
@@ -423,7 +423,7 @@ class MaterialConverter:
         self._report.msg("Exporting Plasma Layer '{}'", name, indent=2)
         layer = self._mgr.find_create_object(plLayer, name=name, bl=bo)
         if bm is not None and not slot.use_map_normal:
-            self._propagate_material_settings(bo, bm, layer)
+            self._propagate_material_settings(bo, bm, slot, layer)
 
         # UVW Channel
         if slot.texture_coords == "UV":
@@ -476,6 +476,25 @@ class MaterialConverter:
         texture = slot.texture
         if texture.type == "BLEND":
             hsgmat.compFlags |= hsGMaterial.kCompNeedsBlendChannel
+
+        # Handle material and per-texture emissive
+        if self._is_emissive(bm):
+            # If the previous slot's use_map_emit is different, then we need to flag this as a new
+            # pass so that the new emit color will be used. But only if it's not a doggone stencil.
+            if not wantStencil and bm is not None and slot is not None:
+                filtered_slots = tuple(filter(lambda x: x and x.use, bm.texture_slots[:idx]))
+                if filtered_slots:
+                    prev_slot = filtered_slots[-1]
+                    if prev_slot != slot and prev_slot.use_map_emit != slot.use_map_emit:
+                        state.miscFlags |= hsGMatState.kMiscRestartPassHere
+
+            if self._is_emissive(bm, slot):
+                # Lightmapped emissive layers seem to cause cascading render issues. Skip flagging it
+                # and just hope that the ambient color bump is good enough.
+                if bo.plasma_modifiers.lightmap.bake_lightmap:
+                    self._report.warn("A lightmapped and emissive material??? You like living dangerously...", indent=3)
+                else:
+                    state.shadeFlags |= hsGMatState.kShadeEmissive
 
         # Apply custom layer properties
         wantBumpmap = bm is not None and slot.use_map_normal
@@ -623,7 +642,7 @@ class MaterialConverter:
 
         def translate_color(color_sequence):
             # See things like get_material_preshade
-            result = converter(bo, bm, mathutils.Color(color_sequence))
+            result = converter(bo, bm, tex_slot, mathutils.Color(color_sequence))
             return result.red, result.green, result.blue
 
         ctrl = self._exporter().animation.make_pos_controller(fcurves, "diffuse_color",
@@ -1295,10 +1314,10 @@ class MaterialConverter:
     def get_bump_layer(self, bo):
         return self._bump_mats.get(bo, None)
 
-    def get_material_ambient(self, bo, bm, color: Union[None, mathutils.Color] = None) -> hsColorRGBA:
-        # Although Plasma calls this the ambient color, it is actually always used as the emissive color.
-        emit_scale = bm.emit * 0.5
-        if emit_scale > 0.0:
+    def get_material_ambient(self, bo, bm, tex_slot, color: Union[None, mathutils.Color] = None) -> hsColorRGBA:
+        if self._is_emissive(bm, tex_slot):
+            # Although Plasma calls this the ambient color, it is actually always used as the emissive color.
+            emit_scale = bm.emit * 0.5
             if color is None:
                 color = bm.diffuse_color
             return hsColorRGBA(color.r * emit_scale,
@@ -1308,7 +1327,7 @@ class MaterialConverter:
         else:
             return utils.color(bpy.context.scene.world.ambient_color)
 
-    def get_material_preshade(self, bo, bm, color: Union[None, mathutils.Color] = None) -> hsColorRGBA:
+    def get_material_preshade(self, bo, bm, tex_slot, color: Union[None, mathutils.Color] = None) -> hsColorRGBA:
         # This color is always used for shading. In all lighting equations, it represents the world
         # ambient color. Anyway, if we have a manual (read: animated color), just dump that out.
         if color is not None:
@@ -1328,7 +1347,7 @@ class MaterialConverter:
         # Gulp
         return utils.color(bm.diffuse_color)
 
-    def get_material_runtime(self, bo, bm, color: Union[None, mathutils.Color] = None) -> hsColorRGBA:
+    def get_material_runtime(self, bo, bm, tex_slot, color: Union[None, mathutils.Color] = None) -> hsColorRGBA:
         # The layer runstime color has no effect if the lighting equation is kLiteVtxNonPreshaded,
         # so return black to prevent animations from being exported.
         if self._exporter().mesh.is_nonpreshaded(bo, bm):
@@ -1360,11 +1379,22 @@ class MaterialConverter:
             if not state.blendFlags & hsGMatState.kBlendMask:
                 state.blendFlags |= hsGMatState.kBlendAlpha
 
+    def _is_emissive(self, bm, tex_slot=None):
+        # Backwards compatibility... Check all the textures to see if any of them have set use_map_emit.
+        # If not and bm.emit > 0, then all textures are emissive. Otherwise, only the textures
+        # that set use_map_emit are emissive.
+        if bm is None:
+            return False
+        if tex_slot is None:
+            return bm.emit > 0.0
+        else:
+            return bm.emit > 0.0 and (tex_slot.use_map_emit or not any((i.use_map_emit for i in bm.texture_slots if i)))
+
     @property
     def _mgr(self):
         return self._exporter().mgr
 
-    def _propagate_material_settings(self, bo, bm, layer):
+    def _propagate_material_settings(self, bo, bm, tex_slot, layer):
         """Converts settings from the Blender Material to corresponding plLayer settings"""
         state = layer.state
 
@@ -1383,18 +1413,10 @@ class MaterialConverter:
         if bm.use_shadeless:
             state.shadeFlags |= hsGMatState.kShadeWhite
 
-        if bm.emit:
-            # Lightmapped emissive layers seem to cause cascading render issues. Skip flagging it
-            # and just hope that the ambient color bump is good enough.
-            if bo.plasma_modifiers.lightmap.bake_lightmap:
-                self._report.warn("A lightmapped and emissive material??? You like living dangerously...", indent=3)
-            else:
-                state.shadeFlags |= hsGMatState.kShadeEmissive
-
         # Colors
-        layer.ambient = self.get_material_ambient(bo, bm)
-        layer.preshade = self.get_material_preshade(bo, bm)
-        layer.runtime = self.get_material_runtime(bo, bm)
+        layer.ambient = self.get_material_ambient(bo, bm, tex_slot)
+        layer.preshade = self.get_material_preshade(bo, bm, tex_slot)
+        layer.runtime = self.get_material_runtime(bo, bm, tex_slot)
         layer.specular = utils.color(bm.specular_color)
 
         layer.specularPower = min(100.0, float(bm.specular_hardness))
