@@ -242,9 +242,15 @@ class LightBaker:
                                 # Now for the Fun Stuff(c)... First, actually get ahold of the other
                                 # face (the one we're connected to via this edge).
                                 other_face = next(f for f in edge.link_faces if f != face)
+                                if not other_face.calc_area():
+                                    # Zero area face, ignore it.
+                                    continue
                                 # Now get ahold of the loop sharing our vertex on the OTHER SIDE
                                 # of that damnable edge...
                                 other_loop = next(loop for loop in other_face.loops if loop.vert == vert)
+                                if not other_loop.is_convex:
+                                    # Happens with complex polygons after edge dissolving. Ignore it.
+                                    continue
                                 other_color = other_loop[light_vcol]
                                 # Phew ! Good, now just pick whichever color has the highest average value
                                 if sum(max_color) / 3 < sum(other_color) / 3:
