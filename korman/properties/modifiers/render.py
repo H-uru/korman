@@ -372,19 +372,19 @@ class PlasmaGrassShaderMod(PlasmaModifierProperties):
 
     def export(self, exporter, bo, so):
         if exporter.mgr.getVer() <= pvPots:
-            exporter.report.warning("Not supported on this version of Plasma", indent=3)
+            exporter.report.warn("Not supported on this version of Plasma", indent=3)
             return
         else:
             exporter.report.port("This will only function on MOUL and EOA", indent=3)
 
         materials = exporter.mesh.material.get_materials(bo)
         if not materials:
-            exporter.report.warning("No materials are associated with this object, no grass shader exported!",
-                                    indent=3)
+            exporter.report.warn("No materials are associated with this object, no grass shader exported!",
+                                 indent=3)
             return
         elif len(materials) > 1:
-            exporter.report.warning("Ah, a multiple material grass shader, eh. You like living dangerously...",
-                                    indent=3)
+            exporter.report.warn("Ah, a multiple material grass shader, eh. You like living dangerously...",
+                                 indent=3)
 
         for material in materials:
             mod = exporter.mgr.find_create_object(plGrassShaderMod, so=so, name=material.name)
