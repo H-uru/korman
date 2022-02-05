@@ -439,7 +439,9 @@ class PlasmaPythonExportOperator(ExportOperator, bpy.types.Operator):
 def menu_cb(self, context):
     if context.scene.render.engine == "PLASMA_GAME":
         self.layout.operator_context = "INVOKE_DEFAULT"
-        self.layout.operator(PlasmaAgeExportOperator.bl_idname, text="Plasma Age (.age)")
+        op = self.layout.operator(PlasmaAgeExportOperator.bl_idname, text="Plasma Age (.age)")
+        op.actions = {"EXPORT"}
+        op.dat_only = True
         self.layout.operator(PlasmaPythonExportOperator.bl_idname, text="Plasma Scripts (.pak)")
 
 
