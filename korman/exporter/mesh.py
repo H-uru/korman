@@ -410,9 +410,11 @@ class MeshConverter(_MeshManager):
                 tessface_alphas = (1.0, 1.0, 1.0, 1.0)
             else:
                 src = alpha[i]
-                # average color becomes the alpha value
-                tessface_alphas = ((sum(src.color1) / 3), (sum(src.color2) / 3),
-                                   (sum(src.color3) / 3), (sum(src.color4) / 3))
+                # Some time between 2.79b and 2.80, vertex alpha colors appeared in Blender. However,
+                # there is no way to actually visually edit them. That means that we need to keep that
+                # fact in mind because we're just averaging the color to make alpha.
+                tessface_alphas = ((sum(src.color1[:3]) / 3), (sum(src.color2[:3]) / 3),
+                                   (sum(src.color3[:3]) / 3), (sum(src.color4[:3]) / 3))
 
             if bumpmap is not None:
                 gradPass = []
