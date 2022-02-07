@@ -82,6 +82,7 @@ class PlasmaLayerPanel(TextureButtonsPanel, bpy.types.Panel):
         sub = col.column()
         sub.active = not use_stencil
         sub.prop(layer_props, "opacity", text="Opacity")
+        sub.prop(layer_props, "use_alpha_vcol", text="Use Alpha VCol")
         sub.separator()
         sub = col.column()
         sub.active = texture.type == "IMAGE" and texture.image is None
