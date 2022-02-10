@@ -399,7 +399,7 @@ class PlasmaWaveState:
     def convert_wavestate(self, state):
         state.minLength = self.min_length
         state.maxLength = self.max_length
-        state.ampOverLen = self.amplitude / 100.0
+        state.ampOverLen = self.amplitude
         state.chop = self.chop / 100.0
         state.angleDev = self.angle_dev
 
@@ -407,7 +407,7 @@ class PlasmaWaveState:
         cls = self.__class__
         state.minLength = cls._min_length_default
         state.maxLength = cls._max_length_default
-        state.ampOverLen = cls._amplitude_default / 100.0
+        state.ampOverLen = cls._amplitude_default
         state.chop = cls._chop_default / 100.0
         state.angleDev = cls._angle_dev_default
 
@@ -421,10 +421,10 @@ class PlasmaWaveState:
                                        description="Largest wave length",
                                        min=0.1, max=50.0,
                                        default=cls._max_length_default)
-        cls.amplitude = IntProperty(name="Amplitude",
+        cls.amplitude = FloatProperty(name="Amplitude",
                                     description="Multiplier for wave height",
-                                    subtype="PERCENTAGE",
-                                    min=0, max=100,
+                                    precision=3,
+                                    min=0.001, max=1.000, # Minimum must be above zero for shores to work!
                                     default=cls._amplitude_default)
         cls.chop = IntProperty(name="Choppiness",
                                description="Sharpness of wave crests",
@@ -446,7 +446,7 @@ class PlasmaWaveGeoState(PlasmaWaveState, PlasmaModifierProperties):
 
     _min_length_default = 4.0
     _max_length_default = 8.0
-    _amplitude_default = 10
+    _amplitude_default = 0.001
     _chop_default = 50
     _angle_dev_default = math.radians(20.0)
 
@@ -464,7 +464,7 @@ class PlasmaWaveTexState(PlasmaWaveState, PlasmaModifierProperties):
 
     _min_length_default = 0.1
     _max_length_default = 4.0
-    _amplitude_default = 10
+    _amplitude_default = 0.040
     _chop_default = 50
     _angle_dev_default = math.radians(20.0)
 
