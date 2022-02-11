@@ -424,7 +424,7 @@ class PlasmaWaveState:
         cls.amplitude = FloatProperty(name="Amplitude",
                                     description="Multiplier for wave height",
                                     precision=3,
-                                    min=0.001, max=1.000, # Minimum must be above zero for shores to work!
+                                    min=0.001, max=1.000, # Minimum must be above zero to prevent rendering problems!
                                     default=cls._amplitude_default)
         cls.chop = IntProperty(name="Choppiness",
                                description="Sharpness of wave crests",
