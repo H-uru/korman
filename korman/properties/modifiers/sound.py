@@ -373,7 +373,12 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
         if self.incidental:
             sound.properties |= plSound.kPropIncidental
         if self.local_only:
-            sound.properties |= plSound.kPropLocalOnly
+            # Local only and random sounds hate each other, so we must check for both
+            for i in bpy.data.objects:
+                if i.plasma_modifiers.random_sound:
+                    raise ExportError("SoundEmitter '{}': cannot have local only sounds and a random sound mod.".format(self.id_data.name))
+                else:
+                    sound.properties |= plSound.kPropLocalOnly
         sound.dataBuffer = self._find_sound_buffer(exporter, so, wavHeader, dataSize, channel)
 
         # Cone effect
