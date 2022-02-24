@@ -88,6 +88,8 @@ def linkingbookmod(modifier, layout, context):
 
         layout.separator()
         layout.prop(modifier, "link_type")
+        if modifier.link_type == "kOriginalBook":
+            layout.prop(modifier, "shareable")
         row_alert("age_instance")
         if modifier.link_type == "kChildAgeBook":
             row_alert("age_parent")

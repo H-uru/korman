@@ -427,6 +427,10 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
                                 description="The object the avatar will click on to activate the Linking Book GUI",
                                 type=bpy.types.Object,
                                 poll=idprops.poll_mesh_objects)
+    shareable = BoolProperty(name="Shareable",
+                             description="Enable the Book to be Shareable (MOUL private instance only)",
+                             default=False,
+                             options=set())
 
     # -- Path of the Shell options --
     # Popup Appearance
@@ -632,6 +636,31 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         linking_panel_name = nodes.new("PlasmaAttribStringNode")
         linking_panel_name.value = self.link_destination if self.link_destination else self.age_name
         linking_panel_name.link_output(linkingnode, "pfm", "TargetAge")
+
+        # Share MSB
+        if self.shareable:
+        # Region
+            share_region = nodes.new("PlasmaVolumeSensorNode")
+            share_region.region_object = clk_region
+            share_region.bounds = "hull"
+            for i in share_region.inputs:
+                i.allow = True
+            share_region.link_output(linkingnode, "satisfies", "shareRegion")
+        # MSB Behavior
+            share_seek = nodes.new("PlasmaSeekTargetNode")
+            share_seek.target = self.seek_point
+
+            share_anim_stage = nodes.new("PlasmaAnimStageNode")
+            share_anim_stage.anim_name = "LinkOut"
+            share_anim_settings = nodes.new("PlasmaAnimStageSettingsNode")
+            share_anim_settings.forward = "kPlayAuto"
+            share_anim_settings.stage_advance = "kAdvanceAuto"
+            share_anim_stage.link_input(share_anim_settings, "stage", "stage_settings")
+
+            share = nodes.new("PlasmaMultiStageBehaviorNode")
+            share.link_input(share_seek, "seekers", "seek_target")
+            share.link_input(share_anim_stage, "stage", "stage_refs")
+            share.link_output(linkingnode, "hosts", "shareBookSeek")
 
     def sanity_check(self):
         if self.clickable is None:
