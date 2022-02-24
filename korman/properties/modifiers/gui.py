@@ -429,12 +429,12 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
                                 poll=idprops.poll_mesh_objects)
     shareable = BoolProperty(name="Shareable",
                              description="Enable the Book to be Shareable (MOUL private instance only)",
-                             default=False,
+                             default=True,
                              options=set())
-    shr_region = PointerProperty(name="Share Region (optional)",
-                                       description="Sets an alternate share region (optional)",
-                                       type=bpy.types.Object,
-                                       poll=idprops.poll_mesh_objects)
+    share_region = PointerProperty(name="Share Region (optional)",
+                                   description="Sets an alternate share region (optional)",
+                                   type=bpy.types.Object,
+                                   poll=idprops.poll_mesh_objects)
 
     # -- Path of the Shell options --
     # Popup Appearance
@@ -643,17 +643,16 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
 
         # Share MSB
         if self.shareable:
-        # Region
+            # Region
             share_region = nodes.new("PlasmaVolumeSensorNode")
-            if self.shr_region is None:
+            if self.share_region is None:
                 share_region.region_object = clk_region
             else:
-                share_region.region_object = self.shr_region
-            share_region.bounds = "hull"
+                share_region.region_object = self.share_region
             for i in share_region.inputs:
                 i.allow = True
             share_region.link_output(linkingnode, "satisfies", "shareRegion")
-        # MSB Behavior
+            # MSB Behavior
             share_seek = nodes.new("PlasmaSeekTargetNode")
             share_seek.target = self.seek_point
 
