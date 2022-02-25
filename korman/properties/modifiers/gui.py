@@ -427,6 +427,14 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
                                 description="The object the avatar will click on to activate the Linking Book GUI",
                                 type=bpy.types.Object,
                                 poll=idprops.poll_mesh_objects)
+    shareable = BoolProperty(name="Shareable",
+                             description="Enable the Book to be Shareable (MOUL private instance only)",
+                             default=True,
+                             options=set())
+    share_region = PointerProperty(name="Share Region",
+                                   description="Sets the share region in which the receiving avatar must stand",
+                                   type=bpy.types.Object,
+                                   poll=idprops.poll_mesh_objects)
 
     # -- Path of the Shell options --
     # Popup Appearance
@@ -474,7 +482,22 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         else:
             rgn_obj = self.clickable_region
 
-        yield self.convert_logic(bo, age_name=exporter.age_name, version=exporter.mgr.getVer(), region=rgn_obj)
+        if self.shareable:
+            if self.share_region is None:
+                with utils.bmesh_object("{}_LinkingBook_ShareRgn".format(self.key_name)) as (share_region, bm):
+                    # Generate a cube for the share region.
+                    bmesh.ops.create_cube(bm, size=(10.0))
+                    share_region_offset = mathutils.Matrix.Translation(self.clickable.matrix_world.translation - share_region.matrix_world.translation)
+                    bmesh.ops.transform(bm, matrix=share_region_offset, space=share_region.matrix_world, verts=bm.verts)
+                    share_region.plasma_object.enabled = True
+                    share_region.hide_render = True
+                    yield share_region
+            else:
+                share_region = self.share_region
+        else:
+            share_region = None
+
+        yield self.convert_logic(bo, age_name=exporter.age_name, version=exporter.mgr.getVer(), click_region=rgn_obj, share_region=share_region)
 
     def export(self, exporter, bo, so):
         if self._check_version(pvPrime, pvPots):
@@ -491,14 +514,14 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         if self.seek_point is not None:
             yield self.seek_point.name
 
-    def logicwiz(self, bo, tree, age_name, version, region):
+    def logicwiz(self, bo, tree, age_name, version, click_region, share_region):
         # Assign linking book script based on target version
         linking_pfm = linking_pfms[version]
         linkingnode = self._create_python_file_node(tree, linking_pfm["filename"], linking_pfm["attribs"])
         if version <= pvPots:
-            self._create_pots_nodes(bo, tree.nodes, linkingnode, age_name, region)
+            self._create_pots_nodes(bo, tree.nodes, linkingnode, age_name, click_region)
         else:
-            self._create_moul_nodes(bo, tree.nodes, linkingnode, age_name, region)
+            self._create_moul_nodes(bo, tree.nodes, linkingnode, age_name, click_region, share_region)
 
     def _create_pots_nodes(self, clickable_object, nodes, linkingnode, age_name, clk_region):
         # Clickable
@@ -578,7 +601,7 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         responder.link_output(responder_state, "state_refs", "resp")
         responder.link_output(linkingnode, "keyref", "respOneShot")
 
-    def _create_moul_nodes(self, clickable_object, nodes, linkingnode, age_name, clk_region):
+    def _create_moul_nodes(self, clickable_object, nodes, linkingnode, age_name, clk_region, share_region):
         # Clickable
         clickable_region = nodes.new("PlasmaClickableRegionNode")
         clickable_region.region_object = clk_region
@@ -632,6 +655,30 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         linking_panel_name = nodes.new("PlasmaAttribStringNode")
         linking_panel_name.value = self.link_destination if self.link_destination else self.age_name
         linking_panel_name.link_output(linkingnode, "pfm", "TargetAge")
+
+        # Share MSB
+        if share_region is not None:
+            # Region
+            share_msb_region = nodes.new("PlasmaVolumeSensorNode")
+            share_msb_region.region_object = share_region
+            for i in share_msb_region.inputs:
+                i.allow = True
+            share_msb_region.link_output(linkingnode, "satisfies", "shareRegion")
+            # MSB Behavior
+            share_seek = nodes.new("PlasmaSeekTargetNode")
+            share_seek.target = self.seek_point
+
+            share_anim_stage = nodes.new("PlasmaAnimStageNode")
+            share_anim_stage.anim_name = "LinkOut"
+            share_anim_settings = nodes.new("PlasmaAnimStageSettingsNode")
+            share_anim_settings.forward = "kPlayAuto"
+            share_anim_settings.stage_advance = "kAdvanceAuto"
+            share_anim_stage.link_input(share_anim_settings, "stage", "stage_settings")
+
+            share = nodes.new("PlasmaMultiStageBehaviorNode")
+            share.link_input(share_seek, "seekers", "seek_target")
+            share.link_input(share_anim_stage, "stage", "stage_refs")
+            share.link_output(linkingnode, "hosts", "shareBookSeek")
 
     def sanity_check(self):
         if self.clickable is None:
