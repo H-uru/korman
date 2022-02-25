@@ -484,6 +484,20 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
 
         yield self.convert_logic(bo, age_name=exporter.age_name, version=exporter.mgr.getVer(), region=rgn_obj)
 
+        # Generate the same six foot cube if we need a share region.
+        if self.shareable:
+            if self.share_region is None:
+                with utils.bmesh_object("{}_LinkingBook_ShareRgn".format(self.key_name)) as (share_region, bm):
+                    bmesh.ops.create_cube(bm, size=(8.0))
+                    share_region_offset = mathutils.Matrix.Translation(self.clickable.matrix_world.translation - share_region.matrix_world.translation)
+                    bmesh.ops.transform(bm, matrix=share_region_offset, space=share_region.matrix_world, verts=bm.verts)
+                    share_region.plasma_object.enabled = True
+                    share_region.hide_render = True
+            else:
+                share_region = self.share_region
+
+            yield self.convert_logic(bo, age_name=exporter.age_name, version=exporter.mgr.getVer(), region=share_region)
+
     def export(self, exporter, bo, so):
         if self._check_version(pvPrime, pvPots):
             # Create ImageLibraryMod in which to store the Cover, Linking Panel, and Stamp images
