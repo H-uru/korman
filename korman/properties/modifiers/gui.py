@@ -431,8 +431,8 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
                              description="Enable the Book to be Shareable (MOUL private instance only)",
                              default=True,
                              options=set())
-    share_region = PointerProperty(name="Share Region (optional)",
-                                   description="Sets an alternate share region (optional)",
+    share_region = PointerProperty(name="Share Region",
+                                   description="Sets the share region in which the receiving avatar must stand",
                                    type=bpy.types.Object,
                                    poll=idprops.poll_mesh_objects)
 
@@ -486,7 +486,7 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
             if self.share_region is None:
                 with utils.bmesh_object("{}_LinkingBook_ShareRgn".format(self.key_name)) as (share_region, bm):
                     # Generate a cube for the share region.
-                    bmesh.ops.create_cube(bm, size=(8.0))
+                    bmesh.ops.create_cube(bm, size=(10.0))
                     share_region_offset = mathutils.Matrix.Translation(self.clickable.matrix_world.translation - share_region.matrix_world.translation)
                     bmesh.ops.transform(bm, matrix=share_region_offset, space=share_region.matrix_world, verts=bm.verts)
                     share_region.plasma_object.enabled = True
