@@ -482,8 +482,6 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         else:
             rgn_obj = self.clickable_region
 
-        yield self.convert_logic(bo, age_name=exporter.age_name, version=exporter.mgr.getVer(), region=rgn_obj)
-
         # Generate the same six foot cube if we need a share region.
         if self.shareable:
             if self.share_region is None:
@@ -496,7 +494,7 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
             else:
                 share_region = self.share_region
 
-            yield self.convert_logic(bo, age_name=exporter.age_name, version=exporter.mgr.getVer(), region=share_region)
+            yield self.convert_logic(bo, age_name=exporter.age_name, version=exporter.mgr.getVer(), click_region=rgn_obj, share_region=share_region)
 
     def export(self, exporter, bo, so):
         if self._check_version(pvPrime, pvPots):
@@ -513,14 +511,14 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         if self.seek_point is not None:
             yield self.seek_point.name
 
-    def logicwiz(self, bo, tree, age_name, version, region):
+    def logicwiz(self, bo, tree, age_name, version, click_region, share_region):
         # Assign linking book script based on target version
         linking_pfm = linking_pfms[version]
         linkingnode = self._create_python_file_node(tree, linking_pfm["filename"], linking_pfm["attribs"])
         if version <= pvPots:
-            self._create_pots_nodes(bo, tree.nodes, linkingnode, age_name, region)
+            self._create_pots_nodes(bo, tree.nodes, linkingnode, age_name, click_region)
         else:
-            self._create_moul_nodes(bo, tree.nodes, linkingnode, age_name, region)
+            self._create_moul_nodes(bo, tree.nodes, linkingnode, age_name, click_region, share_region)
 
     def _create_pots_nodes(self, clickable_object, nodes, linkingnode, age_name, clk_region):
         # Clickable
@@ -600,7 +598,7 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         responder.link_output(responder_state, "state_refs", "resp")
         responder.link_output(linkingnode, "keyref", "respOneShot")
 
-    def _create_moul_nodes(self, clickable_object, nodes, linkingnode, age_name, clk_region):
+    def _create_moul_nodes(self, clickable_object, nodes, linkingnode, age_name, clk_region, shr_region):
         # Clickable
         clickable_region = nodes.new("PlasmaClickableRegionNode")
         clickable_region.region_object = clk_region
@@ -659,10 +657,7 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         if self.shareable:
             # Region
             share_region = nodes.new("PlasmaVolumeSensorNode")
-            if self.share_region is None:
-                share_region.region_object = clk_region
-            else:
-                share_region.region_object = self.share_region
+            share_region.region_object = shr_region
             for i in share_region.inputs:
                 i.allow = True
             share_region.link_output(linkingnode, "satisfies", "shareRegion")
