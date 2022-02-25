@@ -601,7 +601,7 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         responder.link_output(responder_state, "state_refs", "resp")
         responder.link_output(linkingnode, "keyref", "respOneShot")
 
-    def _create_moul_nodes(self, clickable_object, nodes, linkingnode, age_name, clk_region, share_rgn):
+    def _create_moul_nodes(self, clickable_object, nodes, linkingnode, age_name, clk_region, share_region):
         # Clickable
         clickable_region = nodes.new("PlasmaClickableRegionNode")
         clickable_region.region_object = clk_region
@@ -659,11 +659,11 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         # Share MSB
         if share_region is not None:
             # Region
-            share_region = nodes.new("PlasmaVolumeSensorNode")
-            share_region.region_object = share_rgn
-            for i in share_region.inputs:
+            share_msb_region = nodes.new("PlasmaVolumeSensorNode")
+            share_msb_region.region_object = share_region
+            for i in share_msb_region.inputs:
                 i.allow = True
-            share_region.link_output(linkingnode, "satisfies", "shareRegion")
+            share_msb_region.link_output(linkingnode, "satisfies", "shareRegion")
             # MSB Behavior
             share_seek = nodes.new("PlasmaSeekTargetNode")
             share_seek.target = self.seek_point
