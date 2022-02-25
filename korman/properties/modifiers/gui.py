@@ -482,19 +482,22 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         else:
             rgn_obj = self.clickable_region
 
-        # Generate the same six foot cube if we need a share region.
         if self.shareable:
             if self.share_region is None:
                 with utils.bmesh_object("{}_LinkingBook_ShareRgn".format(self.key_name)) as (share_region, bm):
+                    # Generate a cube for the share region.
                     bmesh.ops.create_cube(bm, size=(8.0))
                     share_region_offset = mathutils.Matrix.Translation(self.clickable.matrix_world.translation - share_region.matrix_world.translation)
                     bmesh.ops.transform(bm, matrix=share_region_offset, space=share_region.matrix_world, verts=bm.verts)
                     share_region.plasma_object.enabled = True
                     share_region.hide_render = True
+                    yield share_region
             else:
                 share_region = self.share_region
+        else:
+            share_region = None
 
-            yield self.convert_logic(bo, age_name=exporter.age_name, version=exporter.mgr.getVer(), click_region=rgn_obj, share_region=share_region)
+        yield self.convert_logic(bo, age_name=exporter.age_name, version=exporter.mgr.getVer(), click_region=rgn_obj, share_region=share_region)
 
     def export(self, exporter, bo, so):
         if self._check_version(pvPrime, pvPots):
@@ -598,7 +601,7 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         responder.link_output(responder_state, "state_refs", "resp")
         responder.link_output(linkingnode, "keyref", "respOneShot")
 
-    def _create_moul_nodes(self, clickable_object, nodes, linkingnode, age_name, clk_region, shr_region):
+    def _create_moul_nodes(self, clickable_object, nodes, linkingnode, age_name, clk_region, share_rgn):
         # Clickable
         clickable_region = nodes.new("PlasmaClickableRegionNode")
         clickable_region.region_object = clk_region
@@ -654,10 +657,10 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         linking_panel_name.link_output(linkingnode, "pfm", "TargetAge")
 
         # Share MSB
-        if self.shareable:
+        if share_region is not None:
             # Region
             share_region = nodes.new("PlasmaVolumeSensorNode")
-            share_region.region_object = shr_region
+            share_region.region_object = share_rgn
             for i in share_region.inputs:
                 i.allow = True
             share_region.link_output(linkingnode, "satisfies", "shareRegion")
