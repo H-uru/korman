@@ -49,7 +49,7 @@ endif()
 
 # Gotta do this because libHSPlasma is still using the old broke-ass pre-3.12 find modules.
 set(Python3_FIND_STRATEGY VERSION)
-find_package(Python3 ${Blender_PYTHON_VERSION} EXACT COMPONENTS Development REQUIRED)
+find_package(Python3 ${Blender_PYTHON_VERSION} EXACT COMPONENTS Development Interpreter REQUIRED)
 
 include(Dependencies)
 if(korman_INSTALL_PACKAGE)
