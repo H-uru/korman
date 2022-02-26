@@ -868,22 +868,19 @@ class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.typ
     # Blender memory workaround
     _ENTIRE_ANIMATION = "(Entire Animation)"
     def _get_anim_names(self, context):
-        if self.texture.plasma_layer.subanimations:
-            if self.texture is not None:
-                items = [(anim.animation_name, anim.animation_name, "")
-                         for anim in self.texture.plasma_layer.subanimations]
-            elif self.material is not None or self.target_object is not None:
-                if self.material is None:
-                    materials = (i.material for i in self.target_object.material_slots if i and i.material)
-                else:
-                    materials = (self.material,)
-                layer_props = (i.texture.plasma_layer for mat in materials for i in mat.texture_slots if i and i.texture)
-                all_anims = frozenset((anim.animation_name for i in layer_props for anim in i.subanimations))
-                items = [(i, i, "") for i in all_anims]
+        if self.texture is not None:
+            items = [(anim.animation_name, anim.animation_name, "")
+                        for anim in self.texture.plasma_layer.subanimations]
+        elif self.material is not None or self.target_object is not None:
+            if self.material is None:
+                materials = (i.material for i in self.target_object.material_slots if i and i.material)
             else:
-                items = [(PlasmaAttribTextureNode._ENTIRE_ANIMATION, PlasmaAttribTextureNode._ENTIRE_ANIMATION, "")]
+                materials = (self.material,)
+            layer_props = (i.texture.plasma_layer for mat in materials for i in mat.texture_slots if i and i.texture)
+            all_anims = frozenset((anim.animation_name for i in layer_props for anim in i.subanimations))
+            items = [(i, i, "") for i in all_anims]
         else:
-            raise RuntimeError()
+            items = [(PlasmaAttribTextureNode._ENTIRE_ANIMATION, PlasmaAttribTextureNode._ENTIRE_ANIMATION, "")]
 
         # We always want "(Entire Animation)", if it exists, to be the first item.
         entire = items.index((PlasmaAttribTextureNode._ENTIRE_ANIMATION, PlasmaAttribTextureNode._ENTIRE_ANIMATION, ""))
@@ -914,14 +911,15 @@ class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.typ
                 if not frozenset(self.texture.users_material) & frozenset(iter_materials()):
                     layout.label("The selected texture is not on a material linked to the target object.", icon="ERROR")
                     layout.alert = True
-            if self.anim_name is None:
-                    layout.label("The selected texture has no animation data.", icon="ERROR")
-                    layout.alert = True
         layout.alert = not any((self.target_object, self.material, self.texture))
         layout.prop(self, "target_object")
         layout.prop(self, "material")
         layout.prop(self, "texture")
-        layout.prop(self, "anim_name")
+        wants_anim = bool(self.to_socket and self.to_socket.attribute_type == "ptAttribMaterialAnimation")
+        col = layout.column()
+        col.alert = False
+        col.active = wants_anim
+        col.prop(self, "anim_name")
 
     def get_key(self, exporter, so):
         if not any((self.target_object, self.material, self.texture)):
@@ -939,7 +937,8 @@ class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.typ
             yield from filter(lambda x: x and isinstance(x.object, plDynamicTextMap),
                               (i.object.texture for i in layer_generator))
         elif attrib == "ptAttribMaterialAnimation":
-            yield from filter(lambda x: x and isinstance(x.object, plLayerAnimationBase), layer_generator)
+            anim_generator = exporter.mesh.material.get_texture_animation_key(self.target_object, self.material, self.texture, self.anim_name)
+            yield from filter(lambda x: not isinstance(x.object, (plAgeGlobalAnim, plLayerSDLAnimation)), anim_generator)
         elif attrib == "ptAttribMaterialList":
             yield from filter(lambda x: x and not isinstance(x.object, plLayerAnimationBase), bottom_layers)
         elif attrib == "ptAttribMaterial":
