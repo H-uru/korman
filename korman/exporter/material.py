@@ -742,9 +742,8 @@ class MaterialConverter:
         pl_env.incCharacters = texture.plasma_layer.envmap_addavatar
 
         # Perhaps the DEM/DCM fog should be separately configurable at some point?
-        pl_fog = bpy.context.scene.world.plasma_fni
         pl_env.color = utils.color(texture.plasma_layer.envmap_color)
-        pl_env.fogStart = pl_fog.fog_start
+        pl_env.fogStart = -1.0
 
         # EffVisSets
         # Whoever wrote this PyHSPlasma binding didn't follow the convention. Sigh.
