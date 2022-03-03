@@ -86,12 +86,21 @@ class ImageLibraryItem(bpy.types.PropertyGroup):
                                      options=set())
 
 
+gui_pfms = {
+    "filename" = "xDialogToggle.py",
+    "attribs": (
+        { 'id': 1, 'type': "ptAttribActivator", 'name': "actGUIClickable" },
+        { 'id': 4, 'type': "ptAttribString", 'name': "pagename" },
+    )
+}
+
+
 class PlasmaGUIDialogModifier(PlasmaModifierProperties):
     pl_id = "guidialogmod"
     
     bl_category = "GUI"
-    bl_label = "GUI Dialog"
-    bl_description = "Brings up a custom GUI dialog"
+    bl_label = "Custom GUI Dialog"
+    bl_description = "Brings up a custom GUI dialog modifier"
     bl_icon = "VIEWZOOM"
 
     versions = EnumProperty(name="Export Targets",
@@ -100,12 +109,12 @@ class PlasmaGUIDialogModifier(PlasmaModifierProperties):
                             options={"ENUM_FLAG"},
                             default={"pvMoul", "pvPots", "pvPrime"})
     
-    clickable = PointerProperty(name="GUI Clickable",
+    gui_clickable = PointerProperty(name="GUI Clickable",
                                description="Object to click to initiate GUI",
                                type=bpy.types.Object,
                                poll=idprops.poll_mesh_objects,
                                options=set())
-    region = PointerProperty(name="GUI Click Region",
+    gui_region = PointerProperty(name="GUI Click Region",
                                 description="GUI clickable region",
                                 type=bpy.types.Object,
                                 poll=idprops.poll_mesh_objects,
@@ -115,7 +124,7 @@ class PlasmaGUIDialogModifier(PlasmaModifierProperties):
                                 type=bpy.types.Object,
                                 poll=idprops.poll_mesh_objects,
                                 options=set())
-    button = PointerProperty(name="GUI Button",
+    gui_button = PointerProperty(name="GUI Button",
                                 description="Object to click to deactivate GUI (optional)",
                                 type=bpy.types.Object,
                                 poll=idprops.poll_mesh_objects,
@@ -124,7 +133,7 @@ class PlasmaGUIDialogModifier(PlasmaModifierProperties):
     def sanity_check(self):
         if self.gui_object is None:
             raise ExportError("{}: GUI Dialog modifier requires a GUI Object!", self.id_data.name)
-        elif self.click is None:
+        elif self.gui_clickable is None:
             raise ExportError("{}: GUI Dialog modifier requires a clickable!", self.id_data.name)
 
     def pre_export(self, exporter, bo):
@@ -134,6 +143,38 @@ class PlasmaGUIDialogModifier(PlasmaModifierProperties):
             exporter.report.port("Object '{}' has a GUI Dialog not enabled for export to the selected engine.  Skipping.",
                                  bo.name, version, indent=2)
             return
+        # create GUI click region if one is not provided
+        if self.gui_region is None:
+            with utils.bmesh_object("{}_GUI_ClkRgn".format(self.key_name)) as (gui_rgn_obj, bm):
+                bmesh.ops.create_cube(bm, size=(6.0))
+                bmesh.ops.transform(bm, matrix=mathutils.Matrix.Translation(bo.matrix_world.translation - gui_rgn_obj.matrix_world.translation),
+                                    space=gui_rgn_obj.matrix_world, verts=bm.verts)
+                gui_rgn_obj.plasma_object.enabled = True
+                gui_rgn_obj.hide_render = True
+            yield gui_rgn_obj
+        else:
+            # Use the GUI region provided
+            gui_rgn_obj = self.gui_region
+
+    def logicwiz(self, bo, tree, age_name, version, gui_rgn_obj):
+        guinode = self._create_python_file_node(tree, gui_pfms["filename"], gui_pfms["attribs"])
+        self._create_python_nodes(bo, tree.nodes, guinode, age_name, gui_rgn_obj)
+
+    def export(self, exporter, bo):
+        
+
+    def _create_python_nodes(self, gui_clickable, nodes, guinode, age_name, gui_region):
+        clickable_region = nodes.new("PlasmaClickableRegionNode")
+        clickable_region.region_object = gui_region
+
+        clickable = nodes.new("PlasmaClickableNode")
+        clickable.clickable_object = self.clickable
+        clickable.find_input_socket("facing").allow_simple = False
+        clickable.link_input(clickable_region, "satisfies", "region")
+        clickable.link_output(guinode, "satisfies", "actGUIClickable")
+
+        gui_name = nodes.new("PlasmaAttribStringNode")
+        gui_name.value = self.gui_object.name
 
 
 class PlasmaImageLibraryModifier(PlasmaModifierProperties):
