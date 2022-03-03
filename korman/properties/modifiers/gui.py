@@ -163,19 +163,19 @@ class PlasmaGUIDialogModifier(PlasmaModifierProperties):
 
     def export(self, exporter, bo):
         # create post effect mod
-        guiposteffect = exporter.mgr.find_create_object(plPostEffectMod, bl=bo)
+        guiposteffect = exporter.mgr.find_create_object(plPostEffectMod, "{}_PostEffectMod".format(self.key_name))
         guiposteffect.hither = plPostEffectMod.GetHither("0.5")
         guiposteffect.yon = plPostEffectMod.GetYon("1000")
         guiposteffect.fov_x = plPostEffectMod.GetFovX("45")
         guiposteffect.fov_y = plPostEffectMod.GetFovY("33.75")
         # create GUI Dialog
-        guidialog = exporter.mgr.find_create_object(pfGUIDialogMod, bl=bo)
+        guidialog = exporter.mgr.find_create_object(pfGUIDialogMod, "{}_GUIDialogMod".format(self.key_name))
         guidialog.mode |= pfGUIDialogMod.kModal
         guidialog.posteffect = pfGUIDialogMod.GetRenderMod(guiposteffect)
         guidialog.sceneNode = exporter.mgr.get_scene_node(so.key.location)
         # do we have a clickoff button?
         if self.gui_button:
-            buttonmod = exporter.mgr.find_create_object(pfGUIButtonMod, bl=bo)
+            buttonmod = exporter.mgr.find_create_object(pfGUIButtonMod, "{}_GUIButtonMod".format(self.key_name))
             buttonmod.flags = pfGUIButtonMod.kWantsInterest | pfGUIButtonMod.kInheritProcFromDlg
             buttonmod.tagid = pfGUIButtonMod.GetTagID("99")
             guidialog.button = pfGUIDialogMod.GetControlFromTag(buttonmod)
