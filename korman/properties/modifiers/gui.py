@@ -139,6 +139,7 @@ class PlasmaGUIDialogModifier(PlasmaModifierProperties):
     def pre_export(self, exporter, bo):
         our_versions = (globals()[j] for j in self.versions)
         version = exporter.mgr.getVer()
+        age_name = exporter.age_name
         if version not in our_versions:
             exporter.report.port("Object '{}' has a GUI Dialog not enabled for export to the selected engine.  Skipping.",
                                  bo.name, version, indent=2)
@@ -161,7 +162,23 @@ class PlasmaGUIDialogModifier(PlasmaModifierProperties):
         self._create_python_nodes(bo, tree.nodes, guinode, age_name, gui_rgn_obj)
 
     def export(self, exporter, bo):
-        
+        # create post effect mod
+        guiposteffect = exporter.mgr.find_create_object(plPostEffectMod, bl=bo)
+        guiposteffect.hither = plPostEffectMod.GetHither("0.5")
+        guiposteffect.yon = plPostEffectMod.GetYon("1000")
+        guiposteffect.fov_x = plPostEffectMod.GetFovX("45")
+        guiposteffect.fov_y = plPostEffectMod.GetFovY("33.75")
+        # create GUI Dialog
+        guidialog = exporter.mgr.find_create_object(pfGUIDialogMod, bl=bo)
+        guidialog.mode |= pfGUIDialogMod.kModal
+        guidialog.posteffect = pfGUIDialogMod.GetRenderMod(guiposteffect)
+        guidialog.sceneNode = exporter.mgr.get_scene_node(so.key.location)
+        # do we have a clickoff button?
+        if self.gui_button:
+            buttonmod = exporter.mgr.find_create_object(pfGUIButtonMod, bl=bo)
+            buttonmod.flags = pfGUIButtonMod.kWantsInterest | pfGUIButtonMod.kInheritProcFromDlg
+            buttonmod.tagid = pfGUIButtonMod.GetTagID("99")
+            guidialog.button = pfGUIDialogMod.GetControlFromTag(buttonmod)
 
     def _create_python_nodes(self, gui_clickable, nodes, guinode, age_name, gui_region):
         clickable_region = nodes.new("PlasmaClickableRegionNode")
