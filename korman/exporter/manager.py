@@ -28,6 +28,7 @@ from ..plasma_magic import *
 _pool_types = (
     plFactory.ClassIndex("plPostEffectMod"),
     plFactory.ClassIndex("pfGUIDialogMod"),
+    plFactory.ClassIndex("pfGUIButtonMod"),
     plFactory.ClassIndex("plMsgForwarder"),
     plFactory.ClassIndex("plClothingItem"),
     plFactory.ClassIndex("plArmatureEffectFootSound"),
