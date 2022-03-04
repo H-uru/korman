@@ -122,13 +122,6 @@ class PlasmaAddFlareOperator(PlasmaMeshOperator, bpy.types.Operator):
         # Parent Plane to Empty
         flare_plane.parent = flare_root
 
-        # Enable Opacity Fader
-        bpy.ops.object.plasma_modifier_add(types="fademod")
-        flare_plane.plasma_modifiers.fademod.fader_type = "FadeOpacity"
-        flare_plane.plasma_modifiers.fademod.fade_in_time = 0.25
-        flare_plane.plasma_modifiers.fademod.fade_out_time = 0.25
-        flare_plane.plasma_modifiers.fademod.bounds_center = True
-
     def find_create_material(self):
         # If the selected flare material exists, use it
         auto_mat = bpy.data.materials.get(self.flare_material_name, None)
