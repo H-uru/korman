@@ -122,13 +122,6 @@ class PlasmaAddFlareOperator(PlasmaMeshOperator, bpy.types.Operator):
         # Parent Plane to Empty
         flare_plane.parent = flare_root
 
-        # Enable Opacity Fader
-        bpy.ops.object.plasma_modifier_add(types="fademod")
-        flare_plane.plasma_modifiers.fademod.fader_type = "FadeOpacity"
-        flare_plane.plasma_modifiers.fademod.fade_in_time = 0.25
-        flare_plane.plasma_modifiers.fademod.fade_out_time = 0.25
-        flare_plane.plasma_modifiers.fademod.bounds_center = True
-
     def find_create_material(self):
         # If the selected flare material exists, use it
         auto_mat = bpy.data.materials.get(self.flare_material_name, None)
@@ -136,7 +129,7 @@ class PlasmaAddFlareOperator(PlasmaMeshOperator, bpy.types.Operator):
         if auto_mat is None:
             # Generate a new flare material and texture
             auto_mat = bpy.data.materials.new(name=FLARE_MATERIAL_BASE_NAME)
-            auto_mat.use_shadeless = True
+            auto_mat.emit = 1.0
             auto_mat.use_shadows = False
             auto_mat.use_cast_shadows = False
             self.flare_material_name = auto_mat.name
@@ -144,12 +137,12 @@ class PlasmaAddFlareOperator(PlasmaMeshOperator, bpy.types.Operator):
             auto_tex = bpy.data.textures.new(name=FLARE_MATERIAL_BASE_NAME, type="IMAGE")
             auto_tex.use_alpha = True
             auto_tex.plasma_layer.skip_depth_write = True
-            auto_tex.plasma_layer.skip_depth_test = True
             auto_tex.plasma_layer.z_bias = True
 
             new_slot = auto_mat.texture_slots.add()
             new_slot.texture = auto_tex
             new_slot.blend_type = "ADD"
+            new_slot.use_map_emit = True
 
         return auto_mat
 
