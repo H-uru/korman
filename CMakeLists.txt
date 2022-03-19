@@ -87,6 +87,12 @@ if(korman_INSTALL_BLENDER)
         "${_Blender_PATH}/"
         DESTINATION "."
         COMPONENT "Blender"
+        FILES_MATCHING
+            PATTERN "*"
+            # Don't install any korman stuff in the Blender install (yikes)
+            PATTERN "korman" EXCLUDE
+            PATTERN "__pycache__" EXCLUDE
+            REGEX [[vc[_.]?redist[_.]?x[0-9][0-9].exe]] EXCLUDE
     )
 endif()
 
