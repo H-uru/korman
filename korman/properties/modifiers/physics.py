@@ -82,7 +82,7 @@ class PlasmaCollider(PlasmaModifierProperties):
                                   default=True)
     dynamic_blocker = BoolProperty(name="Blocks Dynamics",
                                    description="Object blocks dynamic objects (kickables)",
-                                   default=False)
+                                   default=True)
 
     friction = FloatProperty(name="Friction",
                              min=0.0,

@@ -165,28 +165,27 @@ class PhysicsConverter:
                 physical.friction = mod.friction
                 physical.restitution = mod.restitution
 
-                if not mod.dynamic_blocker:
-                    if mod.dynamic:
-                        if ver <= pvPots:
-                            physical.collideGroup = (1 << plSimDefs.kGroupDynamic) | \
-                                                    (1 << plSimDefs.kGroupStatic)
-                        physical.memberGroup = plSimDefs.kGroupDynamic
-                        physical.mass = mod.mass
-                        _set_phys_prop(plSimulationInterface.kStartInactive, simIface, physical,
-                                       value=mod.start_asleep)
-                    elif not mod.avatar_blocker:
-                        physical.memberGroup = plSimDefs.kGroupLOSOnly
-                    else:
-                        physical.memberGroup = plSimDefs.kGroupStatic
-
-                    # Line of Sight DB
-                    if mod.camera_blocker:
-                        physical.LOSDBs |= plSimDefs.kLOSDBCameraBlockers
-                        _set_phys_prop(plSimulationInterface.kCameraAvoidObject, simIface, physical)
-                    if mod.terrain:
-                        physical.LOSDBs |= plSimDefs.kLOSDBAvatarWalkable
-                else:
+                if mod.dynamic:
+                    if ver <= pvPots:
+                        physical.collideGroup = (1 << plSimDefs.kGroupDynamic) | \
+                                                (1 << plSimDefs.kGroupStatic)
+                    physical.memberGroup = plSimDefs.kGroupDynamic
+                    physical.mass = mod.mass
+                    _set_phys_prop(plSimulationInterface.kStartInactive, simIface, physical,
+                                   value=mod.start_asleep)
+                elif mod.dynamic_blocker and not mod.avatar_blocker:
                     physical.memberGroup = plSimDefs.kDynamicBlocker
+                elif not mod.avatar_blocker and not mod.dynamic_blocker:
+                    physical.memberGroup = plSimDefs.kGroupLOSOnly
+                else:
+                    physical.memberGroup = plSimDefs.kGroupStatic
+
+                # Line of Sight DB
+                if mod.camera_blocker:
+                    physical.LOSDBs |= plSimDefs.kLOSDBCameraBlockers
+                    _set_phys_prop(plSimulationInterface.kCameraAvoidObject, simIface, physical)
+                if mod.terrain:
+                    physical.LOSDBs |= plSimDefs.kLOSDBAvatarWalkable
 
                     # Hacky? We'd like to share the simple surface descriptors(TM) as much as possible...
                     # This could result in a few orphaned PhysicalSndGroups, but I think that's preferable
