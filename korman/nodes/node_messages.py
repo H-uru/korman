@@ -776,9 +776,9 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
                              subtype="PERCENTAGE")
     event = EnumProperty(name="Callback",
                          description="Event upon which to callback the Responder",
-                         items=[("kEnd", "End", "When the action ends"),
+                         items=[("kEnd", "End", "When the sound ends"),
                                 ("NONE", "(None)", "Don't notify the Responder at all"),
-                                ("kStop", "Stop", "When the action is stopped by a message")],
+                                ("kStop", "Stop", "When the sound is stopped by a message")],
                          default="NONE")
 
     def convert_callback_message(self, exporter, so, msg, target, wait):
