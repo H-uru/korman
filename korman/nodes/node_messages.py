@@ -774,12 +774,18 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
                              min=0, max=100, default=100,
                              options=set(),
                              subtype="PERCENTAGE")
+    event = EnumProperty(name="Callback",
+                         description="Event upon which to callback the Responder",
+                         items=[("kEnd", "End", "When the sound ends"),
+                                ("NONE", "(None)", "Don't notify the Responder at all"),
+                                ("kStop", "Stop", "When the sound is stopped by a message")],
+                         default="NONE")
 
     def convert_callback_message(self, exporter, so, msg, target, wait):
         assert not self.is_random_sound, "Callbacks are not available for random sounds"
         cb = plEventCallbackMsg()
         cb.addReceiver(target)
-        cb.event = kEnd
+        cb.event = globals()[self.event]
         cb.user = wait
         msg.addCallback(cb)
         msg.setCmd(plSoundMsg.kAddCallbacks)
@@ -880,10 +886,13 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
         if not random:
             layout.prop(self, "looping")
         layout.prop(self, "volume")
+        if not random:
+            layout.prop(self, "event")
 
     @property
     def has_callbacks(self):
-        return not self.is_random_sound
+        if not self.is_random_sound:
+            return self.event != "NONE"
 
     @classmethod
     def _idprop_mapping(cls):
