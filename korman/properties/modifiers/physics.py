@@ -69,18 +69,42 @@ class PlasmaCollider(PlasmaModifierProperties):
     bl_icon = "MOD_PHYSICS"
     bl_description = "Simple physical collider"
 
-    bounds = EnumProperty(name="Bounds Type", description="", items=bounds_types, default="hull")
+    bounds = EnumProperty(name="Bounds Type",
+                          description="",
+                          items=bounds_types,
+                          default="hull")
 
-    avatar_blocker = BoolProperty(name="Blocks Avatars", description="Object blocks avatars", default=True)
-    camera_blocker = BoolProperty(name="Blocks Camera LOS", description="Object blocks camera line-of-sight", default=True)
+    avatar_blocker = BoolProperty(name="Blocks Avatars",
+                                  description="Object blocks avatars",
+                                  default=True)
+    camera_blocker = BoolProperty(name="Blocks Camera LOS",
+                                  description="Object blocks camera line-of-sight",
+                                  default=True)
+    dynamic_blocker = BoolProperty(name="Blocks Dynamics",
+                                   description="Object blocks dynamic objects (kickables)",
+                                   default=False)
 
-    friction = FloatProperty(name="Friction", min=0.0, default=0.5)
-    restitution = FloatProperty(name="Restitution", description="Coefficient of collision elasticity", min=0.0, max=1.0)
-    terrain = BoolProperty(name="Terrain", description="Object represents the ground", default=False)
+    friction = FloatProperty(name="Friction",
+                             min=0.0,
+                             default=0.5)
+    restitution = FloatProperty(name="Restitution",
+                                description="Coefficient of collision elasticity",
+                                min=0.0,
+                                max=1.0)
+    terrain = BoolProperty(name="Terrain",
+                           description="Object represents the ground",
+                           default=False)
 
-    dynamic = BoolProperty(name="Dynamic", description="Object can be influenced by other objects (ie is kickable)", default=False)
-    mass = FloatProperty(name="Mass", description="Mass of object in pounds", min=0.0, default=1.0)
-    start_asleep = BoolProperty(name="Start Asleep", description="Object is not active until influenced by another object", default=False)
+    dynamic = BoolProperty(name="Dynamic",
+                           description="Object can be influenced by other objects (ie is kickable)",
+                           default=False)
+    mass = FloatProperty(name="Mass",
+                         description="Mass of object in pounds",
+                         min=0.0,
+                         default=1.0)
+    start_asleep = BoolProperty(name="Start Asleep",
+                                description="Object is not active until influenced by another object",
+                                default=False)
 
     proxy_object = PointerProperty(name="Proxy",
                                    description="Object used as the collision geometry",
@@ -118,9 +142,12 @@ class PlasmaSubworld(PlasmaModifierProperties):
                             default="auto",
                             options=set())
     gravity = FloatVectorProperty(name="Gravity",
-        description="Subworld's gravity defined in feet per second squared",
-        size=3, default=(0.0, 0.0, -32.174), precision=3,
-        subtype="ACCELERATION", unit="ACCELERATION")
+                                  description="Subworld's gravity defined in feet per second squared",
+                                  size=3,
+                                  default=(0.0, 0.0, -32.174),
+                                  precision=3,
+                                  subtype="ACCELERATION",
+                                  unit="ACCELERATION")
 
     def export(self, exporter, bo, so):
         if self.is_dedicated_subworld(exporter):
