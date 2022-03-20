@@ -187,13 +187,13 @@ class PhysicsConverter:
                 if mod.terrain:
                     physical.LOSDBs |= plSimDefs.kLOSDBAvatarWalkable
 
-                    # Hacky? We'd like to share the simple surface descriptors(TM) as much as possible...
-                    # This could result in a few orphaned PhysicalSndGroups, but I think that's preferable
-                    # to having a bunch of empty objects...?
+                # Hacky? We'd like to share the simple surface descriptors(TM) as much as possible...
+                # This could result in a few orphaned PhysicalSndGroups, but I think that's preferable
+                # to having a bunch of empty objects...?
                 if mod.surface != "kNone":
-                        sndgroup = self._mgr.find_create_object(plPhysicalSndGroup, so=so, name="SURFACEGEN_{}".format(mod.surface))
-                        sndgroup.group = getattr(plPhysicalSndGroup, mod.surface)
-                        physical.soundGroup = sndgroup.key
+                    sndgroup = self._mgr.find_create_object(plPhysicalSndGroup, so=so, name="SURFACEGEN_{}".format(mod.surface))
+                    sndgroup.group = getattr(plPhysicalSndGroup, mod.surface)
+                    physical.soundGroup = sndgroup.key
             else:
                 group_name = kwargs.get("member_group")
                 if group_name:
