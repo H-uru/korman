@@ -174,7 +174,7 @@ class PhysicsConverter:
                     _set_phys_prop(plSimulationInterface.kStartInactive, simIface, physical,
                                    value=mod.start_asleep)
                 elif mod.dynamic_blocker and not mod.avatar_blocker:
-                    physical.memberGroup = plSimDefs.kDynamicBlocker
+                    physical.memberGroup = plSimDefs.kGroupDynamicBlocker
                 elif not mod.avatar_blocker and not mod.dynamic_blocker:
                     physical.memberGroup = plSimDefs.kGroupLOSOnly
                 else:
