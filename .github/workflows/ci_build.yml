@@ -7,18 +7,18 @@ jobs:
       matrix:
         cfg:
           - {
-              os: windows-2019,
-              generator: Visual Studio 16 2019,
+              os: windows-2022,
+              generator: Visual Studio 17 2022,
               arch: Win32,
               str: windows-x86,
-              blender-url: "https://github.com/Hoikas/blender2.7/releases/download/blender2.79_20210808/blender-2.79.0-git20210808.d2e1ea3f63e3-windows32.zip",
+              blender-url: "https://github.com/Hoikas/blender2.7/releases/download/blender2.79_20220402/blender-2.79.0-git20220402.e12c4a607a5e-windows32.zip",
             }
           - {
-              os: windows-2019,
-              generator: Visual Studio 16 2019,
+              os: windows-2022,
+              generator: Visual Studio 17 2022,
               arch: x64,
               str: windows-x64,
-              blender-url: "https://github.com/Hoikas/blender2.7/releases/download/blender2.79_20210808/blender-2.79.0-git20210808.d2e1ea3f63e3-windows64.zip",
+              blender-url: "https://github.com/Hoikas/blender2.7/releases/download/blender2.79_20220402/blender-2.79.0-git20220402.e12c4a607a5e-windows64.zip",
             }
 
     env:
@@ -68,7 +68,7 @@ jobs:
   publish:
     if: startsWith(github.ref, 'refs/tags')
     needs: [windows-build]
-    runs-on: windows-2019
+    runs-on: windows-latest
 
     steps:
       - name: Checkout Korman

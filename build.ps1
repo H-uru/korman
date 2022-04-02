@@ -253,7 +253,7 @@ try {
     throw "CMake must be installed and available on the PATH."
 }
 
-$MyGenerator = Find-CMakeArgument $Generator $Env:CMAKE_GENERATOR $Generator_LUT "Visual Studio 16 2019"
+$MyGenerator = Find-CMakeArgument $Generator $Env:CMAKE_GENERATOR $Generator_LUT "Visual Studio 17 2022"
 if ($Classic) {
     Build-KormanClassicSingleArch "$MyGenerator" x86 "$BuildDir"
     Build-KormanClassicSingleArch "$MyGenerator" x64 "$BuildDir"
