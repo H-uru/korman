@@ -110,6 +110,7 @@ def soundemit(modifier, layout, context):
         col.prop(sound, "auto_start")
         col.prop(sound, "incidental")
         col.prop(sound, "loop")
+        col.prop(sound, "local_only")
 
         col.separator()
         _draw_fade_ui(sound.fade_in, col, "Fade In:")
