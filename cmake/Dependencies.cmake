@@ -124,7 +124,7 @@ endfunction()
 if(korman_BUILD_JPEG)
     korman_add_external_project(libjpeg-turbo
         GIT_REPOSITORY "https://github.com/libjpeg-turbo/libjpeg-turbo.git"
-        GIT_TAG 2.1.0
+        GIT_TAG 2.1.3
         CMAKE_CACHE_ARGS
             -DBUILD_SHARED_LIBS:BOOL=OFF
             -DENABLE_SHARED:BOOL=FALSE
@@ -157,7 +157,7 @@ if(korman_BUILD_STRING_THEORY)
     if(MSVC AND MSVC_VERSION LESS 1900)
         set(_string_theory_tag 2.4)
     else()
-        set(_string_theory_tag 3.4)
+        set(_string_theory_tag 3.5)
     endif()
 
     korman_add_external_project(string_theory
@@ -182,7 +182,7 @@ if(korman_BUILD_ZLIB)
     endif()
     korman_add_external_project(zlib
         GIT_REPOSITORY "https://github.com/zlib-ng/zlib-ng.git"
-        GIT_TAG 2.0.5
+        GIT_TAG 2.0.6
         CMAKE_CACHE_ARGS
             -DBUILD_SHARED_LIBS:BOOL=OFF
             -DZLIB_COMPAT:BOOL=ON
@@ -208,7 +208,7 @@ if(korman_BUILD_HSPLASMA)
     korman_add_external_project(HSPlasma
         GIT_REPOSITORY "https://github.com/H-uru/libhsplasma.git"
         # Be sure to increase this as the feature set used by Korman increases
-        GIT_TAG d248e0111f21305b916f40289cdb993a6545e67a
+        GIT_TAG 4a1fd38dca471008de62209cc89616351161a843
         # We can only do shallow checkouts if the above is a branch or tag.
         GIT_SHALLOW FALSE
         CMAKE_CACHE_ARGS
