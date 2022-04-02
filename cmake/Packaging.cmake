@@ -13,10 +13,17 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+# NSIS blows up if you give it CMake (read: unix-like) paths on Windows.
+function(set_native_path OUT_VAR PATH_STRING)
+    file(TO_NATIVE_PATH "${PATH_STRING}" _temp)
+    string(REPLACE "\\" "\\\\" _temp "${_temp}")
+    set(${OUT_VAR} "${_temp}" PARENT_SCOPE)
+endfunction()
+
 set(CPACK_PACKAGE_NAME Korman)
 set(CPACK_PACKAGE_VENDOR "Guild of Writers")
 set(CPACK_PACKAGE_DIRECTORY "${PROJECT_BINARY_DIR}/package")
-set(CPACK_PACKAGE_ICON "${PROJECT_SOURCE_DIR}/installer/Icon.ico")
+set_native_path(CPACK_PACKAGE_ICON "${PROJECT_SOURCE_DIR}/installer/Icon.ico")
 set(CPACK_THREADS 0) # Allows multi-threaded LZMA compression in CMake 3.21+
 
 find_package(Git)
@@ -73,32 +80,67 @@ install(FILES
 
 set(CPACK_COMPONENTS_ALL "Korman")
 set(CPACK_COMPONENTS_GROUPING "ALL_COMPONENTS_IN_ONE")
-set(CPACK_COMPONENT_KORMAN_HIDDEN TRUE)
+set(CPACK_COMPONENT_KORMAN_REQUIRED TRUE)
 
 if(korman_INSTALL_BLENDER)
     list(APPEND CPACK_PACKAGE_EXECUTABLES blender Blender)
     list(APPEND CPACK_COMPONENTS_ALL "Blender")
-    set(CPACK_COMPONENT_BLENDER_HIDDEN TRUE)
+    set(CPACK_COMPONENT_BLENDER_REQUIRED TRUE)
 endif()
 
 if(korman_HARVEST_PYTHON22)
     list(APPEND CPACK_COMPONENTS_ALL "Python22")
-    set(CPACK_COMPONENT_PYTHON22_HIDDEN TRUE)
 endif()
 
 if(WIN32)
-    # We're not actually going to ship this variant, but better prepared than sorry.
-    if(korman_HARVEST_VCREDIST)
-        set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS
-            "ExecWait \\\"$INSTDIR\\\\${VCRedist_NAME} /q /norestart\\\""
+    set(CPACK_NSIS_COMPRESSOR "/SOLID lzma")
+
+    set_native_path(CPACK_NSIS_MUI_ICON "${PROJECT_SOURCE_DIR}/installer/Icon.ico")
+    set_native_path(CPACK_NSIS_MUI_WELCOMEFINISHPAGE_BITMAP "${PROJECT_SOURCE_DIR}/installer/WelcomeFinish.bmp")
+    set_native_path(CPACK_NSIS_MUI_UNWELCOMEFINISHPAGE_BITMAP "${PROJECT_SOURCE_DIR}/installer/WelcomeFinish.bmp")
+    set_native_path(CPACK_NSIS_MUI_HEADERIMAGE "${PROJECT_SOURCE_DIR}/installer/Header.bmp")
+
+    function(add_nsis_install_commands)
+        cmake_parse_arguments(
+            PARSE_ARGV 0
+            _anic
+            "PRE;POST"
+            ""
+            "COMMANDS"
         )
+        if(_anic_PRE)
+            set(_var CPACK_NSIS_EXTRA_PREINSTALL_COMMANDS)
+        elseif(_anic_POST)
+            set(_var CPACK_NSIS_EXTRA_INSTALL_COMMANDS)
+        else()
+            message(FATAL_ERROR "add_nsis_install_command() requires PRE or POST to be specified!")
+        endif()
+        foreach(_command IN LISTS _anic_COMMANDS)
+            set(${_var} "${${_var}}\n${_command}" PARENT_SCOPE)
+        endforeach()
+    endfunction()
+
+    if(korman_HARVEST_PYTHON22)
+        add_nsis_install_commands(POST COMMANDS [[ExecWait \"$INSTDIR\\Python_2.2.3.exe /S\"]])
     endif()
+    if(korman_HARVEST_VCREDIST)
+        add_nsis_install_commands(POST COMMANDS "ExecWait \\\"$INSTDIR\\\\${VCRedist_NAME} /q /norestart\\\"")
+    endif()
+
+    # Register the .blend file extension with this thingy.
+    add_nsis_install_commands(POST COMMANDS [[ExecWait \"$INSTDIR\\blender.exe  -r\"]])
+
+    # The license page is just the GNU GPL, which is a distribution license, not an EULA.
+    set(CPACK_NSIS_IGNORE_LICENSE_PAGE TRUE)
 
     set(CPACK_WIX_UPGRADE_GUID 84ef4b1d-27b6-54de-a73b-8fb1beb007ac) # KormanUpgrade
     # I think this should be randomized by CPack and not hardcoded?
     #set(CPACK_WIX_PRODUCT_GUID 74e91f5d-6d09-5d7f-a48f-3d0b011ef2df) # KormanProduct
 
-    find_package(VCRedist COMPONENTS MergeModules REQUIRED)
+    if(CPACK_BINARY_WIX)
+        set(_msm_required REQUIRED)
+    endif()
+    find_package(VCRedist COMPONENTS MergeModules ${_msm_required})
     configure_file(
         "${PROJECT_SOURCE_DIR}/installer/WiX.template.in"
         "${PROJECT_BINARY_DIR}/WiX.template"

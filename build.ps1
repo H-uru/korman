@@ -231,7 +231,7 @@ function Build-KormanModern($HostGenerator, $TargetPlatform, $OutputDir) {
     if ($NoInstaller) {
         $CPackGenerator = "ZIP"
     } else {
-        $CPackGenerator = "WIX;ZIP"
+        $CPackGenerator = "NSIS;ZIP"
     }
 
     Push-Location "$BuildDir"
