@@ -173,7 +173,10 @@ class PhysicsConverter:
                     physical.mass = mod.mass
                     _set_phys_prop(plSimulationInterface.kStartInactive, simIface, physical,
                                    value=mod.start_asleep)
-                elif not mod.avatar_blocker:
+                elif mod.dynamic_blocker and not mod.avatar_blocker:
+                    physical.collideGroup = (1 << plSimDefs.kGroupDynamic)
+                    physical.memberGroup = plSimDefs.kGroupLOSOnly
+                elif not mod.avatar_blocker and not mod.dynamic_blocker:
                     physical.memberGroup = plSimDefs.kGroupLOSOnly
                 else:
                     physical.memberGroup = plSimDefs.kGroupStatic

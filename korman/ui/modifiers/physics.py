@@ -22,6 +22,7 @@ def collision(modifier, layout, context):
     col = split.column()
     col.prop(modifier, "avatar_blocker")
     col.prop(modifier, "camera_blocker")
+    col.prop(modifier, "dynamic_blocker")
     col.prop(modifier, "terrain")
 
     col = split.column()
