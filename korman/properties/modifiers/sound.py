@@ -243,7 +243,7 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
                         description="Loop the sound",
                         default=False,
                         options=set())
-    local_only = BoolProperty(name"Local Only",
+    local_only = BoolProperty(name="Local Only",
                               description="Sounds only plays for local avatar",
                               default=False,
                               options=set())
