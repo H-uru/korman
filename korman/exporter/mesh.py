@@ -661,7 +661,7 @@ class MeshConverter(_MeshManager):
             geospan.props |= (plGeometrySpan.kWaterHeight | plGeometrySpan.kLiteVtxNonPreshaded |
                               plGeometrySpan.kPropReverseSort | plGeometrySpan.kPropNoShadow)
             geospan.waterHeight = bo.matrix_world.translation[2]
-            return [_GeoSpan(bo, blmat, geospan)], None
+            return [_GeoSpan(bo, blmat, geospan, blmat.pass_index)], None
         else:
             geospans = [None] * len(materials)
             mat2span_LUT = {}
