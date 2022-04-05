@@ -27,6 +27,8 @@ from ..plasma_magic import *
 # NOTE: We are using Factory indices because I doubt all of these classes are implemented.
 _pool_types = (
     plFactory.ClassIndex("plPostEffectMod"),
+    plFactory.ClassIndex("plSingleModifier"),
+    plFactory.ClassIndex("pfGUIControlMod"),
     plFactory.ClassIndex("pfGUIDialogMod"),
     plFactory.ClassIndex("pfGUIButtonMod"),
     plFactory.ClassIndex("plMsgForwarder"),

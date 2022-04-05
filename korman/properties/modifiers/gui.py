@@ -97,7 +97,7 @@ gui_pfms = {
 
 class PlasmaGUIDialogModifier(PlasmaModifierProperties):
     pl_id = "guidialogmod"
-    
+
     bl_category = "GUI"
     bl_label = "Custom GUI Dialog"
     bl_description = "Brings up a custom GUI dialog modifier"
@@ -108,7 +108,7 @@ class PlasmaGUIDialogModifier(PlasmaModifierProperties):
                             items=game_versions,
                             options={"ENUM_FLAG"},
                             default={"pvMoul", "pvPots", "pvPrime"})
-    
+
     gui_clickable = PointerProperty(name="GUI Clickable",
                                description="Object to click to initiate GUI",
                                type=bpy.types.Object,
@@ -129,7 +129,7 @@ class PlasmaGUIDialogModifier(PlasmaModifierProperties):
                                 type=bpy.types.Object,
                                 poll=idprops.poll_mesh_objects,
                                 options=set())
-    
+
     def sanity_check(self):
         if self.gui_object is None:
             raise ExportError("{}: GUI Dialog modifier requires a GUI Object!", self.id_data.name)
@@ -161,24 +161,24 @@ class PlasmaGUIDialogModifier(PlasmaModifierProperties):
         guinode = self._create_python_file_node(tree, gui_pfms["filename"], gui_pfms["attribs"])
         self._create_python_nodes(bo, tree.nodes, guinode, age_name, gui_rgn_obj)
 
-    def export(self, exporter, bo):
+    def export(self, exporter, bo, so):
         # create post effect mod
-        guiposteffect = exporter.mgr.find_create_object(plPostEffectMod, "{}_PostEffectMod".format(self.key_name))
-        guiposteffect.hither = plPostEffectMod.GetHither("0.5")
-        guiposteffect.yon = plPostEffectMod.GetYon("1000")
-        guiposteffect.fov_x = plPostEffectMod.GetFovX("45")
-        guiposteffect.fov_y = plPostEffectMod.GetFovY("33.75")
+        guiposteffect = exporter.mgr.find_create_object(plPostEffectMod, so=so, name="{}_PostEffectMod".format(self.key_name))
+        guiposteffect.hither = 0.5
+        guiposteffect.yon = 1000.0
+        guiposteffect.fovX = 45.0
+        guiposteffect.fovY = 33.75
         # create GUI Dialog
-        guidialog = exporter.mgr.find_create_object(pfGUIDialogMod, "{}_GUIDialogMod".format(self.key_name))
-        guidialog.mode |= pfGUIDialogMod.kModal
-        guidialog.posteffect = pfGUIDialogMod.GetRenderMod(guiposteffect)
+        guidialog = exporter.mgr.find_create_object(pfGUIDialogMod, so=so, name="{}_GUIDialogMod".format(self.key_name))
+        guidialog.setModFlags(pfGUIDialogMod.kModal, True)
+        guidialog.renderMod = guiposteffect
         guidialog.sceneNode = exporter.mgr.get_scene_node(so.key.location)
         # do we have a clickoff button?
-        if self.gui_button:
-            buttonmod = exporter.mgr.find_create_object(pfGUIButtonMod, "{}_GUIButtonMod".format(self.key_name))
-            buttonmod.flags = pfGUIButtonMod.kWantsInterest | pfGUIButtonMod.kInheritProcFromDlg
-            buttonmod.tagid = pfGUIButtonMod.GetTagID("99")
-            guidialog.button = pfGUIDialogMod.GetControlFromTag(buttonmod)
+        if self.gui_button is not None:
+            buttonmod = exporter.mgr.find_create_object(pfGUIButtonMod, so=so, name="{}_GUIButtonMod".format(self.key_name))
+            buttonmod.setFlags((pfGUIButtonMod.kWantsInterest, True), (pfGUIButtonMod.kInheritProcFromDlg, True))
+            buttonmod.TagID = 99
+            guidialog.Controls = buttonmod
 
     def _create_python_nodes(self, gui_clickable, nodes, guinode, age_name, gui_region):
         clickable_region = nodes.new("PlasmaClickableRegionNode")

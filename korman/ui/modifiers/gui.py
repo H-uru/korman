@@ -29,12 +29,10 @@ class ImageListUI(bpy.types.UIList):
 
 def guidialogmod(modifier, layout, context):
     layout.prop_menu_enum(modifier, "versions")
-    layout.separator()
-    
+
     split = layout.split()
     main_col = split.column()
-    
-    layout.label("GUI Objects:")
+
     main_col.label("Required:")
     col = main_col.column()
     col.prop(modifier, "gui_clickable", text="Clickable")
