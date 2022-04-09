@@ -75,13 +75,22 @@ class ExportManager:
 
     def add_object(self, pl, name=None, bl=None, loc=None, so=None):
         """Automates adding a converted Blender object to our Plasma Resource Manager"""
-        assert (bl or loc or so)
         if loc is not None:
             location = loc
         elif so is not None:
             location = so.key.location
+        elif bl is not None:
+            page_name = bl.plasma_object.page
+            location = self._pages.get(page_name)
+
+            # location can be None if we've been passed an object in a disabled page, or, in some
+            # cases, a disabled object in the default page. If we got this far, someone is demanding
+            # that this object be created, so we need its page to exist, no matter what the user
+            # otherwise requested.
+            if location is None:
+                location = self._force_create_page(page_name, bl.name)
         else:
-            location = self._pages[bl.plasma_object.page]
+            raise ValueError("bl, so, or loc must be specified.")
 
         # pl can be a class or an instance.
         # This is one of those "sanity" things to ensure we don't suddenly startpassing around the
@@ -206,14 +215,17 @@ class ExportManager:
 
     def find_key(self, pClass, bl=None, name=None, so=None, loc=None):
         """Given a blender Object and a Plasma class, find (or create) an exported plKey"""
-        assert loc or bl or so
-
         if loc is not None:
             location = loc
         elif so is not None:
             location = so.key.location
+        elif bl is not None:
+            location = self._pages.get(bl.plasma_object.page)
+            if location is None:
+                # This page has never been created, so the key search will obviously fail.
+                return None
         else:
-            location = self._pages[bl.plasma_object.page]
+            raise ValueError("bl, so, or loc must be specified.")
 
         if name is None:
             if bl is not None:
@@ -252,6 +264,40 @@ class ExportManager:
         if pClass in {plSceneObject, plPythonFileMod}:
             return replace_python2_identifier(name)
         return name
+
+    def _force_create_page(self, page_name: str, requestor_name: str) -> plLocation:
+        """Forcibly creates a page (that you KNOW does not exist yet) during the convert process."""
+        age_name = self._exporter().age_name
+        if page_name:
+            # This page has a name, but hasn't yet been created.
+            self._exporter().report.warn(
+                "'{}': trying to export into an unknown, potentially disabled page '{}'. Attempting to create it.",
+                requestor_name,
+                page_name
+            )
+            age_info = bpy.context.scene.world.plasma_age
+            page_info = next((i for i in age_info.pages if i.name == page_name), None)
+            if page_info is None:
+                error = explosions.UndefinedPageError()
+                error.add(page_name, requestor_name)
+                error.raise_if_error()
+            location = self.create_page(age_name, page_name, page_info.id)
+        else:
+            # This is a default page that wasn't exported... for some reason...
+            self._exporter().report.warn(
+                "'{}': trying to export into the default page, but it seems to not exist. Attempting to create it.",
+                requestor_name
+            )
+
+            # See if a default page exists by name. That means that it doesn't have ID = 0.
+            location = next((j for i, j in self._pages.items() if i.lower() == "default"), None)
+            if location is None:
+                # OK, we can be fairly certain that page ID 0 and page name "Default" don't exist.
+                location = self.create_page(age_name, "Default", 0)
+            else:
+                # Avoid doing this stupid lookup in the future.
+                self._pages[""] = location
+        return location
 
     def get_location(self, bl):
         """Returns the Page Location of a given Blender Object"""
