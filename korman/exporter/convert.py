@@ -80,6 +80,7 @@ class Exporter:
             self.report.progress_add_step("Exporting Textures")
             self.report.progress_add_step("Composing Geometry")
             self.report.progress_add_step("Saving Age Files")
+            self.report.progress_add_step("Cleaning Up")
             self.report.progress_start("EXPORTING AGE")
 
             # Step 0.9: Apply modifiers to all meshes temporarily.
@@ -133,6 +134,7 @@ class Exporter:
                 # Step 5.1: Save out the export report.
                 #           If the export fails and this doesn't save, we have bigger problems than
                 #           these little warnings and notices.
+                self.report.progress_advance()
                 self.report.progress_end()
                 self.report.save()
 
