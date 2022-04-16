@@ -95,6 +95,9 @@ endif()
 if(WIN32)
     set(CPACK_NSIS_COMPRESSOR "/SOLID lzma")
 
+    # WTF CPack?
+    set(CPACK_NSIS_EXECUTABLES_DIRECTORY ".")
+
     set_native_path(CPACK_NSIS_MUI_ICON "${PROJECT_SOURCE_DIR}/installer/Icon.ico")
     set_native_path(CPACK_NSIS_MUI_WELCOMEFINISHPAGE_BITMAP "${PROJECT_SOURCE_DIR}/installer/WelcomeFinish.bmp")
     set_native_path(CPACK_NSIS_MUI_UNWELCOMEFINISHPAGE_BITMAP "${PROJECT_SOURCE_DIR}/installer/WelcomeFinish.bmp")
