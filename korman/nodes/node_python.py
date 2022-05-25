@@ -766,7 +766,7 @@ class PlasmaAttribObjectNode(idprops.IDPropObjectMixin, PlasmaAttribNodeBase, bp
         elif attrib == "ptAttribAnimation":
             anim = bo.plasma_modifiers.animation
             agmod = exporter.mgr.find_create_key(plAGModifier, so=ref_so, name=anim.key_name)
-            agmaster = exporter.mgr.find_create_key(plAGMasterModifier, so=ref_so, name=anim.key_name)
+            agmaster = exporter.mgr.find_create_key(plAGMasterMod, so=ref_so, name=anim.key_name)
             return agmaster
         elif attrib == "ptAttribSwimCurrent":
             swimregion = bo.plasma_modifiers.swimregion
