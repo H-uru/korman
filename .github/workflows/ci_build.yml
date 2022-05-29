@@ -11,14 +11,14 @@ jobs:
               generator: Visual Studio 17 2022,
               arch: Win32,
               str: windows-x86,
-              blender-url: "https://github.com/Hoikas/blender2.7/releases/download/blender2.79_20220402/blender-2.79.0-git20220402.e12c4a607a5e-windows32.zip",
+              blender-url: "https://github.com/Hoikas/blender2.7/releases/download/blender2.79_20220528/blender-2.79.0-git20220528.f2969d58b0dc-windows32.zip",
             }
           - {
               os: windows-2022,
               generator: Visual Studio 17 2022,
               arch: x64,
               str: windows-x64,
-              blender-url: "https://github.com/Hoikas/blender2.7/releases/download/blender2.79_20220402/blender-2.79.0-git20220402.e12c4a607a5e-windows64.zip",
+              blender-url: "https://github.com/Hoikas/blender2.7/releases/download/blender2.79_20220528/blender-2.79.0-git20220528.f2969d58b0dc-windows64.zip",
             }
 
     env:
