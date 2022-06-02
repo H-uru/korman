@@ -40,7 +40,7 @@ class PlasmaObject(bpy.types.PropertyGroup):
 
     enabled = BoolProperty(name="Export",
                            description="Export this as a discrete object",
-                           default=False,
+                           default=True,
                            update=_enabled)
     page = StringProperty(name="Page",
                           description="Page this object will be exported to")
