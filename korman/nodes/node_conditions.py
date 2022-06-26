@@ -174,7 +174,9 @@ class PlasmaClickableRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.t
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "region_object", icon="MESH_DATA")
+        layout.alert = self.bounds == "trimesh"
         layout.prop(self, "bounds")
+        layout.alert = False
 
     def convert_subcondition(self, exporter, parent_bo, parent_so, logicmod):
         # REMEMBER: parent_so doesn't have to be the actual region scene object...
@@ -379,7 +381,9 @@ class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.type
 
         # Okay, if they changed the name of the ObData, that's THEIR problem...
         layout.prop(self, "region_object", icon="MESH_DATA")
+        layout.alert = self.bounds == "trimesh"
         layout.prop(self, "bounds")
+        layout.alert = False
 
     def get_key(self, exporter, parent_so):
         bo = self.region_object
