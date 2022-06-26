@@ -281,6 +281,15 @@ class PhysicsConverter:
         # bake them to convex hulls. Specifically, Windows 32-bit w/PhysX 2.6. Everything else just
         # needs to have us provide some friendlier data...
         with bmesh_from_object(bo) as mesh:
+            # Don't export flat planes as convex hulls - force them to triangle meshes.
+            volume = mesh.calc_volume()
+            if volume < 0.001:
+                self._report.warn(
+                    "{}: Physical wants to be a convex hull but appears to be flat (volume={}), forcing to triangle mesh...",
+                    bo.name, volume, indent=2
+                )
+                self._export_trimesh(bo, physical, local_space, mat)
+
             if local_space:
                 physical.pos = hsVector3(*mat.to_translation())
                 physical.rot = utils.quaternion(mat.to_quaternion())
