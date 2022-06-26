@@ -264,6 +264,17 @@ class PhysicsConverter:
                 self._report.warn("{}: Physical memberGroup overwritten!", bo.name, indent=2)
                 physical.memberGroup = member_group
 
+        # Sanity checking: only TPotS/Havok fully supports triangle mesh detector regions.
+        # ODE and PhysX 4.1 outright do not support them, and PhysX 2.6 only offers partial support,
+        # so warn or explode as appropriate. Note that we test against the physical itself in case
+        # shenanigans were performed by some of the exporters.
+        if physical.memberGroup == plSimDefs.kGroupDetector and physical.boundsType in (plSimDefs.kExplicitBounds, plSimDefs.kProxyBounds):
+            msg = f"'{bo.name}': Triangle mesh regions are poorly supported. Use a convex hull or box instead."
+            if ver <= pvPots:
+                self._report.port(msg, indent=2)
+            else:
+                raise ExportError(msg)
+
         self._apply_props(simIface, physical, kwargs)
 
     def _export_box(self, bo, physical, local_space, mat):
