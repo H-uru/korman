@@ -435,6 +435,14 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
                                    description="Sets the share region in which the receiving avatar must stand",
                                    type=bpy.types.Object,
                                    poll=idprops.poll_mesh_objects)
+    drc_stamp = BoolProperty(name="DRC Stamped",
+                             description="Did the DRC stamp this book?",
+                             default=False,
+                             options=set())
+    third_person = BoolProperty(name="Force Third Person",
+                                description="Forces the camera into third person while Book is in use",
+                                default=False,
+                                options=set())
 
     # -- Path of the Shell options --
     # Popup Appearance
@@ -679,6 +687,14 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
             share.link_input(share_seek, "seekers", "seek_target")
             share.link_input(share_anim_stage, "stage", "stage_refs")
             share.link_output(linkingnode, "hosts", "shareBookSeek")
+
+        # Odds and Ends
+        stamped = nodes.new("PlasmaAttribBoolNode")
+        stamped.link_output(linkingnode, "pfm", "IsDRCStamped")
+        stamped.value = self.drc_stamp
+        forcecam = nodes.new("PlasmaAttribBoolNode")
+        forcecam.link_output(linkingnode, "pfm", "ForceThirdPerson")
+        forcecam.value = self.third_person
 
     def sanity_check(self):
         if self.clickable is None:
