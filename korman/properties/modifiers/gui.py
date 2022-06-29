@@ -691,10 +691,12 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         # Odds and Ends
         stamped = nodes.new("PlasmaAttribBoolNode")
         stamped.link_output(linkingnode, "pfm", "IsDRCStamped")
-        stamped.value = self.drc_stamp
+        if not self.drc_stamp:
+            stamped.value = False
         forcecam = nodes.new("PlasmaAttribBoolNode")
         forcecam.link_output(linkingnode, "pfm", "ForceThirdPerson")
-        forcecam.value = self.third_person
+        if self.third_person:
+            forcecam.value = True
 
     def sanity_check(self):
         if self.clickable is None:
