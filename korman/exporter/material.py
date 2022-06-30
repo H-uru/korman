@@ -1007,7 +1007,10 @@ class MaterialConverter:
                     value = func(x, y, width, height)
                     pixels[offset:offset+4] = (value,) * 4
             image = bpy.data.images.new(filename, width=width, height=height, alpha=True)
+            image.source = "GENERATED"
             image.pixels = pixels
+            image.update()
+            image.pack(True)
 
         self.export_prepared_image(image=image, owner=owner, allowed_formats={"BMP"},
                                    alpha_type=TextureAlpha.full, indent=indent, ephemeral=True)
