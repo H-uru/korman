@@ -150,7 +150,7 @@ class LocalizationConverter:
 
         def iter_element(element):
             if language_name is None:
-                yield from element.items()
+                yield from sorted(element.items())
             else:
                 yield language_name, element
 
@@ -160,9 +160,9 @@ class LocalizationConverter:
             write_line("<localizations>")
             write_line("<age name=\"{}\">", self._age_name, indent=1)
 
-            for set_name, elements in sets.items():
+            for set_name, elements in sorted(sets.items()):
                 write_line("<set name=\"{}\">", set_name, indent=2)
-                for element_name, value in elements.items():
+                for element_name, value in sorted(elements.items()):
                     write_line("<element name=\"{}\">", element_name, indent=3)
                     for translation_language, translation_value in iter_element(value):
                         if _ESHTML_REGEX.search(translation_value):
