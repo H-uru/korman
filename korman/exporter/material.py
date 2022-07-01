@@ -844,7 +844,7 @@ class MaterialConverter:
                     state.blendFlags |= hsGMatState.kBlendAlphaAdd
                 elif slot.blend_type == "MULTIPLY":
                     state.blendFlags |= hsGMatState.kBlendAlphaMult
-                else:
+                elif not (state.blendFlags & hsGMatState.kBlendMask):
                     state.blendFlags |= hsGMatState.kBlendAlpha
 
             if texture.invert_alpha and has_alpha:
