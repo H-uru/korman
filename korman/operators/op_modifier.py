@@ -94,12 +94,14 @@ class ModifierClipboard:
 
     def _paste_property(self, src, dst, prop):
         prop_name = prop.identifier
+        if prop_name in {"rna_type"}:
+            return
 
         # Old properties? Discard their asses.
         if not hasattr(dst, prop_name):
             return
 
-        # Collection properties must be manually copied...
+        # Collection and pointer properties must be manually copied...
         if prop.type == "COLLECTION":
             dst_prop, src_prop = getattr(dst, prop_name), getattr(src, prop_name)
             dst_prop.clear()
@@ -107,6 +109,10 @@ class ModifierClipboard:
                 dst_item = dst_prop.add()
                 for item_prop in src_item.rna_type.properties:
                     self._paste_property(src_item, dst_item, item_prop)
+        elif prop.type == "POINTER" and prop.fixed_type.base.name != "ID":
+            dst_prop, src_prop = getattr(dst, prop_name), getattr(src, prop_name)
+            for subprop_name in src_prop.rna_type.properties:
+                self._paste_property(src_prop, dst_prop, subprop_name)
         else:
             try:
                 if src.is_property_set(prop_name):
