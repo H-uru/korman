@@ -16,6 +16,12 @@
 import bpy
 from .. import ui_camera
 
+def _draw_bounds_prop(modifier, layout, context, *, local_prop: bool = False):
+    prop_source = modifier if local_prop else modifier.id_data.plasma_modifiers.collision
+    layout.alert = prop_source.bounds == "trimesh"
+    layout.prop(prop_source, "bounds")
+    layout.alert = False
+
 def camera_rgn(modifier, layout, context):
     layout.prop(modifier, "camera_type")
     if modifier.camera_type == "manual":
@@ -35,12 +41,11 @@ def camera_rgn(modifier, layout, context):
                              ui_camera.draw_camera_manipulation_props))
 
 def footstep(modifier, layout, context):
-    layout.prop(modifier, "bounds")
+    _draw_bounds_prop(modifier, layout, context, local_prop=True)
     layout.prop(modifier, "surface")
 
 def paniclink(modifier, layout, context):
-    phys_mod = context.object.plasma_modifiers.collision
-    layout.prop(phys_mod, "bounds")
+    _draw_bounds_prop(modifier, layout, context)
     layout.prop(modifier, "play_anim")
 
 def softvolume(modifier, layout, context):
@@ -61,6 +66,5 @@ def softvolume(modifier, layout, context):
 
 def subworld_rgn(modifier, layout, context):
     layout.prop(modifier, "subworld")
-    collision_mod = modifier.id_data.plasma_modifiers.collision
-    layout.prop(collision_mod, "bounds")
+    _draw_bounds_prop(modifier, layout, context)
     layout.prop(modifier, "transition")
