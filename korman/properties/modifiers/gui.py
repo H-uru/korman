@@ -490,7 +490,11 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         else:
             rgn_obj = self.clickable_region
 
-        if self.shareable and self.link_type == "kOriginalBook":
+    @property
+    def export_share_region(self) -> bool:
+        return self.shareable and self.link_type == "kOriginalBook"
+
+        if self.export_share_region:
             if self.share_region is None:
                 with utils.bmesh_object("{}_LinkingBook_ShareRgn".format(self.key_name)) as (share_region, bm):
                     # Generate a cube for the share region.
