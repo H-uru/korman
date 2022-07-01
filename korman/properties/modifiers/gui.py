@@ -435,8 +435,8 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
                                    description="Sets the share region in which the receiving avatar must stand",
                                    type=bpy.types.Object,
                                    poll=idprops.poll_mesh_objects)
-    drc_stamp = BoolProperty(name="DRC Stamped",
-                             description="Did the DRC stamp this book?",
+    drc_stamp = BoolProperty(name="Stamped",
+                             description="Is there a stamp on the left page of this Book?",
                              default=False,
                              options=set())
     third_person = BoolProperty(name="Force Third Person",
