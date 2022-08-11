@@ -32,6 +32,9 @@ class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
     # These are the Python attributes we can fill in
     pl_attrib = {"ptAttribResponder", "ptAttribResponderList", "ptAttribNamedResponder"}
 
+    resp_name = StringProperty(name="Name",
+                               description="Gives the responder a specific name (optional)"
+                               default="")
     detect_trigger = BoolProperty(name="Detect Trigger",
                                   description="When notified, trigger the Responder",
                                   default=True)
@@ -78,6 +81,7 @@ class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
     ])
 
     def draw_buttons(self, context, layout):
+        layout.prop(self, "resp_name")
         layout.prop(self, "detect_trigger")
         layout.prop(self, "detect_untrigger")
         layout.prop(self, "no_ff_sounds")
