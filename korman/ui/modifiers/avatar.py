@@ -41,6 +41,9 @@ def sittingmod(modifier, layout, context):
     if region is not None:
         col.prop(region, "bounds")
 
+    col = layout.column()
+    col.prop(modifier, "sitting_cam", icon="CAMERA_DATA")
+
     split = layout.split()
     split.column().prop(modifier, "facing_enabled")
     col = split.column()
