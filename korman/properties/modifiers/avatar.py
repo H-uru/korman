@@ -83,7 +83,7 @@ sitting_pfms = {
     "filename": "xSitCam.py",
     "attribs": (
         { 'id':  1, 'type': "ptAttribActivator", 'name': "sitAct" },
-        { 'id':  2, 'type': "ptAttribSceneObject", 'name': "sitCam" },
+        { 'id':  2, 'type': "ptAttribSceneobject", 'name': "sitCam" },
     )
 }
 
