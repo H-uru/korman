@@ -42,3 +42,41 @@ def spawnpoint(modifier, layout, context):
 def maintainersmarker(modifier, layout, context):
     layout.label(text="Positive Y is North, positive Z is up.")
     layout.prop(modifier, "calibration")
+
+def imager(modifier, layout, context):
+    layout.prop(modifier, "imager_object")
+    if modifier.imager_object:
+        layout.prop(modifier, "imager_material")
+        if modifier.imager_material is not None:
+            layout.prop(modifier, "imager_texture")
+        else:
+            layout.label(text="Choose a Material Slot")
+        if modifier.imager_material and modifier.imager_texture:
+            layout.prop(modifier, "imager_name")
+            layout.separator()
+            layout.label(text="For Postable Imagers:")
+            layout.prop(modifier, "imager_region")
+            split = layout.split()
+            col = split.column()
+            col.prop(modifier, "imager_time")
+            col.prop(modifier, "imager_maximum")
+
+            col = split.column()
+            col.prop(modifier, "imager_membersonly")
+            col.prop(modifier, "imager_pellets")
+
+            layout.separator()
+            layout.label(text="For Clue Imager:")
+            layout.prop(modifier, "imager_clueobject")
+            if modifier.imager_clueobject:
+                split = layout.split()
+                col = split.column()
+                col.prop(modifier, "imager_cluetime")
+
+                col = split.column()
+                col.prop(modifier, "imager_randomtime")
+        else:
+            layout.label(text="Choose a Texture Slot")
+    else:
+        layout.label(text="Choose an imager mesh object!", icon="ERROR")
+
