@@ -45,9 +45,18 @@ def maintainersmarker(modifier, layout, context):
 
 def imager(modifier, layout, context):
     layout.prop(modifier, "imager_object")
-    layout.prop(modifier, "imager_material")
-    layout.prop(modifier, "imager_texture")
+
+    split = layout.split()
+    col = split.column()
+    col.enabled = modifier.imager_object is not None
+    col.prop(modifier, "imager_material")
+
+    col = split.column()
+    col.enabled = modifier.imager_material is not None
+    col.prop(modifier, "imager_texture")
+
     if modifier.imager_material and modifier.imager_texture:
+        layout.separator()
         layout.prop(modifier, "imager_name")
         layout.prop(modifier, "imager_type")
         if modifier.imager_type == "POSTABLE":
@@ -72,4 +81,3 @@ def imager(modifier, layout, context):
 
                 col = split.column()
                 col.prop(modifier, "imager_randomtime")
-
