@@ -189,6 +189,11 @@ class PlasmaImager(PlasmaModifierProperties, PlasmaModifierLogicWiz):
                                      description="Texture slot used for the imager.",
                                      type=bpy.types.Texture,
                                      poll=_poll_texture)
+    imager_type = EnumProperty(name="Imager Type",
+                               description="Type of imager object will be.",
+                               items=[("POSTABLE", "Postable", "Imager to post pictures and text."),
+                                      ("VISITOR", "Visitor", "Imager to display visitors to your Age.")],
+                               options=set())
     imager_region = PointerProperty(name="Imager Region (optional)",
                                     description="Activation region for postable imager.",
                                     options=set(),
@@ -246,7 +251,7 @@ class PlasmaImager(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         imagertext.link_output(imagernode, "pfm", "ImagerMap")
 
         # Region Object if we want one
-        if self.imager_region:
+        if self.imager_region and self.imager_type == "POSTABLE":
             imagerregion = nodes.new("PlasmaVolumeSensorNode")
             imagerregion.region_object = self.imager_region
             for i in imagerregion.inputs:
@@ -260,7 +265,10 @@ class PlasmaImager(PlasmaModifierProperties, PlasmaModifierLogicWiz):
 
         # Members only?
         imagermember = nodes.new("PlasmaAttribBoolNode")
-        imagermember.value = self.imager_membersonly
+        if self.imager_type == "POSTABLE":
+            imagermember.value = self.imager_membersonly
+        else:
+            imagermember.value = True
         imagermember.link_output(imagernode, "pfm", "ImagerMembersOnly")
 
         # Imager Mesh Object
@@ -274,16 +282,20 @@ class PlasmaImager(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         imagermax.link_output(imagernode, "pfm", "ImagerMax")
 
         # Optional SDL placeholder (needed?)
-        imagersdl = nodes.new("PlasmaAttribStringNode")
-        imagersdl.link_output(imagernode, "pfm", "ImagerInboxVariable")
+        if self.imager_type == "POSTABLE":
+            imagersdl = nodes.new("PlasmaAttribStringNode")
+            imagersdl.link_output(imagernode, "pfm", "ImagerInboxVariable")
 
         # Pellet Imager?
         imagerpellet = nodes.new("PlasmaAttribBoolNode")
-        imagerpellet.value = self.imager_pellets
+        if self.imager_type == "POSTABLE":
+            imagerpellet.value = self.imager_pellets
+        else:
+            imagerpellet.value = False
         imagerpellet.link_output(imagernode, "pfm", "ImagerPelletUpload")
 
         # Puzzle Imager Object if we have one
-        if self.imager_clueobject:
+        if self.imager_clueobject and self.imager_type == "POSTABLE":
             imagerclueobj = nodes.new("PlasmaAttribObjectNode")
             imagerclueobj.target_object = self.imager_clueobject
             imagerclueobj.link_output(imagernode, "pfm", "ImagerClueObject")
