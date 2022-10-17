@@ -213,9 +213,9 @@ class PlasmaTakeClothing(PlasmaModifierProperties, PlasmaModifierLogicWiz):
 
         clothing_pfm = clothing_pfms
         clothingnode = self._create_python_file_node(tree, clothing_pfm["filename"], clothing_pfm["attribs"])
-        self._create_clothing_nodes(bo, tree.nodes, imagernode)
+        self._create_clothing_nodes(bo, tree.nodes, clothingnode)
 
-    def _create_clothing_node(self, clickable_object, nodes, clothingnode):
+    def _create_clothing_nodes(self, clickable_object, nodes, clothingnode):
         # Clickable
         clickable = nodes.new("PlasmaClickableNode")
         clickable.clickable_object = self.clickable_object
