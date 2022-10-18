@@ -42,3 +42,9 @@ def spawnpoint(modifier, layout, context):
 def maintainersmarker(modifier, layout, context):
     layout.label(text="Positive Y is North, positive Z is up.")
     layout.prop(modifier, "calibration")
+
+def yeeshapage(modifier, layout, context):
+    layout.prop(modifier, "page_object")
+    layout.prop(modifier, "page_region")
+    layout.prop(modifier, "page_number")
+
