@@ -151,12 +151,10 @@ class PlasmaTakeClothing(PlasmaModifierProperties, PlasmaModifierLogicWiz):
 
     clickable_object = PointerProperty(name="Clickable",
                                        description="Clickable mesh object for clothing item.",
-                                       options=set(),
                                        type=bpy.types.Object,
                                        poll=idprops.poll_mesh_objects)
     clickable_region = PointerProperty(name="Region",
                                        description="Region to activate clickable.",
-                                       options=set(),
                                        type=bpy.types.Object,
                                        poll=idprops.poll_mesh_objects)
     clothing_sdl = StringProperty(name="SDL Variable",
@@ -164,6 +162,10 @@ class PlasmaTakeClothing(PlasmaModifierProperties, PlasmaModifierLogicWiz):
                                   options=set())
     clothing_show = BoolProperty(name="Show on true?",
                                  description="Have the clothing only appear when the SDL variable is true.",
+                                 default=False,
+                                 options=set())
+    clothing_hair = BoolProperty(name="Changes hair color?",
+                                 description="Should the hair change too?",
                                  default=False,
                                  options=set())
     clothing_male = StringProperty(name="Male ID",
@@ -237,6 +239,17 @@ class PlasmaTakeClothing(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         clothingshow.value = self.clothing_show
         clothingshow.link_output(clothingnode, "pfm", "boolShowOnTrue")
 
+        # Hair color?
+        clothinghair = nodes.new("PlasmaAttribBoolNode")
+        clothinghair.value = self.clothing_hair
+        clothinghair.link_output(clothingnode, "pfm", "boolHasHairColor")
+
+        # Chance SDL
+        clothingchance = nodes.new("PlasmaAttribStringNode")
+        clothingchance.value = self.clothing_chance
+        clothingchance.link_output(clothingnode, "pfm", "stringChanceSDLName")
+
+        # Colors, man!
         clothingfemale = nodes.new("PlasmaAttribStringNode")
         clothingfemale.value = self.clothing_female
         clothingfemale.link_output(clothingnode, "pfm", "stringFClothingName")
@@ -246,29 +259,30 @@ class PlasmaTakeClothing(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         clothingmale.link_output(clothingnode, "pfm", "stringMClothingName")
 
         clothingred1 = nodes.new("PlasmaAttribIntNode")
-        clothingred1.value_int = clothing_tint1red
+        clothingred1.value_int = self.clothing_tint1red
         clothingred1.link_output(clothingnode, "pfm", "intTint1Red")
 
         clothinggreen1 = nodes.new("PlasmaAttribIntNode")
-        clothinggreen1.value_int = clothing_tint1green
+        clothinggreen1.value_int = self.clothing_tint1green
         clothinggreen1.link_output(clothingnode, "pfm", "intTint1Green")
 
         clothingblue1 = nodes.new("PlasmaAttribIntNode")
-        clothingblue1.value_int = clothing_tint1blue
+        clothingblue1.value_int = self.clothing_tint1blue
         clothingblue1.link_output(clothingnode, "pfm", "intTint1Blue")
 
         clothingred2 = nodes.new("PlasmaAttribIntNode")
-        clothingred2.value_int = clothing_tint2red
+        clothingred2.value_int = self.clothing_tint2red
         clothingred2.link_output(clothingnode, "pfm", "intTint2Red")
 
         clothinggreen2 = nodes.new("PlasmaAttribIntNode")
-        clothinggreen2.value_int = clothing_tint2green
+        clothinggreen2.value_int = self.clothing_tint2green
         clothinggreen2.link_output(clothingnode, "pfm", "intTint2Green")
 
         clothingblue2 = nodes.new("PlasmaAttribIntNode")
-        clothingblue2.value_int = clothing_tint2blue
+        clothingblue2.value_int = self.clothing_tint2blue
         clothingblue2.link_output(clothingnode, "pfm", "intTint2Blue")
 
+        # Misc
         clothingvis = nodes.new("PlasmaAttribBoolNode")
         clothingvis.value = self.clothing_stayvis
         clothingvis.link_output(clothingnode, "pfm", "boolStayVisible")
@@ -276,4 +290,3 @@ class PlasmaTakeClothing(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         clothingeval = nodes.new("PlasmaAttribBoolNode")
         clothingeval.value = False
         clothingeval.link_output(clothingnode, "pfm", "boolFirstUpdate")
-

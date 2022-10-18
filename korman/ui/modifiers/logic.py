@@ -59,7 +59,13 @@ def clothing(modifier, layout, context):
 
         layout.separator()
         layout.label(text="Default Clothing Color(s):")
-        layout.prop(modifier, "clothing_tint2on")
+        split = layout.split()
+        col = split.column()
+        col.prop(modifier, "clothing_tint2on")
+
+        col = split.column()
+        col.prop(modifier, "clothing_hair")
+
         split = layout.split()
         col = split.column()
         col.prop(modifier, "clothing_tint1red")
