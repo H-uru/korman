@@ -79,7 +79,7 @@ class PlasmaLadderModifier(PlasmaModifierProperties):
 
 
 # Use xSitCam.py for when we want a camera to pop up
-sitting_pfms = {
+sitting_pfm = {
     "filename": "xSitCam.py",
     "attribs": (
         { 'id':  1, 'type': "ptAttribActivator", 'name': "sitAct" },
@@ -121,7 +121,7 @@ class PlasmaSittingBehavior(idprops.IDPropObjectMixin, PlasmaModifierProperties,
     facing_degrees = IntProperty(name="Tolerance",
                                  description="How far away we will tolerate the avatar facing the clickable",
                                  min=-180, max=180, default=45)
-    sitting_cam = PointerProperty(name="Camera (optional)",
+    sitting_camera = PointerProperty(name="Camera (optional)",
                                   description="Activate a specific camera when sitting down",
                                   type=bpy.types.Object,
                                   poll=idprops.poll_camera_objects,
@@ -134,61 +134,23 @@ class PlasmaSittingBehavior(idprops.IDPropObjectMixin, PlasmaModifierProperties,
     def logicwiz(self, bo, tree):
         nodes = tree.nodes
 
-        if not self.sitting_cam:
-            # Sitting Modifier
-            sittingmod = nodes.new("PlasmaSittingBehaviorNode")
-            sittingmod.approach = self.approach
-            sittingmod.name = "SittingBeh"
-
-            # Clickable
-            clickable = nodes.new("PlasmaClickableNode")
-            clickable.link_output(sittingmod, "satisfies", "condition")
-            clickable.clickable_object = self.clickable_object
-            clickable.bounds = find_modifier(self.clickable_object, "collision").bounds
-
-            # Avatar Region (optional)
-            region_phys = find_modifier(self.region_object, "collision")
-            if region_phys is not None:
-                region = nodes.new("PlasmaClickableRegionNode")
-                region.link_output(clickable, "satisfies", "region")
-                region.name = "ClickableAvRegion"
-                region.region_object = self.region_object
-                region.bounds = region_phys.bounds
-
-            # Facing Target (optional)
-            if self.facing_enabled:
-                facing = nodes.new("PlasmaFacingTargetNode")
-                facing.link_output(clickable, "satisfies", "facing")
-                facing.name = "FacingClickable"
-                facing.directional = True
-                facing.tolerance = self.facing_degrees
-            else:
-                # this socket must be explicitly disabled, otherwise it automatically generates a default
-                # facing target conditional for us. isn't that nice?
-                clickable.find_input_socket("facing").allow_simple = False
-        else:
-            sitting_pfm = sitting_pfms
-            sittingnode = self._create_python_file_node(tree, sitting_pfm["filename"], sitting_pfm["attribs"])
-            self._create_sitting_nodes(bo, tree.nodes, sittingnode)
-
-
-    def _create_sitting_nodes(self, clickable_object, nodes, sittingnode):
         # Sitting Modifier
         sittingmod = nodes.new("PlasmaSittingBehaviorNode")
         sittingmod.approach = self.approach
         sittingmod.name = "SittingBeh"
-        sittingmod.link_output(sittingnode, "satisfies", "sitAct")
-
+        # xSitCam.py PythonFileMod
+        if self.sitting_camera is not None:
+            sittingpynode = self._create_python_file_node(tree, sitting_pfm["filename"], sitting_pfm["attribs"])
+            sittingmod.link_output(sittingpynode, "satisfies", "sitAct")
+            # Camera Object
+            cameraobj = nodes.new("PlasmaAttribObjectNode")
+            cameraobj.link_output(sittingnode, "pfm", "sitCam")
+            cameraobj.target_object = self.sitting_camera
         # Clickable
         clickable = nodes.new("PlasmaClickableNode")
         clickable.link_output(sittingmod, "satisfies", "condition")
         clickable.clickable_object = self.clickable_object
         clickable.bounds = find_modifier(self.clickable_object, "collision").bounds
-
-        # Camera Object
-        cameraobj = nodes.new("PlasmaAttribObjectNode")
-        cameraobj.link_output(sittingnode, "pfm", "sitCam")
-        cameraobj.target_object = self.sitting_cam
 
         # Avatar Region (optional)
         region_phys = find_modifier(self.region_object, "collision")

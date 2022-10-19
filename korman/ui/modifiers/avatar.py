@@ -42,7 +42,7 @@ def sittingmod(modifier, layout, context):
         col.prop(region, "bounds")
 
     col = layout.column()
-    col.prop(modifier, "sitting_cam", icon="CAMERA_DATA")
+    col.prop(modifier, "sitting_camera", icon="CAMERA_DATA")
 
     split = layout.split()
     split.column().prop(modifier, "facing_enabled")
