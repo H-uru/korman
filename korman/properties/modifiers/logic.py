@@ -119,7 +119,7 @@ class PlasmaMaintainersMarker(PlasmaModifierProperties):
         return True
 
 
-yeeshapage_pfms = {
+yeeshapage_pfm = {
     "filename": "xYeeshaPages.py",
     "attribs": (
         { 'id':  1, 'type': "ptAttribActivator", 'name': "actClickableBook" },
@@ -154,16 +154,14 @@ class PlasmaYeeshaPage(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     def logicwiz(self, bo, tree):
         nodes = tree.nodes
 
-        yeeshapage_pfm = yeeshapage_pfms
-        yeeshapagenode = self._create_python_file_node(tree, yeeshapage_pfm["filename"], yeeshapage_pfm["attribs"])
-        self._create_clothing_nodes(bo, tree.nodes, yeeshapagenode)
+        # Create the Python File node
+        yeeshapagepynode = self._create_python_file_node(tree, yeeshapage_pfm["filename"], yeeshapage_pfm["attribs"])
 
-    def _create_clothing_nodes(self, page_object, nodes, yeeshapagenode):
         # Clickable
         yeeshapageclick = nodes.new("PlasmaClickableNode")
         yeeshapageclick.value = self.page_object
         yeeshapageclick.allow_simple = False
-        yeeshapageclick.link_output(yeeshapagenode, "satisfies", "actClickableBook")
+        yeeshapageclick.link_output(yeeshapagepynode, "satisfies", "actClickableBook")
 
         # Region
         yeeshapageregion = nodes.new("PlasmaClickableRegionNode")
@@ -173,4 +171,4 @@ class PlasmaYeeshaPage(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         # Page Number
         yeeshapagenum = nodes.new("PlasmaAttribIntNode")
         yeeshapagenum.value_int = self.page_number
-        yeeshapagenum.link_output(yeeshapagenode, "pfm", "PageNumbers")
+        yeeshapagenum.link_output(yeeshapagepynode, "pfm", "PageNumbers")
