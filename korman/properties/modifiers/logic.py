@@ -119,7 +119,7 @@ class PlasmaMaintainersMarker(PlasmaModifierProperties):
         return True
 
 
-clothing_pfms = {
+clothing_pfm = {
     "filename": "xTakableClothing.py",
     "attribs": (
         { 'id':  1, 'type': "ptAttribString", 'name': "stringVarName" },
@@ -213,16 +213,14 @@ class PlasmaTakeClothing(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     def logicwiz(self, bo, tree):
         nodes = tree.nodes
 
-        clothing_pfm = clothing_pfms
-        clothingnode = self._create_python_file_node(tree, clothing_pfm["filename"], clothing_pfm["attribs"])
-        self._create_clothing_nodes(bo, tree.nodes, clothingnode)
+        # Create Python File node
+        clothingpynode = self._create_python_file_node(tree, clothing_pfm["filename"], clothing_pfm["attribs"])
 
-    def _create_clothing_nodes(self, clickable_object, nodes, clothingnode):
         # Clickable
         clickable = nodes.new("PlasmaClickableNode")
         clickable.clickable_object = self.clickable_object
         clickable.allow_simple = False
-        clickable.link_output(clothingnode, "satisfies", "actClickable")
+        clickable.link_output(clothingpynode, "satisfies", "actClickable")
 
         # Region
         clothingrgn = nodes.new("PlasmaClickableRegionNode")
@@ -232,61 +230,61 @@ class PlasmaTakeClothing(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         # SDL Variable
         clothingsdlvar = nodes.new("PlasmaAttribStringNode")
         clothingsdlvar.value = self.clothing_sdl
-        clothingsdlvar.link_output(clothingnode, "pfm", "stringVarName")
+        clothingsdlvar.link_output(clothingpynode, "pfm", "stringVarName")
 
         # Show On True?
         clothingshow = nodes.new("PlasmaAttribBoolNode")
         clothingshow.value = self.clothing_show
-        clothingshow.link_output(clothingnode, "pfm", "boolShowOnTrue")
+        clothingshow.link_output(clothingpynode, "pfm", "boolShowOnTrue")
 
         # Hair color?
         clothinghair = nodes.new("PlasmaAttribBoolNode")
         clothinghair.value = self.clothing_hair
-        clothinghair.link_output(clothingnode, "pfm", "boolHasHairColor")
+        clothinghair.link_output(clothingpynode, "pfm", "boolHasHairColor")
 
         # Chance SDL
         clothingchance = nodes.new("PlasmaAttribStringNode")
         clothingchance.value = self.clothing_chance
-        clothingchance.link_output(clothingnode, "pfm", "stringChanceSDLName")
+        clothingchance.link_output(clothingpynode, "pfm", "stringChanceSDLName")
 
         # Colors, man!
         clothingfemale = nodes.new("PlasmaAttribStringNode")
         clothingfemale.value = self.clothing_female
-        clothingfemale.link_output(clothingnode, "pfm", "stringFClothingName")
+        clothingfemale.link_output(clothingpynode, "pfm", "stringFClothingName")
 
         clothingmale = nodes.new("PlasmaAttribStringNode")
         clothingmale.value = self.clothing_male
-        clothingmale.link_output(clothingnode, "pfm", "stringMClothingName")
+        clothingmale.link_output(clothingpynode, "pfm", "stringMClothingName")
 
         clothingred1 = nodes.new("PlasmaAttribIntNode")
         clothingred1.value_int = self.clothing_tint1red
-        clothingred1.link_output(clothingnode, "pfm", "intTint1Red")
+        clothingred1.link_output(clothingpynode, "pfm", "intTint1Red")
 
         clothinggreen1 = nodes.new("PlasmaAttribIntNode")
         clothinggreen1.value_int = self.clothing_tint1green
-        clothinggreen1.link_output(clothingnode, "pfm", "intTint1Green")
+        clothinggreen1.link_output(clothingpynode, "pfm", "intTint1Green")
 
         clothingblue1 = nodes.new("PlasmaAttribIntNode")
         clothingblue1.value_int = self.clothing_tint1blue
-        clothingblue1.link_output(clothingnode, "pfm", "intTint1Blue")
+        clothingblue1.link_output(clothingpynode, "pfm", "intTint1Blue")
 
         clothingred2 = nodes.new("PlasmaAttribIntNode")
         clothingred2.value_int = self.clothing_tint2red
-        clothingred2.link_output(clothingnode, "pfm", "intTint2Red")
+        clothingred2.link_output(clothingpynode, "pfm", "intTint2Red")
 
         clothinggreen2 = nodes.new("PlasmaAttribIntNode")
         clothinggreen2.value_int = self.clothing_tint2green
-        clothinggreen2.link_output(clothingnode, "pfm", "intTint2Green")
+        clothinggreen2.link_output(clothingypnode, "pfm", "intTint2Green")
 
         clothingblue2 = nodes.new("PlasmaAttribIntNode")
         clothingblue2.value_int = self.clothing_tint2blue
-        clothingblue2.link_output(clothingnode, "pfm", "intTint2Blue")
+        clothingblue2.link_output(clothingpynode, "pfm", "intTint2Blue")
 
         # Misc
         clothingvis = nodes.new("PlasmaAttribBoolNode")
         clothingvis.value = self.clothing_stayvis
-        clothingvis.link_output(clothingnode, "pfm", "boolStayVisible")
+        clothingvis.link_output(clothingpynode, "pfm", "boolStayVisible")
 
         clothingeval = nodes.new("PlasmaAttribBoolNode")
         clothingeval.value = False
-        clothingeval.link_output(clothingnode, "pfm", "boolFirstUpdate")
+        clothingeval.link_output(clothingpynode, "pfm", "boolFirstUpdate")
