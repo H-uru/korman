@@ -120,7 +120,7 @@ class PlasmaMaintainersMarker(PlasmaModifierProperties):
 
 
 # Let's set up the xSimpleImager.py scripting
-imager_pfms = {
+imager_pfm = {
     "filename": "xSimpleImager.py",
     "attribs": (
         { 'id':  1, 'type': "ptAttribString", 'name': "ImagerName" },
@@ -232,23 +232,20 @@ class PlasmaImager(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     def logicwiz(self, bo, tree):
         nodes = tree.nodes
 
-        imager_pfm = imager_pfms
-        imagernode = self._create_python_file_node(tree, imager_pfm["filename"], imager_pfm["attribs"])
-        self._create_imager_nodes(bo, tree.nodes, imagernode)
+        # Create Python File node
+        imagerpynode = self._create_python_file_node(tree, imager_pfm["filename"], imager_pfm["attribs"])
 
-
-    def _create_imager_nodes(self, imager_object, nodes, imagernode):
         #Imager Name
         imagername = nodes.new("PlasmaAttribStringNode")
         imagername.value = self.imager_name
-        imagername.link_output(imagernode, "pfm", "ImagerName")
+        imagername.link_output(imagerpynode, "pfm", "ImagerName")
 
         # Texture
         imagertext = nodes.new("PlasmaAttribTextureNode")
         imagertext.target_object = self.imager_object
         imagertext.material = self.imager_material
         imagertext.texture = self.imager_texture
-        imagertext.link_output(imagernode, "pfm", "ImagerMap")
+        imagertext.link_output(imagerpynode, "pfm", "ImagerMap")
 
         # Region Object if we want one
         if self.imager_region and self.imager_type == "POSTABLE":
@@ -256,12 +253,12 @@ class PlasmaImager(PlasmaModifierProperties, PlasmaModifierLogicWiz):
             imagerregion.region_object = self.imager_region
             for i in imagerregion.inputs:
                 i.allow = True
-            imagerregion.link_output(imagernode, "satisfies", "ImagerRegion")
+            imagerregion.link_output(imagerpynode, "satisfies", "ImagerRegion")
 
         # Seconds between posts
         imagersec = nodes.new("PlasmaAttribIntNode")
         imagersec.value_int = self.imager_time
-        imagersec.link_output(imagernode, "pfm", "ImagerTime")
+        imagersec.link_output(imagerpynode, "pfm", "ImagerTime")
 
         # Members only?
         imagermember = nodes.new("PlasmaAttribBoolNode")
@@ -269,22 +266,22 @@ class PlasmaImager(PlasmaModifierProperties, PlasmaModifierLogicWiz):
             imagermember.value = self.imager_membersonly
         else:
             imagermember.value = True
-        imagermember.link_output(imagernode, "pfm", "ImagerMembersOnly")
+        imagermember.link_output(imagerpynode, "pfm", "ImagerMembersOnly")
 
         # Imager Mesh Object
         imagerobject = nodes.new("PlasmaAttribObjectNode")
         imagerobject.target_object = self.imager_object
-        imagerobject.link_output(imagernode, "pfm", "ImagerObject")
+        imagerobject.link_output(imagerpynode, "pfm", "ImagerObject")
 
         # Maximum Images
         imagermax = nodes.new("PlasmaAttribIntNode")
         imagermax.value_int = self.imager_maximum
-        imagermax.link_output(imagernode, "pfm", "ImagerMax")
+        imagermax.link_output(imagerpynode, "pfm", "ImagerMax")
 
         # Optional SDL placeholder (needed?)
         if self.imager_type == "POSTABLE":
             imagersdl = nodes.new("PlasmaAttribStringNode")
-            imagersdl.link_output(imagernode, "pfm", "ImagerInboxVariable")
+            imagersdl.link_output(imagerpynode, "pfm", "ImagerInboxVariable")
 
         # Pellet Imager?
         imagerpellet = nodes.new("PlasmaAttribBoolNode")
@@ -292,20 +289,20 @@ class PlasmaImager(PlasmaModifierProperties, PlasmaModifierLogicWiz):
             imagerpellet.value = self.imager_pellets
         else:
             imagerpellet.value = False
-        imagerpellet.link_output(imagernode, "pfm", "ImagerPelletUpload")
+        imagerpellet.link_output(imagerpynode, "pfm", "ImagerPelletUpload")
 
         # Puzzle Imager Object if we have one
         if self.imager_clueobject and self.imager_type == "POSTABLE":
             imagerclueobj = nodes.new("PlasmaAttribObjectNode")
             imagerclueobj.target_object = self.imager_clueobject
-            imagerclueobj.link_output(imagernode, "pfm", "ImagerClueObject")
+            imagerclueobj.link_output(imagerpynode, "pfm", "ImagerClueObject")
 
             # Clue Time
             imagercluetime = nodes.new("PlasmaAttribIntNode")
             imagercluetime.value_int = self.imager_cluetime
-            imagercluetime.link_output(imagernode, "pfm", "ImagerClueTime")
+            imagercluetime.link_output(imagerpynode, "pfm", "ImagerClueTime")
 
             # Random Clue Time
             imagerrandomtime = nodes.new("PlasmaAttribIntNode")
             imagerrandomtime.value_int = self.imager_randomtime
-            imagerrandomtime.link_output(imagernode, "pfm", "ImagerRandomTime")
+            imagerrandomtime.link_output(imagerpynode, "pfm", "ImagerRandomTime")
