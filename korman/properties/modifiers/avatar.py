@@ -122,10 +122,10 @@ class PlasmaSittingBehavior(idprops.IDPropObjectMixin, PlasmaModifierProperties,
                                  description="How far away we will tolerate the avatar facing the clickable",
                                  min=-180, max=180, default=45)
     sitting_camera = PointerProperty(name="Camera (optional)",
-                                  description="Activate a specific camera when sitting down",
-                                  type=bpy.types.Object,
-                                  poll=idprops.poll_camera_objects,
-                                  options=set())
+                                     description="Activate a specific camera when sitting down",
+                                     type=bpy.types.Object,
+                                     poll=idprops.poll_camera_objects,
+                                     options=set())
 
     def harvest_actors(self):
         if self.facing_enabled:
@@ -142,10 +142,12 @@ class PlasmaSittingBehavior(idprops.IDPropObjectMixin, PlasmaModifierProperties,
         if self.sitting_camera is not None:
             sittingpynode = self._create_python_file_node(tree, sitting_pfm["filename"], sitting_pfm["attribs"])
             sittingmod.link_output(sittingpynode, "satisfies", "sitAct")
+
             # Camera Object
             cameraobj = nodes.new("PlasmaAttribObjectNode")
             cameraobj.link_output(sittingnode, "pfm", "sitCam")
             cameraobj.target_object = self.sitting_camera
+
         # Clickable
         clickable = nodes.new("PlasmaClickableNode")
         clickable.link_output(sittingmod, "satisfies", "condition")
