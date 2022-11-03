@@ -68,15 +68,11 @@ def clothing(modifier, layout, context):
 
         split = layout.split()
         col = split.column()
-        col.prop(modifier, "clothing_tint1red")
-        col.prop(modifier, "clothing_tint1green")
-        col.prop(modifier, "clothing_tint1blue")
+        col.prop(modifier, "clothing_tint1")
 
         col = split.column()
         col.enabled = modifier.clothing_tint2on is True
-        col.prop(modifier, "clothing_tint2red")
-        col.prop(modifier, "clothing_tint2green")
-        col.prop(modifier, "clothing_tint2blue")
+        col.prop(modifier, "clothing_tint2")
 
         layout.separator()
         layout.label(text="Visibility:")

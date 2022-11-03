@@ -177,33 +177,20 @@ class PlasmaTakeClothing(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     clothing_chance = StringProperty(name="Chance SDL (optional)",
                                      description="SDL variable for chance appearance of clothing.",
                                      options=set())
-    clothing_tint1red = IntProperty(name="Tint 1 Red",
-                                    description="Red setting for first tint.",
-                                    min=0, max=255, default=255,
-                                    options=set())
-    clothing_tint1green = IntProperty(name="Tint 1 Green",
-                                    description="Green setting for first tint.",
-                                    min=0, max=255, default=255,
-                                    options=set())
-    clothing_tint1blue = IntProperty(name="Tint 1 Blue",
-                                    description="Blue setting for first tint.",
-                                    min=0, max=255, default=255,
-                                    options=set())
+    clothing_tint1 = FloatVectorProperty(name="Tint 1",
+                                         description="Sets the default color of the first tint in clothing.",
+                                         subtype="COLOR",
+                                         min=0.0, max=1.0,
+                                         default=(1.0, 1.0, 1.0))
+    clothing_tint2 = FloatVectorProperty(name="Tint 2",
+                                         description="Sets the default color of the second tint in clothing.",
+                                         subtype="COLOR",
+                                         min=0.0, max=1.0,
+                                         default=(1.0, 1.0, 1.0))
     clothing_tint2on = BoolProperty(name="Second Tint?",
                                     description="Does the clothing item have a second tint color?",
                                     default=False,
                                     options=set())
-    clothing_tint2red = IntProperty(name="Tint 2 Red",
-                                    description="Red setting for second tint.",
-                                    min=0, max=255, default=255,
-                                    options=set())
-    clothing_tint2green = IntProperty(name="Tint 2 Green",
-                                    description="Green setting for second tint.",
-                                    min=0, max=255, default=255,
-                                    options=set())
-    clothing_tint2blue = IntProperty(name="Tint 2 Blue",
-                                    description="Blue setting for second tint.",
-                                    min=0, max=255, default=255,
                                     options=set())
     clothing_stayvis = BoolProperty(name="Stay Visible After Click?",
                                     description="Should the clothing stay visible after first clicking?",
@@ -212,6 +199,8 @@ class PlasmaTakeClothing(PlasmaModifierProperties, PlasmaModifierLogicWiz):
 
     def logicwiz(self, bo, tree):
         nodes = tree.nodes
+        colortint1 = self.clothing_tint1
+        colortint2 = self.clothing_tint2
 
         # Create Python File node
         clothingpynode = self._create_python_file_node(tree, clothing_pfm["filename"], clothing_pfm["attribs"])
@@ -257,27 +246,27 @@ class PlasmaTakeClothing(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         clothingmale.link_output(clothingpynode, "pfm", "stringMClothingName")
 
         clothingred1 = nodes.new("PlasmaAttribIntNode")
-        clothingred1.value_int = self.clothing_tint1red
+        clothingred1.value_int = (255 * colortint1.r)
         clothingred1.link_output(clothingpynode, "pfm", "intTint1Red")
 
         clothinggreen1 = nodes.new("PlasmaAttribIntNode")
-        clothinggreen1.value_int = self.clothing_tint1green
+        clothinggreen1.value_int = (255 * colortint1.g)
         clothinggreen1.link_output(clothingpynode, "pfm", "intTint1Green")
 
         clothingblue1 = nodes.new("PlasmaAttribIntNode")
-        clothingblue1.value_int = self.clothing_tint1blue
+        clothingblue1.value_int = (255 * colortint1.b)
         clothingblue1.link_output(clothingpynode, "pfm", "intTint1Blue")
 
         clothingred2 = nodes.new("PlasmaAttribIntNode")
-        clothingred2.value_int = self.clothing_tint2red
+        clothingred2.value_int = (255 * colortint2.r)
         clothingred2.link_output(clothingpynode, "pfm", "intTint2Red")
 
         clothinggreen2 = nodes.new("PlasmaAttribIntNode")
-        clothinggreen2.value_int = self.clothing_tint2green
-        clothinggreen2.link_output(clothingypnode, "pfm", "intTint2Green")
+        clothinggreen2.value_int = (255 * colortint2.g)
+        clothinggreen2.link_output(clothingpynode, "pfm", "intTint2Green")
 
         clothingblue2 = nodes.new("PlasmaAttribIntNode")
-        clothingblue2.value_int = self.clothing_tint2blue
+        clothingblue2.value_int = (255 * colortint2.b)
         clothingblue2.link_output(clothingpynode, "pfm", "intTint2Blue")
 
         # Misc
