@@ -61,18 +61,14 @@ def clothing(modifier, layout, context):
         layout.label(text="Default Clothing Color(s):")
         split = layout.split()
         col = split.column()
-        col.prop(modifier, "clothing_tint2on")
-
-        col = split.column()
-        col.prop(modifier, "clothing_hair")
-
-        split = layout.split()
-        col = split.column()
         col.prop(modifier, "clothing_tint1")
 
         col = split.column()
-        col.enabled = modifier.clothing_tint2on is True
         col.prop(modifier, "clothing_tint2")
+
+        split = layout.split()
+        col = split.column()
+        col.prop(modifier, "clothing_hair")
 
         layout.separator()
         layout.label(text="Visibility:")

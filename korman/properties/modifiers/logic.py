@@ -187,11 +187,6 @@ class PlasmaTakeClothing(PlasmaModifierProperties, PlasmaModifierLogicWiz):
                                          subtype="COLOR",
                                          min=0.0, max=1.0,
                                          default=(1.0, 1.0, 1.0))
-    clothing_tint2on = BoolProperty(name="Second Tint?",
-                                    description="Does the clothing item have a second tint color?",
-                                    default=False,
-                                    options=set())
-                                    options=set())
     clothing_stayvis = BoolProperty(name="Stay Visible After Click?",
                                     description="Should the clothing stay visible after first clicking?",
                                     default=False,
