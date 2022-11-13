@@ -243,7 +243,7 @@ class PlasmaWaterModifier(idprops.IDPropMixin, PlasmaModifierProperties, bpy.typ
     def export(self, exporter, bo, so):
         waveset = exporter.mgr.find_create_object(plWaveSet7, name=bo.name, so=so)
         if self.wind_object:
-            if self.wind_object.plasma_object.enabled and self.wind_object.plasma_modifiers.animation.enabled:
+            if exporter.has_coordiface(self.wind_object):
                 waveset.refObj = exporter.mgr.find_create_key(plSceneObject, bl=self.wind_object)
                 waveset.setFlag(plWaveSet7.kHasRefObject, True)
 
