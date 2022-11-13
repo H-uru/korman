@@ -121,7 +121,7 @@ class PlasmaSittingBehavior(idprops.IDPropObjectMixin, PlasmaModifierProperties,
     facing_degrees = IntProperty(name="Tolerance",
                                  description="How far away we will tolerate the avatar facing the clickable",
                                  min=-180, max=180, default=45)
-    sitting_camera = PointerProperty(name="Camera (optional)",
+    sitting_camera = PointerProperty(name="Camera",
                                      description="Activate a specific camera when sitting down",
                                      type=bpy.types.Object,
                                      poll=idprops.poll_camera_objects,
