@@ -21,6 +21,7 @@ from contextlib import contextmanager
 import itertools
 from pathlib import Path
 import re
+from typing import NamedTuple, Union
 from xml.sax.saxutils import escape as xml_escape
 import weakref
 
@@ -33,6 +34,26 @@ _SP_LANGUAGES = {"English", "French", "German", "Italian", "Spanish"}
 # Detects if there are any Plasma esHTML tags in the translated data. If so, we store
 # as CDATA instead of XML encoding the entry.
 _ESHTML_REGEX = re.compile("<.+>")
+
+# Converts smart characters to the not-so-smart variety to fix common problems related to
+# limitations in the Plasma font system.
+class _DumbCharacter(NamedTuple):
+    desc: str
+    needle: Union[re.Pattern, str]
+    sub: str = ""
+
+
+_DUMB_CHARACTERS = [
+    _DumbCharacter(
+        "smart single quote (probably copypasta'd from Microsoft Word)",
+        re.compile("[\u2018\u2019\u201A\u201B]"), "'"
+    ),
+    _DumbCharacter(
+        "smart double quote (probably copypasta'd from Microsoft Word)",
+        re.compile("[\u201C\u201D\u201E\u201F\u2E42]"), '"'
+    ),
+]
+
 
 class LocalizationConverter:
     def __init__(self, exporter=None, **kwargs):
@@ -55,6 +76,19 @@ class LocalizationConverter:
                 self._report.warn("'{}' translation for '{}' is modified on the disk but not reloaded in Blender.",
                                 element_name, language, indent=indent)
             value = value.as_string()
+
+        for dc in _DUMB_CHARACTERS:
+            old_value = value
+            if isinstance(dc.needle, str):
+                value = value.replace(dc.needle, dc.sub)
+            else:
+                value = dc.needle.sub(dc.sub, value)
+            if value != old_value:
+                self._report.warn(
+                    "'{}' translation for '{}' has an illegal {}, which was replaced with: {}",
+                    element_name, language, dc.desc, dc.sub, indent=indent
+                )
+
         self._strings[set_name][element_name][language] = value
 
     @contextmanager
