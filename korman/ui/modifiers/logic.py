@@ -42,3 +42,10 @@ def spawnpoint(modifier, layout, context):
 def maintainersmarker(modifier, layout, context):
     layout.label(text="Positive Y is North, positive Z is up.")
     layout.prop(modifier, "calibration")
+
+def telescope(modifier, layout, context):
+    layout.prop(modifier, "telescope_name")
+    layout.prop(modifier, "clickable_object")
+    layout.prop(modifier, "region_object")
+    layout.prop(modifier, "oneshot_object")
+    layout.prop(modifier, "camera_object")
