@@ -147,18 +147,15 @@ class PlasmaTelescope(PlasmaModifierProperties, PlasmaModifierLogicWiz):
                                     type=bpy.types.Object,
                                     poll=idprops.poll_mesh_objects)
     oneshot_object = PointerProperty(name="OneShot",
-                                     description="Empty object used to orientate avatar in front of telescope.",
+                                     description="Empty object used to orient avatar in front of telescope.",
                                      type=bpy.types.Object,
                                      poll=idprops.poll_empty_objects)
     camera_object = PointerProperty(name="Camera",
                                     description="Camera used when viewing through telescope.",
                                     type=bpy.types.Object,
                                     poll=idprops.poll_camera_objects)
-    telescope_name = StringProperty(name="Name (Optional)",
-                                    description="Name for your telescope (optional).",
-                                    options=set())
 
-    def LogicWiz(self, bo, tree):
+    def logicwiz(self, bo, tree):
         nodes = tree.nodes
 
         # Create Python Node
@@ -234,5 +231,5 @@ class PlasmaTelescope(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         telescopestagethreeops.link_output(telescopestagethree, "stage", "stage_settings")
 
         telescopename = nodes.new("PlasmaAttribStringNode")
-        telescopename.value = self.telescope_name
+        telescopename.value("telescope")
         telescopename.link_output(telescopepynode, "pfm", "Vignette")

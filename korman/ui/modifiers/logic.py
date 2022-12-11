@@ -44,7 +44,6 @@ def maintainersmarker(modifier, layout, context):
     layout.prop(modifier, "calibration")
 
 def telescope(modifier, layout, context):
-    layout.prop(modifier, "telescope_name")
     layout.prop(modifier, "clickable_object")
     layout.prop(modifier, "region_object")
     layout.prop(modifier, "oneshot_object")
