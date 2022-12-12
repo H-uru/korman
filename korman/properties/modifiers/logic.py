@@ -160,7 +160,8 @@ class PlasmaYeeshaPage(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         # Clickable
         yeeshapageclick = nodes.new("PlasmaClickableNode")
         yeeshapageclick.value = self.page_object
-        yeeshapageclick.allow_simple = False
+        for i in yeeshapageclick.inputs:
+            i.allow_simple = False
         yeeshapageclick.link_output(yeeshapagepynode, "satisfies", "actClickableBook")
 
         # Region
