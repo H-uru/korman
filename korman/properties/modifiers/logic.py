@@ -164,7 +164,8 @@ class PlasmaTelescope(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         # Clickable
         telescopeclick = nodes.new("PlasmaClickableNode")
         telescopeclick.value = self.clickable_object
-        telescopeclick.allow_simple = False
+        for i in telescopeclick.inputs:
+            i.allow_simple = False
         telescopeclick.link_output(telescopepynode, "satisfies", "Activate")
 
         # Region
@@ -197,8 +198,6 @@ class PlasmaTelescope(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         telescopestageoneops.forward = "kPlayAuto"
         telescopestageoneops.stage_advance = "kAdvanceAuto"
         telescopestageoneops.notify_on = {"kNotifyAdvance"}
-        telescopestageoneops.inputs[0].auto_advance == True
-        telescopestageoneops.inputs[1].auto_regress == True
         telescopestageoneops.link_output(telescopestageone, "stage", "stage_settings")
 
         # Anim Stage 2 (Hold)
@@ -211,8 +210,6 @@ class PlasmaTelescope(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         telescopestagetwoops = nodes.new("PlasmaAnimStageSettingsNode")
         telescopestagetwoops.forward = "kPlayAuto"
         telescopestagetwoops.notify_on = set()
-        telescopestagetwoops.inputs[0].auto_advance == True
-        telescopestagetwoops.inputs[1].auto_regress == True
         telescopestagetwoops.link_output(telescopestagetwo, "stage", "stage_settings")
 
         # Anim Stage 3 (Release)
@@ -226,8 +223,6 @@ class PlasmaTelescope(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         telescopestagethreeops.forward = "kPlayAuto"
         telescopestagethreeops.stage_advance = "kAdvanceAuto"
         telescopestagethreeops.notify_on = set()
-        telescopestagethreeops.inputs[0].auto_advance == True
-        telescopestagethreeops.inputs[1].auto_regress == True
         telescopestagethreeops.link_output(telescopestagethree, "stage", "stage_settings")
 
         telescopename = nodes.new("PlasmaAttribStringNode")
