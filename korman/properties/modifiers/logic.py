@@ -203,7 +203,8 @@ class PlasmaTakeClothing(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         # Clickable
         clickable = nodes.new("PlasmaClickableNode")
         clickable.clickable_object = self.clickable_object
-        clickable.allow_simple = False
+        for i in clickable.inputs:
+            i.allow_simple = False
         clickable.link_output(clothingpynode, "satisfies", "actClickable")
 
         # Region
