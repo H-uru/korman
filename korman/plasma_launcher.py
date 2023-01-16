@@ -14,6 +14,7 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+from contextlib import contextmanager
 from pathlib import Path
 from PyHSPlasma import *
 import shutil
@@ -54,6 +55,28 @@ def die(*args, **kwargs):
         sys.stderr.write(args[0].format(*args[1:], **kwargs))
     sys.stdout.write("DIE\n")
     sys.exit(1)
+
+@contextmanager
+def open_vault_stream(vault_path, fm):
+    stream_type = globals().get("hsWindowsStream", "hsFileStream")
+    write("DBG: Opened '{}' stream with provider '{}'", vault_path, stream_type.__name__)
+
+    encrypted = plEncryptedStream.IsFileEncrypted(vault_path)
+    encryption_type = plEncryptedStream.kEncAuto if fm in {fmRead, fmReadWrite} else plEncryptedStream.kEncXtea
+
+    backing_stream = stream_type().open(vault_path, fm)
+    if encrypted:
+        enc_stream = plEncryptedStream().open(backing_stream, fm, encryption_type)
+        output_stream = enc_stream
+    else:
+        output_stream = backing_stream
+    try:
+        yield output_stream
+    finally:
+        if encrypted:
+            enc_stream.close()
+        backing_stream.flush()
+        backing_stream.close()
 
 def write(*args, **kwargs):
     assert args
@@ -112,7 +135,8 @@ def find_player_vault(cwd, name):
             continue
 
         store = plVaultStore()
-        store.Import(str(vault_dat))
+        with open_vault_stream(vault_dat, fmRead) as stream:
+            store.Import(stream)
 
         # First node is the Player node...
         playerNode = store[store.firstNodeID]
@@ -135,7 +159,9 @@ def main():
         backup_vault_dat(vault_path)
         vault_prev_autolink = set_link_chronicle(vault_store, args.age)
         write("DBG: Saving vault...")
-        vault_store.Export(str(vault_path))
+
+        with open_vault_stream(vault_path, fmCreate) as stream:
+            vault_store.Export(stream)
 
         # Update init file for this schtuff...
         init_path = args.cwd.joinpath("init", "net_age.fni")
@@ -154,9 +180,6 @@ def main():
         # the stale vault...
         del vault_store
 
-        # Sigh...
-        time.sleep(1.0)
-
         # EXE args
         plasma_args = [str(executable), "-iinit", "To_Dni"]
     else:
@@ -174,18 +197,16 @@ def main():
     finally:
         # Restore sp vault, if needed.
         if args.version == "pvPots":
-            # Path of the Shell seems to have some sort of weird racing with the vault.dat around
-            # shutdown. This delay helps somewhat in that regard.
-            time.sleep(1.0)
-
             vault_store = plVaultStore()
-            vault_store.Import(str(vault_path))
+            with open_vault_stream(vault_path, fmRead) as stream:
+                vault_store.Import(stream)
             new_prev_autolink = set_link_chronicle(vault_store, vault_prev_autolink, args.age)
             if new_prev_autolink != args.age:
                 write("DBG: ***Not*** resaving the vault!")
             else:
                 write("DBG: Resaving vault...")
-                vault_store.Export(str(vault_path))
+                with open_vault_stream(vault_path, fmCreate) as stream:
+                    vault_store.Export(stream)
 
     # All good!
     write("DONE")
