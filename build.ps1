@@ -160,9 +160,9 @@ function Complete-KormanBuild($OutputDir, $Install = $false) {
     Write-Host -ForegroundColor Cyan "Aaaand they're off!!!"
     # Don't even ask.
     if ($Install) {
-        cmake --build `"$OutputDir`" --target INSTALL --config Release --parallel
+        cmake --build "$OutputDir" --target INSTALL --config Release --parallel
     } else {
-        cmake --build `"$OutputDir`" @($InstallArg) --config Release --parallel
+        cmake --build "$OutputDir" @($InstallArg) --config Release --parallel
     }
     if ($LASTEXITCODE -Ne 0) { throw "Build failed!" }
 }
