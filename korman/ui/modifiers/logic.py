@@ -42,3 +42,39 @@ def spawnpoint(modifier, layout, context):
 def maintainersmarker(modifier, layout, context):
     layout.label(text="Positive Y is North, positive Z is up.")
     layout.prop(modifier, "calibration")
+
+def clothing(modifier, layout, context):
+    layout.prop(modifier, "clickable_object")
+    layout.prop(modifier, "clickable_region")
+
+    if modifier.clickable_object and modifier.clickable_region:
+        layout.separator()
+        layout.label(text="Clothing Item Details:")
+        split = layout.split()
+        col = split.column()
+        col.prop(modifier, "clothing_sdl")
+        col.prop(modifier, "clothing_chance")
+        col.prop(modifier, "clothing_female")
+        col.prop(modifier, "clothing_male")
+
+        layout.separator()
+        layout.label(text="Default Clothing Color(s):")
+        split = layout.split()
+        col = split.column()
+        col.prop(modifier, "clothing_tint1")
+
+        col = split.column()
+        col.prop(modifier, "clothing_tint2")
+
+        split = layout.split()
+        col = split.column()
+        col.prop(modifier, "clothing_hair")
+
+        layout.separator()
+        layout.label(text="Visibility:")
+        split = layout.split()
+        col = split.column()
+        col.prop(modifier, "clothing_show")
+
+        col = split.column()
+        col.prop(modifier, "clothing_stayvis")
