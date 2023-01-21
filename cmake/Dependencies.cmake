@@ -124,7 +124,7 @@ endfunction()
 if(korman_BUILD_JPEG)
     korman_add_external_project(libjpeg-turbo
         GIT_REPOSITORY "https://github.com/libjpeg-turbo/libjpeg-turbo.git"
-        GIT_TAG 2.1.3
+        GIT_TAG 2.1.4
         CMAKE_CACHE_ARGS
             -DBUILD_SHARED_LIBS:BOOL=OFF
             -DENABLE_SHARED:BOOL=FALSE
@@ -157,7 +157,7 @@ if(korman_BUILD_STRING_THEORY)
     if(MSVC AND MSVC_VERSION LESS 1900)
         set(_string_theory_tag 2.4)
     else()
-        set(_string_theory_tag 3.5)
+        set(_string_theory_tag 3.6)
     endif()
 
     korman_add_external_project(string_theory
@@ -193,9 +193,9 @@ endif()
 
 if(korman_BUILD_PNG)
     korman_add_external_project(libpng
-        URL "https://sourceforge.net/projects/libpng/files/libpng16/1.6.37/libpng-1.6.37.tar.gz/download"
-        DOWNLOAD_NAME "libpng-1.6.37.tar.gz"
-        URL_HASH "SHA256=daeb2620d829575513e35fecc83f0d3791a620b9b93d800b763542ece9390fb4"
+        URL "https://sourceforge.net/projects/libpng/files/libpng16/1.6.39/libpng-1.6.39.tar.gz/download"
+        DOWNLOAD_NAME "libpng-1.6.39.tar.gz"
+        URL_HASH "SHA256=af4fb7f260f839919e5958e5ab01a275d4fe436d45442a36ee62f73e5beb75ba"
         CMAKE_CACHE_ARGS
             -DBUILD_SHARED_LIBS:BOOL=OFF
             -DPNG_EXECUTABLES:BOOL=OFF
