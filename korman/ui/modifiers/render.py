@@ -328,3 +328,21 @@ def visregion(modifier, layout, context):
 
     # Other settings
     layout.prop(modifier, "replace_normal")
+
+def qualitymod(modifier, layout, context):
+    split = layout.split()
+    col = split.column()
+    col.label("Without shader support:")
+    box = col.box()
+    box.prop(modifier.cap_minimal, "low")
+    box.prop(modifier.cap_minimal, "mid")
+    box.prop(modifier.cap_minimal, "high")
+    box.prop(modifier.cap_minimal, "ultra")
+
+    col = split.column()
+    col.label("With shader support:")
+    box = col.box()
+    box.prop(modifier.cap_shaders, "low")
+    box.prop(modifier.cap_shaders, "mid")
+    box.prop(modifier.cap_shaders, "high")
+    box.prop(modifier.cap_shaders, "ultra")
