@@ -20,7 +20,7 @@ import json
 from .. import korlib
 import locale
 import os
-from pathlib import Path, PureWindowsPath
+from pathlib import Path, PurePath, PureWindowsPath
 from ..plasma_magic import plasma_python_glue
 from PyHSPlasma import *
 import shutil
@@ -392,7 +392,7 @@ class OutputFiles:
                     shutil.copy2(i.file_path, dst_path)
             else:
                 report.warn("No data found for dependency file '{}'. It will not be copied into the export directory.",
-                            str(i.dirname / i.filename), indent=1)
+                            PurePath(i.dirname, i.filename), indent=1)
 
     def _write_gather_build(self):
         report = self._exporter().report
