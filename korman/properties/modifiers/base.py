@@ -45,6 +45,10 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
     def draw_no_defer(self):
         """Disallow geometry being sorted into a blending span"""
         return False
+        
+    @property
+    def draw_late(self):
+        return False
 
     @property
     def enabled(self):
