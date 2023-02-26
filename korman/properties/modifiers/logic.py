@@ -117,3 +117,59 @@ class PlasmaMaintainersMarker(PlasmaModifierProperties):
     @property
     def requires_actor(self):
         return True
+
+
+yeeshapage_pfm = {
+    "filename": "xYeeshaPages.py",
+    "attribs": (
+        { 'id':  1, 'type': "ptAttribActivator", 'name': "actClickableBook" },
+        { 'id':  2, 'type': "ptAttribInt", 'name': "PageNumbers" },
+    )
+}
+
+
+class PlasmaYeeshaPage(PlasmaModifierProperties, PlasmaModifierLogicWiz):
+    pl_id="yeeshapage"
+
+    bl_category = "Logic"
+    bl_label = "Yeesha Page"
+    bl_description = "Set up clickable mesh for a Yeesha/Relto page."
+    bl_icon = "NEW"
+
+    page_object = PointerProperty(name="Clickable",
+                                       description="Object to click for page GUI.",
+                                       type=bpy.types.Object,
+                                       poll=idprops.poll_mesh_objects)
+
+    page_region = PointerProperty(name="Click Region",
+                                       description="Activation region.",
+                                       type=bpy.types.Object,
+                                       poll=idprops.poll_mesh_objects)
+
+    page_number = IntProperty(name="Page Number",
+                              description="Page number in xYeeshaPages.py script and YeeshaPageGUI.prp",
+                              min=1, default=1,
+                              options=set())
+
+    def logicwiz(self, bo, tree):
+        nodes = tree.nodes
+
+        # Create the Python File node
+        yeeshapagepynode = self._create_python_file_node(tree, yeeshapage_pfm["filename"], yeeshapage_pfm["attribs"])
+
+        # Clickable
+        yeeshapageclick = nodes.new("PlasmaClickableNode")
+        yeeshapageclick.value = self.page_object
+        for i in yeeshapageclick.inputs:
+            i.allow_simple = False
+        yeeshapageclick.link_output(yeeshapagepynode, "satisfies", "actClickableBook")
+
+        # Region
+        yeeshapageregion = nodes.new("PlasmaClickableRegionNode")
+        yeeshapageregion.region_object = self.page_region
+        yeeshapageregion.link_output(yeeshapageclick, "satisfies", "region")
+
+        # Page Number
+        yeeshapagenum = nodes.new("PlasmaAttribIntNode")
+        yeeshapagenum.value_int = self.page_number
+        yeeshapagenum.link_output(yeeshapagepynode, "pfm", "PageNumbers")
