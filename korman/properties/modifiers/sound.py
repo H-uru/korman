@@ -13,17 +13,21 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import bpy
 from bpy.props import *
 from bpy.app.handlers import persistent
 from contextlib import contextmanager
 import math
 from PyHSPlasma import *
+from typing import *
 
 from ... import korlib
 from .base import PlasmaModifierProperties
 from .physics import surface_types
 from ...exporter import ExportError
+from ...helpers import duplicate_object, GoodNeighbor, TemporaryCollectionItem
 from ... import idprops
 
 _randomsound_modes = {
@@ -520,46 +524,186 @@ class PlasmaSoundEmitter(PlasmaModifierProperties):
     sounds = CollectionProperty(type=PlasmaSound)
     active_sound_index = IntProperty(options={"HIDDEN"})
 
-    def export(self, exporter, bo, so):
-        winaud = exporter.mgr.find_create_object(plWinAudible, so=so, name=self.key_name)
-        winaud.sceneNode = exporter.mgr.get_scene_node(so.key.location)
-        aiface = exporter.mgr.find_create_object(plAudioInterface, so=so, name=self.key_name)
-        aiface.audible = winaud.key
+    stereize_left = PointerProperty(type=bpy.types.Object, options={"HIDDEN", "SKIP_SAVE"})
+    stereize_right = PointerProperty(type=bpy.types.Object, options={"HIDDEN", "SKIP_SAVE"})
 
-        # Pass this off to each individual sound for conversion
-        for i in self.sounds:
-            if i.enabled:
+    def sanity_check(self):
+        modifiers = self.id_data.plasma_modifiers
+
+        # Sound emitters can potentially export sounds to more than one emitter SceneObject. Currently,
+        # this happens for 3D stereo sounds. That means that any modifier that expects for all of
+        # this emitter's sounds to be attached to this plAudioInterface might have a bad time.
+        if self.have_3d_stereo and modifiers.random_sound.enabled:
+            raise ExportError(f"{self.id_data.name}: Random Sound modifier cannot be applied to a Sound Emitter with 3D Stereo sounds.")
+
+    @contextmanager
+    def _generate_stereized_emitter(self, exporter, bo: bpy.types.Object, channel: str, attr: str):
+        # Duplicate the current sound emitter as a non-linked object so that we have all the
+        # information that the parent emitter has, but we're free to turn off things as needed.
+        with duplicate_object(bo) as emitter_obj:
+            emitter_obj.location = (0.0, 0.0, 0.0)
+            emitter_obj.name = f"{bo.name}_Stereo-Ize:{channel}"
+            emitter_obj.parent = bo
+
+            # In case some bozo is using a visual mesh as a sound emitter, clear the materials
+            # off the duplicate to prevent it from being visible in the world.
+            if emitter_obj.type == "MESH":
+                emitter_obj.data.materials.clear()
+
+            # We want to allow animations and sounds to export from the new emitter.
+            bad_mods = filter(
+                lambda x: x.pl_id not in {"animation", "soundemit"},
+                emitter_obj.plasma_modifiers.modifiers
+            )
+            for i in bad_mods:
+                # HACK: You can't set the enabled property.
+                i.display_order = -1
+
+            # But only 3D stereo sounds!
+            soundemit_mod = emitter_obj.plasma_modifiers.soundemit
+            for sound in soundemit_mod.sounds:
+                if sound.is_3d_stereo:
+                    sound.channel = set(channel)
+                else:
+                    sound.enabled = False
+
+            # And only sound volume animations!
+            if emitter_obj.animation_data is not None and emitter_obj.animation_data.action is not None:
+                action = emitter_obj.animation_data.action
+                volume_paths = frozenset((i.path_from_id("volume") for i in soundemit_mod.sounds if i.enabled))
+                toasty_fcurves = [i for i, fcurve in enumerate(action.fcurves) if fcurve.data_path not in volume_paths]
+                for i in reversed(toasty_fcurves):
+                    action.fcurves.remove(i)
+
+            # Again, only sound volume animations, which are handled above.
+            emitter_obj_data = emitter_obj.data
+            if emitter_obj_data is not None and emitter_obj_data.animation_data is not None and emitter_obj_data.animation_data.action is not None:
+                emitter_obj_data.animation_data.action.fcurves.clear()
+
+            # Temporarily save a pointer to this generated emitter object so that the parent soundemit
+            # modifier can redirect requests to 3D sounds to the generated emitters.
+            setattr(self, attr, emitter_obj)
+            try:
+                yield emitter_obj
+            finally:
+                self.property_unset(attr)
+
+    def _find_animation_groups(self, bo: bpy.types.Object):
+        is_anim_group = lambda x: (
+            x is not bo and
+            x.plasma_object.enabled and
+            x.plasma_modifiers.animation_group.enabled
+        )
+        for i in filter(is_anim_group, bpy.data.objects):
+            group = i.plasma_modifiers.animation_group
+            for child in group.children:
+                if child.child_anim == self.id_data:
+                    yield child
+
+    def _add_child_animation(self, exporter, group, bo: bpy.types.Object, temporary=False):
+        if temporary:
+            child = exporter.exit_stack.enter_context(TemporaryCollectionItem(group.children))
+        else:
+            child = group.children.add()
+        child.child_anim = bo
+
+    def pre_export(self, exporter, bo: bpy.types.Object):
+        # Stereo 3D sounds are a very, very special case. We need to export mono sound sources.
+        # However, to get Plasma's Stereo-Ize feature to work, they need to be completely separate
+        # objects that the engine can move around itself. Those need to be duplicates of this
+        # blender object so that all animation data and whatnot remains.
+        if self.have_3d_stereo:
+            toggle = exporter.exit_stack.enter_context(GoodNeighbor())
+
+            # Find any animation groups that we're a part of - we need to be a member of those,
+            # or create one *if* any animations
+            yield self._generate_stereized_emitter(exporter, bo, "L", "stereize_left")
+            yield self._generate_stereized_emitter(exporter, bo, "R", "stereize_right")
+
+            # If some animation data persisted on the new emitters, then we need to make certain
+            # that those animations are targetted by anyone trying to control us. That's an
+            # animation group modifier (plMsgForwarder) for anyone playing along at home.
+            if self.stereize_left.plasma_object.has_animation_data or self.stereize_right.plasma_object.has_animation_data:
+                my_anim_groups = list(self._find_animation_groups(bo))
+
+                # If no one contains this sound emitter, then we need to be an animation group.
+                if not my_anim_groups:
+                    group = bo.plasma_modifiers.animation_group
+                    if not group.enabled:
+                        toggle.track(group, "display_order", sum((1 for i in bo.plasma_modifiers.modifiers)))
+                        for i in group.children:
+                            toggle.track(i, "enabled", False)
+                    my_anim_groups.append(group)
+
+                # Now that we have the animation groups, feed in the generated emitter objects
+                # as ephemeral child animations. They should be removed from the modifier when the
+                # export finishes.
+                for anim_group in my_anim_groups:
+                    self._add_child_animation(exporter, anim_group, self.stereize_left, True)
+                    self._add_child_animation(exporter, anim_group, self.stereize_right, True)
+
+            # Temporarily disable the 3D stereo sounds on this emitter during the export - so
+            # this emitter will export everything that isn't 3D stereo.
+            for i in filter(lambda x: x.is_3d_stereo, self.sounds):
+                toggle.track(i, "enabled", False)
+
+    def export(self, exporter, bo, so):
+        if any((i.enabled for i in self.sounds)):
+            winaud = exporter.mgr.find_create_object(plWinAudible, so=so, name=self.key_name)
+            winaud.sceneNode = exporter.mgr.get_scene_node(so.key.location)
+            aiface = exporter.mgr.find_create_object(plAudioInterface, so=so, name=self.key_name)
+            aiface.audible = winaud.key
+
+            # Pass this off to each individual sound for conversion
+            for i in filter(lambda x: x.enabled, self.sounds):
                 i.convert_sound(exporter, so, winaud)
 
-    def get_sound_indices(self, name=None, sound=None):
-        """Returns the index of the given sound in the plWin32Sound. This is needed because stereo
-           3D sounds export as two mono sound objects -- wheeeeee"""
+        # Back to our faked emitters for 3D stereo sounds... Create the stereo-ize object
+        # that will cause Plasma to move the object around in the 3D world. In the future,
+        # this should probably be split out to a separate modifier.
+        if self.stereize_left and self.stereize_right:
+            self._convert_stereize(exporter, self.stereize_left, "L")
+            self._convert_stereize(exporter, self.stereize_right, "R")
+
+    def post_export(self, exporter, bo: bpy.types.Object, so: plSceneObject):
+        if self.stereize_left and self.stereize_right:
+            self._handle_stereize_lfm(exporter, self.stereize_left, so)
+            self._handle_stereize_lfm(exporter, self.stereize_right, so)
+
+    def _convert_stereize(self, exporter, bo: bpy.types.Object, channel: str) -> None:
+        # TODO: This should probably be moved into a Stereo-Ize modifier of some sort
+        stereoize = exporter.mgr.find_create_object(plStereizer, bl=bo)
+        stereoize.setFlag(plStereizer.kLeftChannel, channel == "L")
+        stereoize.ambientDist = 50.0
+        stereoize.sepDist = (5.0, 100.0)
+        stereoize.transition = 25.0
+        stereoize.tanAng = math.radians(30.0)
+
+    def _handle_stereize_lfm(self, exporter, child_bo: bpy.types.Object, parent_so: plSceneObject) -> None:
+        # TODO: This should probably be moved into a Stereo-Ize modifier of some sort
+        stereizer = exporter.mgr.find_object(plStereizer, bl=child_bo)
+        for lfm_key in filter(lambda x: isinstance(x.object, plLineFollowMod), parent_so.modifiers):
+            stereizer.setFlag(plStereizer.kHasMaster, True)
+            lfm_key.object.addStereizer(stereizer.key)
+
+    def get_sound_keys(self, exporter, name=None, sound=None) -> Iterator[Tuple[plKey, int]]:
         assert name or sound
-        idx = 0
-
-        if name is None:
-            for i in self.sounds:
-                if i == sound:
-                    yield idx
-                    if i.is_3d_stereo:
-                        yield idx + 1
-                    break
-                else:
-                    idx += 2 if i.is_3d_stereo else 1
-            else:
-                raise LookupError(sound)
-
         if sound is None:
-            for i in self.sounds:
-                if i.name == name:
-                    yield idx
-                    if i.is_3d_stereo:
-                        yield idx + 1
-                    break
-                else:
-                    idx += 2 if i.is_3d_stereo else 1
-            else:
+            sound = next((i for i in self.sounds if i._sound_name == name), None)
+            if sound is None:
                 raise ValueError(name)
+
+        if sound.is_3d_stereo:
+            yield from self.stereize_left.plasma_modifiers.soundemit.get_sound_keys(exporter, sound.name)
+            yield from self.stereize_right.plasma_modifiers.soundemit.get_sound_keys(exporter, sound.name)
+        else:
+            for i, j in enumerate(filter(lambda x: x.enabled, self.sounds)):
+                if sound == j:
+                    yield exporter.mgr.find_create_key(plAudioInterface, bl=self.id_data), i
+
+    @property
+    def have_3d_stereo(self) -> bool:
+        return any((i.is_3d_stereo for i in self.sounds if i.enabled))
 
     @property
     def requires_actor(self):

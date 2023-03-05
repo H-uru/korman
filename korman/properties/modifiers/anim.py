@@ -157,6 +157,7 @@ class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
 
 
 class AnimGroupObject(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
+    enabled = BoolProperty(name="Enabled", default=True)
     child_anim = PointerProperty(name="Child Animation",
                                  description="Object whose action is a child animation",
                                  type=bpy.types.Object,
@@ -235,7 +236,7 @@ class PlasmaAnimationGroupModifier(ActionModifier, PlasmaModifierProperties):
         agmod, agmaster = exporter.animation.get_anigraph_objects(bo, so)
         agmaster.msgForwarder = msgfwd.key
         agmaster.isGrouped, agmaster.isGroupMaster = True, True
-        for i in self.children:
+        for i in filter(lambda x: x.enabled, self.children):
             child_bo = i.child_anim
             if child_bo is None:
                 msg = "Animation Group '{}' specifies an invalid object. Ignoring..."
