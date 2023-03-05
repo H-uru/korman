@@ -44,7 +44,7 @@ def maintainersmarker(modifier, layout, context):
     layout.prop(modifier, "calibration")
 
 def telescope(modifier, layout, context):
-    layout.prop(modifier, "clickable_object")
-    layout.prop(modifier, "tele_region")
-    layout.prop(modifier, "oneshot_object")
-    layout.prop(modifier, "camera_object")
+    layout.prop(modifier, "clickable_region")
+    layout.prop(modifier, "seek_target_object", icon="EMPTY_DATA")
+    layout.alert = modifier.camera_object is None
+    layout.prop(modifier, "camera_object", icon="CAMERA_DATA")

@@ -13,13 +13,15 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+import bmesh
 import bpy
 from bpy.props import *
+import mathutils
 from PyHSPlasma import *
 
 from ...addon_prefs import game_versions
-from .base import PlasmaModifierProperties
-from ...exporter import ExportError
+from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz
+from ...exporter import ExportError, utils
 from ... import idprops
 
 class PlasmaVersionedNodeTree(idprops.IDPropMixin, bpy.types.PropertyGroup):
@@ -138,24 +140,40 @@ class PlasmaTelescope(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     bl_description = "Set up clickable mesh as a telescope."
     bl_icon = "VISIBLE_IPO_ON"
 
-    clickable_object = PointerProperty(name="Clickable",
-                                       description="Clickable object for telescope.",
-                                       type=bpy.types.Object,
-                                       poll=idprops.poll_mesh_objects)
-    tele_region = PointerProperty(name="Click Region",
-                                    description="Area where clickable becomes active.",
+    clickable_region = PointerProperty(name="Region",
+                                    description="Region inside which the avatar must stand to be able to use the telescope (optional).",
                                     type=bpy.types.Object,
                                     poll=idprops.poll_mesh_objects)
-    oneshot_object = PointerProperty(name="OneShot",
-                                     description="Empty object used to orient avatar in front of telescope.",
-                                     type=bpy.types.Object,
-                                     poll=idprops.poll_empty_objects)
+    seek_target_object = PointerProperty(name="Seek Point",
+                                         description="Empty object representing the position/orientation of the player when using the telescope.",
+                                         type=bpy.types.Object,
+                                         poll=idprops.poll_empty_objects)
     camera_object = PointerProperty(name="Camera",
                                     description="Camera used when viewing through telescope.",
                                     type=bpy.types.Object,
                                     poll=idprops.poll_camera_objects)
 
-    def logicwiz(self, bo, tree):
+    def sanity_check(self):
+        if self.camera_object is None:
+            raise ExportError(f"'{self.id_data.name}': Telescopes must specify a camera!")
+
+    def pre_export(self, exporter, bo):
+        if self.clickable_region is None:
+            with utils.bmesh_object(f"{self.key_name}_Telescope_ClkRgn") as (rgn_obj, bm):
+                bmesh.ops.create_cube(bm, size=(6.0))
+                bmesh.ops.transform(bm, matrix=mathutils.Matrix.Translation(bo.matrix_world.translation - rgn_obj.matrix_world.translation),
+                                    space=rgn_obj.matrix_world, verts=bm.verts)
+                rgn_obj.plasma_object.enabled = True
+                rgn_obj.hide_render = True
+            yield rgn_obj
+        else:
+            # Use the region provided
+            rgn_obj = self.clickable_region
+
+        # Generate the logic nodes
+        yield self.convert_logic(bo, rgn_obj=rgn_obj)
+
+    def logicwiz(self, bo, tree, rgn_obj):
         nodes = tree.nodes
 
         # Create Python Node
@@ -163,14 +181,14 @@ class PlasmaTelescope(PlasmaModifierProperties, PlasmaModifierLogicWiz):
 
         # Clickable
         telescopeclick = nodes.new("PlasmaClickableNode")
-        telescopeclick.value = self.clickable_object
+        telescopeclick.value = bo
         for i in telescopeclick.inputs:
             i.allow_simple = False
         telescopeclick.link_output(telescopepynode, "satisfies", "Activate")
 
         # Region
         telescoperegion = nodes.new("PlasmaClickableRegionNode")
-        telescoperegion.region_object = self.tele_region
+        telescoperegion.region_object = rgn_obj
         telescoperegion.link_output(telescopeclick, "satisfies", "region")
 
         # Telescope Camera
@@ -184,7 +202,7 @@ class PlasmaTelescope(PlasmaModifierProperties, PlasmaModifierLogicWiz):
 
         # OneShot
         telescopeoneshot = nodes.new("PlasmaSeekTargetNode")
-        telescopeoneshot.target = self.oneshot_object
+        telescopeoneshot.target = self.seek_target_object if self.seek_target_object else bo
         telescopeoneshot.link_output(telescopemsb, "seekers", "seek_target")
 
         # Anim Stage 1 (Grab)
