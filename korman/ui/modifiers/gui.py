@@ -95,15 +95,17 @@ def linkingbookmod(modifier, layout, context):
 
     row_alert("age_name")
 
-    if "pvMoul" in modifier.versions and modifier.link_type == "kOriginalBook":
-        layout.separator()
-        layout.prop(modifier, "shareable")
-        layout.prop(modifier, "share_region")
-
     if "pvMoul" in modifier.versions:
+        if modifier.link_type == "kOriginalBook":
+            layout.separator()
+            layout.prop(modifier, "shareable")
+            if modifier.shareable:
+                layout.prop(modifier, "share_region")
         layout.separator()
         layout.prop(modifier, "link_destination")
         layout.prop(modifier, "spawn_title")
+        layout.prop(modifier, "drc_stamp")
+        layout.prop(modifier, "third_person")
     layout.prop(modifier, "spawn_point")
 
     if "pvPots" in modifier.versions:

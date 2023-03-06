@@ -429,12 +429,20 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
                                 poll=idprops.poll_mesh_objects)
     shareable = BoolProperty(name="Shareable",
                              description="Enable the Book to be Shareable (MOUL private instance only)",
-                             default=True,
+                             default=False,
                              options=set())
     share_region = PointerProperty(name="Share Region",
                                    description="Sets the share region in which the receiving avatar must stand",
                                    type=bpy.types.Object,
                                    poll=idprops.poll_mesh_objects)
+    drc_stamp = BoolProperty(name="Stamped",
+                             description="Is there a stamp on the left page of this Book?",
+                             default=False,
+                             options=set())
+    third_person = BoolProperty(name="Force Third Person",
+                                description="Forces the camera into third person while Book is in use",
+                                default=False,
+                                options=set())
 
     # -- Path of the Shell options --
     # Popup Appearance
@@ -482,7 +490,11 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         else:
             rgn_obj = self.clickable_region
 
-        if self.shareable:
+    @property
+    def export_share_region(self) -> bool:
+        return self.shareable and self.link_type == "kOriginalBook"
+
+        if self.export_share_region:
             if self.share_region is None:
                 with utils.bmesh_object("{}_LinkingBook_ShareRgn".format(self.key_name)) as (share_region, bm):
                     # Generate a cube for the share region.
@@ -679,6 +691,16 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
             share.link_input(share_seek, "seekers", "seek_target")
             share.link_input(share_anim_stage, "stage", "stage_refs")
             share.link_output(linkingnode, "hosts", "shareBookSeek")
+
+        # Odds and Ends
+        stamped = nodes.new("PlasmaAttribBoolNode")
+        stamped.link_output(linkingnode, "pfm", "IsDRCStamped")
+        if not self.drc_stamp:
+            stamped.value = False
+        forcecam = nodes.new("PlasmaAttribBoolNode")
+        forcecam.link_output(linkingnode, "pfm", "ForceThirdPerson")
+        if self.third_person:
+            forcecam.value = True
 
     def sanity_check(self):
         if self.clickable is None:
