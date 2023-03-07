@@ -13,13 +13,15 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+import bmesh
 import bpy
 from bpy.props import *
+import mathutils
 from PyHSPlasma import *
 
 from ...addon_prefs import game_versions
-from .base import PlasmaModifierProperties
-from ...exporter import ExportError
+from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz
+from ...exporter import ExportError, utils
 from ... import idprops
 
 class PlasmaVersionedNodeTree(idprops.IDPropMixin, bpy.types.PropertyGroup):
@@ -117,3 +119,130 @@ class PlasmaMaintainersMarker(PlasmaModifierProperties):
     @property
     def requires_actor(self):
         return True
+
+
+telescope_pfm = {
+    "filename": "xTelescope.py",
+    "attribs": (
+        { 'id':  1, 'type': "ptAttribActivator", 'name': "Activate" },
+        { 'id':  2, 'type': "ptAttribSceneobject", 'name': "Camera" },
+        { 'id':  3, 'type': "ptAttribBehavior", 'name': "Behavior" },
+        { 'id':  4, 'type': "ptAttribString", 'name': "Vignette" },
+    )
+}
+
+
+class PlasmaTelescope(PlasmaModifierProperties, PlasmaModifierLogicWiz):
+    pl_id="telescope"
+
+    bl_category = "Logic"
+    bl_label = "Telescope"
+    bl_description = "Set up clickable mesh as a telescope."
+    bl_icon = "VISIBLE_IPO_ON"
+
+    clickable_region = PointerProperty(name="Region",
+                                    description="Region inside which the avatar must stand to be able to use the telescope (optional).",
+                                    type=bpy.types.Object,
+                                    poll=idprops.poll_mesh_objects)
+    seek_target_object = PointerProperty(name="Seek Point",
+                                         description="Empty object representing the position/orientation of the player when using the telescope.",
+                                         type=bpy.types.Object,
+                                         poll=idprops.poll_empty_objects)
+    camera_object = PointerProperty(name="Camera",
+                                    description="Camera used when viewing through telescope.",
+                                    type=bpy.types.Object,
+                                    poll=idprops.poll_camera_objects)
+
+    def sanity_check(self):
+        if self.camera_object is None:
+            raise ExportError(f"'{self.id_data.name}': Telescopes must specify a camera!")
+
+    def pre_export(self, exporter, bo):
+        if self.clickable_region is None:
+            with utils.bmesh_object(f"{self.key_name}_Telescope_ClkRgn") as (rgn_obj, bm):
+                bmesh.ops.create_cube(bm, size=(6.0))
+                bmesh.ops.transform(bm, matrix=mathutils.Matrix.Translation(bo.matrix_world.translation - rgn_obj.matrix_world.translation),
+                                    space=rgn_obj.matrix_world, verts=bm.verts)
+                rgn_obj.plasma_object.enabled = True
+                rgn_obj.hide_render = True
+            yield rgn_obj
+        else:
+            # Use the region provided
+            rgn_obj = self.clickable_region
+
+        # Generate the logic nodes
+        yield self.convert_logic(bo, rgn_obj=rgn_obj)
+
+    def logicwiz(self, bo, tree, rgn_obj):
+        nodes = tree.nodes
+
+        # Create Python Node
+        telescopepynode = self._create_python_file_node(tree, telescope_pfm["filename"], telescope_pfm["attribs"])
+
+        # Clickable
+        telescopeclick = nodes.new("PlasmaClickableNode")
+        telescopeclick.value = bo
+        for i in telescopeclick.inputs:
+            i.allow_simple = False
+        telescopeclick.link_output(telescopepynode, "satisfies", "Activate")
+
+        # Region
+        telescoperegion = nodes.new("PlasmaClickableRegionNode")
+        telescoperegion.region_object = rgn_obj
+        telescoperegion.link_output(telescopeclick, "satisfies", "region")
+
+        # Telescope Camera
+        telescopecam = nodes.new("PlasmaAttribObjectNode")
+        telescopecam.target_object = self.camera_object
+        telescopecam.link_output(telescopepynode, "pfm", "Camera")
+
+        # Now for the tricky MSB!
+        telescopemsb = nodes.new("PlasmaMultiStageBehaviorNode")
+        telescopemsb.link_output(telescopepynode, "hosts", "Behavior")
+
+        # OneShot
+        telescopeoneshot = nodes.new("PlasmaSeekTargetNode")
+        telescopeoneshot.target = self.seek_target_object if self.seek_target_object else bo
+        telescopeoneshot.link_output(telescopemsb, "seekers", "seek_target")
+
+        # Anim Stage 1 (Grab)
+        telescopestageone = nodes.new("PlasmaAnimStageNode")
+        telescopestageone.anim_name = "GlobalScopeGrab"
+        telescopestageone.loop_option = "kLoop"
+        telescopestageone.num_loops = 0
+        telescopestageone.link_output(telescopemsb, "stage", "stage_refs")
+        # Settings
+        telescopestageoneops = nodes.new("PlasmaAnimStageSettingsNode")
+        telescopestageoneops.forward = "kPlayAuto"
+        telescopestageoneops.stage_advance = "kAdvanceAuto"
+        telescopestageoneops.notify_on = {"kNotifyAdvance"}
+        telescopestageoneops.link_output(telescopestageone, "stage", "stage_settings")
+
+        # Anim Stage 2 (Hold)
+        telescopestagetwo = nodes.new("PlasmaAnimStageNode")
+        telescopestagetwo.anim_name = "GlobalScopeHold"
+        telescopestagetwo.loop_option = "kLoop"
+        telescopestagetwo.num_loops = -1
+        telescopestagetwo.link_output(telescopemsb, "stage", "stage_refs")
+        # Settings
+        telescopestagetwoops = nodes.new("PlasmaAnimStageSettingsNode")
+        telescopestagetwoops.forward = "kPlayAuto"
+        telescopestagetwoops.notify_on = set()
+        telescopestagetwoops.link_output(telescopestagetwo, "stage", "stage_settings")
+
+        # Anim Stage 3 (Release)
+        telescopestagethree = nodes.new("PlasmaAnimStageNode")
+        telescopestagethree.anim_name = "GlobalScopeRelease"
+        telescopestagethree.loop_option = "kLoop"
+        telescopestagethree.num_loops = 0
+        telescopestagethree.link_output(telescopemsb, "stage", "stage_refs")
+        # Settings
+        telescopestagethreeops = nodes.new("PlasmaAnimStageSettingsNode")
+        telescopestagethreeops.forward = "kPlayAuto"
+        telescopestagethreeops.stage_advance = "kAdvanceAuto"
+        telescopestagethreeops.notify_on = set()
+        telescopestagethreeops.link_output(telescopestagethree, "stage", "stage_settings")
+
+        telescopename = nodes.new("PlasmaAttribStringNode")
+        telescopename.value = "telescope"
+        telescopename.link_output(telescopepynode, "pfm", "Vignette")
