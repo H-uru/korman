@@ -83,6 +83,14 @@ class PlasmaNodeBase:
                                            kwargs.get("so"))
         return exporter.mgr.find_create_key(pClass, **kwargs)
 
+    def _find_key(self, pClass, exporter, **kwargs):
+        """Finds a plKey specific to this node."""
+        assert "name" not in kwargs
+        kwargs["name"] = self.get_key_name(issubclass(pClass, (plObjInterface, plSingleModifier)),
+                                           kwargs.pop("suffix", ""), kwargs.get("bl"),
+                                           kwargs.get("so"))
+        return exporter.mgr.find_key(pClass, **kwargs)
+
     def find_input(self, key, idname=None):
         for i in self.inputs:
             if i.alias == key:
