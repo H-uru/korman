@@ -94,6 +94,8 @@ class _RenderLevel:
             return self._calc_level(self.MAJOR_FRAMEBUF)
         elif mods.test_property("draw_opaque"):
             return self._calc_level(self.MAJOR_OPAQUE)
+        elif mods.test_property("draw_late"):
+            return self._calc_level(self.MAJOR_LATE)
         elif mods.test_property("draw_no_defer"):
             blend_span = False
 

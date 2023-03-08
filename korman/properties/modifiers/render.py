@@ -49,7 +49,8 @@ class PlasmaBlendMod(PlasmaModifierProperties):
                                 items=[("AUTO", "(Auto)", "Let Korman decide when to render this object."),
                                        ("OPAQUE", "Before Avatar", "Prefer for the object to draw before the avatar."),
                                        ("FRAMEBUF", "Frame Buffer", "Prefer for the object to draw after the avatar but before other blended objects."),
-                                       ("BLEND", "Blended", "Prefer for the object to draw after most other geometry in the blended pass.")],
+                                       ("BLEND", "Blended", "Prefer for the object to draw after most other geometry in the blended pass."),
+                                       ("LATE", "Late", "Prefer for the object to draw after all other alpha-blended objects.")],
                                 options=set())
     sort_faces = EnumProperty(name="Sort Faces",
                               description="",
@@ -72,6 +73,10 @@ class PlasmaBlendMod(PlasmaModifierProperties):
     @property
     def draw_framebuf(self):
         return self.render_level == "FRAMEBUF"
+
+    @property
+    def draw_late(self):
+        return self.render_level == "LATE"
 
     @property
     def draw_no_defer(self):
