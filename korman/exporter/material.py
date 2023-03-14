@@ -509,7 +509,10 @@ class MaterialConverter:
         else:
             layer_props = texture.plasma_layer
             layer.opacity = layer_props.opacity / 100
-            self._handle_layer_opacity(layer, layer_props.opacity)
+            if layer_props.opacity < 100 and not state.blendFlags & hsGMatState.kBlendMask:
+                state.blendFlags |= hsGMatState.kBlendAlpha
+            if layer_props.use_alpha_vcol:
+                state.blendFlags |= hsGMatState.kBlendAlpha
             if layer_props.alpha_halo:
                 state.blendFlags |= hsGMatState.kBlendAlphaTestHigh
             if layer_props.z_bias:
