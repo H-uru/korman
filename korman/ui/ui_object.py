@@ -53,9 +53,17 @@ class PlasmaObjectPanel(ObjectButtonsPanel, bpy.types.Panel):
         pl_age = context.scene.world.plasma_age
         layout.active = pl_obj.enabled
 
+        # It is an error to put objects in the wrong types of pages/
+        active_page = next((i for i in pl_age.pages if i.name == pl_obj.page), None)
+        is_external_page = active_page.page_type == "external" if active_page else False
+
         # Which page does this object go in?
         # If left blank, the exporter puts it in page 0 -- "Default"
+        layout.alert = is_external_page
         layout.prop_search(pl_obj, "page", pl_age, "pages", icon="BOOKMARKS")
+        layout.alert = False
+        if is_external_page:
+            layout.label("Objects cannot be exported to External pages.", icon="ERROR")
 
 
 class PlasmaNetPanel(ObjectButtonsPanel, bpy.types.Panel):

@@ -33,6 +33,8 @@ class PlasmaObject(bpy.types.PropertyGroup):
         for page in age.pages:
             if page.seq_suffix > num_layers:
                 continue
+            if page.page_type == "external":
+                continue
             if o.layers[page.seq_suffix - 1]:
                 o.plasma_object.page = page.name
                 break

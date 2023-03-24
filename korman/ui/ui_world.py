@@ -207,8 +207,8 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
 
             layout.separator()
             box = layout.box()
-            split = box.split()
 
+            split = box.split()
             col = split.column()
             col.label("Page Flags:")
             col.prop(active_page, "auto_load")
@@ -218,7 +218,23 @@ class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):
             col.label("Page Info:")
             col.prop(active_page, "name", text="")
             col.prop(active_page, "seq_suffix")
-            col.prop_menu_enum(active_page, "version")
+
+            split = box.split()
+            col = split.column()
+            col.label("Export For:")
+            col.prop(active_page, "version")
+
+            col = split.column()
+            default_page = active_page.seq_suffix == 0
+            invalid_page_type = default_page and active_page.page_type != "room"
+            col.alert = invalid_page_type
+            col.label("Page Type:")
+            col.prop(active_page, "page_type", text="")
+            col.alert = False
+            if default_page:
+                col.label("This is the Default Page.", icon="BOOKMARKS")
+            if invalid_page_type:
+                col.label("Page must be a Room.", icon="ERROR")
 
         # Age Names should really be legal Python 2.x identifiers for AgeSDLHooks
         legal_identifier = korlib.is_legal_python2_identifier(age.age_name)

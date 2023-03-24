@@ -156,11 +156,15 @@ class Exporter:
         # Grab a naive listing of enabled pages
         age = scene.world.plasma_age
         pages_enabled = frozenset((page.name for page in age.pages if page.enabled and self._op.version in page.version))
+        external_pages = frozenset((page.name for page in age.pages if page.page_type == "external"))
+        pages_enabled -= external_pages
         all_pages = frozenset((page.name for page in age.pages))
 
         # Because we can have an unnamed or a named default page, we need to see if that is enabled...
         for page in age.pages:
             if page.seq_suffix == 0:
+                if page.page_type != "room":
+                    raise explosions.ExportError(f"Default page '{page.name}' must be a Room page!")
                 default_enabled = page.enabled
                 default_inited = True
                 break
@@ -185,7 +189,7 @@ class Exporter:
 
                 if (default_enabled and not page) or (page in pages_enabled):
                     self._objects.append(obj)
-                elif page not in all_pages:
+                elif page not in all_pages or page in external_pages:
                     error.add(page, obj.name)
             inc_progress()
         error.raise_if_error()
@@ -217,7 +221,8 @@ class Exporter:
         ver = self._op.version
         for page in age_info.pages:
             if page.enabled and ver in page.version:
-                mgr.create_page(age_name, page.name, page.seq_suffix)
+                external = page.page_type == "external"
+                mgr.create_page(age_name, page.name, page.seq_suffix, external=external)
         mgr.create_builtins(age_name, age_info.use_texture_page)
 
     def _export_actor(self, so, bo):

@@ -150,7 +150,7 @@ class ExportManager:
         #          present and valid. They do not have to have any contents. See AvatarCustomization.
         # BuiltIn.prp
         want_pysdl = bpy.context.scene.world.plasma_age.age_sdl
-        builtin = self.create_page(age, "BuiltIn", -2, True)
+        builtin = self.create_page(age, "BuiltIn", -2, builtin=True)
         if want_pysdl:
             self._pack_agesdl_hook(age)
             sdl = self.add_object(plSceneObject, name="AgeSDLHook", loc=builtin)
@@ -160,37 +160,44 @@ class ExportManager:
         # Textures.prp
         # FIXME: unconditional creation will overwrite any existing textures PRP. This should
         # be addressed by a successful implementation of #145.
-        self.create_page(age, "Textures", -1, True)
+        self.create_page(age, "Textures", -1, builtin=True)
 
-    def create_page(self, age, name, id, builtin=False):
+    def create_page(self, age, name, id, *, builtin=False, external=False):
         location = plLocation(self.mgr.getVer())
         location.prefix = bpy.context.scene.world.plasma_age.seq_prefix
         if builtin:
             location.flags |= plLocation.kBuiltIn
         location.page = id
-        self._pages[name] = location
+        if not external:
+            self._pages[name] = location
 
         # If the page ID is 0, this is the default page... Any page with an empty string name
         # is the default, so bookmark it!
         if id == 0:
+            assert not external, "The default page cannot be external!"
             self._pages[""] = location
 
-        info = plPageInfo()
-        info.age = age
-        info.page = name
-        info.location = location
-        self.mgr.AddPage(info)
+        if not external:
+            info = plPageInfo()
+            info.age = age
+            info.page = name
+            info.location = location
+            self.mgr.AddPage(info)
 
         if not builtin:
             self._age_info.addPage((name, id, 0))
-            if self.getVer() <= pvPots:
-                node = plSceneNode("{}_District_{}".format(age, name))
+            if not external:
+                if self.getVer() <= pvPots:
+                    node = plSceneNode(f"{age}_District_{name}")
+                else:
+                    node = plSceneNode(f"{age}_{name}")
+                self.mgr.AddObject(location, node)
             else:
-                node = plSceneNode("{}_{}".format(age, name))
-            self._nodes[location] = node
-            self.mgr.AddObject(location, node)
+                node = None
         else:
-            self._nodes[location] = None
+            node = None
+
+        self._nodes[location] = node
         return location
 
     @property

@@ -76,7 +76,7 @@ class UndefinedPageError(ExportError):
     mistakes = {}
 
     def __init__(self):
-        super(ExportError, self).__init__("You have objects in pages that do not exist!")
+        super(ExportError, self).__init__("You have objects in invalid pages!")
 
     def add(self, page, obj):
         if page not in self.mistakes:
