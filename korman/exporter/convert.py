@@ -19,28 +19,47 @@ from collections import defaultdict
 from contextlib import ExitStack
 import functools
 from pathlib import Path
+from typing import *
 
 from ..helpers import TemporaryObject
 from ..korlib import ConsoleToggler
 
 from PyHSPlasma import *
 
-from . import animation
-from . import camera
-from . import decal
+from .animation import AnimationConverter
+from .camera import CameraConverter
+from .decal import DecalConverter
 from . import explosions
-from . import etlight
-from . import image
-from . import locman
+from .etlight import LightBaker
+from .image import ImageCache
+from .locman import LocalizationConverter
 from . import logger
-from . import manager
-from . import mesh
-from . import outfile
-from . import physics
-from . import rtlight
+from .manager import ExportManager
+from .mesh import MeshConverter
+from .outfile import OutputFiles
+from .physics import PhysicsConverter
+from .rtlight import LightConverter
 from . import utils
 
 class Exporter:
+
+    if TYPE_CHECKING:
+        actors: Set[str] = ...
+        want_node_trees: defaultdict[Set[str]] = ...
+        report: logger._ExportLogger = ...
+        exit_stack: ExitStack = ...
+        mgr: ExportManager = ...
+        mesh: MeshConverter = ...
+        physics: PhysicsConverter = ...
+        light: LightConverter = ...
+        animation: AnimationConverter = ...
+        output: OutputFiles = ...
+        camera: CameraConverter = ...
+        image: ImageCache = ...
+        locman: LocalizationConverter = ...
+        decal: DecalConverter = ...
+        oven: LightBaker = ...
+
     def __init__(self, op):
         self._op = op # Blender export operator
         self._objects = []
@@ -52,17 +71,17 @@ class Exporter:
         log = logger.ExportVerboseLogger if self._op.verbose else logger.ExportProgressLogger
         with ConsoleToggler(self._op.show_console), log(self._op.filepath) as self.report, ExitStack() as self.exit_stack:
             # Step 0: Init export resmgr and stuff
-            self.mgr = manager.ExportManager(self)
-            self.mesh = mesh.MeshConverter(self)
-            self.physics = physics.PhysicsConverter(self)
-            self.light = rtlight.LightConverter(self)
-            self.animation = animation.AnimationConverter(self)
-            self.output = outfile.OutputFiles(self, self._op.filepath)
-            self.camera = camera.CameraConverter(self)
-            self.image = image.ImageCache(self)
-            self.locman = locman.LocalizationConverter(self)
-            self.decal = decal.DecalConverter(self)
-            self.oven = etlight.LightBaker(mesh=self.mesh, report=self.report)
+            self.mgr = ExportManager(self)
+            self.mesh = MeshConverter(self)
+            self.physics = PhysicsConverter(self)
+            self.light = LightConverter(self)
+            self.animation = AnimationConverter(self)
+            self.output = OutputFiles(self, self._op.filepath)
+            self.camera = CameraConverter(self)
+            self.image = ImageCache(self)
+            self.locman = LocalizationConverter(self)
+            self.decal = DecalConverter(self)
+            self.oven = LightBaker(mesh=self.mesh, report=self.report)
 
             # Step 0.8: Init the progress mgr
             self.mesh.add_progress_presteps(self.report)
@@ -72,7 +91,7 @@ class Exporter:
             self.report.progress_add_step("Unifying Superstrings")
             self.report.progress_add_step("Harvesting Actors")
             if self._op.lighting_method != "skip":
-                etlight.LightBaker.add_progress_steps(self.report)
+                LightBaker.add_progress_steps(self.report)
             self.report.progress_add_step("Exporting Scene Objects")
             self.report.progress_add_step("Exporting Logic Nodes")
             self.report.progress_add_step("Finalizing Plasma Logic")
