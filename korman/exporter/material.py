@@ -193,9 +193,8 @@ class MaterialConverter:
         # being a waveset, doublesided, etc.
         single_user = self._requires_single_user(bo, bm)
         if single_user:
-            mat_name = "{}_AutoSingle".format(bm.name) if bo.name == bm.name else "{}_{}".format(bo.name, bm.name)
-            self._report.msg("Exporting Material '{}' as single user '{}'", bm.name, mat_name, indent=1)
-            hgmat = None
+            mat_name = f"{bm.name}_AutoSingle" if bo.name == bm.name else f"{bo.name}_{bm.name}"
+            self._report.msg(f"Exporting Material '{bm.name}' as single user '{mat_name}'")
         else:
             # Ensure that RT-lit objects don't infect the static-lit objects.
             lighting_mod = bo.plasma_modifiers.lighting
@@ -207,7 +206,7 @@ class MaterialConverter:
                 mat_prefix = ""
             mat_prefix2 = "NonVtxP_" if self._exporter().mesh.is_nonpreshaded(bo, bm) else ""
             mat_name = "".join((mat_prefix, mat_prefix2, bm.name))
-            self._report.msg("Exporting Material '{}'", mat_name, indent=1)
+            self._report.msg(f"Exporting Material '{mat_name}'")
             hsgmat = self._mgr.find_key(hsGMaterial, name=mat_name, bl=bo)
             if hsgmat is not None:
                 return hsgmat
@@ -228,43 +227,44 @@ class MaterialConverter:
         restart_pass_next = False
 
         # Loop over layers
-        for idx, slot in slots:
-            # Prepend any BumpMapping magic layers
-            if slot.use_map_normal:
-                if bo in self._bump_mats:
-                    raise ExportError("Material '{}' has more than one bumpmap layer".format(bm.name))
-                du, dw, dv = self.export_bumpmap_slot(bo, bm, hsgmat, slot, idx)
-                hsgmat.addLayer(du.key) # Du
-                hsgmat.addLayer(dw.key) # Dw
-                hsgmat.addLayer(dv.key) # Dv
-
-            if slot.use_stencil:
-                stencils.append((idx, slot))
-            else:
-                tex_name = "{}_{}".format(mat_name, slot.name)
-                tex_layer = self.export_texture_slot(bo, bm, hsgmat, slot, idx, name=tex_name)
-                if restart_pass_next:
-                    tex_layer.state.miscFlags |= hsGMatState.kMiscRestartPassHere
-                    restart_pass_next = False
-                hsgmat.addLayer(tex_layer.key)
+        with self._report.indent():
+            for idx, slot in slots:
+                # Prepend any BumpMapping magic layers
                 if slot.use_map_normal:
-                    self._bump_mats[bo] = (tex_layer.UVWSrc, tex_layer.transform)
-                    # After a bumpmap layer(s), the next layer *must* be in a
-                    # new pass, otherwise it gets added in non-intuitive ways
-                    restart_pass_next = True
-                if stencils:
-                    tex_state = tex_layer.state
-                    if not tex_state.blendFlags & hsGMatState.kBlendMask:
-                        tex_state.blendFlags |= hsGMatState.kBlendAlpha
-                    tex_state.miscFlags |= hsGMatState.kMiscRestartPassHere | hsGMatState.kMiscBindNext
-                    curr_stencils = len(stencils)
-                    for i in range(curr_stencils):
-                        stencil_idx, stencil = stencils[i]
-                        stencil_name = "STENCILGEN_{}@{}_{}".format(stencil.name, bm.name, slot.name)
-                        stencil_layer = self.export_texture_slot(bo, bm, hsgmat, stencil, stencil_idx, name=stencil_name)
-                        if i+1 < curr_stencils:
-                            stencil_layer.state.miscFlags |= hsGMatState.kMiscBindNext
-                        hsgmat.addLayer(stencil_layer.key)
+                    if bo in self._bump_mats:
+                        raise ExportError("Material '{}' has more than one bumpmap layer".format(bm.name))
+                    du, dw, dv = self.export_bumpmap_slot(bo, bm, hsgmat, slot, idx)
+                    hsgmat.addLayer(du.key) # Du
+                    hsgmat.addLayer(dw.key) # Dw
+                    hsgmat.addLayer(dv.key) # Dv
+
+                if slot.use_stencil:
+                    stencils.append((idx, slot))
+                else:
+                    tex_name = "{}_{}".format(mat_name, slot.name)
+                    tex_layer = self.export_texture_slot(bo, bm, hsgmat, slot, idx, name=tex_name)
+                    if restart_pass_next:
+                        tex_layer.state.miscFlags |= hsGMatState.kMiscRestartPassHere
+                        restart_pass_next = False
+                    hsgmat.addLayer(tex_layer.key)
+                    if slot.use_map_normal:
+                        self._bump_mats[bo] = (tex_layer.UVWSrc, tex_layer.transform)
+                        # After a bumpmap layer(s), the next layer *must* be in a
+                        # new pass, otherwise it gets added in non-intuitive ways
+                        restart_pass_next = True
+                    if stencils:
+                        tex_state = tex_layer.state
+                        if not tex_state.blendFlags & hsGMatState.kBlendMask:
+                            tex_state.blendFlags |= hsGMatState.kBlendAlpha
+                        tex_state.miscFlags |= hsGMatState.kMiscRestartPassHere | hsGMatState.kMiscBindNext
+                        curr_stencils = len(stencils)
+                        for i in range(curr_stencils):
+                            stencil_idx, stencil = stencils[i]
+                            stencil_name = "STENCILGEN_{}@{}_{}".format(stencil.name, bm.name, slot.name)
+                            stencil_layer = self.export_texture_slot(bo, bm, hsgmat, stencil, stencil_idx, name=stencil_name)
+                            if i+1 < curr_stencils:
+                                stencil_layer.state.miscFlags |= hsGMatState.kMiscBindNext
+                            hsgmat.addLayer(stencil_layer.key)
 
         # Plasma makes several assumptions that every hsGMaterial has at least one layer. If this
         # material had no Textures, we will need to initialize a default layer
@@ -293,7 +293,7 @@ class MaterialConverter:
             layer.preshade = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
             layer.runtime = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
             self.export_prepared_image(name=image_name, image=image, alpha_type=image_alpha,
-                                       owner=layer, allowed_formats={"DDS"}, indent=4)
+                                       owner=layer, allowed_formats={"DDS"})
             material = self._mgr.add_object(hsGMaterial, bl=bo, name=name)
             material.addLayer(layer.key)
             return material, layer
@@ -309,7 +309,7 @@ class MaterialConverter:
         # exporting a DXT1 version. As of right now, opaque vs on_off does nothing, so we still
         # get some turd-alpha data.
         if image_alpha == TextureAlpha.full and not want_preshade:
-            self._report.warn("Using an alpha texture with a non-alpha blend mode -- this may look bad", indent=3)
+            self._report.warn("Using an alpha texture with a non-alpha blend mode -- this may look bad")
             image_alpha = TextureAlpha.opaque
             image_name = "DECALPRINT_{}".format(image.name)
         else:
@@ -326,15 +326,17 @@ class MaterialConverter:
         if rt_key or pre_key:
             return pre_key, rt_key
 
-        self._report.msg("Exporting Print Material '{}'", rtname, indent=3)
-        rt_material, rt_layer = make_print_material(rtname)
+        self._report.msg(f"Exporting Print Material '{rtname}'")
+        with self._report.indent():
+            rt_material, rt_layer = make_print_material(rtname)
         if blend == hsGMatState.kBlendMult:
             rt_layer.state.blendFlags |= hsGMatState.kBlendInvertFinalColor
         rt_key = rt_material.key
 
         if want_preshade:
-            self._report.msg("Exporting Print Material '{}'", prename, indent=3)
-            pre_material, pre_layer = make_print_material(prename)
+            self._report.msg(f"Exporting Print Material '{prename}'")
+            with self._report.indent():
+                pre_material, pre_layer = make_print_material(prename)
             pre_material.compFlags |= hsGMaterial.kCompNeedsBlendChannel
             pre_layer.state.miscFlags |= hsGMatState.kMiscBindNext | hsGMatState.kMiscRestartPassHere
             pre_layer.preshade = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
@@ -346,7 +348,8 @@ class MaterialConverter:
             blend_layer.state.ZFlags = hsGMatState.kZNoZWrite
             blend_layer.ambient = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
             pre_material.addLayer(blend_layer.key)
-            self.export_alpha_blend("LINEAR", "HORIZONTAL", owner=blend_layer, indent=4)
+            with self._report.indent():
+                self.export_alpha_blend("LINEAR", "HORIZONTAL", owner=blend_layer)
 
             pre_key = pre_material.key
         else:
@@ -354,10 +357,10 @@ class MaterialConverter:
         return pre_key, rt_key
 
     def export_waveset_material(self, bo, bm):
-        self._report.msg("Exporting WaveSet Material '{}'", bm.name, indent=1)
+        self._report.msg(f"Exporting WaveSet Material '{bm.name}'")
 
         # WaveSets MUST have their own material
-        unique_name = "{}_WaveSet7".format(bm.name)
+        unique_name = f"{bm.name}_WaveSet7"
         hsgmat = self._mgr.add_object(hsGMaterial, name=unique_name, bl=bo)
 
         # Materials MUST have one layer. Wavesets need alpha blending...
@@ -370,13 +373,13 @@ class MaterialConverter:
         return hsgmat.key
 
     def export_bumpmap_slot(self, bo, bm, hsgmat, slot, idx):
-        name = "{}_{}".format(hsgmat.key.name, slot.name)
-        self._report.msg("Exporting Plasma Bumpmap Layers for '{}'", name, indent=2)
+        name = f"{hsgmat.key.name}_{slot.name}"
+        self._report.msg(f"Exporting Plasma Bumpmap Layers for '{name}'")
 
         # Okay, now we need to make 3 layers for the Du, Dw, and Dv
-        du_layer = self._mgr.find_create_object(plLayer, name="{}_DU_BumpLut".format(name), bl=bo)
-        dw_layer = self._mgr.find_create_object(plLayer, name="{}_DW_BumpLut".format(name), bl=bo)
-        dv_layer = self._mgr.find_create_object(plLayer, name="{}_DV_BumpLut".format(name), bl=bo)
+        du_layer = self._mgr.find_create_object(plLayer, name=f"{name}_DU_BumpLut", bl=bo)
+        dw_layer = self._mgr.find_create_object(plLayer, name=f"{name}_DW_BumpLut", bl=bo)
+        dv_layer = self._mgr.find_create_object(plLayer, name=f"{name}_DV_BumpLut", bl=bo)
 
         for layer in (du_layer, dw_layer, dv_layer):
             layer.ambient = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
@@ -419,118 +422,119 @@ class MaterialConverter:
 
     def export_texture_slot(self, bo, bm, hsgmat, slot, idx, name=None, blend_flags=True):
         if name is None:
-            name = "{}_{}".format(bm.name if bm is not None else bo.name, slot.name)
-        self._report.msg("Exporting Plasma Layer '{}'", name, indent=2)
+            name = f"{bm.name if bm is not None else bo.name}_{slot.name}"
+        self._report.msg(f"Exporting Plasma Layer '{name}'")
         layer = self._mgr.find_create_object(plLayer, name=name, bl=bo)
         if bm is not None and not slot.use_map_normal:
             self._propagate_material_settings(bo, bm, slot, layer)
 
-        # UVW Channel
-        if slot.texture_coords == "UV":
-            for i, uvchan in enumerate(bo.data.uv_layers):
-                if uvchan.name == slot.uv_layer:
-                    layer.UVWSrc = i
-                    self._report.msg("Using UV Map #{} '{}'", i, name, indent=3)
-                    break
-            else:
-                self._report.msg("No UVMap specified... Blindly using the first one, maybe it exists :|", indent=3)
-
-        # Transform
-        xform = hsMatrix44()
-        translation = hsVector3(slot.offset.x - (slot.scale.x - 1.0) / 2.0,
-                                -slot.offset.y - (slot.scale.y - 1.0) / 2.0,
-                                slot.offset.z - (slot.scale.z - 1.0) / 2.0)
-        xform.setTranslate(translation)
-        xform.setScale(hsVector3(*slot.scale))
-        layer.transform = xform
-
-        wantStencil, canStencil = slot.use_stencil, slot.use_stencil and bm is not None and not slot.use_map_normal
-        if wantStencil and not canStencil:
-            self._exporter().report.warn("{} wants to stencil, but this is not a real Material".format(slot.name))
-
-        state = layer.state
-        if canStencil:
-            hsgmat.compFlags |= hsGMaterial.kCompNeedsBlendChannel
-            state.blendFlags |= hsGMatState.kBlendAlpha | hsGMatState.kBlendAlphaMult | hsGMatState.kBlendNoTexColor
-            state.ZFlags |= hsGMatState.kZNoZWrite
-            layer.ambient = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
-        elif blend_flags:
-            # Standard layer flags ahoy
-            if slot.blend_type == "ADD":
-                state.blendFlags |= hsGMatState.kBlendAddColorTimesAlpha
-            elif slot.blend_type == "MULTIPLY":
-                state.blendFlags |= hsGMatState.kBlendMult
-
-        # Check if this layer uses diffuse/runtime lighting
-        if bm is not None and not slot.use_map_color_diffuse:
-            layer.preshade = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
-            layer.runtime = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
-
-        # Check if this layer uses specular lighting
-        if bm is not None and slot.use_map_color_spec:
-            state.shadeFlags |= hsGMatState.kShadeSpecular
-        else:
-            layer.specular = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
-            layer.specularPower = 1.0
-
-        texture = slot.texture
-        if texture.type == "BLEND":
-            hsgmat.compFlags |= hsGMaterial.kCompNeedsBlendChannel
-
-        # Handle material and per-texture emissive
-        if self._is_emissive(bm):
-            # If the previous slot's use_map_emit is different, then we need to flag this as a new
-            # pass so that the new emit color will be used. But only if it's not a doggone stencil.
-            if not wantStencil and bm is not None and slot is not None:
-                filtered_slots = tuple(filter(lambda x: x and x.use, bm.texture_slots[:idx]))
-                if filtered_slots:
-                    prev_slot = filtered_slots[-1]
-                    if prev_slot != slot and prev_slot.use_map_emit != slot.use_map_emit:
-                        state.miscFlags |= hsGMatState.kMiscRestartPassHere
-
-            if self._is_emissive(bm, slot):
-                # Lightmapped emissive layers seem to cause cascading render issues. Skip flagging it
-                # and just hope that the ambient color bump is good enough.
-                if bo.plasma_modifiers.lightmap.bake_lightmap:
-                    self._report.warn("A lightmapped and emissive material??? You like living dangerously...", indent=3)
+        with self._report.indent():
+            # UVW Channel
+            if slot.texture_coords == "UV":
+                for i, uvchan in enumerate(bo.data.uv_layers):
+                    if uvchan.name == slot.uv_layer:
+                        layer.UVWSrc = i
+                        self._report.msg(f"Using UV Map #{i} '{name}'")
+                        break
                 else:
-                    state.shadeFlags |= hsGMatState.kShadeEmissive
+                    self._report.msg("No UVMap specified... Blindly using the first one, maybe it exists :|")
 
-        # Apply custom layer properties
-        wantBumpmap = bm is not None and slot.use_map_normal
-        if wantBumpmap:
-            state.blendFlags = hsGMatState.kBlendDot3
-            state.miscFlags = hsGMatState.kMiscBumpLayer
-            strength = max(min(1.0, slot.normal_factor), 0.0)
-            layer.ambient = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
-            layer.preshade = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
-            layer.runtime = hsColorRGBA(strength, 0.0, 0.0, 1.0)
-            layer.specular = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
-        else:
-            layer_props = texture.plasma_layer
-            layer.opacity = layer_props.opacity / 100
-            self._handle_layer_opacity(layer, layer_props.opacity)
-            if layer_props.alpha_halo:
-                state.blendFlags |= hsGMatState.kBlendAlphaTestHigh
-            if layer_props.z_bias:
-                state.ZFlags |= hsGMatState.kZIncLayer
-            if layer_props.skip_depth_test:
-                state.ZFlags |= hsGMatState.kZNoZRead
-            if layer_props.skip_depth_write:
+            # Transform
+            xform = hsMatrix44()
+            translation = hsVector3(slot.offset.x - (slot.scale.x - 1.0) / 2.0,
+                                    -slot.offset.y - (slot.scale.y - 1.0) / 2.0,
+                                    slot.offset.z - (slot.scale.z - 1.0) / 2.0)
+            xform.setTranslate(translation)
+            xform.setScale(hsVector3(*slot.scale))
+            layer.transform = xform
+
+            wantStencil, canStencil = slot.use_stencil, slot.use_stencil and bm is not None and not slot.use_map_normal
+            if wantStencil and not canStencil:
+                self._exporter().report.warn(f"{slot.name} wants to stencil, but this is not a real Material")
+
+            state = layer.state
+            if canStencil:
+                hsgmat.compFlags |= hsGMaterial.kCompNeedsBlendChannel
+                state.blendFlags |= hsGMatState.kBlendAlpha | hsGMatState.kBlendAlphaMult | hsGMatState.kBlendNoTexColor
                 state.ZFlags |= hsGMatState.kZNoZWrite
+                layer.ambient = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
+            elif blend_flags:
+                # Standard layer flags ahoy
+                if slot.blend_type == "ADD":
+                    state.blendFlags |= hsGMatState.kBlendAddColorTimesAlpha
+                elif slot.blend_type == "MULTIPLY":
+                    state.blendFlags |= hsGMatState.kBlendMult
 
-        # Export the specific texture type
-        self._tex_exporters[texture.type](bo, layer, slot, idx)
+            # Check if this layer uses diffuse/runtime lighting
+            if bm is not None and not slot.use_map_color_diffuse:
+                layer.preshade = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+                layer.runtime = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
 
-        # Export any layer animations
-        # NOTE: animated stencils and bumpmaps are nonsense.
-        if not slot.use_stencil and not wantBumpmap:
-            layer = self._export_layer_animations(bo, bm, slot, idx, layer)
+            # Check if this layer uses specular lighting
+            if bm is not None and slot.use_map_color_spec:
+                state.shadeFlags |= hsGMatState.kShadeSpecular
+            else:
+                layer.specular = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+                layer.specularPower = 1.0
 
-        # Stash the top of the stack for later in the export
-        if bm is not None:
-            self._obj2layer[bo][bm][texture].append(layer.key)
-        return layer
+            texture = slot.texture
+            if texture.type == "BLEND":
+                hsgmat.compFlags |= hsGMaterial.kCompNeedsBlendChannel
+
+            # Handle material and per-texture emissive
+            if self._is_emissive(bm):
+                # If the previous slot's use_map_emit is different, then we need to flag this as a new
+                # pass so that the new emit color will be used. But only if it's not a doggone stencil.
+                if not wantStencil and bm is not None and slot is not None:
+                    filtered_slots = tuple(filter(lambda x: x and x.use, bm.texture_slots[:idx]))
+                    if filtered_slots:
+                        prev_slot = filtered_slots[-1]
+                        if prev_slot != slot and prev_slot.use_map_emit != slot.use_map_emit:
+                            state.miscFlags |= hsGMatState.kMiscRestartPassHere
+
+                if self._is_emissive(bm, slot):
+                    # Lightmapped emissive layers seem to cause cascading render issues. Skip flagging it
+                    # and just hope that the ambient color bump is good enough.
+                    if bo.plasma_modifiers.lightmap.bake_lightmap:
+                        self._report.warn("A lightmapped and emissive material??? You like living dangerously...")
+                    else:
+                        state.shadeFlags |= hsGMatState.kShadeEmissive
+
+            # Apply custom layer properties
+            wantBumpmap = bm is not None and slot.use_map_normal
+            if wantBumpmap:
+                state.blendFlags = hsGMatState.kBlendDot3
+                state.miscFlags = hsGMatState.kMiscBumpLayer
+                strength = max(min(1.0, slot.normal_factor), 0.0)
+                layer.ambient = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+                layer.preshade = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+                layer.runtime = hsColorRGBA(strength, 0.0, 0.0, 1.0)
+                layer.specular = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+            else:
+                layer_props = texture.plasma_layer
+                layer.opacity = layer_props.opacity / 100
+                self._handle_layer_opacity(layer, layer_props.opacity)
+                if layer_props.alpha_halo:
+                    state.blendFlags |= hsGMatState.kBlendAlphaTestHigh
+                if layer_props.z_bias:
+                    state.ZFlags |= hsGMatState.kZIncLayer
+                if layer_props.skip_depth_test:
+                    state.ZFlags |= hsGMatState.kZNoZRead
+                if layer_props.skip_depth_write:
+                    state.ZFlags |= hsGMatState.kZNoZWrite
+
+            # Export the specific texture type
+            self._tex_exporters[texture.type](bo, layer, slot, idx)
+
+            # Export any layer animations
+            # NOTE: animated stencils and bumpmaps are nonsense.
+            if not slot.use_stencil and not wantBumpmap:
+                layer = self._export_layer_animations(bo, bm, slot, idx, layer)
+
+            # Stash the top of the stack for later in the export
+            if bm is not None:
+                self._obj2layer[bo][bm][texture].append(layer.key)
+            return layer
 
     def _export_layer_animations(self, bo, bm, tex_slot, idx, base_layer) -> plLayer:
         top_layer = base_layer
@@ -715,7 +719,7 @@ class MaterialConverter:
         # to a big "finalize" save step to prevent races. The texture cache would
         # prevent that as well, so we could theoretically slice-and-dice the single
         # image here... but... meh. Offloading taim.
-        self.export_prepared_image(texture=texture, owner=layer, indent=3,
+        self.export_prepared_image(texture=texture, owner=layer,
                                    alpha_type=TextureAlpha.opaque, mipmap=True,
                                    allowed_formats={"DDS"}, is_cube_map=True, tag="cubemap")
 
@@ -732,7 +736,7 @@ class MaterialConverter:
         oRes = bl_env.resolution
         eRes = helpers.ensure_power_of_two(oRes)
         if oRes != eRes:
-            self._report.msg("Overriding EnvMap size to ({}x{}) -- POT", eRes, eRes, indent=3)
+            self._report.msg(f"Overriding EnvMap size to ({eRes}x{eRes}) -- POT")
 
         # And now for the general ho'hum-ness
         pl_env = self._mgr.find_create_object(pl_class, bl=bo, name=name)
@@ -791,7 +795,7 @@ class MaterialConverter:
             if viewpt.type == "CAMERA":
                 warn = self._report.port if bl_env.mapping == "PLANE" else self._report.warn
                 warn("Environment Map '{}' is exporting as a cube map. The viewpoint '{}' is a camera, but only its position will be used.",
-                     bl_env.id_data.name, viewpt.name, indent=5)
+                     bl_env.id_data.name, viewpt.name)
 
             # DEMs can do just a position vector. We actually prefer this because the WaveSet exporter
             # will probably want to steal it for diabolical purposes... In MOUL, root objects are
@@ -830,8 +834,7 @@ class MaterialConverter:
             alpha_type = self._test_image_alpha(texture.image)
             has_alpha = texture.use_calculate_alpha or slot.use_stencil or alpha_type != TextureAlpha.opaque
             if (texture.image.use_alpha and texture.use_alpha) and not has_alpha:
-                warning = "'{}' wants to use alpha, but '{}' is opaque".format(texture.name, texture.image.name)
-                self._exporter().report.warn(warning, indent=3)
+                self._report.warn(f"'{texture.name}' wants to use alpha, but '{texture.image.name}' is opaque")
         else:
             alpha_type, has_alpha = TextureAlpha.opaque, False
 
@@ -894,8 +897,7 @@ class MaterialConverter:
                                        detail_fade_stop=layer_props.detail_fade_stop,
                                        detail_opacity_start=layer_props.detail_opacity_start,
                                        detail_opacity_stop=layer_props.detail_opacity_stop,
-                                       mipmap=mipmap, allowed_formats=allowed_formats,
-                                       indent=3)
+                                       mipmap=mipmap, allowed_formats=allowed_formats)
 
     def _export_texture_type_none(self, bo, layer, slot, idx):
         # We'll allow this, just for sanity's sake...
@@ -911,14 +913,12 @@ class MaterialConverter:
         texture = slot.texture
         self.export_alpha_blend(texture.progression, texture.use_flip_axis, layer)
 
-    def export_alpha_blend(self, progression, axis, owner, indent=2):
+    def export_alpha_blend(self, progression, axis, owner):
         """This exports an alpha blend texture as exposed by bpy.types.BlendTexture.
            The following arguments are expected:
            - progression: (required)
            - axis: (required)
            - owner: (required) the Plasma object using this image
-           - indent: (optional) indentation level for log messages
-                     default: 2
         """
 
         # Certain blend types don't use an axis...
@@ -1013,7 +1013,7 @@ class MaterialConverter:
             image.pack(True)
 
         self.export_prepared_image(image=image, owner=owner, allowed_formats={"BMP"},
-                                   alpha_type=TextureAlpha.full, indent=indent, ephemeral=True)
+                                   alpha_type=TextureAlpha.full, ephemeral=True)
 
     def export_prepared_image(self, **kwargs):
         """This exports an externally prepared image and an optional owning layer.
@@ -1026,8 +1026,6 @@ class MaterialConverter:
                               valid options: BMP, DDS, JPG, PNG
            - extension: (optional) file extension to use for the image object
                         to use the image datablock extension, set this to None
-           - indent: (optional) indentation level for log messages
-                     default: 2
            - ephemeral: (optional) never cache this image
            - tag: (optional) an optional identifier hint that allows multiple images with the
                              same name to coexist in the cache
@@ -1035,15 +1033,14 @@ class MaterialConverter:
                                      that must be split into six separate images for Plasma
         """
         owner = kwargs.pop("owner", None)
-        indent = kwargs.pop("indent", 2)
         key = _Texture(**kwargs)
         image = key.image
 
         if key not in self._pending:
-            self._report.msg("Stashing '{}' for conversion as '{}'", image.name, key, indent=indent)
+            self._report.msg("Stashing '{}' for conversion as '{}'", image.name, key)
             self._pending[key] = [owner.key,]
         else:
-            self._report.msg("Found another user of '{}'", key, indent=indent)
+            self._report.msg("Found another user of '{}'", key)
             self._pending[key].append(owner.key)
 
     def finalize(self):
@@ -1064,43 +1061,44 @@ class MaterialConverter:
                 pClassName = "CubicEnvironmap" if key.is_cube_map else "Mipmap"
                 self._report.msg("\n[{} '{}']", pClassName, name)
 
-                image = key.image
+                with self._report.indent():
+                    image = key.image
 
-                # Now we try to use the pile of hints we were given to figure out what format to use
-                allowed_formats = key.allowed_formats
-                if key.mipmap:
-                    compression = plBitmap.kDirectXCompression
-                elif "PNG" in allowed_formats and self._mgr.getVer() == pvMoul:
-                    compression = plBitmap.kPNGCompression
-                elif "DDS" in allowed_formats:
-                    compression = plBitmap.kDirectXCompression
-                elif "JPG" in allowed_formats:
-                    compression = plBitmap.kJPEGCompression
-                elif "BMP" in allowed_formats:
-                    compression = plBitmap.kUncompressed
-                else:
-                    raise RuntimeError(allowed_formats)
-                dxt = plBitmap.kDXT5 if key.alpha_type == TextureAlpha.full else plBitmap.kDXT1
+                    # Now we try to use the pile of hints we were given to figure out what format to use
+                    allowed_formats = key.allowed_formats
+                    if key.mipmap:
+                        compression = plBitmap.kDirectXCompression
+                    elif "PNG" in allowed_formats and self._mgr.getVer() == pvMoul:
+                        compression = plBitmap.kPNGCompression
+                    elif "DDS" in allowed_formats:
+                        compression = plBitmap.kDirectXCompression
+                    elif "JPG" in allowed_formats:
+                        compression = plBitmap.kJPEGCompression
+                    elif "BMP" in allowed_formats:
+                        compression = plBitmap.kUncompressed
+                    else:
+                        raise RuntimeError(allowed_formats)
+                    dxt = plBitmap.kDXT5 if key.alpha_type == TextureAlpha.full else plBitmap.kDXT1
 
-                # Mayhaps we have a cached version of this that has already been exported
-                cached_image = texcache.get_from_texture(key, compression)
+                    # Mayhaps we have a cached version of this that has already been exported
+                    cached_image = texcache.get_from_texture(key, compression)
 
-                if cached_image is None:
-                    numLevels, width, height, data = self._finalize_cache(texcache, key, image, name, compression, dxt)
-                    self._finalize_bitmap(key, owners, name, numLevels, width, height, compression, dxt, data)
-                else:
-                    width, height = cached_image.export_size
-                    data = cached_image.image_data
-                    numLevels = cached_image.mip_levels
-
-                    # If the cached image data is junk, PyHSPlasma will raise a RuntimeError,
-                    # so we'll attempt a recache...
-                    try:
-                        self._finalize_bitmap(key, owners, name, numLevels, width, height, compression, dxt, data)
-                    except RuntimeError:
-                        self._report.warn("Cached image is corrupted! Recaching image...", indent=1)
+                    if cached_image is None:
                         numLevels, width, height, data = self._finalize_cache(texcache, key, image, name, compression, dxt)
                         self._finalize_bitmap(key, owners, name, numLevels, width, height, compression, dxt, data)
+                    else:
+                        width, height = cached_image.export_size
+                        data = cached_image.image_data
+                        numLevels = cached_image.mip_levels
+
+                        # If the cached image data is junk, PyHSPlasma will raise a RuntimeError,
+                        # so we'll attempt a recache...
+                        try:
+                            self._finalize_bitmap(key, owners, name, numLevels, width, height, compression, dxt, data)
+                        except RuntimeError:
+                            self._report.warn("Cached image is corrupted! Recaching image...")
+                            numLevels, width, height, data = self._finalize_cache(texcache, key, image, name, compression, dxt)
+                            self._finalize_bitmap(key, owners, name, numLevels, width, height, compression, dxt, data)
 
                 inc_progress()
 
@@ -1111,45 +1109,46 @@ class MaterialConverter:
         # business to account for per-page textures
         pages = {}
 
-        self._report.msg("Adding to...", indent=1)
-        for owner_key in owners:
-            owner = owner_key.object
-            self._report.msg("[{} '{}']", owner.ClassName()[2:], owner_key.name, indent=2)
-            page = mgr.get_textures_page(owner_key) # Layer's page or Textures.prp
+        self._report.msg("Adding to...")
+        with self._report.indent():
+            for owner_key in owners:
+                owner = owner_key.object
+                self._report.msg(f"[{owner.ClassName()[2:]} '{owner_key.name}']")
+                page = mgr.get_textures_page(owner_key) # Layer's page or Textures.prp
 
-            # If we haven't created this texture in the page (either layer's page or Textures.prp),
-            # then we need to do that and stuff the level data. This is a little tedious, but we
-            # need to be careful to manage our resources correctly
-            if page not in pages:
-                mipmap = plMipmap(name=name, width=width, height=height, numLevels=numLevels,
-                                  compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
-                if key.is_cube_map:
-                    assert len(data) == 6
-                    texture = plCubicEnvironmap(name)
-                    for face_name, face_data in zip(BLENDER_CUBE_MAP, data):
+                # If we haven't created this texture in the page (either layer's page or Textures.prp),
+                # then we need to do that and stuff the level data. This is a little tedious, but we
+                # need to be careful to manage our resources correctly
+                if page not in pages:
+                    mipmap = plMipmap(name=name, width=width, height=height, numLevels=numLevels,
+                                    compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
+                    if key.is_cube_map:
+                        assert len(data) == 6
+                        texture = plCubicEnvironmap(name)
+                        for face_name, face_data in zip(BLENDER_CUBE_MAP, data):
+                            for i in range(numLevels):
+                                mipmap.setLevel(i, face_data[i])
+                            setattr(texture, face_name, mipmap)
+                    else:
+                        assert len(data) == 1
                         for i in range(numLevels):
-                            mipmap.setLevel(i, face_data[i])
-                        setattr(texture, face_name, mipmap)
+                            mipmap.setLevel(i, data[0][i])
+                        texture = mipmap
+
+                    mgr.AddObject(page, texture)
+                    pages[page] = texture
                 else:
-                    assert len(data) == 1
-                    for i in range(numLevels):
-                        mipmap.setLevel(i, data[0][i])
-                    texture = mipmap
+                    texture = pages[page]
 
-                mgr.AddObject(page, texture)
-                pages[page] = texture
-            else:
-                texture = pages[page]
-
-            # The object that references this image can be either a layer (will appear
-            # in the 3d world) or an image library (will appear in a journal or in another
-            # dynamic manner in game)
-            if isinstance(owner, plLayerInterface):
-                owner.texture = texture.key
-            elif isinstance(owner, plImageLibMod):
-                owner.addImage(texture.key)
-            else:
-                raise NotImplementedError(owner.ClassName())
+                # The object that references this image can be either a layer (will appear
+                # in the 3d world) or an image library (will appear in a journal or in another
+                # dynamic manner in game)
+                if isinstance(owner, plLayerInterface):
+                    owner.texture = texture.key
+                elif isinstance(owner, plImageLibMod):
+                    owner.addImage(texture.key)
+                else:
+                    raise NotImplementedError(owner.ClassName())
 
     def _finalize_cache(self, texcache, key, image, name, compression, dxt):
         if key.is_cube_map:
@@ -1162,7 +1161,7 @@ class MaterialConverter:
     def _finalize_cube_map(self, key, image, name, compression, dxt):
         oWidth, oHeight = image.size
         if oWidth == 0 and oHeight == 0:
-            raise ExportError("Image '{}' could not be loaded.".format(image.name))
+            raise ExportError(f"Image '{image.name}' could not be loaded.")
 
         # Non-DXT images are BGRA in Plasma
         bgra = compression != plBitmap.kDirectXCompression
@@ -1177,7 +1176,7 @@ class MaterialConverter:
         # something funky.
         if oWidth != cWidth or oHeight != cHeight:
             self._report.warn("Image was resized by Blender to ({}x{})--resizing the resize to ({}x{})",
-                              cWidth, cHeight, oWidth, oHeight, indent=1)
+                              cWidth, cHeight, oWidth, oHeight)
             data = scale_image(data, cWidth, cHeight, oWidth, oHeight)
 
         # Face dimensions
@@ -1213,14 +1212,14 @@ class MaterialConverter:
             name = face_name[:-4].upper()
             if compression == plBitmap.kDirectXCompression:
                 numLevels = glimage.num_levels
-                self._report.msg("Generating mip levels for cube face '{}'", name, indent=1)
+                self._report.msg("Generating mip levels for cube face '{}'", name)
 
                 # If we're compressing this mofo, we'll need a temporary mipmap to do that here...
                 mipmap = plMipmap(name=name, width=eWidth, height=eHeight, numLevels=numLevels,
                                   compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
             else:
                 numLevels = 1
-                self._report.msg("Compressing single level for cube face '{}'", name, indent=1)
+                self._report.msg("Compressing single level for cube face '{}'", name)
 
             face_images[i] = [None] * numLevels
             for j in range(numLevels):
@@ -1244,7 +1243,7 @@ class MaterialConverter:
             eWidth, eHeight = glimage.size_pot
             if compression == plBitmap.kDirectXCompression:
                 numLevels = glimage.num_levels
-                self._report.msg("Generating mip levels", indent=1)
+                self._report.msg("Generating mip levels")
 
                 # If this is a DXT-compressed mipmap, we need to use a temporary mipmap
                 # to do the compression. We'll then steal the data from it.
@@ -1252,7 +1251,7 @@ class MaterialConverter:
                                   compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
             else:
                 numLevels = 1
-                self._report.msg("Compressing single level", indent=1)
+                self._report.msg("Compressing single level")
 
             # Hold the uncompressed level data for now. We may have to make multiple copies of
             # this mipmap for per-page textures :(
@@ -1281,7 +1280,7 @@ class MaterialConverter:
             yield from filter(None, self._obj2layer[bo][bm][tex])
             return
         if bo is None and bm is None and tex is None:
-            self._exporter().report.warn("Asking for all the layers we've ever exported, eh? You like living dangerously.", indent=2)
+            self._exporter().report.warn("Asking for all the layers we've ever exported, eh? You like living dangerously.")
 
         # What we want to do is filter _obj2layers:
         # bo if set, or all objects

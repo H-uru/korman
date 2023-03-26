@@ -69,12 +69,12 @@ class LocalizationConverter:
             self._version = kwargs.get("version")
         self._strings = defaultdict(lambda: defaultdict(dict))
 
-    def add_string(self, set_name, element_name, language, value, indent=0):
-        self._report.msg("Accepted '{}' translation for '{}'.", element_name, language, indent=indent)
+    def add_string(self, set_name, element_name, language, value):
+        self._report.msg("Accepted '{}' translation for '{}'.", element_name, language)
         if isinstance(value, bpy.types.Text):
             if value.is_modified:
                 self._report.warn("'{}' translation for '{}' is modified on the disk but not reloaded in Blender.",
-                                element_name, language, indent=indent)
+                                element_name, language)
             value = value.as_string()
 
         for dc in _DUMB_CHARACTERS:
@@ -86,7 +86,7 @@ class LocalizationConverter:
             if value != old_value:
                 self._report.warn(
                     "'{}' translation for '{}' has an illegal {}, which was replaced with: {}",
-                    element_name, language, dc.desc, dc.sub, indent=indent
+                    element_name, language, dc.desc, dc.sub
                 )
 
         self._strings[set_name][element_name][language] = value
@@ -116,7 +116,7 @@ class LocalizationConverter:
                     stream.write(contents.encode("windows-1252"))
                 except UnicodeEncodeError:
                     self._report.warn("Translation '{}': Contents contains characters that cannot be used in this version of Plasma. They will appear as a '?' in game.",
-                                    language, indent=2)
+                                    language)
 
                     # Yes, there are illegal characters... As a stopgap, we will export the file with
                     # replacement characters ("?") just so it'll work dammit.
@@ -125,28 +125,30 @@ class LocalizationConverter:
 
         locs = itertools.chain(self._strings["Journals"].items(), self._strings["DynaTexts"].items())
         for journal_name, translations in locs:
-            self._report.msg("Copying localization '{}'", journal_name, indent=1)
-            for language_name, value in translations.items():
-                if language_name not in _SP_LANGUAGES:
-                    self._report.warn("Translation '{}' will not be used because it is not supported in this version of Plasma.",
-                                      language_name, indent=2)
-                    continue
-                suffix = "_{}".format(language_name.lower()) if language_name != "English" else ""
-                file_name = "{}--{}{}.txt".format(age_name, journal_name, suffix)
-                write_text_file(language_name, file_name, value)
+            self._report.msg(f"Copying localization '{journal_name}'")
+            with self._report.indent():
+                for language_name, value in translations.items():
+                    if language_name not in _SP_LANGUAGES:
+                        self._report.warn("Translation '{}' will not be used because it is not supported in this version of Plasma.",
+                                        language_name)
+                        continue
+                    suffix = "_{}".format(language_name.lower()) if language_name != "English" else ""
+                    file_name = "{}--{}{}.txt".format(age_name, journal_name, suffix)
+                    write_text_file(language_name, file_name, value)
 
             # Ensure that default (read: "English") journal is available
-            if "English" not in translations:
-                language_name, value = next(((language_name, value) for language_name, value in translations.items()
-                                            if language_name in _SP_LANGUAGES), (None, None))
-                if language_name is not None:
-                    file_name = "{}--{}.txt".format(age_name, journal_name)
-                    # If you manage to screw up this badly... Well, I am very sorry.
-                    if write_text_file(language_name, file_name, value):
-                        self._report.warn("No 'English' translation available, so '{}' will be used as the default",
-                                          language_name, indent=2)
-                else:
-                    self._report.port("No 'English' nor any other suitable default translation available", indent=2)
+            with self._report.indent():
+                if "English" not in translations:
+                    language_name, value = next(((language_name, value) for language_name, value in translations.items()
+                                                if language_name in _SP_LANGUAGES), (None, None))
+                    if language_name is not None:
+                        file_name = "{}--{}.txt".format(age_name, journal_name)
+                        # If you manage to screw up this badly... Well, I am very sorry.
+                        if write_text_file(language_name, file_name, value):
+                            self._report.warn("No 'English' translation available, so '{}' will be used as the default",
+                                            language_name)
+                    else:
+                        self._report.port("No 'English' nor any other suitable default translation available")
 
     def _generate_loc_files(self):
         if not self._strings:
@@ -243,10 +245,9 @@ class LocalizationConverter:
                 if modifier.enabled:
                     translations = [j for j in modifier.translations if j.text_id is not None]
                     if not translations:
-                        self._report.error("'{}': No content translations available. The localization will not be exported.",
-                                        i.name, indent=2)
+                        self._report.error(f"'{i.name}': No content translations available. The localization will not be exported.")
                     for j in translations:
-                        self.add_string(modifier.localization_set, modifier.key_name, j.language, j.text_id, indent=1)
+                        self.add_string(modifier.localization_set, modifier.key_name, j.language, j.text_id)
             inc_progress()
 
     def _run_generate(self):

@@ -124,10 +124,10 @@ class PlasmaBuildCubeMapOperator(ImageOperator, bpy.types.Operator):
                 face_path = filepath[:idx+1] + suffix + filepath[idx+3:]
                 face_name = key[:-4].upper()
                 if Path(face_path).is_file():
-                    self._report.msg("Found face '{}': {}", face_name, face_path, indent=1)
+                    self._report.msg("Found face '{}': {}", face_name, face_path)
                     files.append(face_path)
                 else:
-                    self._report.warn("Using default face data for face '{}'", face_name, indent=1)
+                    self._report.warn("Using default face data for face '{}'", face_name)
                     files.append(None)
                 self._report.progress_increment()
             return tuple(files)
@@ -226,14 +226,14 @@ class PlasmaBuildCubeMapOperator(ImageOperator, bpy.types.Operator):
         # Insert grumbling here about tuples being immutable...
         result_data = list(face_data)
 
-        for i in range(len(BLENDER_CUBE_MAP)):
-            face_width, face_height = face_widths[i], face_heights[i]
-            if face_width != min_width or face_height != min_height:
-                face_name = BLENDER_CUBE_MAP[i][:-4].upper()
-                self._report.msg("Resizing face '{}' from {}x{} to {}x{}", face_name,
-                                 face_width, face_height, min_width, min_height,
-                                 indent=1)
-                result_data[i] = scale_image(face_data[i], face_width, face_height,
-                                                         min_width, min_height)
-            self._report.progress_increment()
+        with self._report.indent():
+            for i in range(len(BLENDER_CUBE_MAP)):
+                face_width, face_height = face_widths[i], face_heights[i]
+                if face_width != min_width or face_height != min_height:
+                    face_name = BLENDER_CUBE_MAP[i][:-4].upper()
+                    self._report.msg("Resizing face '{}' from {}x{} to {}x{}", face_name,
+                                    face_width, face_height, min_width, min_height)
+                    result_data[i] = scale_image(face_data[i], face_width, face_height,
+                                                            min_width, min_height)
+                self._report.progress_increment()
         return min_width, min_height, tuple(result_data)

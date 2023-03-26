@@ -70,7 +70,7 @@ class PlasmaSittingBehaviorNode(PlasmaNodeBase, bpy.types.Node):
             if i is not None:
                 sitmod.addNotifyKey(i.get_key(exporter, so))
             else:
-                exporter.report.warn("'{}' Node '{}' doesn't expose a key. It won't be triggered by '{}'!".format(i.bl_idname, i.name, self.name), indent=3)
+                exporter.report.warn(f"'{i.bl_idname}' Node '{i.name}' doesn't expose a key. It won't be triggered by '{self.name}'!")
 
     @property
     def requires_actor(self):
@@ -401,7 +401,7 @@ class PlasmaMultiStageBehaviorNode(PlasmaNodeBase, bpy.types.Node):
                 msbmod.addReceiver(key)
             else:
                 exporter.report.warn("'{}' Node '{}' doesn't expose a key. It won't be triggered by '{}'!",
-                                     node.bl_idname, node.name, self.name, indent=3)
+                                     node.bl_idname, node.name, self.name)
 
     @property
     def requires_actor(self):

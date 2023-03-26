@@ -219,12 +219,13 @@ class Exporter:
         inc_progress = self.report.progress_increment
 
         self.report.msg("\nEnsuring Age is sane...")
-        for bl_obj in self._objects:
-            for mod in bl_obj.plasma_modifiers.modifiers:
-                fn = getattr(mod, "sanity_check", None)
-                if fn is not None:
-                    fn()
-            inc_progress()
+        with self.report.indent():
+            for bl_obj in self._objects:
+                for mod in bl_obj.plasma_modifiers.modifiers:
+                    fn = getattr(mod, "sanity_check", None)
+                    if fn is not None:
+                        fn()
+                inc_progress()
         self.report.msg("... Age is grinning and holding a spatula. Must be OK, then.")
 
     def _export_age_info(self):
@@ -254,7 +255,7 @@ class Exporter:
         parent = bo.parent
         if parent is not None:
             if parent.plasma_object.enabled:
-                self.report.msg("Attaching to parent SceneObject '{}'", parent.name, indent=1)
+                self.report.msg(f"Attaching to parent SceneObject '{parent.name}'")
                 parent_ci = self._export_coordinate_interface(None, parent)
                 parent_ci.addChild(so.key)
             else:
@@ -285,42 +286,47 @@ class Exporter:
 
         self.report.msg("\nExporting localization...")
 
-        for bl_obj in self._objects:
-            for mod in filter(lambda x: hasattr(x, "export_localization"), bl_obj.plasma_modifiers.modifiers):
-                mod.export_localization(self)
-            inc_progress()
+        with self.report.indent():
+            for bl_obj in self._objects:
+                for mod in filter(lambda x: hasattr(x, "export_localization"), bl_obj.plasma_modifiers.modifiers):
+                    mod.export_localization(self)
+                inc_progress()
 
     def _export_scene_objects(self):
         self.report.progress_advance()
         self.report.progress_range = len(self._objects)
         inc_progress = self.report.progress_increment
         log_msg = self.report.msg
+        indent = self.report.indent
 
         for bl_obj in self._objects:
-            log_msg("\n[SceneObject '{}']".format(bl_obj.name))
+            log_msg(f"\n[SceneObject '{bl_obj.name}']")
 
-            # First pass: do things specific to this object type.
-            #             note the function calls: to export a MESH, it's _export_mesh_blobj
-            export_fn = "_export_{}_blobj".format(bl_obj.type.lower())
-            try:
-                export_fn = getattr(self, export_fn)
-            except AttributeError:
-                self.report.warn("""'{}' is a Plasma Object of Blender type '{}'
-                                 ... And I have NO IDEA what to do with that! Tossing.""".format(bl_obj.name, bl_obj.type))
-                continue
-            log_msg("Blender Object '{}' of type '{}'".format(bl_obj.name, bl_obj.type), indent=1)
+            with indent():
+                # First pass: do things specific to this object type.
+                #             note the function calls: to export a MESH, it's _export_mesh_blobj
+                export_fn = "_export_{}_blobj".format(bl_obj.type.lower())
+                try:
+                    export_fn = getattr(self, export_fn)
+                except AttributeError:
+                    self.report.warn("""'{}' is a Plasma Object of Blender type '{}'
+                                    ... And I have NO IDEA what to do with that! Tossing.""".format(bl_obj.name, bl_obj.type))
+                    continue
+                log_msg(f"Blender Object '{bl_obj.name}' of type '{bl_obj.type}'")
 
-            # Create a sceneobject if one does not exist.
-            # Before we call the export_fn, we need to determine if this object is an actor of any
-            # sort, and barf out a CI.
-            sceneobject = self.mgr.find_create_object(plSceneObject, bl=bl_obj)
-            self._export_actor(sceneobject, bl_obj)
-            export_fn(sceneobject, bl_obj)
+                # Create a sceneobject if one does not exist.
+                # Before we call the export_fn, we need to determine if this object is an actor of any
+                # sort, and barf out a CI.
+                sceneobject = self.mgr.find_create_object(plSceneObject, bl=bl_obj)
+                self._export_actor(sceneobject, bl_obj)
+                with indent():
+                    export_fn(sceneobject, bl_obj)
 
-            # And now we puke out the modifiers...
-            for mod in bl_obj.plasma_modifiers.modifiers:
-                log_msg("Exporting '{}' modifier".format(mod.bl_label), indent=1)
-                mod.export(self, bl_obj, sceneobject)
+                # And now we puke out the modifiers...
+                for mod in bl_obj.plasma_modifiers.modifiers:
+                    log_msg(f"Exporting '{mod.bl_label}' modifier")
+                    with indent():
+                        mod.export(self, bl_obj, sceneobject)
             inc_progress()
 
     def _export_camera_blobj(self, so, bo):
@@ -338,27 +344,31 @@ class Exporter:
         if bo.data.materials:
             self.mesh.export_object(bo, so)
         else:
-            self.report.msg("No material(s) on the ObData, so no drawables", indent=1)
+            self.report.msg("No material(s) on the ObData, so no drawables")
 
     def _export_font_blobj(self, so, bo):
         with utils.temporary_mesh_object(bo) as meshObj:
             if bo.data.materials:
                 self.mesh.export_object(meshObj, so)
             else:
-                self.report.msg("No material(s) on the ObData, so no drawables", indent=1)
+                self.report.msg("No material(s) on the ObData, so no drawables")
 
     def _export_referenced_node_trees(self):
         self.report.progress_advance()
         self.report.progress_range = len(self.want_node_trees)
         inc_progress = self.report.progress_increment
+        log_msg = self.report.msg
+        indent = self.report.indent
 
-        self.report.msg("\nChecking Logic Trees...")
-        for tree_name, references in self.want_node_trees.items():
-            self.report.msg("NodeTree '{}'", tree_name, indent=1)
-            tree = bpy.data.node_groups[tree_name]
-            for bo, so in references:
-                tree.export(self, bo, so)
-            inc_progress()
+        log_msg("\nChecking Logic Trees...")
+        with indent():
+            for tree_name, references in self.want_node_trees.items():
+                log_msg(f"NodeTree '{tree_name}'")
+                with indent():
+                    tree = bpy.data.node_groups[tree_name]
+                    for bo, so in references:
+                        tree.export(self, bo, so)
+                inc_progress()
 
     def _harvest_actors(self):
         self.report.progress_advance()
@@ -401,8 +411,10 @@ class Exporter:
         self.report.progress_advance()
         self.report.progress_range = len(self._objects)
         inc_progress = self.report.progress_increment
-        self.report.msg("\nPost-Processing SceneObjects...")
+        log_msg = self.report.msg
+        indent = self.report.indent
 
+        log_msg("\nPost-Processing SceneObjects...")
         mat_mgr = self.mesh.material
         for bl_obj in self._objects:
             sceneobject = self.mgr.find_object(plSceneObject, bl=bl_obj)
@@ -421,18 +433,22 @@ class Exporter:
                         net.propagate_synch_options(sceneobject, layer)
 
             # Modifiers don't have to expose post-processing, but if they do, run it
-            for mod in bl_obj.plasma_modifiers.modifiers:
-                proc = getattr(mod, "post_export", None)
-                if proc is not None:
-                    self.report.msg("Post processing '{}' modifier '{}'", bl_obj.name, mod.bl_label, indent=1)
-                    proc(self, bl_obj, sceneobject)
+            with indent():
+                for mod in bl_obj.plasma_modifiers.modifiers:
+                    proc = getattr(mod, "post_export", None)
+                    if proc is not None:
+                        self.report.msg(f"Post processing '{bl_obj.name}' modifier '{mod.bl_label}'")
+                        with indent():
+                            proc(self, bl_obj, sceneobject)
             inc_progress()
 
     def _pre_export_scene_objects(self):
         self.report.progress_advance()
         self.report.progress_range = len(self._objects)
         inc_progress = self.report.progress_increment
-        self.report.msg("\nGenerating export dependency objects...")
+        log_msg = self.report.msg
+        indent = self.report.indent
+        log_msg("\nGenerating export dependency objects...")
 
         # New objects may be generate during this process; they will be appended at the end.
         new_objects = []
@@ -450,8 +466,10 @@ class Exporter:
         @handle_temporary.register(bpy.types.Object)
         def _(temporary, parent):
             self.exit_stack.enter_context(TemporaryObject(temporary, bpy.data.objects.remove))
-            self.report.msg("'{}': generated Object '{}' (Plasma Object: {})", parent.name,
-                            temporary.name, temporary.plasma_object.enabled, indent=1)
+            log_msg(
+                f"'{parent.name}': generated Object '{temporary.name}' "
+                f"(Plasma Object: {temporary.plasma_object.enabled})",
+            )
             if temporary.plasma_object.enabled:
                 new_objects.append(temporary)
 
@@ -461,14 +479,15 @@ class Exporter:
                     temporary.plasma_object.page = parent.plasma_object.page
 
                 # Wow, recursively generated objects. Aren't you special?
-                for mod in temporary.plasma_modifiers.modifiers:
-                    mod.sanity_check()
-                do_pre_export(temporary)
+                with indent():
+                    for mod in temporary.plasma_modifiers.modifiers:
+                        mod.sanity_check()
+                    do_pre_export(temporary)
 
         @handle_temporary.register(bpy.types.NodeTree)
         def _(temporary, parent):
             self.exit_stack.enter_context(TemporaryObject(temporary, bpy.data.node_groups.remove))
-            self.report.msg("'{}' generated NodeTree '{}'", parent.name, temporary.name)
+            log_msg(f"'{parent.name}' generated NodeTree '{temporary.name}'")
             if temporary.bl_idname == "PlasmaNodeTree":
                 parent_so = self.mgr.find_create_object(plSceneObject, bl=parent)
                 self.want_node_trees[temporary.name].add((parent, parent_so))
@@ -482,11 +501,12 @@ class Exporter:
                         for i in filter(None, result):
                             handle_temporary(i, bo)
 
-        for bl_obj in self._objects:
-            do_pre_export(bl_obj)
-            inc_progress()
+        with indent():
+            for bl_obj in self._objects:
+                do_pre_export(bl_obj)
+                inc_progress()
 
-        self.report.msg("... {} new object(s) were generated!", len(new_objects))
+        log_msg(f"... {len(new_objects)} new object(s) were generated!")
         self._objects += new_objects
 
     def _pack_ancillary_python(self):
@@ -506,12 +526,13 @@ class Exporter:
 
         # If something bad happens in the final flush, it would be a shame to
         # simply toss away the potentially freshly regenerated texture cache.
-        try:
-            self.locman.save()
-            self.mgr.save_age()
-            self.output.save()
-        finally:
-            self.image.save()
+        with self.report.indent():
+            try:
+                self.locman.save()
+                self.mgr.save_age()
+                self.output.save()
+            finally:
+                self.image.save()
 
     @property
     def age_name(self):

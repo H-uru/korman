@@ -318,11 +318,11 @@ class OutputFiles:
                     py_code = "{}\n\n{}\n".format(i.file_data, plasma_python_glue)
                 else:
                     py_code = i.file_data
-                result, pyc = korlib.compyle(i.filename, py_code, py_version, report, indent=1)
+                result, pyc = korlib.compyle(i.filename, py_code, py_version, report)
                 if result:
                     pyc_objects.append((i.filename, pyc))
         except korlib.PythonNotAvailableError as error:
-            report.warn("Python {} is not available. Your Age scripts were not packaged.", error, indent=1)
+            report.warn(f"Python {error} is not available. Your Age scripts were not packaged.")
         else:
             if pyc_objects:
                 with self.generate_dat_file("{}.pak".format(self._exporter().age_name),
@@ -392,7 +392,7 @@ class OutputFiles:
                     shutil.copy2(i.file_path, dst_path)
             else:
                 report.warn("No data found for dependency file '{}'. It will not be copied into the export directory.",
-                            PurePath(i.dirname, i.filename), indent=1)
+                            PurePath(i.dirname, i.filename))
 
     def _write_gather_build(self):
         report = self._exporter().report
@@ -458,7 +458,7 @@ class OutputFiles:
                 elif i.file_path:
                     zf.write(i.file_path, arcpath)
                 else:
-                    report.warn("No data found for dependency file '{}'. It will not be archived.", arcpath, indent=1)
+                    report.warn(f"No data found for dependency file '{arcpath}'. It will not be archived.")
 
     @property
     def _version(self):

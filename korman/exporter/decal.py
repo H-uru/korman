@@ -112,7 +112,7 @@ class DecalConverter:
         name = "{}_{}".format(decal_name, bo.name) if is_waveset else decal_name
         decal_mgr = exporter.mgr.find_object(pClass, bl=bo, name=name)
         if decal_mgr is None:
-            self._report.msg("Exporing decal manager '{}' to '{}'", decal_name, name, indent=2)
+            self._report.msg(f"Exporing decal manager '{decal_name}' to '{name}'")
 
             decal_mgr = exporter.mgr.add_object(pClass, bl=bo, name=name)
             self._decal_managers[decal_name].append(decal_mgr.key)

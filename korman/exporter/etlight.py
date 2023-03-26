@@ -112,7 +112,7 @@ class LightBaker:
 
         self._report.msg("\nBaking Static Lighting...")
 
-        with GoodNeighbor() as toggle:
+        with GoodNeighbor() as toggle, self._report.indent():
             try:
                 # reduce the amount of indentation
                 bake = self._harvest_bakable_objects(objs, toggle)
@@ -143,26 +143,25 @@ class LightBaker:
         # Step 1: Prepare... Apply UVs, etc, etc, etc
         self._report.progress_advance()
         self._report.progress_range = len(bake)
-        self._report.msg("Preparing to bake...", indent=1)
-        for key, value in bake.items():
-            if key[0] == "lightmap":
-                for i in range(len(value)-1, -1, -1):
-                    obj = value[i]
-                    if not self._prep_for_lightmap(obj, toggle):
-                        self._report.msg("Lightmap '{}' will not be baked -- no applicable lights",
-                                         obj.name, indent=2)
-                        value.pop(i)
-            elif key[0] == "vcol":
-                for i in range(len(value)-1, -1, -1):
-                    obj = value[i]
-                    if not self._prep_for_vcols(obj, toggle):
-                        if self._has_valid_material(obj):
-                            self._report.msg("VCols '{}' will not be baked -- no applicable lights",
-                                             obj.name, indent=2)
-                        value.pop(i)
-            else:
-                raise RuntimeError(key[0])
-            inc_progress()
+        self._report.msg("Preparing to bake...")
+        with self._report.indent():
+            for key, value in bake.items():
+                if key[0] == "lightmap":
+                    for i in range(len(value)-1, -1, -1):
+                        obj = value[i]
+                        if not self._prep_for_lightmap(obj, toggle):
+                            self._report.msg(f"Lightmap '{obj.name}' will not be baked -- no applicable lights")
+                            value.pop(i)
+                elif key[0] == "vcol":
+                    for i in range(len(value)-1, -1, -1):
+                        obj = value[i]
+                        if not self._prep_for_vcols(obj, toggle):
+                            if self._has_valid_material(obj):
+                                self._report.msg(f"VCols '{obj.name}' will not be baked -- no applicable lights")
+                            value.pop(i)
+                else:
+                    raise RuntimeError(key[0])
+                inc_progress()
         self._report.msg("    ...")
 
         # Step 2: BAKE!
@@ -172,14 +171,15 @@ class LightBaker:
             if value:
                 if key[0] == "lightmap":
                     num_objs = len(value)
-                    self._report.msg("{} Lightmap(s) [H:{:X}]", num_objs, hash(key[1:]), indent=1)
+                    self._report.msg("{} Lightmap(s) [H:{:X}]", num_objs, hash(key[1:]))
                     if largest_pass > 1 and num_objs < round(largest_pass * 0.02):
                         pass_names = set((i.plasma_modifiers.lightmap.bake_pass_name for i in value))
                         pass_msg = ", ".join(pass_names)
-                        self._report.warn("Small lightmap bake pass! Bake Pass(es): {}".format(pass_msg), indent=2)
+                        with self._report.indent():
+                            self._report.warn(f"Small lightmap bake pass! Bake Pass(es): {pass_msg}")
                     self._bake_lightmaps(value, key[1:])
                 elif key[0] == "vcol":
-                    self._report.msg("{} Vertex Color(s) [H:{:X}]", len(value), hash(key[1:]), indent=1)
+                    self._report.msg("{} Vertex Color(s) [H:{:X}]", len(value), hash(key[1:]))
                     self._bake_vcols(value, key[1:])
                     self._fix_vertex_colors(value)
                 else:
@@ -327,9 +327,9 @@ class LightBaker:
                 if mod.image is not None:
                     uv_texture_names = frozenset((i.name for i in obj.data.uv_textures))
                     if self.lightmap_uvtex_name in uv_texture_names:
-                        self._report.msg("'{}': Skipping due to valid lightmap override", obj.name, indent=1)
+                        self._report.msg("'{}': Skipping due to valid lightmap override", obj.name)
                     else:
-                        self._report.warn("'{}': Have lightmap, but regenerating UVs", obj.name, indent=1)
+                        self._report.warn("'{}': Have lightmap, but regenerating UVs", obj.name)
                         self._prep_for_lightmap_uvs(obj, mod.image, toggle)
                     return False
                 return True
@@ -341,12 +341,12 @@ class LightBaker:
             vcol_layer_names = frozenset((vcol_layer.name.lower() for vcol_layer in obj.data.vertex_colors))
             manual_layer_names = _VERTEX_COLOR_LAYERS & vcol_layer_names
             if manual_layer_names:
-                self._report.msg("'{}': Skipping due to valid manual vertex color layer(s): '{}'", obj.name, manual_layer_names.pop(), indent=1)
+                self._report.msg("'{}': Skipping due to valid manual vertex color layer(s): '{}'", obj.name, manual_layer_names.pop())
                 return False
             if self.force:
                 return True
             if self.vcol_layer_name.lower() in vcol_layer_names:
-                self._report.msg("'{}': Skipping due to valid matching vertex color layer(s): '{}'", obj.name, self.vcol_layer_name, indent=1)
+                self._report.msg("'{}': Skipping due to valid matching vertex color layer(s): '{}'", obj.name, self.vcol_layer_name)
                 return False
             return True
 
@@ -377,9 +377,9 @@ class LightBaker:
                 key = (method,) + lm_layers
                 bake_pass = bake.setdefault(key, [])
                 bake_pass.append(i)
-                self._report.msg("'{}': Bake to {}", i.name, method, indent=1)
+                self._report.msg("'{}': Bake to {}", i.name, method)
             elif mods.lighting.preshade and vcol_bake_required(i):
-                self._report.msg("'{}': Bake to vcol (crappy)", i.name, indent=1)
+                self._report.msg("'{}': Bake to vcol (crappy)", i.name)
                 bake_vcol.append(i)
         return bake
 
@@ -435,7 +435,8 @@ class LightBaker:
             im = data_images.new(im_name, width=size, height=size)
         self._lightmap_images[bo.name] = im
 
-        self._prep_for_lightmap_uvs(bo, im, toggle)
+        with self._report.indent():
+            self._prep_for_lightmap_uvs(bo, im, toggle)
 
         # Now, set the new LIGHTMAPGEN uv layer as what we want to render to...
         # NOTE that this will need to be reset by us to what the user had previously
@@ -492,7 +493,7 @@ class LightBaker:
             if self._mesh.is_collapsed(bo):
                 # Danger: uv_base.name -> UnicodeDecodeError (wtf? another blender bug?)
                 self._report.warn("'{}': packing islands in UV Texture '{}' due to modifier collapse",
-                                  bo.name, modifier.uv_map, indent=2)
+                                  bo.name, modifier.uv_map)
                 with self._set_mode("EDIT"):
                     bpy.ops.mesh.select_all(action="SELECT")
                     bpy.ops.uv.select_all(action="SELECT")

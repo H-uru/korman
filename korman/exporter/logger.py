@@ -13,25 +13,34 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
-from ..korlib import ConsoleCursor, ConsoleToggler
-from .explosions import NonfatalExportError
+from __future__ import annotations
+
+from contextlib import contextmanager
 from pathlib import Path
 import threading
 import time
+from typing import *
+
+if TYPE_CHECKING:
+    from io import TextIOWrapper
+
+from ..korlib import ConsoleCursor, ConsoleToggler
+from .explosions import NonfatalExportError
 
 _HEADING_SIZE = 60
 _MAX_ELIPSES = 3
 _MAX_TIME_UNTIL_ELIPSES = 2.0
 
 class _ExportLogger:
-    def __init__(self, print_logs, age_path=None):
-        self._errors = []
-        self._porting = []
-        self._warnings = []
+    def __init__(self, print_logs: bool, age_path: Optional[str] = None):
+        self._errors: List[str] = []
+        self._porting: List[str] = []
+        self._warnings: List[str] = []
         self._age_path = Path(age_path) if age_path is not None else None
-        self._file = None
+        self._file: Optional[TextIOWrapper] = None
         self._print_logs = print_logs
-        self._time_start_overall = 0
+        self._time_start_overall: float = 0.0
+        self._indent_level: int = 0
 
     def __enter__(self):
         if self._age_path is not None:
@@ -48,10 +57,22 @@ class _ExportLogger:
             self._file.close()
         return False
 
+    @contextmanager
+    def indent(self):
+        try:
+            self._indent_level += 1
+            yield
+        finally:
+            self._indent_level -= 1
+
+    @property
+    def indent_level(self) -> int:
+        return self._indent_level
+
     def error(self, *args, **kwargs):
         assert args
-        indent = kwargs.get("indent", 0)
-        msg = "{}ERROR: {}".format("    " * indent, args[0])
+        indent = kwargs.get("indent", self._indent_level)
+        msg = f"{'    ' * indent}ERROR: {args[0]}"
         if len(args) > 1:
             msg = msg.format(*args[1:], **kwargs)
         if self._file is not None:
@@ -63,8 +84,8 @@ class _ExportLogger:
 
     def msg(self, *args, **kwargs):
         assert args
-        indent = kwargs.get("indent", 0)
-        msg = "{}{}".format("    " * indent, args[0])
+        indent = kwargs.get("indent", self._indent_level)
+        msg = f"{'    ' * indent}{args[0]}"
         if len(args) > 1:
             msg = msg.format(*args[1:], **kwargs)
         if self._file is not None:
@@ -74,8 +95,8 @@ class _ExportLogger:
 
     def port(self, *args, **kwargs):
         assert args
-        indent = kwargs.get("indent", 0)
-        msg = "{}PORTING: {}".format("    " * indent, args[0])
+        indent = kwargs.get("indent", self._indent_level)
+        msg = f"{'    ' * indent}PORTNING: {args[0]}"
         if len(args) > 1:
             msg = msg.format(*args[1:], **kwargs)
         if self._file is not None:
@@ -98,14 +119,14 @@ class _ExportLogger:
     def progress_end(self):
         if self._age_path is not None:
             export_time = time.perf_counter() - self._time_start_overall
-            self.msg("\nExported '{}' in {:.2f}s", self._age_path.name, export_time)
+            self.msg(f"\nExported '{self._age_path.name}' in {export_time:.2f}s")
 
     def progress_increment(self):
         pass
 
     def progress_start(self, action):
         if self._age_path is not None:
-            self.msg("Exporting '{}'", self._age_path.name)
+            self.msg(f"Exporting '{self._age_path.name}'")
         self._time_start_overall = time.perf_counter()
 
     def raise_errors(self):
@@ -122,8 +143,8 @@ class _ExportLogger:
 
     def warn(self, *args, **kwargs):
         assert args
-        indent = kwargs.get("indent", 0)
-        msg = "{}WARNING: {}".format("    " * indent, args[0])
+        indent = kwargs.get("indent", self._indent_level)
+        msg = f"{'    ' * indent}WARNING: {args[0]}"
         if len(args) > 1:
             msg = msg.format(*args[1:], **kwargs)
         if self._file is not None:

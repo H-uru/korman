@@ -340,8 +340,7 @@ class PlasmaSubworldRegion(PlasmaModifierProperties):
             from_name, from_type = get_log_text(from_sub, from_isded)
             to_name, to_type = get_log_text(to_sub, to_isded)
             exporter.report.msg("Transition from '{}' ({}) to '{}' ({})",
-                                 from_name, from_type, to_name, to_type,
-                                 indent=2)
+                                 from_name, from_type, to_name, to_type)
 
         # I think the best solution here is to not worry about the excitement mentioned above.
         # If we encounter anything truly interesting, we can fix it in CWE more easily IMO because

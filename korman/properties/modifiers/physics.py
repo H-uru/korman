@@ -174,9 +174,9 @@ class PlasmaSubworld(PlasmaModifierProperties):
         # plCoordinateInterface::IGetRoot. Not really sure why this happens (nor do I care),
         # but we definitely don't want it to happen.
         if bo.type != "EMPTY":
-            exporter.report.warn("Subworld '{}' is attached to a '{}'--this should be an empty.", bo.name, bo.type, indent=1)
+            exporter.report.warn(f"Subworld '{bo.name}' is attached to a '{bo.type}'--this should be an empty.")
         if so.sim:
             if exporter.mgr.getVer() > pvPots:
-                exporter.report.port("Subworld '{}' has physics data--this will cause PotS to crash.", bo.name, indent=1)
+                exporter.report.port(f"Subworld '{bo.name}' has physics data--this will cause PotS to crash.")
             else:
-                raise ExportError("Subworld '{}' cannot have physics data (should be an empty).".format(bo.name))
+                raise ExportError(f"Subworld '{bo.name}' cannot have physics data (should be an empty).")

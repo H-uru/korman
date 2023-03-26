@@ -160,7 +160,7 @@ class ImageCache:
             try:
                 cached_image.image_data = tuple(self._read_image_data(cached_image, self._read_stream))
             except AssertionError:
-                self._report.warn("Cached copy of '{}' is corrupt and will be discarded", cached_image.name, indent=2)
+                self._report.warn(f"Cached copy of '{cached_image.name}' is corrupt and will be discarded")
                 self._images.pop(key)
                 return None
         return cached_image

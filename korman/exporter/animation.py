@@ -158,10 +158,10 @@ class AnimationConverter:
         if energy_curve is None and color_curves is None:
             return None
         elif lamp.use_only_shadow:
-            self._exporter().report.warn("Cannot animate Lamp color because this lamp only casts shadows", indent=3)
+            self._exporter().report.warn("Cannot animate Lamp color because this lamp only casts shadows")
             return None
         elif not lamp.use_specular and not lamp.use_diffuse:
-            self._exporter().report.warn("Cannot animate Lamp color because neither Diffuse nor Specular are enabled", indent=3)
+            self._exporter().report.warn("Cannot animate Lamp color because neither Diffuse nor Specular are enabled")
             return None
 
         # OK Specular is easy. We just toss out the color as a point3.
@@ -251,7 +251,7 @@ class AnimationConverter:
                 yield applicator
         elif falloff == "INVERSE_SQUARE":
             if self._mgr.getVer() >= pvMoul:
-                report.port("Lamp {} Falloff animations are only supported in Myst Online: Uru Live", falloff, indent=3)
+                report.port(f"Lamp {falloff} Falloff animations are only supported in Myst Online: Uru Live")
                 keyframes = self._process_fcurves(omni_fcurves, omni_channels, 1, convert_omni_atten,
                                                   omni_defaults, start=start, end=end)
                 if keyframes:
@@ -262,7 +262,7 @@ class AnimationConverter:
                     applicator.channel = channel
                     yield applicator
             else:
-                report.warn("Lamp {} Falloff animations are not supported for this version of Plasma", falloff, indent=3)
+                report.warn(f"Lamp {falloff} Falloff animations are not supported for this version of Plasma")
         else:
             report.warn("Lamp Falloff '{}' animations are not supported", falloff, ident=3)
 
@@ -294,8 +294,7 @@ class AnimationConverter:
                     applicator.channel = channel
                     yield applicator
                 else:
-                    self._exporter().report.warn("[{}]: Volume animation evaluated to zero keyframes!",
-                                                 sound.sound.name, indent=2)
+                    self._exporter().report.warn(f"[{sound.sound.name}]: Volume animation evaluated to zero keyframes!")
                     break
 
     def _convert_spot_lamp_animation(self, name, fcurves, lamp, start, end):
@@ -341,8 +340,10 @@ class AnimationConverter:
     def _convert_transform_animation(self, bo, fcurves, default_xform, adjust_xform, *, allow_empty: Optional[bool] = False,
                                      start: Optional[int] = None, end: Optional[int] = None) -> Optional[plMatrixChannelApplicator]:
         if adjust_xform != mathutils.Matrix.Identity(4):
-            self._exporter().report.warn(("{}: Transform animation is not local and may export incorrectly. " +
-                "Please use Alt-P -> Clear Parent Inverse before animating objects to avoid issues.").format(bo.name), indent=1)
+            self._exporter().report.warn(
+                f"'{bo.name}': Transform animation is not local and may export incorrectly. "
+                "Please use Alt-P -> Clear Parent Inverse before animating objects to avoid issues."
+            )
         else:
             # Adjustment matrix is identity, just pass None instead...
             adjust_xform = None

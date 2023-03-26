@@ -261,7 +261,7 @@ class PhysicsConverter:
 
             member_group = getattr(plSimDefs, kwargs.get("member_group", "kGroupLOSOnly"))
             if physical.memberGroup != member_group and member_group != plSimDefs.kGroupLOSOnly:
-                self._report.warn("{}: Physical memberGroup overwritten!", bo.name, indent=2)
+                self._report.warn(f"{bo.name}: Physical memberGroup overwritten!")
                 physical.memberGroup = member_group
 
         # Sanity checking: only TPotS/Havok fully supports triangle mesh detector regions.
@@ -271,7 +271,7 @@ class PhysicsConverter:
         if physical.memberGroup == plSimDefs.kGroupDetector and physical.boundsType in (plSimDefs.kExplicitBounds, plSimDefs.kProxyBounds):
             msg = f"'{bo.name}': Triangle mesh regions are poorly supported. Use a convex hull or box instead."
             if ver <= pvPots:
-                self._report.port(msg, indent=2)
+                self._report.port(msg)
             else:
                 raise ExportError(msg)
 
@@ -297,7 +297,7 @@ class PhysicsConverter:
             if volume < 0.001:
                 self._report.warn(
                     "{}: Physical wants to be a convex hull but appears to be flat (volume={}), forcing to triangle mesh...",
-                    bo.name, volume, indent=2
+                    bo.name, volume
                 )
                 self._export_trimesh(bo, physical, local_space, mat)
 

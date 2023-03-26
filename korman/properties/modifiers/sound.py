@@ -140,10 +140,10 @@ class PlasmaRandomSound(PlasmaModifierProperties):
                 surface_id = getattr(plPhysicalSndGroup, surface_name)
                 if surface_id in sounds:
                     exporter.report.warn("Overwriting physical {} surface '{}' ID:{}",
-                                         groupattr, surface_name, surface_id, indent=2)
+                                         groupattr, surface_name, surface_id)
                 else:
                     exporter.report.msg("Got physical {} surface '{}' ID:{}",
-                                        groupattr, surface_name, surface_id, indent=2)
+                                        groupattr, surface_name, surface_id)
                 sounds[surface_id] = rndmod
             # Keeps the LUT (or should that be lookup vector?) as small as possible
             setattr(sndgroup, groupattr, [sounds.get(i) for i in range(max(sounds.keys()) + 1)])
@@ -345,7 +345,7 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
             name = "Sfx-{}_{}".format(so.key.name, self._sound_name)
         else:
             name = "Sfx-{}_{}:{}".format(so.key.name, self._sound_name, channel)
-        exporter.report.msg("[{}] {}", pClass.__name__[2:], name, indent=1)
+        exporter.report.msg("[{}] {}", pClass.__name__[2:], name)
         sound = exporter.mgr.find_create_object(pClass, so=so, name=name)
 
         # If this object is a soft volume itself, we will use our own soft region.

@@ -52,7 +52,7 @@ class PythonPackageExporter:
                 code = source
 
             code = "{}\n\n{}\n".format(code, plasma_python_glue)
-            success, result = korlib.compyle(filename, code, py_version, report, indent=1)
+            success, result = korlib.compyle(filename, code, py_version, report)
             if not success:
                 raise ExportError("Failed to compyle '{}':\n{}".format(filename, result))
             py_code.append((filename, result))
@@ -68,7 +68,7 @@ class PythonPackageExporter:
                 code = source
 
             # no glue needed here, ma!
-            success, result = korlib.compyle(filename, code, py_version, report, indent=1)
+            success, result = korlib.compyle(filename, code, py_version, report)
             if not success:
                 raise ExportError("Failed to compyle '{}':\n{}".format(filename, result))
             py_code.append((filename, result))
@@ -88,10 +88,10 @@ class PythonPackageExporter:
                 if age_py.plasma_text.package or age.python_method == "all":
                     self._pfms[py_filename] = age_py
                 else:
-                    report.warn("AgeSDL Python Script provided, but not requested for packing... Using default Python.", indent=1)
+                    report.warn("AgeSDL Python Script provided, but not requested for packing... Using default Python.")
                     self._pfms[py_filename] = very_very_special_python.format(age_name=fixed_agename)
             else:
-                report.msg("Packing default AgeSDL Python", indent=1)
+                report.msg("Packing default AgeSDL Python")
                 very_very_special_python.format(age_name=age_props.age_name)
                 self._pfms[py_filename] = very_very_special_python.format(age_name=fixed_agename)
 

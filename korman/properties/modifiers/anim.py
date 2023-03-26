@@ -70,7 +70,8 @@ class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
     def convert_object_animations(self, exporter, bo, so, anims: Optional[Iterable] = None):
         if not anims:
             anims = [self.subanimations.entire_animation]
-        aganims = list(self._export_ag_anims(exporter, bo, so, anims))
+        with exporter.report.indent():
+            aganims = list(self._export_ag_anims(exporter, bo, so, anims))
 
         # Defer creation of the private animation until after the converter has been executed.
         # Just because we have some FCurves doesn't mean they will produce anything particularly
@@ -100,8 +101,7 @@ class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
 
             applicators = converter.convert_object_animations(bo, so, anim_name, start=start, end=end)
             if not applicators:
-                exporter.report.warn("Animation '{}' generated no applicators. Nothing will be exported.",
-                                     anim_name, indent=2)
+                exporter.report.warn(f"Animation '{anim_name}' generated no applicators. Nothing will be exported.")
                 continue
 
             pClass = plAgeGlobalAnim if anim.sdl_var else plATCAnim
@@ -243,12 +243,12 @@ class PlasmaAnimationGroupModifier(ActionModifier, PlasmaModifierProperties):
                 continue
             if not child_bo.plasma_object.has_animation_data:
                 msg = "Animation Group '{}' specifies an object '{}' with no valid animation data. Ignoring..."
-                exporter.report.warn(msg, self.key_name, child_bo.name, indent=2)
+                exporter.report.warn(msg, self.key_name, child_bo.name)
                 continue
             child_animation = child_bo.plasma_modifiers.animation
             if not child_animation.enabled:
                 msg = "Animation Group '{}' specifies an object '{}' with no Plasma Animation modifier. Ignoring..."
-                exporter.report.warn(msg, self.key_name, child_bo.name, indent=2)
+                exporter.report.warn(msg, self.key_name, child_bo.name)
                 continue
             child_agmod, child_agmaster = exporter.animation.get_anigraph_objects(bo=child_bo)
             msgfwd.addForwardKey(child_agmaster.key)
@@ -294,10 +294,10 @@ class PlasmaAnimationLoopModifier(ActionModifier, PlasmaModifierProperties):
             end = markers.get(loop.loop_end)
             if start is None:
                 exporter.report.warn("Animation '{}' Loop '{}': Marker '{}' not found. This loop will not be exported".format(
-                    action.name, loop.loop_name, loop.loop_start), indent=2)
+                    action.name, loop.loop_name, loop.loop_start))
             if end is None:
                 exporter.report.warn("Animation '{}' Loop '{}': Marker '{}' not found. This loop will not be exported".format(
-                    action.name, loop.loop_name, loop.loop_end), indent=2)
+                    action.name, loop.loop_name, loop.loop_end))
             if start is None or end is None:
                 continue
             atcanim.setLoop(loop.loop_name, _convert_frame_time(start.frame), _convert_frame_time(end.frame))

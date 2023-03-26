@@ -24,7 +24,7 @@ class PythonNotAvailableError(Exception):
     pass
 
 
-def compyle(file_name, py_code, py_version, report=None, indent=0):
+def compyle(file_name, py_code, py_version, report=None):
     # NOTE: Should never run under Python 2.x
     my_version = sys.version_info[:2]
     assert my_version == (2, 7) or my_version[0] > 2
@@ -34,10 +34,10 @@ def compyle(file_name, py_code, py_version, report=None, indent=0):
     if idx == -1:
         module_name = file_name
     else:
-        module_name = file_name[:idx] 
+        module_name = file_name[:idx]
 
     if report is not None:
-        report.msg("Compyling {}", file_name, indent=indent)
+        report.msg("Compyling {}", file_name)
 
     if my_version != py_version:
         import subprocess
@@ -48,7 +48,7 @@ def compyle(file_name, py_code, py_version, report=None, indent=0):
             py_code = py_code.encode("utf-8")
         except UnicodeError:
             if report is not None:
-                report.error("Could not encode '{}'", file_name, indent=indent+1)
+                report.error("Could not encode '{}'", file_name, indent=report.indent_level+1)
             return (False, "Could not encode file")
         result = subprocess.run(args, input=py_code, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         if result.returncode != 0:
@@ -57,7 +57,7 @@ def compyle(file_name, py_code, py_version, report=None, indent=0):
             except UnicodeError:
                 error = result.stdout
             if report is not None:
-                report.error("Compylation Error in '{}'\n{}", file_name, error, indent=indent+1)
+                report.error("Compylation Error in '{}'\n{}", file_name, error, indent=report.indent_level+1)
         return (result.returncode == 0, result.stdout)
     else:
         raise NotImplementedError()

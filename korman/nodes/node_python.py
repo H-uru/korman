@@ -279,12 +279,12 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
 
         # Check to see if we should pack this file
         if exporter.output.want_py_text(self.text_id):
-            exporter.report.msg("Including Python '{}' for package", self.filename, indent=3)
+            exporter.report.msg("Including Python '{}' for package", self.filename)
             exporter.output.add_python_mod(self.filename, text_id=self.text_id)
             # PFMs can have their own SDL...
             sdl_text = bpy.data.texts.get("{}.sdl".format(py_name), None)
             if sdl_text is not None:
-                exporter.report.msg("Including corresponding SDL '{}'", sdl_text.name, indent=3)
+                exporter.report.msg("Including corresponding SDL '{}'", sdl_text.name)
                 exporter.output.add_sdl(sdl_text.name, text_id=sdl_text)
 
         # Handle exporting the Python Parameters
@@ -312,14 +312,13 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
         # an animated lamp.
         if not bool(bo.users_group):
             for light in exporter.mgr.find_interfaces(plLightInfo, so):
-                exporter.report.msg("Marking RT light '{}' as animated due to usage in a Python File node",
-                                    so.key.name, indent=3)
+                exporter.report.msg(f"Marking RT light '{so.key.name}' as animated due to usage in a Python File node", so.key.name)
                 light.setProperty(plLightInfo.kLPMovable, True)
 
     def _export_key_attrib(self, exporter, bo, so : plSceneObject, key : plKey, socket) -> None:
         if key is None:
             exporter.report.warn("Attribute '{}' didn't return a key and therefore will be unavailable to Python",
-                                 self.id_data.name, socket.links[0].name, indent=3)
+                                 self.id_data.name, socket.links[0].name)
             return
 
         key_type = _attrib_key_types[socket.attribute_type]
@@ -330,7 +329,7 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
         if not good_key:
             exporter.report.warn("'{}' Node '{}' returned an unexpected key type '{}'",
                                  self.id_data.name, socket.links[0].from_node.name,
-                                 plFactory.ClassName(key.type), indent=3)
+                                 plFactory.ClassName(key.type))
 
         if isinstance(key.object, plSceneObject):
             self._export_ancillary_sceneobject(exporter, bo, key.object)
@@ -948,7 +947,7 @@ class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.typ
             remainder = sum((1 for i in result))
             if remainder > 1:
                 exporter.report.warn("'{}.{}': Expected a single layer, but mapped to {}. Make the settings more specific.",
-                                     self.id_data.name, self.path_from_id(), remainder + 1, indent=2)
+                                     self.id_data.name, self.path_from_id(), remainder + 1)
             if result is not None:
                 yield result
         else:

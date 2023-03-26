@@ -28,7 +28,7 @@ class PlasmaNodeBase:
         for i in self.find_outputs(socket_id, idname):
             key = i.get_key(exporter, so)
             if key is None:
-                exporter.report.warn(" '{}' Node '{}' doesn't expose a key. It won't be triggered by '{}'!".format(i.bl_idname, i.name, self.name), indent=3)
+                exporter.report.warn(f"'{i.bl_idname}' Node '{i.name}' doesn't expose a key. It won't be triggered by '{self.name}'!")
             elif isinstance(key, tuple):
                 for i in key:
                     notify.addReceiver(key)
@@ -498,10 +498,11 @@ class PlasmaNodeTree(bpy.types.NodeTree):
 
     def export(self, exporter, bo, so):
         exported_nodes = exporter.exported_nodes.setdefault(self.name, set())
-        for node in self.nodes:
-            if not (node.export_once and node.previously_exported(exporter)):
-                node.export(exporter, bo, so)
-                exported_nodes.add(node.name)
+        with exporter.report.indent():
+            for node in self.nodes:
+                if not (node.export_once and node.previously_exported(exporter)):
+                    node.export(exporter, bo, so)
+                    exported_nodes.add(node.name)
 
     def find_output(self, idname):
         for node in self.nodes:

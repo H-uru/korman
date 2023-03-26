@@ -50,19 +50,19 @@ class LightConverter:
         # If you change these calculations, be sure to update the AnimationConverter!
         intens, attenEnd = self.convert_attenuation(bl)
         if bl.falloff_type == "CONSTANT":
-            self._report.msg("Attenuation: No Falloff", indent=2)
+            self._report.msg("Attenuation: No Falloff")
             pl.attenConst = intens
             pl.attenLinear = 0.0
             pl.attenQuadratic = 0.0
             pl.attenCutoff = attenEnd
         elif bl.falloff_type == "INVERSE_LINEAR":
-            self._report.msg("Attenuation: Inverse Linear", indent=2)
+            self._report.msg("Attenuation: Inverse Linear")
             pl.attenConst = 1.0
             pl.attenLinear = self.convert_attenuation_linear(intens, attenEnd)
             pl.attenQuadratic = 0.0
             pl.attenCutoff = attenEnd
         elif bl.falloff_type == "INVERSE_SQUARE":
-            self._report.msg("Attenuation: Inverse Square", indent=2)
+            self._report.msg("Attenuation: Inverse Square")
             pl.attenConst = 1.0
             pl.attenLinear = 0.0
             pl.attenQuadratic = self.convert_attenuation_quadratic(intens, attenEnd)
@@ -82,19 +82,21 @@ class LightConverter:
         return max(0.0, (intensity * _FAR_POWER - 1.0) / pow(end, 2))
 
     def _convert_area_lamp(self, bl, pl):
-        self._report.msg("[LimitedDirLightInfo '{}']", bl.name, indent=1)
+        self._report.msg("[LimitedDirLightInfo '{}']", bl.name)
 
         pl.width = bl.size
         pl.depth = bl.size if bl.shape == "SQUARE" else bl.size_y
         pl.height = bl.plasma_lamp.size_height
 
     def _convert_point_lamp(self, bl, pl):
-        self._report.msg("[OmniLightInfo '{}']", bl.name, indent=1)
-        self._convert_attenuation(bl, pl)
+        self._report.msg("[OmniLightInfo '{}']", bl.name)
+        with self._report.indent():
+            self._convert_attenuation(bl, pl)
 
     def _convert_spot_lamp(self, bl, pl):
-        self._report.msg("[SpotLightInfo '{}']", bl.name, indent=1)
-        self._convert_attenuation(bl, pl)
+        self._report.msg("[SpotLightInfo '{}']", bl.name)
+        with self._report.indent():
+            self._convert_attenuation(bl, pl)
 
         # Spot lights have a few more things...
         spot_size = bl.spot_size
@@ -109,7 +111,7 @@ class LightConverter:
             pl.falloff = 1.0
 
     def _convert_sun_lamp(self, bl, pl):
-        self._report.msg("[DirectionalLightInfo '{}']", bl.name, indent=1)
+        self._report.msg("[DirectionalLightInfo '{}']", bl.name)
 
     def export_rtlight(self, so, bo):
         bl_light = bo.data
@@ -139,18 +141,18 @@ class LightConverter:
 
         # Apply the colors
         if bl_light.use_diffuse:
-            self._report.msg("Diffuse: {}", diff_str, indent=2)
+            self._report.msg(f"Diffuse: {diff_str}")
             pl_light.diffuse = hsColorRGBA(*diff_color)
         else:
-            self._report.msg("Diffuse: OFF", indent=2)
+            self._report.msg("Diffuse: OFF")
             pl_light.diffuse = hsColorRGBA(0.0, 0.0, 0.0, energy)
 
         if bl_light.use_specular:
-            self._report.msg("Specular: {}", spec_str, indent=2)
+            self._report.msg(f"Specular: {spec_str}")
             pl_light.setProperty(plLightInfo.kLPHasSpecular, True)
             pl_light.specular = hsColorRGBA(*spec_color)
         else:
-            self._report.msg("Specular: OFF", indent=2)
+            self._report.msg(f"Specular: OFF")
             pl_light.specular = hsColorRGBA(0.0, 0.0, 0.0, energy)
 
         rtlamp = bl_light.plasma_lamp
@@ -207,7 +209,7 @@ class LightConverter:
         # projection Lamp with our own faux Material. Unfortunately, Plasma only supports projecting
         # one layer. We could exploit the fUnderLay and fOverLay system to export everything, but meh.
         if len(tex_slots) > 1:
-            self._report.warn("Only one texture slot can be exported per Lamp. Picking the first one: '{}'".format(slot.name), indent=3)
+            self._report.warn(f"Only one texture slot can be exported per Lamp. Picking the first one: '{slot.name}'")
         layer = mat.export_texture_slot(bo, None, None, slot, 0, blend_flags=False)
         state = layer.state
 
@@ -250,50 +252,50 @@ class LightConverter:
     def find_material_light_keys(self, bo, bm):
         """Given a blender material, we find the keys of all matching Plasma RT Lights.
            NOTE: We return a tuple of lists: ([permaLights], [permaProjs])"""
-        self._report.msg("Searching for runtime lights...", indent=1)
+        self._report.msg("Searching for runtime lights...")
         permaLights = []
         permaProjs = []
 
-        # We're going to inspect the material's light group.
-        # If there is no light group, we'll say that there is no runtime lighting...
-        # If there is, we will harvest all Blender lamps in that light group that are Plasma Objects
-        lg = bm.light_group
-        if lg is not None:
-            for obj in lg.objects:
-                if obj.type != "LAMP":
-                    # moronic...
-                    continue
-                elif not obj.plasma_object.enabled:
-                    # who cares?
-                    continue
-                lamp = obj.data
-
-                # Check to see if they only want this light to work on its layer...
-                if lamp.use_own_layer:
-                    # Pairs up elements from both layers sequences such that we can compare
-                    # to see if the lamp and object are in the same layer.
-                    # If you can think of a better way, be my guest.
-                    test = zip(bo.layers, obj.layers)
-                    for i in test:
-                        if i == (True, True):
-                            break
-                    else:
-                        # didn't find a layer where both lamp and object were, skip it.
-                        self._report.msg("[{}] '{}': not in same layer, skipping...",
-                                         lamp.type, obj.name, indent=2)
+        with self._report.indent():
+            # We're going to inspect the material's light group.
+            # If there is no light group, we'll say that there is no runtime lighting...
+            # If there is, we will harvest all Blender lamps in that light group that are Plasma Objects
+            lg = bm.light_group
+            if lg is not None:
+                for obj in lg.objects:
+                    if obj.type != "LAMP":
+                        # moronic...
                         continue
+                    elif not obj.plasma_object.enabled:
+                        # who cares?
+                        continue
+                    lamp = obj.data
 
-                # This is probably where PermaLight vs PermaProj should be sorted out...
-                pl_light = self.get_light_key(obj, lamp, None)
-                if self._is_projection_lamp(lamp):
-                    self._report.msg("[{}] PermaProj '{}'", lamp.type, obj.name, indent=2)
-                    permaProjs.append(pl_light)
-                else:
-                    self._report.msg("[{}] PermaLight '{}'", lamp.type, obj.name, indent=2)
-                    permaLights.append(pl_light)
+                    # Check to see if they only want this light to work on its layer...
+                    if lamp.use_own_layer:
+                        # Pairs up elements from both layers sequences such that we can compare
+                        # to see if the lamp and object are in the same layer.
+                        # If you can think of a better way, be my guest.
+                        test = zip(bo.layers, obj.layers)
+                        for i in test:
+                            if i == (True, True):
+                                break
+                        else:
+                            # didn't find a layer where both lamp and object were, skip it.
+                            self._report.msg(f"[{lamp.type}] '{obj.name}': not in same layer, skipping...")
+                            continue
+
+                    # This is probably where PermaLight vs PermaProj should be sorted out...
+                    pl_light = self.get_light_key(obj, lamp, None)
+                    if self._is_projection_lamp(lamp):
+                        self._report.msg(f"[{lamp.type}] PermaProj '{obj.name}'")
+                        permaProjs.append(pl_light)
+                    else:
+                        self._report.msg(f"[{lamp.type}] PermaLight '{obj.name}'", lamp.type, obj.name)
+                        permaLights.append(pl_light)
 
         if len(permaLights) > 8:
-            self._report.warn("More than 8 RT lamps on material: '{}'", bm.name, indent=1)
+            self._report.warn(f"More than 8 RT lamps on material: '{bm.name}'")
 
         return (permaLights, permaProjs)
 

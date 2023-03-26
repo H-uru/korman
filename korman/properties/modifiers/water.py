@@ -156,7 +156,7 @@ class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.
             # swimming surface should have a detector. m'kay? But still, we might want to make note
             # of this sitation. Just in case someone is like "WTF! Why am I not swimming?!?!1111111"
             # Because you need to have a detector, dummy.
-            exporter.report.warn("Swimming Surface '{}' does not specify a detector region".format(bo.name), indent=2)
+            exporter.report.warn(f"Swimming Surface '{bo.name}' does not specify a detector region")
 
     def get_key(self, exporter, so=None):
         pClass = self._CURRENTS[self.current_type]

@@ -377,19 +377,17 @@ class PlasmaGrassShaderMod(PlasmaModifierProperties):
 
     def export(self, exporter, bo, so):
         if exporter.mgr.getVer() <= pvPots:
-            exporter.report.warn("Not supported on this version of Plasma", indent=3)
+            exporter.report.warn("Not supported on this version of Plasma")
             return
         else:
-            exporter.report.port("This will only function on MOUL and EOA", indent=3)
+            exporter.report.port("This will only function on MOUL and EOA")
 
         materials = exporter.mesh.material.get_materials(bo)
         if not materials:
-            exporter.report.warn("No materials are associated with this object, no grass shader exported!",
-                                 indent=3)
+            exporter.report.warn("No materials are associated with this object, no grass shader exported!")
             return
         elif len(materials) > 1:
-            exporter.report.warn("Ah, a multiple material grass shader, eh. You like living dangerously...",
-                                 indent=3)
+            exporter.report.warn("Ah, a multiple material grass shader, eh. You like living dangerously...")
 
         for material in materials:
             mod = exporter.mgr.find_create_object(plGrassShaderMod, so=so, name=material.name)
@@ -511,8 +509,7 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
             mat_mgr.export_prepared_image(owner=layer, image=lightmap_im,
                                           allowed_formats={"PNG", "JPG"},
                                           extension="hsm",
-                                          ephemeral=True,
-                                          indent=2)
+                                          ephemeral=True)
 
     @classmethod
     def _idprop_mapping(cls):
@@ -914,14 +911,14 @@ class PlasmaVisControl(idprops.IDPropObjectMixin, PlasmaModifierProperties):
         else:
             this_sv = bo.plasma_modifiers.softvolume
             if this_sv.enabled:
-                exporter.report.msg("[VisRegion] I'm a SoftVolume myself :)", indent=1)
+                exporter.report.msg("[VisRegion] I'm a SoftVolume myself :)")
                 rgn.region = this_sv.get_key(exporter, so)
             else:
                 if not self.soft_region:
                     raise ExportError("'{}': Visibility Control must have a Soft Volume selected".format(self.key_name))
                 sv_bo = self.soft_region
                 sv = sv_bo.plasma_modifiers.softvolume
-                exporter.report.msg("[VisRegion] SoftVolume '{}'", sv_bo.name, indent=1)
+                exporter.report.msg("[VisRegion] SoftVolume '{}'", sv_bo.name)
                 if not sv.enabled:
                     raise ExportError("'{}': '{}' is not a SoftVolume".format(self.key_name, sv_bo.name))
                 rgn.region = sv.get_key(exporter)

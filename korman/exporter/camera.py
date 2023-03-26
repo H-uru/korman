@@ -123,7 +123,7 @@ class CameraConverter:
         elif props.poa_type == "object":
             brain.poaObject = self._mgr.find_create_key(plSceneObject, bl=props.poa_object)
         else:
-            self._report.warn("Circle Camera '{}' has no Point of Attention. Is this intended?", bo.name, indent=3)
+            self._report.warn(f"Circle Camera '{bo.name}' has no Point of Attention. Is this intended?")
         if props.circle_pos == "farthest":
             brain.circleFlags |= plCameraBrain1_Circle.kFarthest
 

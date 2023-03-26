@@ -357,22 +357,24 @@ class MeshConverter(_MeshManager):
         self._report.progress_range = len(self._dspans)
         inc_progress = self._report.progress_increment
         log_msg = self._report.msg
+        indent = self._report.indent
 
         log_msg("\nFinalizing Geometry")
-        for loc in self._dspans.values():
-            for dspan in loc.values():
-                log_msg("[DrawableSpans '{}']", dspan.key.name, indent=1)
+        with indent():
+            for loc in self._dspans.values():
+                for dspan in loc.values():
+                    log_msg("[DrawableSpans '{}']", dspan.key.name)
 
-                # This mega-function does a lot:
-                # 1. Converts SourceSpans (geospans) to Icicles and bakes geometry into plGBuffers
-                # 2. Calculates the Icicle bounds
-                # 3. Builds the plSpaceTree
-                # 4. Clears the SourceSpans
-                dspan.composeGeometry(True, True)
-            inc_progress()
+                    # This mega-function does a lot:
+                    # 1. Converts SourceSpans (geospans) to Icicles and bakes geometry into plGBuffers
+                    # 2. Calculates the Icicle bounds
+                    # 3. Builds the plSpaceTree
+                    # 4. Clears the SourceSpans
+                    dspan.composeGeometry(True, True)
+                inc_progress()
 
     def _export_geometry(self, bo, mesh, materials, geospans, mat2span_LUT):
-        self._report.msg("Converting geometry from '{}'...", mesh.name, indent=1)
+        self._report.msg(f"Converting geometry from '{mesh.name}'...")
 
         # Recall that materials is a mapping of exported materials to blender material indices.
         # Therefore, geodata maps blender material indices to working geometry data.
@@ -633,7 +635,7 @@ class MeshConverter(_MeshManager):
         for i in geospans:
             dspan = self._find_create_dspan(bo, i.geospan, i.pass_index)
             self._report.msg("Exported hsGMaterial '{}' geometry into '{}'",
-                             i.geospan.material.name, dspan.key.name, indent=1)
+                             i.geospan.material.name, dspan.key.name)
             idx = dspan.addSourceSpan(i.geospan)
             diidx = _diindices.setdefault(dspan, [])
             diidx.append(idx)
@@ -652,8 +654,7 @@ class MeshConverter(_MeshManager):
         waveset_mod = bo.plasma_modifiers.water_basic
         if waveset_mod.enabled:
             if len(materials) > 1:
-                msg = "'{}' is a WaveSet -- only one material is supported".format(bo.name)
-                self._exporter().report.warn(msg, indent=1)
+                self._report.warn(f"'{bo.name}' is a WaveSet -- only one material is supported")
             blmat = materials[0][1]
             self._check_vtx_nonpreshaded(bo, mesh, 0, blmat)
             matKey = self.material.export_waveset_material(bo, blmat)

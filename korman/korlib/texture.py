@@ -160,7 +160,7 @@ class GLTexture:
                  self._texkey.detail_opacity_start / 100.0,
                  self._texkey.detail_opacity_stop / 100.0)
 
-    def get_level_data(self, level=0, calc_alpha=False, report=None, indent=2, fast=False):
+    def get_level_data(self, level=0, calc_alpha=False, report=None, fast=False):
         """Gets the uncompressed pixel data for a requested mip level, optionally calculating the alpha
            channel from the image color data
         """
@@ -175,7 +175,7 @@ class GLTexture:
         eHeight = ensure_power_of_two(oHeight) >> level
 
         if report is not None:
-            report.msg("Level #{}: {}x{}", level, eWidth, eHeight, indent=indent)
+            report.msg("Level #{}: {}x{}", level, eWidth, eHeight)
 
         # Scale, if needed...
         if oWidth != eWidth or oHeight != eHeight:

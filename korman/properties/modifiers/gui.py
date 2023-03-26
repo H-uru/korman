@@ -126,11 +126,10 @@ class TranslationMixin:
     def export_localization(self, exporter):
         translations = [i for i in self.translations if i.text_id is not None]
         if not translations:
-            exporter.report.error("'{}': '{}' No content translations available. The localization will not be exported.",
-                                  self.id_data.name, self.bl_label, indent=1)
+            exporter.report.error(f"'{self.id_data.name}': '{self.bl_label}' No content translations available. The localization will not be exported.")
             return
         for i in translations:
-            exporter.locman.add_string(self.localization_set, self.key_name, i.language, i.text_id, indent=1)
+            exporter.locman.add_string(self.localization_set, self.key_name, i.language, i.text_id)
 
     def _get_translation(self):
         # Ensure there is always a default (read: English) translation available.
@@ -460,8 +459,7 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
     def pre_export(self, exporter, bo):
         if not self._check_version(exporter.mgr.getVer()):
             # We aren't needed here
-            exporter.report.port("Object '{}' has a LinkingBookMod not enabled for export to the selected engine.  Skipping.",
-                                 self.id_data.name, indent=2)
+            exporter.report.port(f"Object '{self.id_data.name}' has a LinkingBookMod not enabled for export to the selected engine.  Skipping.")
             return
 
         # Auto-generate a six-foot cube region around the clickable if none was provided.
