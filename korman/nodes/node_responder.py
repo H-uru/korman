@@ -356,7 +356,7 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
         """
         if node is None:
             node = self
-        return sorted(node.find_outputs("msgs"), key=lambda x: x.has_callbacks and x.has_linked_callbacks)
+        return sorted(node.find_outputs("msgs"), key=lambda x: bool(x.has_callbacks and x.has_linked_callbacks))
 
 
 class PlasmaRespStateSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):

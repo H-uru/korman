@@ -893,6 +893,7 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
     def has_callbacks(self):
         if not self.is_random_sound:
             return self.event != "NONE"
+        return False
 
     @classmethod
     def _idprop_mapping(cls):
