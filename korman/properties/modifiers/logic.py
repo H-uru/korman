@@ -158,22 +158,17 @@ class PlasmaTelescope(PlasmaModifierProperties, PlasmaModifierLogicWiz):
             raise ExportError(f"'{self.id_data.name}': Telescopes must specify a camera!")
 
     def pre_export(self, exporter, bo):
-        if self.clickable_region is None:
-            with utils.bmesh_object(f"{self.key_name}_Telescope_ClkRgn") as (rgn_obj, bm):
-                bmesh.ops.create_cube(bm, size=(6.0))
-                bmesh.ops.transform(bm, matrix=mathutils.Matrix.Translation(bo.matrix_world.translation - rgn_obj.matrix_world.translation),
-                                    space=rgn_obj.matrix_world, verts=bm.verts)
-                rgn_obj.plasma_object.enabled = True
-                rgn_obj.hide_render = True
-            yield rgn_obj
-        else:
-            # Use the region provided
-            rgn_obj = self.clickable_region
+        # Generate a six-foot cube region if none was provided.
+        yield utils.pre_export_optional_cube_region(
+            self, "clickable_region",
+            f"{self.key_name}_Telescope_ClkRgn", 6.0,
+            bo
+        )
 
         # Generate the logic nodes
-        yield self.convert_logic(bo, rgn_obj=rgn_obj)
+        yield self.convert_logic(bo)
 
-    def logicwiz(self, bo, tree, rgn_obj):
+    def logicwiz(self, bo, tree):
         nodes = tree.nodes
 
         # Create Python Node
@@ -188,7 +183,7 @@ class PlasmaTelescope(PlasmaModifierProperties, PlasmaModifierLogicWiz):
 
         # Region
         telescoperegion = nodes.new("PlasmaClickableRegionNode")
-        telescoperegion.region_object = rgn_obj
+        telescoperegion.region_object = self.clickable_region
         telescoperegion.link_output(telescopeclick, "satisfies", "region")
 
         # Telescope Camera

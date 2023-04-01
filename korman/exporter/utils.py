@@ -13,12 +13,14 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import bmesh
 import bpy
 import mathutils
 
-from typing import Callable, Iterator, Tuple
 from contextlib import contextmanager
+from typing import *
 
 from PyHSPlasma import *
 
@@ -54,46 +56,73 @@ def quaternion(blquat):
     return hsQuat(blquat.x, blquat.y, blquat.z, blquat.w)
 
 
+class BMeshObject:
+    def __init__(self, name: str, managed: bool = True):
+        self._managed = managed
+        self._bmesh = None
+        self._mesh = bpy.data.meshes.new(name)
+        self._obj = bpy.data.objects.new(name, self._mesh)
+        self._obj.draw_type = "WIRE"
+        bpy.context.scene.objects.link(self._obj)
+
+    def __del__(self):
+        if self._managed:
+            bpy.context.scene.objects.unlink(self._obj)
+            bpy.data.meshes.remove(self._mesh)
+
+    def __enter__(self) -> bmesh.types.BMesh:
+        if self._mesh is not None:
+            self._bmesh = bmesh.new()
+            self._bmesh.from_mesh(self._mesh)
+            return self._bmesh
+
+    def __exit__(self, type, value, traceback):
+        if self._bmesh is not None:
+            self._bmesh.to_mesh(self._mesh)
+            self._bmesh.free()
+            self._bmesh = None
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._obj, name)
+
+    @property
+    def object(self) -> bpy.types.Object:
+        return self._obj
+
+    def release(self) -> bpy.types.Object:
+        self._managed = False
+        return self._obj
+
+
+def create_cube_region(name: str, size: float, owner_object: bpy.types.Object) -> bpy.types.Object:
+    """Create a cube shaped region object"""
+    region_object = BMeshObject(name)
+    region_object.plasma_object.enabled = True
+    region_object.plasma_object.page = owner_object.plasma_object.page
+    region_object.hide_render = True
+    with region_object as bm:
+        bmesh.ops.create_cube(bm, size=(size))
+        bmesh.ops.transform(
+            bm,
+            matrix=mathutils.Matrix.Translation(
+                owner_object.matrix_world.translation - region_object.matrix_world.translation
+            ),
+            space=region_object.matrix_world, verts=bm.verts
+        )
+    return region_object.release()
+
 @contextmanager
-def bmesh_temporary_object(name : str, factory : Callable, page_name : str=None):
-    """Creates a temporary object and mesh that exists only for the duration of
-       the context"""
-    mesh = bpy.data.meshes.new(name)
-    obj = bpy.data.objects.new(name, mesh)
-    obj.draw_type = "WIRE"
-    if page_name is not None:
-        obj.plasma_object.page = page_name
-    bpy.context.scene.objects.link(obj)
-
-    bm = bmesh.new()
-    try:
-        factory(bm)
-        bm.to_mesh(mesh)
-        yield obj
-    finally:
-        bm.free()
-        bpy.context.scene.objects.unlink(obj)
-
-@contextmanager
-def bmesh_object(name: str) -> Iterator[Tuple[bpy.types.Object, bmesh.types.BMesh]]:
-    """Creates an object and mesh that will be removed if the context is exited
-       due to an error"""
-    mesh = bpy.data.meshes.new(name)
-    obj = bpy.data.objects.new(name, mesh)
-    obj.draw_type = "WIRE"
-    bpy.context.scene.objects.link(obj)
-
-    bm = bmesh.new()
-    try:
-        yield obj, bm
-    except:
-        bpy.context.scene.objects.unlink(obj)
-        bpy.data.meshes.remove(mesh)
-        raise
+def pre_export_optional_cube_region(source, attr: str, name: str, size: float, owner_object: bpy.types.Object) -> Optional[bpy.types.Object]:
+    if getattr(source, attr) is None:
+        region_object = create_cube_region(name, size, owner_object)
+        setattr(source, attr, region_object)
+        try:
+            yield region_object
+        finally:
+            source.property_unset(attr)
     else:
-        bm.to_mesh(mesh)
-    finally:
-        bm.free()
+        # contextlib.contextmanager requires for us to yield. Sad.
+        yield
 
 @contextmanager
 def temporary_mesh_object(source : bpy.types.Object) -> bpy.types.Object:

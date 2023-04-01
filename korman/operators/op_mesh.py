@@ -100,15 +100,15 @@ class PlasmaAddFlareOperator(PlasmaMeshOperator, bpy.types.Operator):
         flare_root.plasma_modifiers.viewfacemod.preset_options = "Sprite"
 
         # Create a textured Plane
-        with utils.bmesh_object("{}_Visible".format(self.name_stem)) as (flare_plane, bm):
-            flare_plane.hide_render = True
-            flare_plane.plasma_object.enabled = True
-            bpyscene.objects.active = flare_plane
-
+        flare_plane = utils.BMeshObject(f"{self.name_stem}_Visible", managed=False)
+        flare_plane.hide_render = True
+        flare_plane.plasma_object.enabled = True
+        bpyscene.objects.active = flare_plane
+        with flare_plane as bm:
             # Make the actual plane mesh, facing away from the empty
             bmesh.ops.create_grid(bm, size=(0.5 + self.flare_distance * 0.5), matrix=mathutils.Matrix.Rotation(math.radians(180.0), 4, 'X'))
             bmesh.ops.transform(bm, matrix=mathutils.Matrix.Translation((0.0, 0.0, -self.flare_distance)), space=flare_plane.matrix_world, verts=bm.verts)
-            bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY")
+        bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY")
 
         # Give the plane a basic UV unwrap, so that it's texture-ready
         bpy.ops.object.editmode_toggle()
