@@ -110,15 +110,19 @@ class PlasmaNodeBase:
         options = self._socket_defs[0].get(key, {})
         spawn_empty = spawn_empty and options.get("spawn_empty", False)
 
-        for i in self.inputs:
-            if i.alias == key:
-                if spawn_empty and i.is_linked:
-                    continue
-                return i
+        matching_sockets = filter(lambda x: x.alias == key, self.inputs)
         if spawn_empty:
+            unused_socket = next(filter(lambda x: not x.is_linked, matching_sockets), None)
+            if unused_socket is not None:
+                return unused_socket
             return self._spawn_socket(key, options, self.inputs)
-        else:
-            raise KeyError(key)
+
+        matching_socket = next(matching_sockets, None)
+        if matching_socket is not None:
+            return matching_socket
+        if options:
+            return self._spawn_socket(key, options, self.inputs)
+        raise KeyError(key)
 
     def find_input_sockets(self, key, idname=None):
         for i in self.inputs:
