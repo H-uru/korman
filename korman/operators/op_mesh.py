@@ -101,9 +101,9 @@ class PlasmaAddFlareOperator(PlasmaMeshOperator, bpy.types.Operator):
 
         # Create a textured Plane
         flare_plane = utils.BMeshObject(f"{self.name_stem}_Visible", managed=False)
-        flare_plane.hide_render = True
-        flare_plane.plasma_object.enabled = True
-        bpyscene.objects.active = flare_plane
+        flare_plane.object.hide_render = True
+        flare_plane.object.plasma_object.enabled = True
+        bpyscene.objects.active = flare_plane.object
         with flare_plane as bm:
             # Make the actual plane mesh, facing away from the empty
             bmesh.ops.create_grid(bm, size=(0.5 + self.flare_distance * 0.5), matrix=mathutils.Matrix.Rotation(math.radians(180.0), 4, 'X'))
@@ -117,10 +117,10 @@ class PlasmaAddFlareOperator(PlasmaMeshOperator, bpy.types.Operator):
 
         # Create AUTOGEN_FLARE material and texture, setting No-Z-Write
         auto_mat = self.find_create_material()
-        flare_plane.data.materials.append(auto_mat)
+        flare_plane.object.data.materials.append(auto_mat)
 
         # Parent Plane to Empty
-        flare_plane.parent = flare_root
+        flare_plane.object.parent = flare_root
 
     def find_create_material(self):
         # If the selected flare material exists, use it
