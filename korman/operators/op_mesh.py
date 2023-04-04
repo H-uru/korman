@@ -103,7 +103,7 @@ class PlasmaAddFlareOperator(PlasmaMeshOperator, bpy.types.Operator):
         flare_plane = utils.BMeshObject(f"{self.name_stem}_Visible", managed=False)
         flare_plane.hide_render = True
         flare_plane.plasma_object.enabled = True
-        bpyscene.objects.active = flare_plane
+        bpyscene.objects.active = flare_plane.object
         with flare_plane as bm:
             # Make the actual plane mesh, facing away from the empty
             bmesh.ops.create_grid(bm, size=(0.5 + self.flare_distance * 0.5), matrix=mathutils.Matrix.Rotation(math.radians(180.0), 4, 'X'))

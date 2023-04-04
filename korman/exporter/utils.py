@@ -85,6 +85,18 @@ class BMeshObject:
     def __getattr__(self, name: str) -> Any:
         return getattr(self._obj, name)
 
+    def __setattr__(self, name: str, value: Any) -> None:
+        # NOTE: Calling `hasattr()` will trigger infinite recursion in __getattr__(), so
+        # check the object dict itself for anything that we want on this instance.
+        d = self.__dict__
+        if name not in d:
+            obj = d.get("_obj")
+            if obj is not None:
+                if hasattr(obj, name):
+                    setattr(obj, name, value)
+                    return
+        super().__setattr__(name, value)
+
     @property
     def object(self) -> bpy.types.Object:
         return self._obj
