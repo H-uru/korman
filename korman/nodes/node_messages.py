@@ -830,37 +830,46 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
 
         # Remember that 3D stereo sounds are exported as two emitters...
         # But, if we only have one sound attached, who cares, we can just address the message to all
-        audible_key = exporter.mgr.find_create_key(plAudioInterface, bl=self.emitter_object)
-        indices = (-1,) if not self.sound_name or len(soundemit.sounds) == 1 else soundemit.get_sound_indices(self.sound_name)
-        for idx in indices:
-            msg = plSoundMsg()
-            msg.addReceiver(audible_key)
-            msg.index = idx
+        msg = plSoundMsg()
+        sound_keys = tuple(soundemit.get_sound_keys(exporter, self.sound_name))
+        indices = frozenset((i[1] for i in sound_keys))
 
-            # NOTE: There are a number of commands in Plasma's enumeration that do nothing.
-            #       This is what I determine to be the most useful and functional subset...
-            #       Please see plAudioInterface::MsgReceive for more details.
-            if self.go_to == "BEGIN":
-                msg.setCmd(plSoundMsg.kGoToTime)
-                msg.time = 0.0
-            elif self.go_to == "TIME":
-                msg.setCmd(plSoundMsg.kGoToTime)
-                msg.time = self.time
+        if indices:
+            assert len(indices) == 1, "Only one sound index should result from a sound emitter"
+            msg.index = next(iter(indices))
+        else:
+            msg.index = -1
+        for i in sound_keys:
+            msg.addReceiver(i[0])
 
-            if self.volume == "MUTE":
-                msg.setCmd(plSoundMsg.kSetVolume)
-                msg.volume = 0.0
-            elif self.volume == "CUSTOM":
-                msg.setCmd(plSoundMsg.kSetVolume)
-                msg.volume = self.volume_pct / 100.0
+        # NOTE: There are a number of commands in Plasma's enumeration that do nothing.
+        #       This is what I determine to be the most useful and functional subset...
+        #       Please see plAudioInterface::MsgReceive for more details.
+        if self.go_to == "BEGIN":
+            msg.setCmd(plSoundMsg.kGoToTime)
+            msg.time = 0.0
+        elif self.go_to == "TIME":
+            msg.setCmd(plSoundMsg.kGoToTime)
+            msg.time = self.time
 
-            if self.looping != "CURRENT":
-                msg.setCmd(getattr(plSoundMsg, self.looping))
-            if self.action != "CURRENT":
-                msg.setCmd(getattr(plSoundMsg, self.action))
+        if self.volume == "MUTE":
+            msg.setCmd(plSoundMsg.kSetVolume)
+            msg.volume = 0.0
+        elif self.volume == "CUSTOM":
+            msg.setCmd(plSoundMsg.kSetVolume)
+            msg.volume = self.volume_pct / 100.0
 
-            # Because we might be giving two messages here...
-            yield msg
+        if self.looping != "CURRENT":
+            msg.setCmd(getattr(plSoundMsg, self.looping))
+        if self.action != "CURRENT":
+            sound = soundemit.sounds.get(self.sound_name, None)
+            if sound is not None and sound.is_3d_stereo:
+                exporter.report.warn(f"'{self.id_data.name}' Node '{self.name}': 3D Stereo sounds should not be started or stopped by messages - they may get out of sync.")
+            msg.setCmd(getattr(plSoundMsg, self.action))
+
+        # This used to potentially result in multiple messages. Not anymore!
+        # However, I'm leaving it as a yield for now to avoid potentially breaking something.
+        yield msg
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "emitter_object")
@@ -880,7 +889,17 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
             if self.go_to == "TIME":
                 layout.prop(self, "time")
 
-        layout.prop(self, "action")
+        if not random and self.emitter_object is not None:
+            soundemit = self.emitter_object.plasma_modifiers.soundemit
+            sound = soundemit.sounds.get(self.sound_name, None)
+            action_on_3d_stereo = sound is not None and sound.is_3d_stereo and self.action != "CURRENT"
+
+            layout.alert = action_on_3d_stereo
+            layout.prop(self, "action")
+            layout.alert = False
+        else:
+            layout.prop(self, "action")
+
         if self.volume == "CUSTOM":
             layout.prop(self, "volume_pct")
         if not random:

@@ -29,6 +29,27 @@ def bmesh_from_object(bl):
     finally:
         mesh.free()
 
+@contextmanager
+def duplicate_object(bl, remove_on_success=False):
+    with UiHelper(bpy.context):
+        for i in bpy.data.objects:
+            i.select = False
+        bl.select = True
+        bpy.context.scene.objects.active = bl
+        bpy.ops.object.duplicate()
+        dupe_object = bpy.context.active_object
+
+    dupe_name = dupe_object.name
+    try:
+        yield dupe_object
+    except Exception:
+        if dupe_name in bpy.data.objects:
+            bpy.data.objects.remove(dupe_object)
+        raise
+    finally:
+        if remove_on_success and dupe_name in bpy.data.objects:
+            bpy.data.objects.remove(dupe_object)
+
 class GoodNeighbor:
     """Leave Things the Way You Found Them! (TM)"""
 
@@ -45,6 +66,16 @@ class GoodNeighbor:
         for (cls, attr), value in self._tracking.items():
             setattr(cls, attr, value)
 
+
+@contextmanager
+def TemporaryCollectionItem(collection):
+    item = collection.add()
+    try:
+        yield item
+    finally:
+        index = next((i for i, j in enumerate(collection) if j == item), None)
+        if index is not None:
+            collection.remove(index)
 
 class TemporaryObject:
     def __init__(self, obj, remove_func):
