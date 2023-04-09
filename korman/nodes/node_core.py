@@ -13,16 +13,22 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import abc
 import bpy
 from bpy.props import *
 from PyHSPlasma import *
 import time
+from typing import *
 
 from ..exporter import ExportError
 
+if TYPE_CHECKING:
+    from ..exporter import Exporter
+
 class PlasmaNodeBase:
-    def generate_notify_msg(self, exporter, so, socket_id, idname=None):
+    def generate_notify_msg(self, exporter: Exporter, so: plSceneObject, socket_id: str, idname: Optional[str] = None) -> plNotifyMsg:
         notify = plNotifyMsg()
         notify.BCastFlags = (plMessage.kNetPropagate | plMessage.kLocalPropagate)
         for i in self.find_outputs(socket_id, idname):
@@ -36,7 +42,7 @@ class PlasmaNodeBase:
                 notify.addReceiver(key)
         return notify
 
-    def get_key(self, exporter, so):
+    def get_key(self, exporter: Exporter, so: plSceneObject):
         return None
 
     def get_key_name(self, single, suffix=None, bl=None, so=None):
@@ -59,7 +65,7 @@ class PlasmaNodeBase:
             return str(getattr(self, self.pl_label_attrib, self.bl_label))
         return self.bl_label
 
-    def export(self, exporter, bo, so):
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
         pass
 
     @property
@@ -67,7 +73,7 @@ class PlasmaNodeBase:
         """This node can only be exported once because it is a targeted plSingleModifier"""
         return False
 
-    def _find_create_object(self, pClass, exporter, **kwargs):
+    def _find_create_object(self, pClass: Type[KeyedT], exporter: Exporter, **kwargs) -> KeyedT:
         """Finds or creates an hsKeyedObject specific to this node."""
         assert "name" not in kwargs
         kwargs["name"] = self.get_key_name(issubclass(pClass, (plObjInterface, plSingleModifier)),
@@ -75,7 +81,7 @@ class PlasmaNodeBase:
                                            kwargs.get("so"))
         return exporter.mgr.find_create_object(pClass, **kwargs)
 
-    def _find_create_key(self, pClass, exporter, **kwargs):
+    def _find_create_key(self, pClass: Type[KeyedT], exporter: Exporter, **kwargs) -> plKey[KeyedT]:
         """Finds or creates a plKey specific to this node."""
         assert "name" not in kwargs
         kwargs["name"] = self.get_key_name(issubclass(pClass, (plObjInterface, plSingleModifier)),
@@ -83,7 +89,7 @@ class PlasmaNodeBase:
                                            kwargs.get("so"))
         return exporter.mgr.find_create_key(pClass, **kwargs)
 
-    def _find_key(self, pClass, exporter, **kwargs):
+    def _find_key(self, pClass: Type[KeyedT], exporter: Exporter, **kwargs) -> Optional[plKey[KeyedT]]:
         """Finds a plKey specific to this node."""
         assert "name" not in kwargs
         kwargs["name"] = self.get_key_name(issubclass(pClass, (plObjInterface, plSingleModifier)),
@@ -276,15 +282,15 @@ class PlasmaNodeBase:
         link = self.id_data.links.new(in_socket, out_socket)
 
     @property
-    def node_path(self):
+    def node_path(self) -> str:
         """Returns an absolute path to this Node. Needed because repr() uses an elipsis..."""
         return "{}.{}".format(repr(self.id_data), self.path_from_id())
 
-    def previously_exported(self, exporter):
+    def previously_exported(self, exporter) -> bool:
         return self.name in exporter.exported_nodes[self.id_data.name]
 
     @classmethod
-    def poll(cls, context):
+    def poll(cls, context) -> bool:
         return (context.bl_idname == "PlasmaNodeTree")
 
     def raise_error(self, message):
@@ -292,7 +298,7 @@ class PlasmaNodeBase:
         raise ExportError(final)
 
     @property
-    def requires_actor(self):
+    def requires_actor(self) -> bool:
         return False
 
     @property

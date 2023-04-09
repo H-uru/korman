@@ -13,6 +13,8 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import bpy
 from bpy.props import *
 from collections import OrderedDict
@@ -82,7 +84,7 @@ class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
         layout.prop(self, "detect_untrigger")
         layout.prop(self, "no_ff_sounds")
 
-    def get_key(self, exporter, so):
+    def get_key(self, exporter, so) -> plKey[plResponderModifier]:
         return self._find_create_key(plResponderModifier, exporter, so=so)
 
     def get_key_name(self, single, suffix=None, bl=None, so=None) -> str:

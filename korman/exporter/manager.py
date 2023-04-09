@@ -13,10 +13,11 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import bpy
-from pathlib import Path
 from PyHSPlasma import *
-from typing import Iterable
+from typing import *
 import weakref
 
 from . import explosions
@@ -214,13 +215,13 @@ class ExportManager:
             if isinstance(i, pClass):
                 yield i
 
-    def find_create_key(self, pClass, bl=None, name=None, so=None):
+    def find_create_key(self, pClass: Type[KeyedT], bl=None, name=None, so=None) -> plKey[KeyedT]:
         key = self.find_key(pClass, bl, name, so)
         if key is None:
             key = self.add_object(pl=pClass, name=name, bl=bl, so=so).key
         return key
 
-    def find_key(self, pClass, bl=None, name=None, so=None, loc=None):
+    def find_key(self, pClass: Type[KeyedT], bl=None, name=None, so=None, loc=None) -> Optional[plKey[KeyedT]]:
         """Given a blender Object and a Plasma class, find (or create) an exported plKey"""
         if loc is not None:
             location = loc
@@ -255,13 +256,16 @@ class ExportManager:
                     so.addModifier(key)
         return key
 
-    def find_create_object(self, pClass, bl=None, name=None, so=None):
+    def find_create_object(
+            self, pClass: Type[KeyedT], bl: bpy.types.Object = None,
+            name: Optional[str] = None, so: Optional[plSceneObject] = None
+        ) -> KeyedT:
         key = self.find_key(pClass, bl, name, so)
         if key is None:
             return self.add_object(pl=pClass, name=name, bl=bl, so=so)
         return key.object
 
-    def find_object(self, pClass, bl=None, name=None, so=None):
+    def find_object(self, pClass: Type[KeyedT], bl=None, name=None, so=None) -> Optional[KeyedT]:
         key = self.find_key(pClass, bl, name, so)
         if key is not None:
             return key.object
@@ -306,11 +310,14 @@ class ExportManager:
                 self._pages[""] = location
         return location
 
-    def get_location(self, bl):
+    def get_location(self, bl) -> plLocation:
         """Returns the Page Location of a given Blender Object"""
         return self._pages[bl.plasma_object.page]
 
-    def get_scene_node(self, location=None, bl=None):
+    def get_scene_node(
+            self, location: Optional[plLocation] = None,
+            bl: Optional[bpy.types.Object]=None
+        ) -> plSceneNode:
         """Gets a Plasma Page's plSceneNode key"""
         assert (location is not None) ^ (bl is not None)
 
@@ -318,7 +325,7 @@ class ExportManager:
             location = self._pages[bl.plasma_object.page]
         return self._nodes[location].key
 
-    def get_textures_page(self, key):
+    def get_textures_page(self, key: plKey) -> plLocation:
         """Gets the appropriate page for a texture for a given plLayer"""
         # The point of this is to account for per-page textures...
         if bpy.context.scene.world.plasma_age.use_texture_page:
