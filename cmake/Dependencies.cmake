@@ -89,8 +89,73 @@ set(_ExternalProjectCMakeCache
 include(ExternalProject)
 include(FetchContent)
 
+function(korman_rewrite_url)
+    cmake_parse_arguments(
+        PARSE_ARGV 0 _kru
+        ""
+        "RESULT_VARIABLE;URL"
+        ""
+    )
+
+    # SourceForge's mirrors are unstable, and CI keeps failing when the standard URL picks a
+    # particularly unstable mirror. So, rewrite any implicit SourceForge (meaning, no specific mirror
+    # has been selected) download URLs to use known stable mirrors. This should prevent spurious
+    # CI failures.
+    if(_kru_URL MATCHES [[^https:\/\/sourceforge.net\/projects\/[^\/]+\/files\/[^\/]+\/[^\/]+\/[^\/]+\/download$]])
+        # Borrowed from vcpkg
+        set(sourceforge_mirrors
+            cfhcable        # United States
+            pilotfiber      # New York, NY
+            gigenet         # Chicago, IL
+            versaweb        # Las Vegas, NV
+            ayera           # Modesto, CA
+            netactuate      # Durham, NC
+            phoenixnap      # Tempe, AZ
+            astuteinternet  # Vancouver, BC
+            freefr          # Paris, France
+            netcologne      # Cologne, Germany
+            deac-riga       # Latvia
+            excellmedia     # Hyderabad, India
+            iweb            # Montreal, QC
+            jaist           # Nomi, Japan
+            jztkft          # Mezotur, Hungary
+            managedway      # Detroit, MI
+            nchc            # Taipei, Taiwan
+            netix           # Bulgaria
+            ufpr            # Curitiba, Brazil
+            tenet           # Wynberg, South Africa
+        )
+        foreach(mirror IN LISTS sourceforge_mirrors)
+            message(DEBUG "SF: ${_kru_URL}?use_mirror=${mirror}")
+            list(APPEND _result "${_kru_URL}?use_mirror=${mirror}")
+        endforeach()
+    else()
+        set(_result ${_kru_URL})
+    endif()
+
+    set(${_kru_RESULT_VARIABLE} ${${_kru_RESULT_VARIABLE}};${_result} PARENT_SCOPE)
+endfunction()
+
 function(korman_add_external_project TARGET)
     set(_args ${ARGN})
+
+    # Lookup any argument for URL so we can apply any santitation rules needed.
+    list(FIND _args "URL" _url_args_idx)
+    if(_url_args_idx GREATER_EQUAL 0)
+        math(EXPR _url_pos "${_url_args_idx} + 1")
+        while(TRUE)
+            list(GET _args ${_url_pos} _url)
+            if(NOT _url MATCHES [[^https?:\/\/]])
+                break()
+            endif()
+            list(REMOVE_AT _args ${_url_pos})
+            korman_rewrite_url(
+                RESULT_VARIABLE "_fixed_urls"
+                URL "${_url}"
+            )
+        endwhile()
+        list(INSERT _args ${_url_pos} ${_fixed_urls})
+    endif()
 
     if("GIT_REPOSITORY" IN_LIST _args)
         list(APPEND _args GIT_PROGRESS TRUE)
