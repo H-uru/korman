@@ -635,6 +635,7 @@ _LOCALIZED_TEXT_PFM = (
     { 'id': 16, 'type': "ptAttribFloat",        'name': "clearColorG" },
     { 'id': 17, 'type': "ptAttribFloat",        'name': "clearColorB" },
     { 'id': 18, 'type': "ptAttribFloat",        'name': "clearColorA" },
+    { 'id': 19, 'type': "ptAttribBoolean",      'name': "blockRGB" },
 )
 
 class PlasmaLocalizedTextModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz, TranslationMixin):
@@ -748,6 +749,10 @@ class PlasmaLocalizedTextModifier(PlasmaModifierProperties, PlasmaModifierLogicW
             self._create_python_attribute(pfm_node, "clearColorG", value=clear_color[1])
             self._create_python_attribute(pfm_node, "clearColorB", value=clear_color[2])
             self._create_python_attribute(pfm_node, "clearColorA", value=1.0)
+
+        # BlockRGB is some weird flag the engine uses to properly render when the DynaTextMap has
+        # alpha. Why the engine can't figure this out on its own is beyond me.
+        self._create_python_attribute(pfm_node, "blockRGB", value=self.texture.use_alpha)
 
     @property
     def localization_set(self):
