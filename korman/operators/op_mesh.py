@@ -96,7 +96,7 @@ class PlasmaAddFlareOperator(PlasmaMeshOperator, bpy.types.Operator):
         bpyscene.objects.active = flare_root
 
         # Enable VFM on Empty
-        bpy.ops.object.plasma_modifier_add(types="viewfacemod")
+        flare_root.plasma_modifiers.viewfacemod.enabled = True
         flare_root.plasma_modifiers.viewfacemod.preset_options = "Sprite"
 
         # Create a textured Plane
@@ -416,8 +416,8 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
         origin_to_bottom(upper_rgn)
         upper_rgn.rotation_euler[2] = math.radians(90.0)
 
-        bpy.ops.object.plasma_modifier_add(types="laddermod")
         laddermod = upper_rgn.plasma_modifiers.laddermod
+        laddermod.enabled = True
         laddermod.is_enabled = self.lower_entry_enabled
         laddermod.num_loops = (self.ladder_height - 6) / 2
         laddermod.direction = "DOWN"
@@ -457,8 +457,8 @@ class PlasmaAddLadderMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
         origin_to_bottom(lower_rgn)
         lower_rgn.rotation_euler[2] = math.radians(-90.0)
 
-        bpy.ops.object.plasma_modifier_add(types="laddermod")
         laddermod = lower_rgn.plasma_modifiers.laddermod
+        laddermod.enabled = True
         laddermod.is_enabled = self.lower_entry_enabled
         laddermod.num_loops = (self.ladder_height - 6) / 2
         laddermod.direction = "UP"
@@ -604,8 +604,8 @@ class PlasmaAddLinkingBookMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
         # Add Linking Book modifier
         bpyscene.objects.active = panel_root
         panel_root.select = True
-        bpy.ops.object.plasma_modifier_add(types="linkingbookmod")
         lbmod = panel_root.plasma_modifiers.linkingbookmod
+        lbmod.enabled = True
         lbmod.clickable_region = clk_rgn
         lbmod.seek_point = seek_point
         lbmod.anim_type = self.link_anim_type

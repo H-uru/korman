@@ -17,7 +17,8 @@ import bpy
 from bpy.props import *
 
 import abc
-from typing import Any, Dict, Generator, Optional
+import itertools
+from typing import Any, Dict, FrozenSet, Optional
 
 class PlasmaModifierProperties(bpy.types.PropertyGroup):
     @property
@@ -45,14 +46,36 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
     def draw_no_defer(self):
         """Disallow geometry being sorted into a blending span"""
         return False
-        
+
     @property
     def draw_late(self):
         return False
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         return self.display_order >= 0
+
+    @enabled.setter
+    def enabled(self, value: bool) -> None:
+        plmods = self.id_data.plasma_modifiers
+        if value and self.enabled is False:
+            self.display_order = plmods.determine_next_id()
+            self.created()
+
+            # Determine if this modifier has any dependencies and make sure they're enabled
+            for dep in getattr(self, "pl_depends", set()):
+                getattr(plmods, dep).enabled = True
+        elif not value and self.enabled is True:
+            mods_to_delete = frozenset(itertools.chain([self.pl_id], self.get_dependents()))
+            enabled_mods = sorted(self.id_data.plasma_modifiers.modifiers, key=lambda x: x.display_order)
+            subtract = 0
+            for modifier in enabled_mods:
+                if modifier.pl_id in mods_to_delete:
+                    modifier.display_order = -1
+                    modifier.destroyed()
+                    subtract += 1
+                else:
+                    modifier.display_order -= subtract
 
     def export(self, exporter, bo, so):
         """This is the main phase of the modifier export where most, if not all, PRP objects should
@@ -74,6 +97,16 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
     def face_sort(self):
         """Indicates that the geometry's faces should be sorted by the engine"""
         return False
+
+    @classmethod
+    def get_dependents(cls) -> FrozenSet[str]:
+        """Returns the set of modifiers that depend on this modifier being active."""
+        deps = set()
+        for i in PlasmaModifierProperties.__subclasses__():
+            if cls.pl_id in getattr(i, "pl_depends", []):
+                deps.add(i.pl_id)
+                deps.update(i.get_dependents())
+        return frozenset(deps)
 
     def harvest_actors(self):
         return ()

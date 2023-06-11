@@ -556,8 +556,7 @@ class PlasmaSoundEmitter(PlasmaModifierProperties):
                 emitter_obj.plasma_modifiers.modifiers
             )
             for i in bad_mods:
-                # HACK: You can't set the enabled property.
-                i.display_order = -1
+                i.enabled = False
 
             # But only 3D stereo sounds!
             soundemit_mod = emitter_obj.plasma_modifiers.soundemit
@@ -630,7 +629,7 @@ class PlasmaSoundEmitter(PlasmaModifierProperties):
                 if not my_anim_groups:
                     group = bo.plasma_modifiers.animation_group
                     if not group.enabled:
-                        toggle.track(group, "display_order", sum((1 for i in bo.plasma_modifiers.modifiers)))
+                        toggle.track(group, "enabled", True)
                         for i in group.children:
                             toggle.track(i, "enabled", False)
                     my_anim_groups.append(group)
