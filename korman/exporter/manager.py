@@ -317,7 +317,7 @@ class ExportManager:
     def get_scene_node(
             self, location: Optional[plLocation] = None,
             bl: Optional[bpy.types.Object]=None
-        ) -> plSceneNode:
+        ) -> plKey[plSceneNode]:
         """Gets a Plasma Page's plSceneNode key"""
         assert (location is not None) ^ (bl is not None)
 
