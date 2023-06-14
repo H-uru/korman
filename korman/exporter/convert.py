@@ -519,11 +519,14 @@ class Exporter:
                     # yield my_object
                     # my_object.foo = bar
                     # ```
-                    assert inspect.isgeneratorfunction(proc), "pre_export should be a generator function"
                     pre_result = proc(self, bo)
+                    assert (
+                        inspect.isgenerator(pre_result) or pre_result is None,
+                        "pre_export() should return a generator or None"
+                    )
                     try:
                         gen_result = None
-                        while True:
+                        while pre_result is not None:
                             gen_result = pre_result.send(gen_result)
                             if gen_result is not None:
                                 gen_result = handle_temporary(gen_result, bo)
@@ -531,7 +534,8 @@ class Exporter:
                         if e.value is not None:
                             handle_temporary(e.value, bo)
                     finally:
-                        pre_result.close()
+                        if pre_result is not None:
+                            pre_result.close()
 
         with indent():
             for bl_obj in self._objects:
