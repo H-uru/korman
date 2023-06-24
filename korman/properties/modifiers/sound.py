@@ -27,7 +27,7 @@ from ... import korlib
 from .base import PlasmaModifierProperties
 from .physics import surface_types
 from ...exporter import ExportError
-from ...helpers import duplicate_object, GoodNeighbor, TemporaryCollectionItem
+from ...helpers import copy_action, copy_object, GoodNeighbor, TemporaryCollectionItem
 from ... import idprops
 
 _randomsound_modes = {
@@ -536,13 +536,14 @@ class PlasmaSoundEmitter(PlasmaModifierProperties):
         if self.have_3d_stereo and modifiers.random_sound.enabled:
             raise ExportError(f"{self.id_data.name}: Random Sound modifier cannot be applied to a Sound Emitter with 3D Stereo sounds.")
 
-    @contextmanager
     def _generate_stereized_emitter(self, exporter, bo: bpy.types.Object, channel: str, attr: str):
         # Duplicate the current sound emitter as a non-linked object so that we have all the
         # information that the parent emitter has, but we're free to turn off things as needed.
-        with duplicate_object(bo) as emitter_obj:
+        # NOTE: Don't immediately yield the copied object - we need to work on it first. If you immediately
+        # yield it, we get infinite recursion due to the copied object also having 3D Stereo sounds.
+        try:
+            emitter_obj = copy_object(bo, f"{bo.name}_Stereo-Ize:{channel}")
             emitter_obj.location = (0.0, 0.0, 0.0)
-            emitter_obj.name = f"{bo.name}_Stereo-Ize:{channel}"
             emitter_obj.parent = bo
 
             # In case some bozo is using a visual mesh as a sound emitter, clear the materials
@@ -567,25 +568,23 @@ class PlasmaSoundEmitter(PlasmaModifierProperties):
                     sound.enabled = False
 
             # And only sound volume animations!
-            if emitter_obj.animation_data is not None and emitter_obj.animation_data.action is not None:
-                action = emitter_obj.animation_data.action
+            emitter_obj_action = yield copy_action(emitter_obj)
+            if emitter_obj_action is not None:
                 volume_paths = frozenset((i.path_from_id("volume") for i in soundemit_mod.sounds if i.enabled))
-                toasty_fcurves = [i for i, fcurve in enumerate(action.fcurves) if fcurve.data_path not in volume_paths]
+                toasty_fcurves = [fcurve for fcurve in emitter_obj_action.fcurves if fcurve.data_path not in volume_paths]
                 for i in reversed(toasty_fcurves):
-                    action.fcurves.remove(i)
+                    emitter_obj_action.fcurves.remove(i)
 
             # Again, only sound volume animations, which are handled above.
-            emitter_obj_data = emitter_obj.data
-            if emitter_obj_data is not None and emitter_obj_data.animation_data is not None and emitter_obj_data.animation_data.action is not None:
-                emitter_obj_data.animation_data.action.fcurves.clear()
-
-            # Temporarily save a pointer to this generated emitter object so that the parent soundemit
-            # modifier can redirect requests to 3D sounds to the generated emitters.
+            emitter_data_action = yield copy_action(emitter_obj.data)
+            if emitter_data_action is not None:
+                emitter_data_action.fcurves.clear()
+        except Exception:
+            bpy.data.objects.remove(emitter_obj)
+            raise
+        else:
+            yield emitter_obj
             setattr(self, attr, emitter_obj)
-            try:
-                yield emitter_obj
-            finally:
-                self.property_unset(attr)
 
     def _find_animation_groups(self, bo: bpy.types.Object):
         is_anim_group = lambda x: (
@@ -616,8 +615,8 @@ class PlasmaSoundEmitter(PlasmaModifierProperties):
 
             # Find any animation groups that we're a part of - we need to be a member of those,
             # or create one *if* any animations
-            yield self._generate_stereized_emitter(exporter, bo, "L", "stereize_left")
-            yield self._generate_stereized_emitter(exporter, bo, "R", "stereize_right")
+            yield from self._generate_stereized_emitter(exporter, bo, "L", "stereize_left")
+            yield from self._generate_stereized_emitter(exporter, bo, "R", "stereize_right")
 
             # If some animation data persisted on the new emitters, then we need to make certain
             # that those animations are targetted by anyone trying to control us. That's an

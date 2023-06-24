@@ -17,6 +17,7 @@ import bmesh
 import bpy
 from contextlib import contextmanager
 import math
+from typing import *
 
 @contextmanager
 def bmesh_from_object(bl):
@@ -29,26 +30,17 @@ def bmesh_from_object(bl):
     finally:
         mesh.free()
 
-@contextmanager
-def duplicate_object(bl, remove_on_success=False):
-    with UiHelper(bpy.context):
-        for i in bpy.data.objects:
-            i.select = False
-        bl.select = True
-        bpy.context.scene.objects.active = bl
-        bpy.ops.object.duplicate()
-        dupe_object = bpy.context.active_object
+def copy_action(source):
+    if source is not None and source.animation_data is not None and source.animation_data.action is not None:
+        source.animation_data.action = source.animation_data.action.copy()
+        return source.animation_data.action
 
-    dupe_name = dupe_object.name
-    try:
-        yield dupe_object
-    except Exception:
-        if dupe_name in bpy.data.objects:
-            bpy.data.objects.remove(dupe_object)
-        raise
-    finally:
-        if remove_on_success and dupe_name in bpy.data.objects:
-            bpy.data.objects.remove(dupe_object)
+def copy_object(bl, name: Optional[str] = None):
+    dupe_object = bl.copy()
+    if name is not None:
+        dupe_object.name = name
+    bpy.context.scene.objects.link(dupe_object)
+    return dupe_object
 
 class GoodNeighbor:
     """Leave Things the Way You Found Them! (TM)"""

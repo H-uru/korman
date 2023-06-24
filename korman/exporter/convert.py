@@ -468,6 +468,12 @@ class Exporter:
         def _(temporary, parent):
             return handle_temporary(temporary.release(), parent)
 
+        @handle_temporary.register(bpy.types.Action)
+        def _(temporary, parent):
+            self.exit_stack.enter_context(TemporaryObject(temporary, bpy.data.actions.remove))
+            log_msg(f"'{parent.name}': generated Action '{temporary.name}'")
+            return temporary
+
         @handle_temporary.register(bpy.types.Object)
         def _(temporary, parent):
             self.exit_stack.enter_context(TemporaryObject(temporary, bpy.data.objects.remove))
