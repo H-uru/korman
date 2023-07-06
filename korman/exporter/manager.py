@@ -265,8 +265,8 @@ class ExportManager:
             return self.add_object(pl=pClass, name=name, bl=bl, so=so)
         return key.object
 
-    def find_object(self, pClass: Type[KeyedT], bl=None, name=None, so=None) -> Optional[KeyedT]:
-        key = self.find_key(pClass, bl, name, so)
+    def find_object(self, pClass: Type[KeyedT], bl=None, name=None, so=None, loc=None) -> Optional[KeyedT]:
+        key = self.find_key(pClass, bl, name, so, loc)
         if key is not None:
             return key.object
         return None

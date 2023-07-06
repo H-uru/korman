@@ -18,6 +18,7 @@ import bpy
 from .base import PlasmaModifierProperties
 from .anim import *
 from .avatar import *
+from .game_gui import *
 from .gui import *
 from .logic import *
 from .physics import *

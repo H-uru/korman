@@ -13,20 +13,28 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
-import bpy
-import bmesh
-from bpy.props import *
-import mathutils
+from __future__ import annotations
 
+import bpy
+from bpy.props import *
+
+from contextlib import ExitStack
+import itertools
 import math
 from pathlib import Path
+from typing import *
 
 from PyHSPlasma import *
 
 from ...addon_prefs import game_versions
 from ...exporter import ExportError, utils
-from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz, PlasmaModifierUpgradable
-from ... import idprops
+from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz
+from ... import helpers, idprops
+
+if TYPE_CHECKING:
+    from ...exporter import Exporter
+    from .game_gui import PlasmaGameGuiDialogModifier
+
 
 journal_pfms = {
     pvPots : {
@@ -665,3 +673,180 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
             raise ExportError("{}: Linking Book modifier requires a clickable!", self.id_data.name)
         if self.seek_point is None:
             raise ExportError("{}: Linking Book modifier requires a seek point!", self.id_data.name)
+
+
+dialog_toggle = {
+    "filename": "xDialogToggle.py",
+    "attribs": (
+        { 'id':  1, 'type': "ptAttribActivator", 'name': "Activate" },
+        { 'id':  4, 'type': "ptAttribString",    'name': "Vignette" },
+    )
+}
+
+class PlasmaNotePopupModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz):
+    pl_id = "note_popup"
+
+    bl_category = "GUI"
+    bl_label = "Ex: Note Popup"
+    bl_description = "XXX"
+    bl_icon = "MATPLANE"
+
+    def _get_gui_pages(self, context):
+        scene = context.scene if context is not None else bpy.context.scene
+        return [
+            (i.name, i.name, i.name)
+            for i in scene.world.plasma_age.pages
+            if i.page_type == "gui"
+        ]
+
+    clickable: bpy.types.Object = PointerProperty(
+        name="Clickable",
+        description="The object the player will click on to activate the GUI",
+        type=bpy.types.Object,
+        poll=idprops.poll_mesh_objects
+    )
+    clickable_region: bpy.types.Object = PointerProperty(
+        name="Clickable Region",
+        description="The region in which the avatar must be standing before they can click on the note",
+        type=bpy.types.Object,
+        poll=idprops.poll_mesh_objects
+    )
+    gui_page: str = EnumProperty(
+        name="GUI Page",
+        description="Page containing all of the objects to display",
+        items=_get_gui_pages,
+        options=set()
+    )
+    gui_camera: bpy.types.Object = PointerProperty(
+        name="GUI Camera",
+        description="",
+        poll=idprops.poll_camera_objects,
+        type=bpy.types.Object,
+        options=set()
+    )
+
+    @property
+    def clickable_object(self) -> Optional[bpy.types.Object]:
+        if self.clickable is not None:
+            return self.clickable
+        if self.id_data.type == "MESH":
+            return self.id_data
+
+    def sanity_check(self):
+        page_type = helpers.get_page_type(self.id_data.plasma_object.page)
+        if page_type != "room":
+            raise ExportError(f"Note Popup modifiers should be in a 'room' page, not a '{page_type}' page!")
+
+    def pre_export(self, exporter: Exporter, bo: bpy.types.Object):
+        guidialog_object = utils.create_empty_object(f"{self.gui_page}_NoteDialog")
+        guidialog_object.plasma_object.enabled = True
+        guidialog_object.plasma_object.page = self.gui_page
+        yield guidialog_object
+
+        guidialog_mod: PlasmaGameGuiDialogModifier = guidialog_object.plasma_modifiers.gui_dialog
+        guidialog_mod.enabled = True
+        guidialog_mod.is_modal = True
+        if self.gui_camera:
+            guidialog_mod.camera_object = self.gui_camera
+        else:
+            # Abuse the GUI Dialog's lookat caLculation to make us a camera that looks at everything
+            # the artist has placed into the GUI page. We want to do this NOW because we will very
+            # soon be adding more objects into the GUI page.
+            camera_object = yield utils.create_camera_object(f"{self.key_name}_GUICamera")
+            camera_object.data.angle = math.radians(45.0)
+            camera_object.data.lens_unit = "FOV"
+
+            visible_objects = [
+                i for i in exporter.get_objects(self.gui_page)
+                if i.type == "MESH" and i.data.materials
+            ]
+            camera_object.matrix_world = exporter.gui.calc_camera_matrix(
+                bpy.context.scene,
+                visible_objects,
+                camera_object.data.angle,
+                1.02 # FIXME
+            )
+            clipping = exporter.gui.calc_clipping(
+                camera_object.matrix_world,
+                bpy.context.scene,
+                visible_objects,
+                camera_object.data.angle
+            )
+            camera_object.data.clip_start = clipping.hither
+            camera_object.data.clip_end = clipping.yonder
+            guidialog_mod.camera_object = camera_object
+
+        # Begin creating the object for the clickoff plane. We want to yield it immediately
+        # to the exporter in case something goes wrong during the export, allowing the stale
+        # object to be cleaned up.
+        click_plane_object = utils.BMeshObject(f"{self.key_name}_Exit")
+        click_plane_object.matrix_world = guidialog_mod.camera_object.matrix_world
+        click_plane_object.plasma_object.enabled = True
+        click_plane_object.plasma_object.page = self.gui_page
+        yield click_plane_object
+
+        # We have a camera on guidialog_mod.camera_object. We will now use it to generate the
+        # points for the click-off plane button.
+        # TODO: Allow this to be configurable to 4:3, 16:9, or 21:9?
+        with ExitStack() as stack:
+            stack.enter_context(exporter.gui.generate_camera_render_settings(bpy.context.scene))
+            toggle = stack.enter_context(helpers.GoodNeighbor())
+
+            # Temporarily adjust the clipping plane out to the farthest point we can find to ensure
+            # that the click-off button ecompasses everything. This is a bit heavy-handed, but if
+            # you want more refined control, you won't be using this helper.
+            clipping = max((guidialog_mod.camera_object.data.clip_start, guidialog_mod.camera_object.data.clip_end))
+            toggle.track(guidialog_mod.camera_object.data, "clip_start", clipping - 0.1)
+            view_frame = guidialog_mod.camera_object.data.view_frame(bpy.context.scene)
+
+        click_plane_object.data.materials.append(exporter.gui.transparent_material)
+        with click_plane_object as click_plane_mesh:
+            verts = [click_plane_mesh.verts.new(i) for i in view_frame]
+            face = click_plane_mesh.faces.new(verts)
+            # TODO: Ensure the face is pointing toward the camera!
+            # I feel like we should be fine by assuming that Blender returns the viewframe
+            # verts in the correct order, but this is Blender... So test that assumption carefully.
+            # TODO: Apparently not!
+            face.normal_flip()
+
+        # We've now created the mesh object - handle the GUI Button stuff
+        click_plane_object.plasma_modifiers.gui_button.enabled = True
+
+        # NOTE: We will be using xDialogToggle.py, so we use a special tag ID instead of the
+        # close dialog procedure.
+        click_plane_object.plasma_modifiers.gui_control.tag_id = 99
+
+        # Auto-generate a six-foot cube region around the clickable if none was provided.
+        yield utils.pre_export_optional_cube_region(
+            self, "clickable_region",
+            f"{self.key_name}_DialogToggle_ClkRgn", 6.0,
+            self.clickable_object
+        )
+
+        # Everything is ready now - create an xDialogToggle.py in the room page to display the GUI.
+        yield self.convert_logic(bo)
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        # You're not hallucinating... Everything is done in the pre-export phase.
+        pass
+
+    def logicwiz(self, bo, tree):
+        nodes = tree.nodes
+
+        # xDialogToggle.py PythonFile Node
+        dialog_node = self._create_python_file_node(
+            tree,
+            dialog_toggle["filename"],
+            dialog_toggle["attribs"]
+        )
+        self._create_python_attribute(dialog_node, "Vignette", value=self.gui_page)
+
+        # Clickable
+        clickable_region = nodes.new("PlasmaClickableRegionNode")
+        clickable_region.region_object = self.clickable_region
+
+        clickable = nodes.new("PlasmaClickableNode")
+        clickable.find_input_socket("facing").allow_simple = False
+        clickable.clickable_object = self.clickable_object
+        clickable.link_input(clickable_region, "satisfies", "region")
+        clickable.link_output(dialog_node, "satisfies", "Activate")

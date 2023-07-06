@@ -327,7 +327,7 @@ class PlasmaSubworldRegion(PlasmaModifierProperties):
 
     def export(self, exporter, bo, so):
         # Due to the fact that our subworld modifier can produce both RidingAnimatedPhysical
-        # and [HK|PX]Subworlds depending on the situation, this could get hairy, fast. 
+        # and [HK|PX]Subworlds depending on the situation, this could get hairy, fast.
         # Start by surveying the lay of the land.
         from_sub, to_sub = bo.plasma_object.subworld, self.subworld
         from_isded = exporter.physics.is_dedicated_subworld(from_sub)
