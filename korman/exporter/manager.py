@@ -138,9 +138,9 @@ class ExportManager:
                 so.draw = pl.key
             elif isinstance(pl, plSimulationInterface):
                 so.sim = pl.key
-            else:
+            elif pl.ClassIndex() not in _pool_types:
                 so.addInterface(pl.key)
-        elif isinstance(pl, plModifier):
+        elif isinstance(pl, plModifier) and pl.ClassIndex() not in _pool_types:
             so.addModifier(pl.key)
 
         # And we're done!
