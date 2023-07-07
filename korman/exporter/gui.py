@@ -20,6 +20,7 @@ import mathutils
 
 from contextlib import contextmanager, ExitStack
 import itertools
+import math
 from PyHSPlasma import *
 from typing import *
 import weakref
@@ -84,27 +85,28 @@ class GuiConverter:
         if not objects:
             raise ExportError("No objects specified for GUI Camera generation.")
 
-        class ObjArea(NamedTuple):
-            obj: bpy.types.Object
-            area: float
-
-
+        # Generally, GUIs are flat planes. However, we are not Cyan, so artists cannot walk down
+        # the hallway to get smacked on the knuckles by programmers. This means that they might
+        # give us some three dimensional crap as a GUI. Therefore, to come up with a camera matrix,
+        # we'll use the average area-weighted inverse normal of all the polygons they give us. That
+        # way, the camera *always* should face the GUI as would be expected.
         remove_mesh = bpy.data.meshes.remove
-        obj_areas: List[ObjArea] = []
+        avg_normal = mathutils.Vector()
         for i in objects:
             mesh = i.to_mesh(bpy.context.scene, True, "RENDER", calc_tessface=False)
             with helpers.TemporaryObject(mesh, remove_mesh):
                 utils.transform_mesh(mesh, i.matrix_world)
-                obj_areas.append(
-                    ObjArea(i, sum((polygon.area for polygon in mesh.polygons)))
-                )
-        largest_obj = max(obj_areas, key=lambda x: x.area)
+                for polygon in mesh.polygons:
+                    avg_normal += (polygon.normal * polygon.area)
+        avg_normal.normalize()
+        avg_normal *= -1.0
 
-        # GUIs are generally flat planes, which, by default in Blender, have their normal pointing
-        # in the localspace z axis. Therefore, what we would like to do is have a camera that points
-        # at the localspace -Z axis. Where up is the localspace +Y axis. We are already pointing at
-        # -Z with +Y being up from what I can tel. So, just use this matrix.
-        mat = largest_obj.obj.matrix_world.to_3x3()
+        # From the inverse area weighted normal we found above, get the rotation from the up axis
+        # (that is to say, the +Z axis) and create our rotation matrix.
+        axis = mathutils.Vector((avg_normal.x, avg_normal.y, 0.0))
+        axis.normalize()
+        angle = math.acos(avg_normal.z)
+        mat = mathutils.Matrix.Rotation(angle, 3, axis)
 
         # Now, we know the rotation of the camera. Great! What we need to do now is ensure that all
         # of the objects in question fit within the view of a 4:3 camera rotated as above. Blender
@@ -120,10 +122,10 @@ class GuiConverter:
             camera.data.lens_unit = "FOV"
 
             # Get all of the bounding points and make sure they all fit inside the camera's view frame.
-            bound_boxes = (
+            bound_boxes = [
                 obj.matrix_world * mathutils.Vector(bbox)
                 for obj in objects for bbox in obj.bound_box
-            )
+            ]
             co, _ = camera.camera_fit_coords(
                 scene,
                 # bound_box is a list of vectors of each corner of all the objects' bounding boxes;
@@ -132,11 +134,24 @@ class GuiConverter:
                 list(itertools.chain.from_iterable(bound_boxes))
             )
 
-            # Calculate the distance from the largest object to the camera. The scale we were given
-            # will be used to push the camera back in the Z+ direction of that object by scale times.
-            bvh = mathutils.bvhtree.BVHTree.FromObject(largest_obj.obj, scene)
-            loc, normal, index, distance = bvh.find_nearest(co)
-            co += normal * distance * (scale - 1.0)
+            # This generates a list of 6 faces per bounding box, which we then flatten out and pass
+            # into the BVHTree constructor. This is to calculate the distance from the camera to the
+            # "entire GUI" - which we can then use to apply the scale given to us.
+            if scale != 1.0:
+                bvh = mathutils.bvhtree.BVHTree.FromPolygons(
+                    bound_boxes,
+                    list(itertools.chain.from_iterable(
+                        [(i + 0, i + 1, i + 5, i + 4),
+                         (i + 1, i + 2, i + 5, i + 6),
+                         (i + 3, i + 2, i + 6, i + 7),
+                         (i + 0, i + 1, i + 2, i + 3),
+                         (i + 0, i + 3, i + 7, i + 4),
+                         (i + 4, i + 5, i + 6, i + 7),
+                        ] for i in range(0, len(bound_boxes), 8)
+                    ))
+                )
+                loc, normal, index, distance = bvh.find_nearest(co)
+                co += normal * distance * (scale - 1.0)
 
             # ...
             mat.resize_4x4()
