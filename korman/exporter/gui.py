@@ -80,7 +80,7 @@ class GuiConverter:
         scene: bpy.types.Scene,
         objects: Sequence[bpy.types.Object],
         fov: float,
-        scale: float = 1.0,
+        scale: float = 0.75
     ) -> mathutils.Matrix:
         if not objects:
             raise ExportError("No objects specified for GUI Camera generation.")

@@ -239,8 +239,7 @@ class PlasmaGameGuiDialogModifier(PlasmaModifierProperties, _GameGuiMixin):
             camera_matrix = exporter.gui.calc_camera_matrix(
                 bpy.context.scene,
                 visible_objects,
-                fov,
-                1.02 # FIXME
+                fov
             )
 
             # There isn't a real camera, so just pretend like the user didn't set the clipping info.

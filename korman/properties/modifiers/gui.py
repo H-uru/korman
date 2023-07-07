@@ -763,8 +763,7 @@ class PlasmaNotePopupModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz):
             camera_object.matrix_world = exporter.gui.calc_camera_matrix(
                 bpy.context.scene,
                 visible_objects,
-                camera_object.data.angle,
-                1.02 # FIXME
+                camera_object.data.angle
             )
             clipping = exporter.gui.calc_clipping(
                 camera_object.matrix_world,

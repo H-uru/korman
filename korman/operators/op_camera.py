@@ -32,10 +32,11 @@ class CameraOperator:
 class PlasmaGameGuiCameraOperator(CameraOperator, bpy.types.Operator):
     bl_idname = "camera.plasma_create_game_gui_camera"
     bl_label = "Create Game GUI Camera"
+    bl_description = "Create a camera looking at all of the objects in this GUI page with a custom scale factor"
 
     fov: float = FloatProperty(
         name="Field of View",
-        description="",
+        description="Camera Field of View angle",
         subtype="ANGLE",
         default=math.radians(90.0),
         min=0.0,
@@ -50,16 +51,21 @@ class PlasmaGameGuiCameraOperator(CameraOperator, bpy.types.Operator):
     )
     scale: float = FloatProperty(
         name="GUI Scale",
-        description="",
-        default=1.02,
-        min=0.001,
-        soft_max=2.0,
-        precision=2,
+        description="GUI Camera distance scale factor.",
+        default=75.0,
+        min=0.1,
+        soft_max=100.0,
+        precision=1,
+        subtype="PERCENTAGE",
         options=set()
     )
 
     mod_id: str = StringProperty(options={"HIDDEN"})
     cam_prop_name: str = StringProperty(options={"HIDDEN"})
+
+    def invoke(self, context, event):
+        context.window_manager.invoke_props_dialog(self)
+        return {"RUNNING_MODAL"}
 
     def execute(self, context):
         # If the modifier has been given to us, select all of the objects in the
@@ -80,7 +86,7 @@ class PlasmaGameGuiCameraOperator(CameraOperator, bpy.types.Operator):
                 context.scene,
                 visible_objects,
                 self.fov,
-                self.scale
+                self.scale / 100.0
             )
         except ExportError as e:
             self.report({"ERROR"}, str(e))
