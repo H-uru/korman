@@ -33,6 +33,13 @@ if TYPE_CHECKING:
     from ..prop_world import PlasmaAge, PlasmaPage
 
 class _GameGuiMixin:
+    @property
+    def gui_sounds(self) -> Iterable[Tuple[str, int]]:
+        """Overload to automatically export GUI sounds on the control. This should return an iterable
+           of tuple attribute name and sound index.
+        """
+        return []
+
     def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> Optional[pfGUIControlMod]:
         return None
 
@@ -82,6 +89,16 @@ class _GameGuiMixin:
         if num_controls > 1:
             raise ExportError(f"'{self.id_data.name}': Only 1 GUI Control modifier is allowed per object. We found {num_controls}.")
 
+        # Blow up on invalid sounds
+        soundemit = self.id_data.plasma_modifiers.soundemit
+        for attr_name, _ in self.gui_sounds:
+            sound_name = getattr(self, attr_name)
+            if not sound_name:
+                continue
+            sound = next((i for i in soundemit.sounds if i.name == sound_name), None)
+            if sound is None:
+                raise ExportError(f"'{self.id_data.name}': Invalid '{attr_name}' GUI Sound '{sound_name}'")
+
 
 class PlasmaGameGuiControlModifier(PlasmaModifierProperties, _GameGuiMixin):
     pl_id = "gui_control"
@@ -130,13 +147,37 @@ class PlasmaGameGuiControlModifier(PlasmaModifierProperties, _GameGuiMixin):
             handler.command = self.console_command
             ctrl.handler = handler
 
+    def convert_gui_sounds(self, exporter: Exporter, ctrl: pfGUIControlMod, ctrl_mod: _GameGuiMixin):
+        soundemit = ctrl_mod.id_data.plasma_modifiers.soundemit
+        if not ctrl_mod.gui_sounds or not soundemit.enabled:
+            return
+
+        # This is a lot like the plPhysicalSndGroup where we have a vector behaving as a lookup table.
+        # NOTE that zero is a special value here meaning no sound, so we need to offset the sounds
+        # that we get from the emitter modifier by +1.
+        sound_indices = {}
+        for attr_name, gui_sound_idx in ctrl_mod.gui_sounds:
+            sound_name = getattr(ctrl_mod, attr_name)
+            if not sound_name:
+                continue
+            sound_keys = soundemit.get_sound_keys(exporter, sound_name)
+            sound_key, soundemit_index = next(sound_keys, (None, -1))
+            if sound_key is not None:
+                sound_indices[gui_sound_idx] = soundemit_index + 1
+
+        # Compress the list to include only the highest entry we need.
+        if sound_indices:
+            ctrl.soundIndices = [sound_indices.get(i, 0) for i in range(max(sound_indices) + 1)]
+
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
         ctrl_mods = list(self.iterate_control_modifiers())
         if not ctrl_mods:
             exporter.report.msg(str(list(self.iterate_control_subclasses())))
             exporter.report.warn("This modifier has no effect because no GUI control modifiers are present!")
         for ctrl_mod in ctrl_mods:
-            self.convert_gui_control(exporter, ctrl_mod.get_control(exporter, bo, so), bo, so)
+            ctrl_obj = ctrl_mod.get_control(exporter, bo, so)
+            self.convert_gui_control(exporter, ctrl_obj, bo, so)
+            self.convert_gui_sounds(exporter, ctrl_obj, ctrl_mod)
 
     @property
     def has_gui_proc(self) -> bool:
@@ -175,6 +216,39 @@ class PlasmaGameGuiButtonModifier(PlasmaModifierProperties, _GameGuiMixin):
         options={"ENUM_FLAG"},
         update=_update_notify_type
     )
+
+    mouse_down_sound: str = StringProperty(
+        name="Mouse Down SFX",
+        description="Sound played when the mouse button is down",
+        options=set()
+    )
+
+    mouse_up_sound: str = StringProperty(
+        name="Mouse Up SFX",
+        description="Sound played when the mouse button is released",
+        options=set()
+    )
+
+    mouse_over_sound: str = StringProperty(
+        name="Mouse Over SFX",
+        description="Sound played when the mouse moves over the GUI button",
+        options=set()
+    )
+
+    mouse_off_sound: str = StringProperty(
+        name="Mouse Off SFX",
+        description="Sound played when the mouse moves off of the GUI button",
+        options=set()
+    )
+
+    @property
+    def gui_sounds(self):
+        return (
+            ("mouse_down_sound", pfGUIButtonMod.kMouseDown),
+            ("mouse_up_sound", pfGUIButtonMod.kMouseUp),
+            ("mouse_over_sound", pfGUIButtonMod.kMouseOver),
+            ("mouse_off_sound", pfGUIButtonMod.kMouseOff),
+        )
 
     def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> pfGUIButtonMod:
         return exporter.mgr.find_create_object(pfGUIButtonMod, bl=bo, so=so)

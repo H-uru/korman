@@ -14,7 +14,18 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 def gui_button(modifier, layout, context):
-    layout.prop(modifier, "notify_type")
+    row = layout.row()
+    row.label("Notify On:")
+    row.prop(modifier, "notify_type")
+
+    soundemit = modifier.id_data.plasma_modifiers.soundemit
+    col = layout.column()
+    col.label("Sound Effects:")
+    col.active = soundemit.enabled
+    col.prop_search(modifier, "mouse_down_sound", soundemit, "sounds", text="Mouse Down", icon="SPEAKER")
+    col.prop_search(modifier, "mouse_up_sound", soundemit, "sounds", text="Mouse Up", icon="SPEAKER")
+    col.prop_search(modifier, "mouse_over_sound", soundemit, "sounds", text="Mouse Over", icon="SPEAKER")
+    col.prop_search(modifier, "mouse_off_sound", soundemit, "sounds", text="Mouse Off", icon="SPEAKER")
 
 def gui_control(modifier, layout, context):
     split = layout.split()
