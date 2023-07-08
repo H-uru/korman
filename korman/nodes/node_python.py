@@ -76,7 +76,8 @@ _attrib_key_types = {
     "ptAttribDynamicMap": plFactory.ClassIndex("plDynamicTextMap"),
     "ptAttribGUIDialog": plFactory.ClassIndex("pfGUIDialogMod"),
     "ptAttribExcludeRegion": plFactory.ClassIndex("plExcludeRegionMod"),
-    "ptAttribAnimation": plFactory.ClassIndex("plAGMasterMod"),
+    "ptAttribAnimation": (plFactory.ClassIndex("plAGMasterMod"),
+                          plFactory.ClassIndex("plMsgForwarder")),
     "ptAttribBehavior": plFactory.ClassIndex("plMultistageBehMod"),
     "ptAttribMaterial": plFactory.ClassIndex("plLayer"),
     "ptAttribMaterialList": plFactory.ClassIndex("plLayer"),
@@ -763,10 +764,7 @@ class PlasmaAttribObjectNode(idprops.IDPropObjectMixin, PlasmaAttribNodeBase, bp
         if attrib in {"ptAttribSceneobject", "ptAttribSceneobjectList"}:
             return ref_so_key
         elif attrib == "ptAttribAnimation":
-            anim = bo.plasma_modifiers.animation
-            agmod = exporter.mgr.find_create_key(plAGModifier, so=ref_so, name=anim.key_name)
-            agmaster = exporter.mgr.find_create_key(plAGMasterMod, so=ref_so, name=anim.key_name)
-            return agmaster
+            return exporter.animation.get_animation_key(bo, ref_so)
         elif attrib == "ptAttribSwimCurrent":
             swimregion = bo.plasma_modifiers.swimregion
             return swimregion.get_key(exporter, ref_so)
