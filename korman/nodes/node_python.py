@@ -734,7 +734,8 @@ class PlasmaAttribObjectNode(idprops.IDPropObjectMixin, PlasmaAttribNodeBase, bp
     bl_label = "Object Attribute"
 
     pl_attrib = ("ptAttribSceneobject", "ptAttribSceneobjectList", "ptAttribAnimation",
-                 "ptAttribSwimCurrent", "ptAttribWaveSet", "ptAttribGrassShader")
+                 "ptAttribSwimCurrent", "ptAttribWaveSet", "ptAttribGrassShader",
+                 "ptAttribGUIDialog")
 
     target_object = PointerProperty(name="Object",
                                     description="Object containing the required data",
@@ -781,7 +782,13 @@ class PlasmaAttribObjectNode(idprops.IDPropObjectMixin, PlasmaAttribNodeBase, bp
                 return None
             return [exporter.mgr.find_create_key(plGrassShaderMod, so=ref_so, name=i.name)
                     for i in exporter.mesh.material.get_materials(bo)]
-
+        elif attrib == "ptAttribGUIDialog":
+            gui_dialog = bo.plasma_modifiers.gui_dialog
+            if not gui_dialog.enabled:
+                self.raise_error(f"GUI Dialog modifier not enabled on '{self.object_name}'")
+            dialog_mod = exporter.mgr.find_create_object(pfGUIDialogMod, so=ref_so, bl=bo)
+            dialog_mod.procReceiver = attrib.node.get_key(exporter, so)
+            return dialog_mod.key
 
     @classmethod
     def _idprop_mapping(cls):
