@@ -191,6 +191,122 @@ class PlasmaGameGuiControlModifier(PlasmaModifierProperties, _GameGuiMixin):
         return False
 
 
+class GameGuiAnimation(bpy.types.PropertyGroup):
+    def _poll_target_object(self, value):
+        # Only allow targetting things that are in our GUI page.
+        if value.plasma_object.page != self.id_data.plasma_object.page:
+            return False
+        if self.anim_type == "OBJECT":
+            return idprops.poll_animated_objects(self, value)
+        else:
+            return idprops.poll_drawable_objects(self, value)
+
+    def _poll_texture(self, value):
+        # must be a legal option... but is it a member of this material... or, if no material,
+        # any of the materials attached to the object?
+        if self.target_material is not None:
+            return value.name in self.target_material.texture_slots
+        else:
+            target_object = self.target_object if self.target_object is not None else self.id_data
+            for i in (slot.material for slot in target_object.material_slots if slot and slot.material):
+                if value in (slot.texture for slot in i.texture_slots if slot and slot.texture):
+                    return True
+            return False
+
+    def _poll_material(self, value):
+        # Don't filter materials by texture - this would (potentially) result in surprising UX
+        # in that you would have to clear the texture selection before being able to select
+        # certain materials.
+        target_object = self.target_object if self.target_object is not None else self.id_data
+        object_materials = (slot.material for slot in target_object.material_slots if slot and slot.material)
+        return value in object_materials
+
+    anim_type: str = EnumProperty(
+        name="Type",
+        description="Animation type to affect",
+        items=[
+            ("OBJECT", "Object", "Object Animation"),
+            ("TEXTURE", "Texture", "Texture Animation"),
+        ],
+        default="OBJECT",
+        options=set()
+    )
+    target_object: bpy.types.Object = PointerProperty(
+        name="Object",
+        description="Target object",
+        poll=_poll_target_object,
+        type=bpy.types.Object
+    )
+    target_material: bpy.types.Material = PointerProperty(
+        name="Material",
+        description="Target material",
+        type=bpy.types.Material,
+        poll=_poll_material
+    )
+    target_texture: bpy.types.Texture = PointerProperty(
+        name="Texture",
+        description="Target texture",
+        type=bpy.types.Texture,
+        poll=_poll_texture
+    )
+
+
+class GameGuiAnimationGroup(bpy.types.PropertyGroup):
+    def _update_animation_name(self, context) -> None:
+        if not self.animation_name:
+            self.animation_name = "(Entire Animation)"
+
+    animations = CollectionProperty(
+        name="Animations",
+        description="",
+        type=GameGuiAnimation,
+        options=set()
+    )
+
+    animation_name: str = StringProperty(
+        name="Animation Name",
+        description="Name of the animation to play",
+        default="(Entire Animation)",
+        update=_update_animation_name,
+        options=set()
+    )
+
+    active_anim_index: int = IntProperty(options={"HIDDEN"})
+    show_expanded: bool = BoolProperty(options={"HIDDEN"})
+
+    def export(
+            self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject,
+            ctrl_obj: pfGUIControlMod, add_func: Callable[[plKey], None],
+            anim_name_attr: str
+    ):
+        keys = set()
+        for anim in self.animations:
+            target_object = anim.target_object if anim.target_object is not None else bo
+            if anim.anim_type == "OBJECT":
+                keys.add(exporter.animation.get_animation_key(target_object))
+            elif anim.anim_type == "TEXTURE":
+                # Layer animations don't respect the name field, so we need to grab exactly the
+                # layer animation key that is requested. Cyan's Max plugin does not allow specifying
+                # layer animations here as best I can tell, but I don't see why we shouldn't.
+                keys.update(
+                    exporter.mesh.material.get_texture_animation_key(
+                        target_object,
+                        anim.target_material,
+                        anim.target_texture,
+                        self.animation_name
+                    )
+                )
+            else:
+                raise RuntimeError()
+
+        # This is to make sure that we only waste space in the PRP file with the animation
+        # name if we actually have some doggone animations.
+        if keys:
+            setattr(ctrl_obj, anim_name_attr, self.animation_name)
+            for i in keys:
+                add_func(i)
+
+
 class PlasmaGameGuiButtonModifier(PlasmaModifierProperties, _GameGuiMixin):
     pl_id = "gui_button"
     pl_depends = {"gui_control"}
@@ -216,6 +332,10 @@ class PlasmaGameGuiButtonModifier(PlasmaModifierProperties, _GameGuiMixin):
         options={"ENUM_FLAG"},
         update=_update_notify_type
     )
+
+    mouse_over_anims: GameGuiAnimationGroup = PointerProperty(type=GameGuiAnimationGroup)
+    mouse_click_anims: GameGuiAnimationGroup = PointerProperty(type=GameGuiAnimationGroup)
+    show_expanded_sounds: bool = BoolProperty(options={"HIDDEN"})
 
     mouse_down_sound: str = StringProperty(
         name="Mouse Down SFX",
@@ -265,6 +385,9 @@ class PlasmaGameGuiButtonModifier(PlasmaModifierProperties, _GameGuiMixin):
             ctrl.notifyType = pfGUIButtonMod.kNotifyOnUpAndDown
         else:
             raise ValueError(self.notify_type)
+
+        self.mouse_over_anims.export(exporter, bo, so, ctrl, ctrl.addMouseOverKey, "mouseOverAnimName")
+        self.mouse_click_anims.export(exporter, bo, so, ctrl, ctrl.addAnimationKey, "animName")
 
 
 class PlasmaGameGuiDialogModifier(PlasmaModifierProperties, _GameGuiMixin):
