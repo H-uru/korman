@@ -701,27 +701,30 @@ class MaterialConverter:
             layer.texture = pl_env.key
 
     def export_cubic_env(self, bo, layer, texture):
-        width, height = texture.image.size
+        if texture.image == None:
+            raise ExportError("CubeMap '{}' has no cube image!".format(texture.name))
+        else:
+            width, height = texture.image.size
 
-        # Sanity check: the image here should be 3x2 faces, so we should not have any
-        #               dam remainder...
-        if width % 3 != 0:
-            raise ExportError("CubeMap '{}' width must be a multiple of 3".format(texture.image.name))
-        if height % 2 != 0:
-            raise ExportError("CubeMap '{}' height must be a multiple of 2".format(texture.image.name))
+            # Sanity check: the image here should be 3x2 faces, so we should not have any
+            #               dam remainder...
+            if width % 3 != 0:
+                raise ExportError("CubeMap '{}' width must be a multiple of 3".format(texture.image.name))
+            if height % 2 != 0:
+                raise ExportError("CubeMap '{}' height must be a multiple of 2".format(texture.image.name))
 
-        # According to PlasmaMAX, we don't give a rip about UVs...
-        layer.UVWSrc = plLayerInterface.kUVWReflect
-        layer.state.miscFlags |= hsGMatState.kMiscUseReflectionXform
+            # According to PlasmaMAX, we don't give a rip about UVs...
+            layer.UVWSrc = plLayerInterface.kUVWReflect
+            layer.state.miscFlags |= hsGMatState.kMiscUseReflectionXform
 
-        # Well, this is kind of sad...
-        # Back before the texture cache existed, all the image work was offloaded
-        # to a big "finalize" save step to prevent races. The texture cache would
-        # prevent that as well, so we could theoretically slice-and-dice the single
-        # image here... but... meh. Offloading taim.
-        self.export_prepared_image(texture=texture, owner=layer,
-                                   alpha_type=TextureAlpha.opaque, mipmap=True,
-                                   allowed_formats={"DDS"}, is_cube_map=True, tag="cubemap")
+            # Well, this is kind of sad...
+            # Back before the texture cache existed, all the image work was offloaded
+            # to a big "finalize" save step to prevent races. The texture cache would
+            # prevent that as well, so we could theoretically slice-and-dice the single
+            # image here... but... meh. Offloading taim.
+            self.export_prepared_image(texture=texture, owner=layer, indent=3,
+                                       alpha_type=TextureAlpha.opaque, mipmap=True,
+                                       allowed_formats={"DDS"}, is_cube_map=True, tag="cubemap")
 
 
     def export_dynamic_env(self, bo, layer, texture, pl_class):
