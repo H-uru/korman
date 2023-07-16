@@ -721,7 +721,7 @@ class MaterialConverter:
         # to a big "finalize" save step to prevent races. The texture cache would
         # prevent that as well, so we could theoretically slice-and-dice the single
         # image here... but... meh. Offloading taim.
-        self.export_prepared_image(texture=texture, owner=layer, indent=3,
+        self.export_prepared_image(texture=texture, owner=layer
                                    alpha_type=TextureAlpha.opaque, mipmap=True,
                                    allowed_formats={"DDS"}, is_cube_map=True, tag="cubemap")
 
