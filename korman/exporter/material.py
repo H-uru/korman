@@ -701,6 +701,8 @@ class MaterialConverter:
             layer.texture = pl_env.key
 
     def export_cubic_env(self, bo, layer, texture):
+        if texture.image is None:
+            raise ExportError(f"CubeMap '{texture.name}' has no cube image!")
         width, height = texture.image.size
 
         # Sanity check: the image here should be 3x2 faces, so we should not have any
