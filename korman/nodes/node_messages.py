@@ -13,15 +13,23 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import bpy
 from bpy.props import *
-from collections import OrderedDict
 from PyHSPlasma import *
 
+from collections import OrderedDict
+from typing import *
+
 from .node_core import *
+from ..properties.modifiers.physics import subworld_types
 from ..properties.modifiers.region import footstep_surfaces, footstep_surface_ids
 from ..exporter import ExportError
 from .. import idprops
+
+if TYPE_CHECKING:
+    from ..exporter import Exporter
 
 class PlasmaMessageSocketBase(PlasmaNodeSocketBase):
     bl_color = (0.004, 0.282, 0.349, 1.0)
@@ -923,6 +931,75 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
         if self.emitter_object is not None:
             return self.emitter_object.plasma_modifiers.random_sound.enabled
         return False
+
+
+class PlasmaSubworldMsgNode(PlasmaMessageNode, bpy.types.Node):
+    bl_category = "MSG"
+    bl_idname = "PlasmaSubworldMsgNode"
+    bl_label = "Change Subworld"
+    bl_width_default = 200
+
+    sub_type_value = EnumProperty(
+        items=subworld_types,
+        default="subworld",
+        options={"HIDDEN"}
+    )
+
+    def _get_sub_type(self) -> int:
+        if self.subworld is not None:
+            self.sub_type_value = self.subworld.plasma_modifiers.subworld_def.sub_type
+        if not self.sub_type_value:
+            self.sub_type_value = "subworld"
+        return next(
+            i for i, sub_type in enumerate(subworld_types)
+            if sub_type[0] == self.sub_type_value
+        )
+    def _set_sub_type(self, value: int):
+        value_str = subworld_types[value][0]
+        if self.subworld is not None:
+            self.subworld.plasma_modifiers.subworld_def.sub_type = value_str
+        self.sub_type_value = value_str
+
+    sub_type: str = EnumProperty(
+        name="Subworld Type",
+        description="Specifies the physics strategy to use for this subworld",
+        items=subworld_types,
+        get=_get_sub_type,
+        set=_set_sub_type,
+        options=set()
+    )
+
+    subworld: bpy.types.Object = PointerProperty(
+        name="Subworld",
+        description="Subworld to move the player to (leave empty for the main world)",
+        poll=idprops.poll_subworld_objects,
+        type=bpy.types.Object
+    )
+
+    def draw_buttons(self, context, layout):
+        need_world_type = self.subworld is None and self.sub_type == "auto"
+        layout.alert = need_world_type
+        layout.prop(self, "sub_type", text="Type")
+        if need_world_type:
+            layout.label("When leaving a subworld, the subworld type MUST be specified!", icon="ERROR")
+            layout.alert = False
+
+        layout.prop(self, "subworld")
+
+    def convert_message(self, exporter: Exporter, so: plSceneObject):
+        if self.subworld is None and self.sub_type == "auto":
+            self.raise_error("When leaving a subworld, the subworld type MUST be specified!")
+
+        if exporter.physics.is_dedicated_subworld(self.subworld) or self.sub_type == "subworld":
+            msg = plSubWorldMsg()
+            if self.subworld:
+                msg.worldKey = exporter.mgr.find_key(plSceneObject, bl=self.subworld)
+            return msg
+        else:
+            msg = plRideAnimatedPhysMsg()
+            msg.BCastFlags |= plMessage.kPropagateToModifiers
+            msg.entering = self.subworld is not None
+            return msg
 
 
 class PlasmaTimerCallbackMsgNode(PlasmaMessageWithCallbacksNode, bpy.types.Node):

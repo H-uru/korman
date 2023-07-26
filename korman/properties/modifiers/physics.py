@@ -49,6 +49,12 @@ surface_types = (
     ("kUser3", "User 3", ""),
 )
 
+subworld_types = (
+    ("auto", "Auto", "Korman will decide which physics strategy to use"),
+    ("dynamicav", "Dynamic Avatar", "Allows the avatar to affected by dynamic physicals"),
+    ("subworld", "Separate World", "Causes all objects to be placed in a separate physics simulation"),
+)
+
 def bounds_type_index(key):
     return list(zip(*bounds_types))[0].index(key)
 
@@ -136,9 +142,7 @@ class PlasmaSubworld(PlasmaModifierProperties):
 
     sub_type = EnumProperty(name="Subworld Type",
                             description="Specifies the physics strategy to use for this subworld",
-                            items=[("auto", "Auto", "Korman will decide which physics strategy to use"),
-                                   ("dynamicav", "Dynamic Avatar", "Allows the avatar to affected by dynamic physicals"),
-                                   ("subworld", "Separate World", "Causes all objects to be placed in a separate physics simulation")],
+                            items=subworld_types,
                             default="auto",
                             options=set())
     gravity = FloatVectorProperty(name="Gravity",
