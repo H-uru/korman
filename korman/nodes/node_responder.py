@@ -94,7 +94,7 @@ class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
         if self.is_named_responder:
             return self.name
         else:
-            super().get_key_name(single, suffix, bl, so)
+            return super().get_key_name(single, suffix, bl, so)
 
     def export(self, exporter, bo, so):
         # Ensure there is not already a Responder that matches this name in the PRP
