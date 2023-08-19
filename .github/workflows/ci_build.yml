@@ -9,21 +9,23 @@ jobs:
           - {
               os: windows-2022,
               generator: Visual Studio 17 2022,
-              arch: Win32,
+              cmake-arch: Win32,
+              python-arch: x86,
               str: windows-x86,
               blender-url: "https://github.com/Hoikas/blender2.7/releases/download/blender2.79_20221113/blender-2.79.0-git20221114.f970f178c093-windows32.zip",
             }
           - {
               os: windows-2022,
               generator: Visual Studio 17 2022,
-              arch: x64,
+              cmake-arch: x64,
+              python-arch: x64,
               str: windows-x64,
               blender-url: "https://github.com/Hoikas/blender2.7/releases/download/blender2.79_20221113/blender-2.79.0-git20221114.f970f178c093-windows64.zip",
             }
 
     env:
       CMAKE_GENERATOR: ${{ matrix.cfg.generator }}
-      CMAKE_GENERATOR_PLATFORM: ${{ matrix.cfg.arch }}
+      CMAKE_GENERATOR_PLATFORM: ${{ matrix.cfg.cmake-arch }}
 
     runs-on: ${{ matrix.cfg.os }}
     steps:
@@ -31,6 +33,12 @@ jobs:
         uses: actions/checkout@v3
         with:
           path: korman
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.7"
+          architecture: ${{ matrix.cfg.python-arch }}
 
       - name: Download Blender
         run: |
