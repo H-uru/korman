@@ -159,9 +159,14 @@ class ExportManager:
             pfm.filename = replace_python2_identifier(age)
 
         # Textures.prp
-        # FIXME: unconditional creation will overwrite any existing textures PRP. This should
-        # be addressed by a successful implementation of #145.
-        self.create_page(age, "Textures", -1, builtin=True)
+        # TODO: #145 load any already existing Textures PRP and resave it.
+        if bpy.context.scene.world.plasma_age.use_texture_page:
+            self.create_page(age, "Textures", -1, builtin=True)
+        elif self.getVer() <= pvPots:
+            self._exporter().report.warn(
+                "No textures page was created - be sure this Age has one "
+                "or the game may crash!"
+            )
 
     def create_page(self, age, name, id, *, builtin=False, external=False):
         location = plLocation(self.mgr.getVer())
@@ -328,10 +333,9 @@ class ExportManager:
     def get_textures_page(self, key: plKey) -> plLocation:
         """Gets the appropriate page for a texture for a given plLayer"""
         # The point of this is to account for per-page textures...
-        if bpy.context.scene.world.plasma_age.use_texture_page:
-            return self._pages["Textures"]
-        else:
+        if not bpy.context.scene.world.plasma_age.use_texture_page:
             return key.location
+        return self._pages.get("Textures", key.location)
 
     def _pack_agesdl_hook(self, age):
         output = self._exporter().output
