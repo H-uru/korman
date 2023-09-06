@@ -151,12 +151,13 @@ class ExportManager:
         #          present and valid. They do not have to have any contents. See AvatarCustomization.
         # BuiltIn.prp
         want_pysdl = bpy.context.scene.world.plasma_age.age_sdl
-        builtin = self.create_page(age, "BuiltIn", -2, builtin=True)
-        if want_pysdl:
-            self._pack_agesdl_hook(age)
-            sdl = self.add_object(plSceneObject, name="AgeSDLHook", loc=builtin)
-            pfm = self.add_object(plPythonFileMod, name="VeryVerySpecialPythonFileMod", so=sdl)
-            pfm.filename = replace_python2_identifier(age)
+        if self.getVer() <= pvPots or want_pysdl:
+            builtin = self.create_page(age, "BuiltIn", -2, builtin=True)
+            if want_pysdl:
+                self._pack_agesdl_hook(age)
+                sdl = self.add_object(plSceneObject, name="AgeSDLHook", loc=builtin)
+                pfm = self.add_object(plPythonFileMod, name="VeryVerySpecialPythonFileMod", so=sdl)
+                pfm.filename = replace_python2_identifier(age)
 
         # Textures.prp
         # TODO: #145 load any already existing Textures PRP and resave it.
