@@ -94,7 +94,7 @@ class ExportManager:
             raise ValueError("bl, so, or loc must be specified.")
 
         # pl can be a class or an instance.
-        # This is one of those "sanity" things to ensure we don't suddenly startpassing around the
+        # This is one of those "sanity" things to ensure we don't suddenly start passing around the
         # key of an uninitialized object.
         if isinstance(pl, type(object)):
             assert name or bl or so
