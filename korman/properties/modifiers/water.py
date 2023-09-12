@@ -29,6 +29,7 @@ class PlasmaSwimRegion(idprops.IDPropObjectMixin, PlasmaModifierProperties, bpy.
     bl_label = "Swimming Surface"
     bl_description = "Surface that the avatar can swim on"
     bl_icon = "MOD_WAVE"
+    bl_object_types = {"MESH"}
 
     _CURRENTS = {
         "NONE": plSwimRegionInterface,
@@ -179,6 +180,7 @@ class PlasmaWaterModifier(idprops.IDPropMixin, PlasmaModifierProperties, bpy.typ
     bl_category = "Water"
     bl_label = "Basic Water"
     bl_description = "Basic water properties"
+    bl_object_types = {"MESH"}
 
     wind_object = PointerProperty(name="Wind Object",
                                   description="Object whose Y axis represents the wind direction",
@@ -327,6 +329,7 @@ class PlasmaWaterShoreModifier(PlasmaModifierProperties):
     bl_category = "Water"
     bl_label = "Water Shore"
     bl_description = ""
+    bl_object_types = {"MESH"}
 
     # The basic modifier may want to export a default copy of us
     _shore_tint_default = (0.2, 0.4, 0.4)
@@ -395,6 +398,7 @@ class PlasmaWaterShoreModifier(PlasmaModifierProperties):
 
 class PlasmaWaveState:
     pl_depends = {"water_basic"}
+    bl_object_types = {"MESH"}
 
     def convert_wavestate(self, state):
         state.minLength = self.min_length

@@ -687,7 +687,7 @@ class PlasmaNotePopupModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     pl_id = "note_popup"
 
     bl_category = "GUI"
-    bl_label = "Ex: Note Popup"
+    bl_label = "Note Popup (ex)"
     bl_description = "XXX"
     bl_icon = "MATPLANE"
 

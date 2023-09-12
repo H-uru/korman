@@ -515,6 +515,7 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
 
 class PlasmaSoundEmitter(PlasmaModifierProperties):
     pl_id = "soundemit"
+    pl_page_types = {"gui", "room"}
 
     bl_category = "Logic"
     bl_label = "Sound Emitter"
