@@ -32,6 +32,7 @@ from .camera import CameraConverter
 from .decal import DecalConverter
 from . import explosions
 from .etlight import LightBaker
+from .gui import GuiConverter
 from .image import ImageCache
 from .locman import LocalizationConverter
 from . import logger
@@ -45,6 +46,7 @@ from . import utils
 class Exporter:
 
     if TYPE_CHECKING:
+        _objects: List[bpy.types.Object] = ...
         actors: Set[str] = ...
         want_node_trees: defaultdict[Set[str]] = ...
         report: logger._ExportLogger = ...
@@ -60,6 +62,7 @@ class Exporter:
         locman: LocalizationConverter = ...
         decal: DecalConverter = ...
         oven: LightBaker = ...
+        gui: GuiConverter
 
     def __init__(self, op):
         self._op = op # Blender export operator
@@ -83,6 +86,7 @@ class Exporter:
             self.locman = LocalizationConverter(self)
             self.decal = DecalConverter(self)
             self.oven = LightBaker(mesh=self.mesh, report=self.report)
+            self.gui = GuiConverter(self)
 
             # Step 0.8: Init the progress mgr
             self.mesh.add_progress_presteps(self.report)
@@ -370,6 +374,12 @@ class Exporter:
                     for bo, so in references:
                         tree.export(self, bo, so)
                 inc_progress()
+
+    def get_objects(self, page: Optional[str]) -> Iterator[bpy.types.Object]:
+        yield from filter(
+            lambda x: x.plasma_object.page == page,
+            self._objects
+        )
 
     def _harvest_actors(self):
         self.report.progress_advance()

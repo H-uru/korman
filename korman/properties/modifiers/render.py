@@ -39,10 +39,12 @@ class PlasmaBlendOntoObject(bpy.types.PropertyGroup):
 
 class PlasmaBlendMod(PlasmaModifierProperties):
     pl_id = "blend"
+    pl_page_types = {"gui", "room"}
 
     bl_category = "Render"
     bl_label = "Blending"
     bl_description = "Advanced Blending Options"
+    bl_object_types = {"MESH", "FONT"}
 
     render_level = EnumProperty(name="Render Pass",
                                 description="Suggested render pass for this object.",
@@ -150,6 +152,7 @@ class PlasmaDecalPrintMod(PlasmaDecalMod, PlasmaModifierProperties):
     bl_category = "Render"
     bl_label = "Print Decal"
     bl_description = "Prints a decal onto an object"
+    bl_object_types = {"MESH", "FONT"}
 
     decal_type = EnumProperty(name="Decal Type",
                               description="Type of decal to print onto another object",
@@ -201,6 +204,7 @@ class PlasmaDecalReceiveMod(PlasmaDecalMod, PlasmaModifierProperties):
     bl_category = "Render"
     bl_label = "Receive Decal"
     bl_description = "Allows this object to receive dynamic decals"
+    bl_object_types = {"MESH", "FONT"}
 
     managers = CollectionProperty(type=PlasmaDecalManagerRef)
     active_manager_index = IntProperty(options={"HIDDEN"})
@@ -220,6 +224,7 @@ class PlasmaFadeMod(PlasmaModifierProperties):
     bl_category = "Render"
     bl_label = "Opacity Fader"
     bl_description = "Fades an object based on distance or line-of-sight"
+    bl_object_types = {"MESH", "FONT"}
 
     fader_type = EnumProperty(name="Fader Type",
                               description="Type of opacity fade",
@@ -281,6 +286,7 @@ class PlasmaFollowMod(idprops.IDPropObjectMixin, PlasmaModifierProperties):
     bl_category = "Render"
     bl_label = "Follow"
     bl_description = "Follow the movement of the camera, player, or another object"
+    bl_object_types = {"MESH", "FONT"}
 
     follow_mode = EnumProperty(name="Mode",
                                description="Leader's movement to follow",
@@ -357,6 +363,7 @@ class PlasmaGrassShaderMod(PlasmaModifierProperties):
     bl_category = "Render"
     bl_label = "Grass Shader"
     bl_description = "Applies waving grass effect at run-time"
+    bl_object_types = {"MESH", "FONT"}
 
     wave1 = PointerProperty(type=PlasmaGrassWave)
     wave2 = PointerProperty(type=PlasmaGrassWave)
@@ -404,6 +411,7 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
     bl_category = "Render"
     bl_label = "Bake Lighting"
     bl_description = "Auto-Bake Static Lighting"
+    bl_object_types = {"MESH", "FONT"}
 
     deprecated_properties = {"render_layers"}
 
@@ -551,10 +559,12 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
 
 class PlasmaLightingMod(PlasmaModifierProperties):
     pl_id = "lighting"
+    pl_page_types = {"gui", "room"}
 
     bl_category = "Render"
     bl_label = "Lighting Info"
     bl_description = "Fine tune Plasma lighting settings"
+    bl_object_types = {"MESH", "FONT"}
 
     force_rt_lights = BoolProperty(name="Force RT Lighting",
                                    description="Unleashes satan by forcing the engine to dynamically light this object",
@@ -640,11 +650,13 @@ _LOCALIZED_TEXT_PFM = (
 
 class PlasmaLocalizedTextModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz, TranslationMixin):
     pl_id = "dynatext"
+    pl_page_types = {"gui", "room"}
 
     bl_category = "Render"
     bl_label = "Localized Text"
     bl_description = ""
     bl_icon = "TEXT"
+    bl_object_types = {"MESH", "FONT"}
 
     translations = CollectionProperty(name="Translations",
                                       type=PlasmaJournalTranslation,
@@ -769,6 +781,7 @@ class PlasmaShadowCasterMod(PlasmaModifierProperties):
     bl_category = "Render"
     bl_label = "Cast RT Shadow"
     bl_description = "Cast runtime shadows"
+    bl_object_types = {"MESH", "FONT"}
 
     blur = IntProperty(name="Blur",
                        description="Blur factor for the shadow map",
@@ -809,6 +822,7 @@ class PlasmaViewFaceMod(idprops.IDPropObjectMixin, PlasmaModifierProperties):
     bl_category = "Render"
     bl_label = "Swivel"
     bl_description = "Swivel object to face the camera, player, or another object"
+    bl_object_types = {"MESH", "FONT"}
 
     preset_options = EnumProperty(name="Type",
                                   description="Type of Facing",
@@ -952,6 +966,7 @@ class PlasmaVisibilitySet(PlasmaModifierProperties):
     bl_category = "Render"
     bl_label = "Visibility Set"
     bl_description = "Defines areas where this object is visible"
+    bl_object_types = {"MESH", "LAMP"}
 
     regions = CollectionProperty(name="Visibility Regions",
                                  type=VisRegion)

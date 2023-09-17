@@ -67,6 +67,7 @@ class PlasmaCameraRegion(PlasmaModifierProperties):
     bl_label = "Camera Region"
     bl_description = "Camera Region"
     bl_icon = "CAMERA_DATA"
+    bl_object_types = {"MESH"}
 
     camera_type = EnumProperty(name="Camera Type",
                                description="What kind of camera should be used?",
@@ -133,6 +134,7 @@ class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     bl_category = "Region"
     bl_label = "Footstep"
     bl_description = "Footstep Region"
+    bl_object_types = {"MESH"}
 
     surface = EnumProperty(name="Surface",
                            description="What kind of surface are we walking on?",
@@ -177,6 +179,7 @@ class PlasmaPanicLinkRegion(PlasmaModifierProperties):
     bl_category = "Region"
     bl_label = "Panic Link"
     bl_description = "Panic Link Region"
+    bl_object_types = {"MESH"}
 
     play_anim = BoolProperty(name="Play Animation",
                              description="Play the link-out animation when panic linking",
@@ -313,6 +316,7 @@ class PlasmaSubworldRegion(PlasmaModifierProperties):
     bl_category = "Region"
     bl_label = "Subworld Region"
     bl_description = "Subworld transition region"
+    bl_object_types = {"MESH"}
 
     subworld = PointerProperty(name="Subworld",
                                description="Subworld to transition into",
@@ -327,7 +331,7 @@ class PlasmaSubworldRegion(PlasmaModifierProperties):
 
     def export(self, exporter, bo, so):
         # Due to the fact that our subworld modifier can produce both RidingAnimatedPhysical
-        # and [HK|PX]Subworlds depending on the situation, this could get hairy, fast. 
+        # and [HK|PX]Subworlds depending on the situation, this could get hairy, fast.
         # Start by surveying the lay of the land.
         from_sub, to_sub = bo.plasma_object.subworld, self.subworld
         from_isded = exporter.physics.is_dedicated_subworld(from_sub)

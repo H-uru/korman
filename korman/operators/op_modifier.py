@@ -23,17 +23,7 @@ import time
 from typing import *
 
 from ..properties import modifiers
-
-def _fetch_modifiers():
-    items = []
-
-    mapping = modifiers.modifier_mapping()
-    for i in sorted(mapping.keys()):
-        items.append(("", i, ""))
-        items.extend(mapping[i])
-        #yield ("", i, "")
-        #yield mapping[i]
-    return items
+from ..helpers import find_modifier
 
 class ModifierOperator:
     def _get_modifier(self, context) -> modifiers.PlasmaModifierProperties:
@@ -55,10 +45,41 @@ class ModifierAddOperator(ModifierOperator, bpy.types.Operator):
     bl_label = "Add Modifier"
     bl_description = "Adds a Plasma Modifier"
 
+    def _fetch_modifiers(self, context):
+        items = []
+
+        def filter_mod_name(mod):
+            # The modifier might include the cateogry name in its name, so we'll strip that.
+            if mod.bl_label != mod.bl_category:
+                if mod.bl_label.startswith(mod.bl_category):
+                    return mod.bl_label[len(mod.bl_category)+1:]
+                if mod.bl_label.endswith(mod.bl_category):
+                    return mod.bl_label[:-len(mod.bl_category)-1]
+            return mod.bl_label
+
+        sorted_modifiers = sorted(
+            modifiers.PlasmaModifierProperties.__subclasses__(),
+            key=lambda x: f"{x.bl_category} - {filter_mod_name(x)}"
+        )
+        last_category = None
+        for i, mod in enumerate(sorted_modifiers):
+            # Some modifiers aren't permissible in certain situations. Hide them.
+            if not find_modifier(context.object, mod.pl_id).allowed:
+                continue
+            if mod.bl_category != last_category:
+                items.append(("", mod.bl_category, ""))
+                last_category = mod.bl_category
+            items.append(
+                (mod.pl_id, filter_mod_name(mod), mod.bl_description,
+                getattr(mod, "bl_icon", ""), i)
+            )
+
+        return items
+
     types = EnumProperty(
         name="Modifier Type",
         description="The type of modifier we add to the list",
-        items=_fetch_modifiers()
+        items=_fetch_modifiers
     )
 
     def execute(self, context):

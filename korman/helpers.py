@@ -137,3 +137,16 @@ def find_modifier(bo, modid):
         # if they give us the wrong modid, it is a bug and an AttributeError
         return getattr(bo.plasma_modifiers, modid)
     return None
+
+def get_page_type(page: str) -> str:
+    all_pages = bpy.context.scene.world.plasma_age.pages
+    if page:
+        page_type = next((i.page_type for i in all_pages if i.name == page), None)
+        if page_type is None:
+            raise LookupError(page)
+        return page_type
+    else:
+        # A falsey page name is likely a request for the default page, so look for Page ID 0.
+        # If it doesn't exist, that's an implicit default page (a "room" type).
+        page_type = next((i.page_type for i in all_pages if i.seq_suffix == 0), None)
+        return page_type if page_type is not None else "room"

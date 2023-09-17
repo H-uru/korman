@@ -18,6 +18,7 @@ import bpy
 from .base import PlasmaModifierProperties
 from .anim import *
 from .avatar import *
+from .game_gui import *
 from .gui import *
 from .logic import *
 from .physics import *
@@ -74,24 +75,3 @@ class PlasmaModifiers(bpy.types.PropertyGroup):
 class PlasmaModifierSpec(bpy.types.PropertyGroup):
     pass
 
-
-def modifier_mapping():
-    """This returns a dict mapping Plasma Modifier categories to names"""
-
-    d = {}
-    sorted_modifiers = sorted(PlasmaModifierProperties.__subclasses__(), key=lambda x: x.bl_label)
-    for i, mod in enumerate(sorted_modifiers):
-        pl_id, category, label, description = mod.pl_id, mod.bl_category, mod.bl_label, mod.bl_description
-        icon = getattr(mod, "bl_icon", "")
-
-        # The modifier might include the cateogry name in its name, so we'll strip that.
-        if label != category:
-            if label.startswith(category):
-                label = label[len(category)+1:]
-            if label.endswith(category):
-                label = label[:-len(category)-1]
-
-        tup = (pl_id, label, description, icon, i)
-        d_cat = d.setdefault(category, [])
-        d_cat.append(tup)
-    return d

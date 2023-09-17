@@ -20,7 +20,20 @@ import abc
 import itertools
 from typing import Any, Dict, FrozenSet, Optional
 
+from ... import helpers
+
 class PlasmaModifierProperties(bpy.types.PropertyGroup):
+    @property
+    def allowed(self) -> bool:
+        """Returns if this modifier is allowed to be enabled on the owning Object"""
+        allowed_page_types = getattr(self, "pl_page_types", {"room"})
+        allowed_object_types = getattr(self, "bl_object_types", set())
+        page_name = self.id_data.plasma_object.page
+        if not allowed_object_types or self.id_data.type in allowed_object_types:
+            if helpers.get_page_type(page_name) in allowed_page_types:
+                return True
+        return False
+
     @property
     def copy_material(self):
         """Materials MUST be single-user"""
@@ -53,7 +66,7 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
 
     @property
     def enabled(self) -> bool:
-        return self.display_order >= 0
+        return self.display_order >= 0 and self.allowed
 
     @enabled.setter
     def enabled(self, value: bool) -> None:

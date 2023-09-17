@@ -82,6 +82,7 @@ class PlasmaSpawnPoint(PlasmaModifierProperties):
     bl_category = "Logic"
     bl_label = "Spawn Point"
     bl_description = "Point at which avatars link into the Age"
+    bl_object_types = {"EMPTY"}
 
     def export(self, exporter, bo, so):
         # Not much to this modifier... It's basically a flag that tells the engine, "hey, this is a

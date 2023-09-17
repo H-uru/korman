@@ -24,6 +24,8 @@ from typing import *
 
 from PyHSPlasma import *
 
+from ..import helpers
+
 def affine_parts(xform):
     # Decompose the matrix into the 90s-era 3ds max affine parts sillyness
     # All that's missing now is something like "(c) 1998 HeadSpin" oh wait...
@@ -106,6 +108,20 @@ class BMeshObject:
         return self._obj
 
 
+def create_empty_object(name: str, owner_object: Optional[bpy.types.Object] = None) -> bpy.types.Object:
+    empty_object = bpy.data.objects.new(name, None)
+    if owner_object is not None:
+        empty_object.plasma_object.enabled = owner_object.plasma_object.enabled
+        empty_object.plasma_object.page = owner_object.plasma_object.page
+    bpy.context.scene.objects.link(empty_object)
+    return empty_object
+
+def create_camera_object(name: str) -> bpy.types.Object:
+    cam_data = bpy.data.cameras.new(name)
+    cam_obj = bpy.data.objects.new(name, cam_data)
+    bpy.context.scene.objects.link(cam_obj)
+    return cam_obj
+
 def create_cube_region(name: str, size: float, owner_object: bpy.types.Object) -> bpy.types.Object:
     """Create a cube shaped region object"""
     region_object = BMeshObject(name)
@@ -135,6 +151,21 @@ def pre_export_optional_cube_region(source, attr: str, name: str, size: float, o
     else:
         # contextlib.contextmanager requires for us to yield. Sad.
         yield
+
+@contextmanager
+def temporary_camera_object(scene: bpy.types.Scene, name: str) -> bpy.types.Object:
+    try:
+        cam_data = bpy.data.cameras.new(name)
+        cam_obj = bpy.data.objects.new(name, cam_data)
+        scene.objects.link(cam_obj)
+        yield cam_obj
+    finally:
+        cam_obj = locals().get("cam_obj")
+        if cam_obj is not None:
+            bpy.data.objects.remove(cam_obj)
+        cam_data = locals().get("cam_data")
+        if cam_data is not None:
+            bpy.data.cameras.remove(cam_data)
 
 @contextmanager
 def temporary_mesh_object(source : bpy.types.Object) -> bpy.types.Object:

@@ -53,6 +53,7 @@ class ActionModifier:
 
 class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
     pl_id = "animation"
+    pl_page_types = {"gui", "room"}
 
     bl_category = "Animation"
     bl_label = "Animation"
@@ -170,6 +171,7 @@ class AnimGroupObject(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
 
 class PlasmaAnimationFilterModifier(PlasmaModifierProperties):
     pl_id = "animation_filter"
+    pl_page_types = {"gui", "room"}
 
     bl_category = "Animation"
     bl_label = "Filter Transform"
@@ -214,6 +216,7 @@ class PlasmaAnimationFilterModifier(PlasmaModifierProperties):
 class PlasmaAnimationGroupModifier(ActionModifier, PlasmaModifierProperties):
     pl_id = "animation_group"
     pl_depends = {"animation"}
+    pl_page_types = {"gui", "room"}
 
     bl_category = "Animation"
     bl_label = "Group Master"
@@ -272,6 +275,7 @@ class LoopMarker(bpy.types.PropertyGroup):
 class PlasmaAnimationLoopModifier(ActionModifier, PlasmaModifierProperties):
     pl_id = "animation_loop"
     pl_depends = {"animation"}
+    pl_page_types = {"gui", "room"}
 
     bl_category = "Animation"
     bl_label = "Loop Markers"

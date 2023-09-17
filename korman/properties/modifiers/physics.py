@@ -74,6 +74,7 @@ class PlasmaCollider(PlasmaModifierProperties):
     bl_label = "Collision"
     bl_icon = "MOD_PHYSICS"
     bl_description = "Simple physical collider"
+    bl_object_types = {"MESH", "FONT"}
 
     bounds = EnumProperty(name="Bounds Type",
                           description="",

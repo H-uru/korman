@@ -116,3 +116,16 @@ def linkingbookmod(modifier, layout, context):
             row.label("Stamp Position:")
             row.prop(modifier, "stamp_x", text="X")
             row.prop(modifier, "stamp_y", text="Y")
+
+def note_popup(modifier, layout, context):
+    layout.prop(modifier, "gui_page")
+
+    row = layout.row(align=True)
+    row.prop(modifier, "gui_camera")
+    op = row.operator("camera.plasma_create_game_gui_camera", text="", icon="CAMERA_DATA")
+    op.mod_id = modifier.pl_id
+    op.cam_prop_name = "gui_camera"
+    op.gui_page = modifier.gui_page
+
+    layout.prop(modifier, "clickable")
+    layout.prop(modifier, "clickable_region")
