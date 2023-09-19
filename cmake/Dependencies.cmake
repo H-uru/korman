@@ -189,7 +189,7 @@ endfunction()
 if(korman_BUILD_JPEG)
     korman_add_external_project(libjpeg-turbo
         GIT_REPOSITORY "https://github.com/libjpeg-turbo/libjpeg-turbo.git"
-        GIT_TAG 2.1.4
+        GIT_TAG 3.0.0
         CMAKE_CACHE_ARGS
             -DBUILD_SHARED_LIBS:BOOL=OFF
             -DENABLE_SHARED:BOOL=FALSE
@@ -222,7 +222,7 @@ if(korman_BUILD_STRING_THEORY)
     if(MSVC AND MSVC_VERSION LESS 1900)
         set(_string_theory_tag 2.4)
     else()
-        set(_string_theory_tag 3.6)
+        set(_string_theory_tag 3.7)
     endif()
 
     korman_add_external_project(string_theory
@@ -247,7 +247,7 @@ if(korman_BUILD_ZLIB)
     endif()
     korman_add_external_project(zlib
         GIT_REPOSITORY "https://github.com/zlib-ng/zlib-ng.git"
-        GIT_TAG 2.0.6
+        GIT_TAG 2.1.3
         CMAKE_CACHE_ARGS
             -DBUILD_SHARED_LIBS:BOOL=OFF
             -DZLIB_COMPAT:BOOL=ON
@@ -258,9 +258,9 @@ endif()
 
 if(korman_BUILD_PNG)
     korman_add_external_project(libpng
-        URL "https://sourceforge.net/projects/libpng/files/libpng16/1.6.39/libpng-1.6.39.tar.gz/download"
-        DOWNLOAD_NAME "libpng-1.6.39.tar.gz"
-        URL_HASH "SHA256=af4fb7f260f839919e5958e5ab01a275d4fe436d45442a36ee62f73e5beb75ba"
+        URL "https://sourceforge.net/projects/libpng/files/libpng16/1.6.40/libpng-1.6.40.tar.gz/download"
+        DOWNLOAD_NAME "libpng-1.6.40.tar.gz"
+        URL_HASH "SHA256=8f720b363aa08683c9bf2a563236f45313af2c55d542b5481ae17dd8d183bb42"
         CMAKE_CACHE_ARGS
             -DBUILD_SHARED_LIBS:BOOL=OFF
             -DPNG_EXECUTABLES:BOOL=OFF
@@ -273,7 +273,7 @@ if(korman_BUILD_HSPLASMA)
     korman_add_external_project(HSPlasma
         GIT_REPOSITORY "https://github.com/H-uru/libhsplasma.git"
         # Be sure to increase this as the feature set used by Korman increases
-        GIT_TAG 448ad712015c0b8a293af7bd56ab623dd2e6e131
+        GIT_TAG ed9c2d4c15a86e5461b52bc89a9294d82d6ab683
         # We can only do shallow checkouts if the above is a branch or tag.
         GIT_SHALLOW FALSE
         CMAKE_CACHE_ARGS
@@ -282,9 +282,9 @@ if(korman_BUILD_HSPLASMA)
             -DENABLE_PHYSX:BOOL=OFF
             -DENABLE_PYTHON:BOOL=ON
             -DENABLE_TOOLS:BOOL=OFF
-            -DPYTHON_EXECUTABLE:FILEPATH=${Python3_EXECUTABLE}
-            -DPYTHON_INCLUDE_DIR:PATH=${Python3_INCLUDE_DIRS}
-            -DPYTHON_LIBRARY:FILEPATH=${Python3_LIBRARIES}
+            -DPython3_EXECUTABLE:FILEPATH=${Python3_EXECUTABLE}
+            -DPython3_INCLUDE_DIR:PATH=${Python3_INCLUDE_DIRS}
+            -DPython3_LIBRARY:FILEPATH=${Python3_LIBRARIES}
     )
 endif()
 
