@@ -688,7 +688,7 @@ class PlasmaSoundEmitter(PlasmaModifierProperties):
     def get_sound_keys(self, exporter, name=None, sound=None) -> Iterator[Tuple[plKey, int]]:
         assert name or sound
         if sound is None:
-            sound = next((i for i in self.sounds if i._sound_name == name), None)
+            sound = next((i for i in self.sounds if i.name == name), None)
             if sound is None:
                 raise ValueError(name)
 
