@@ -144,10 +144,10 @@ class PhysicsConverter:
            - report_groups: sequence of str bit names from plSimDefs
            - collide_groups: sequence of str bit names from plSimDefs
         """
+        ver = self._mgr.getVer()
         if so.sim is None:
             simIface = self._mgr.add_object(pl=plSimulationInterface, bl=bo)
             physical = self._mgr.add_object(pl=plGenericPhysical, bl=bo)
-            ver = self._mgr.getVer()
 
             simIface.physical = physical.key
             physical.object = so.key
