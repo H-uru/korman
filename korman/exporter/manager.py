@@ -163,7 +163,7 @@ class ExportManager:
         # be addressed by a successful implementation of #145.
         self.create_page(age, "Textures", -1, builtin=True)
 
-    def create_page(self, age, name, id, *, builtin=False, external=False):
+    def create_page(self, age, name, id, *, builtin=False, external=False, auto_load=True, local_only=False):
         location = plLocation(self.mgr.getVer())
         location.prefix = bpy.context.scene.world.plasma_age.seq_prefix
         if builtin:
@@ -186,7 +186,12 @@ class ExportManager:
             self.mgr.AddPage(info)
 
         if not builtin:
-            self._age_info.addPage((name, id, 0))
+            flags = 0
+            if not auto_load:
+                flags |= plAgeInfo.kFlagPreventAutoLoad
+            if local_only:
+                flags |= plAgeInfo.kFlagIsLocalOnly
+            self._age_info.addPage((name, id, flags))
             if not external:
                 if self.getVer() <= pvPots:
                     node = plSceneNode(f"{age}_District_{name}")
