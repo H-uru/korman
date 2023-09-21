@@ -247,7 +247,7 @@ class Exporter:
         for page in age_info.pages:
             if page.enabled and ver in page.version:
                 external = page.page_type == "external"
-                mgr.create_page(age_name, page.name, page.seq_suffix, external=external)
+                mgr.create_page(age_name, page.name, page.seq_suffix, external=external, auto_load=page.auto_load, local_only=page.local_only)
         mgr.create_builtins(age_name, age_info.use_texture_page)
 
     def _export_actor(self, so, bo):
