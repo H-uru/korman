@@ -20,6 +20,7 @@ from bpy.props import *
 from bpy.app.handlers import persistent
 from contextlib import contextmanager
 import math
+import os.path
 from PyHSPlasma import *
 from typing import *
 
@@ -429,34 +430,22 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
 
     def _get_sound_info(self):
         """Generates a tuple (plWAVHeader, PCMsize) from the current sound"""
-        sound = self._sound
-        if sound.packed_file is None:
-            stream = hsFileStream()
-            try:
-                stream.open(bpy.path.abspath(sound.filepath), fmRead)
-            except IOError:
-                self._raise_error("failed to open file")
-        else:
-            stream = hsRAMStream()
-            stream.buffer = sound.packed_file.data
-
         try:
-            magic = stream.read(4)
-            stream.rewind()
+            with self._open_sound_stream() as stream:
+                magic = stream.read(4)
+                stream.rewind()
 
-            header = plWAVHeader()
-            if magic == b"RIFF":
-                size = korlib.inspect_wavefile(stream, header)
-                return (header, size)
-            elif magic == b"OggS":
-                size = korlib.inspect_vorbisfile(stream, header)
-                return (header, size)
-            else:
-                raise NotSupportedError("unsupported audio format")
+                header = plWAVHeader()
+                if magic == b"RIFF":
+                    size = korlib.inspect_wavefile(stream, header)
+                    return (header, size)
+                elif magic == b"OggS":
+                    size = korlib.inspect_vorbisfile(stream, header)
+                    return (header, size)
+                else:
+                    raise NotImplementedError("unsupported audio format")
         except Exception as e:
             self._raise_error(str(e))
-        finally:
-            stream.close()
 
     def _find_sound_buffer(self, exporter, so, wavHeader, dataSize, channel):
         # First, cleanup the file path to not have directories
@@ -493,6 +482,22 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
     @property
     def is_3d_stereo(self):
         return self.sfx_type == "kSoundFX" and self.channel == {"L", "R"} and self.is_stereo
+
+    @contextmanager
+    def _open_sound_stream(self):
+        sound = self._sound
+        if sound.packed_file is None:
+            filepath = sound.filepath
+            if not os.path.exists(filepath):
+                filepath = bpy.path.abspath(filepath)
+            if not os.path.exists(filepath):
+                self._raise_error(f"Sound file not found! Requested '{sound.filepath}' - resolved to '{filepath}'")
+            with hsFileStream().open(filepath, fmRead) as fs:
+                yield fs
+        else:
+            stream = hsRAMStream()
+            stream.buffer = sound.packed_file.data
+            yield stream
 
     def _raise_error(self, msg):
         if self.sound:
