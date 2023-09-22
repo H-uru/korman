@@ -695,11 +695,11 @@ class PlasmaSoundEmitter(PlasmaModifierProperties):
         if sound is None:
             sound = next((i for i in self.sounds if i.name == name), None)
             if sound is None:
-                raise ValueError(name)
+                raise ValueError(f"{self.id_data.name}: Sound {name}")
 
         if sound.is_3d_stereo:
-            yield from self.stereize_left.plasma_modifiers.soundemit.get_sound_keys(exporter, sound.name)
-            yield from self.stereize_right.plasma_modifiers.soundemit.get_sound_keys(exporter, sound.name)
+            yield from self.stereize_left.plasma_modifiers.soundemit.get_sound_keys(exporter, f"{sound.name}:L")
+            yield from self.stereize_right.plasma_modifiers.soundemit.get_sound_keys(exporter, f"{sound.name}:R")
         else:
             for i, j in enumerate(filter(lambda x: x.enabled, self.sounds)):
                 if sound == j:
