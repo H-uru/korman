@@ -264,11 +264,6 @@ class OutputFiles:
         except:
             raise
         else:
-            # Must call the EncryptedStream close to actually encrypt the data
-            stream.close()
-            if not stream is backing_stream:
-                backing_stream.close()
-
             # Not passing enc as a keyword argument to the output file definition. It makes more
             # sense to yield an encrypted stream from this context manager and encrypt as we go
             # instead of doing lots of buffer copying to encrypt as a post step.
@@ -286,6 +281,12 @@ class OutputFiles:
                 else:
                     kwargs["file_path"] = file_path
                 self._files.add(_OutputFile(**kwargs))
+        finally:
+            # Must call the EncryptedStream close to actually encrypt the data
+            if isinstance(stream, plEncryptedStream):
+                stream.close()
+            if isinstance(backing_stream, hsFileStream):
+                backing_stream.close()
 
     def _generate_files(self, func=None):
         dat_only = self._exporter().dat_only
