@@ -587,7 +587,8 @@ class PlasmaAddLinkingBookMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
         # Create Clickable Region
         clk_rgn_name = "{}_ClkRegion".format(self.name_stem)
         clk_rgn_size = 6.0
-        with utils.bmesh_object(clk_rgn_name) as (clk_rgn, bm):
+        clk_rgn = utils.BMeshObject(clk_rgn_name, False)
+        with clk_rgn as bm:
             bmesh.ops.create_cube(bm, size=(1.0), matrix=(mathutils.Matrix.Scale(clk_rgn_size, 4)))
 
         clk_rgn.hide_render = True
@@ -606,7 +607,7 @@ class PlasmaAddLinkingBookMeshOperator(PlasmaMeshOperator, bpy.types.Operator):
         panel_root.select = True
         lbmod = panel_root.plasma_modifiers.linkingbookmod
         lbmod.enabled = True
-        lbmod.clickable_region = clk_rgn
+        lbmod.clickable_region = clk_rgn.object
         lbmod.seek_point = seek_point
         lbmod.anim_type = self.link_anim_type
 
