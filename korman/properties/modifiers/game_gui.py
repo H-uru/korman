@@ -401,7 +401,6 @@ class PlasmaGameGuiDialogModifier(PlasmaModifierProperties, _GameGuiMixin):
     bl_category = "GUI"
     bl_label = "GUI Dialog (ex)"
     bl_description = "XXX"
-    bl_object_types = {"FONT", "MESH"}
 
     camera_object: bpy.types.Object = PointerProperty(
         name="GUI Camera",
