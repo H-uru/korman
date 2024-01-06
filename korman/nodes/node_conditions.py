@@ -332,12 +332,12 @@ class PlasmaFacingTargetSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
             node = self.node
             directional = False
             moving_forward = False
-            tolerance = math.radians(45.0)
+            tolerance = math.cos(math.radians(45.0))
         elif self.is_linked:
             node = self.links[0].from_node
             directional = node.directional
             moving_forward = node.moving_forward
-            tolerance = node.tolerance
+            tolerance = math.cos(node.tolerance)
         else:
             # This is a programmer failure, so we need a traceback.
             raise RuntimeError("Tried to export an unused PlasmaFacingTargetSocket")
@@ -347,10 +347,10 @@ class PlasmaFacingTargetSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
             facing = facing_key.object
             facing.directional = directional
             facing.satisfied = True
-            facing.tolerance = math.radians(tolerance)
+            facing.tolerance = tolerance
             logicmod.addCondition(facing_key)
         elif isinstance(logicmod, plObjectInVolumeAndFacingDetector):
-            logicmod.facingTolerance = math.cos(math.radians(tolerance))
+            logicmod.facingTolerance = tolerance
             logicmod.needWalkingForward = moving_forward
         else:
             raise ValueError("logicmod")
