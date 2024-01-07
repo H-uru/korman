@@ -140,19 +140,6 @@ def create_cube_region(name: str, size: float, owner_object: bpy.types.Object) -
     return region_object.release()
 
 @contextmanager
-def pre_export_optional_cube_region(source, attr: str, name: str, size: float, owner_object: bpy.types.Object) -> Optional[bpy.types.Object]:
-    if getattr(source, attr) is None:
-        region_object = create_cube_region(name, size, owner_object)
-        setattr(source, attr, region_object)
-        try:
-            yield region_object
-        finally:
-            source.property_unset(attr)
-    else:
-        # contextlib.contextmanager requires for us to yield. Sad.
-        yield
-
-@contextmanager
 def temporary_camera_object(scene: bpy.types.Scene, name: str) -> bpy.types.Object:
     try:
         cam_data = bpy.data.cameras.new(name)

@@ -160,11 +160,11 @@ class PlasmaTelescope(PlasmaModifierProperties, PlasmaModifierLogicWiz):
 
     def pre_export(self, exporter, bo):
         # Generate a six-foot cube region if none was provided.
-        yield utils.pre_export_optional_cube_region(
-            self, "clickable_region",
-            f"{self.key_name}_Telescope_ClkRgn", 6.0,
-            bo
-        )
+        if self.clickable_region is None:
+            self.clickable_region = yield utils.create_cube_region(
+                f"{self.key_name}_Telescope_ClkRgn", 6.0,
+                bo
+            )
 
         # Generate the logic nodes
         yield self.convert_logic(bo)

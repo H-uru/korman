@@ -235,10 +235,11 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
             return
 
         # Generate the clickable region if it was not provided
-        yield utils.pre_export_optional_cube_region(
-            self, "clickable_region",
-            f"{bo.name}_Journal_ClkRgn", 6.0, bo
-        )
+        if self.clickable_region is None:
+            self.clickable_region = yield utils.create_cube_region(
+                f"{bo.name}_Journal_ClkRgn", 6.0,
+                bo
+            )
 
         # Generate the logic nodes
         yield self.convert_logic(bo, age_name=exporter.age_name, version=version)
@@ -471,16 +472,15 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
             return
 
         # Auto-generate a six-foot cube region around the clickable if none was provided.
-        yield utils.pre_export_optional_cube_region(
-            self, "clickable_region",
-            f"{self.key_name}_LinkingBook_ClkRgn", 6.0,
-            self.clickable
-        )
+        if self.clickable_region is None:
+            self.clickable_region = yield utils.create_cube_region(
+                f"{self.key_name}_LinkingBook_ClkRgn", 6.0,
+                self.clickable
+            )
 
         # Auto-generate a ten-foot cube region around the clickable if none was provided.
-        if self.shareable:
-            yield utils.pre_export_optional_cube_region(
-                self, "share_region",
+        if self.shareable and self.share_region is None:
+            self.share_region = yield utils.create_cube_region(
                 f"{self.key_name}_LinkingBook_ShareRgn", 10.0,
                 self.clickable
             )
@@ -816,8 +816,8 @@ class PlasmaNotePopupModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         click_plane_object.plasma_modifiers.gui_control.tag_id = 99
 
         # Auto-generate a six-foot cube region around the clickable if none was provided.
-        yield utils.pre_export_optional_cube_region(
-            self, "clickable_region",
+        if self.clickable_region is None:
+            self.clickable_region = yield utils.create_cube_region(
             f"{self.key_name}_DialogToggle_ClkRgn", 6.0,
             self.clickable_object
         )
