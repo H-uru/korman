@@ -13,16 +13,26 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import bmesh
 import bpy
 from bpy.props import *
 import mathutils
 from PyHSPlasma import *
+from typing import *
+
+if TYPE_CHECKING:
+    from ...exporter import Exporter
+    from ...nodes.node_conditions import *
+    from ...nodes.node_messages import *
+    from ...nodes.node_responder import *
 
 from ...addon_prefs import game_versions
 from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz
 from ...exporter import ExportError, utils
 from ... import idprops
+from .physics import bounds_type_index, bounds_type_str, bounds_types
 
 class PlasmaVersionedNodeTree(idprops.IDPropMixin, bpy.types.PropertyGroup):
     version = EnumProperty(name="Version",
@@ -76,7 +86,7 @@ class PlasmaAdvancedLogic(PlasmaModifierProperties):
         return any((i.node_tree.requires_actor for i in self.logic_groups if i.node_tree))
 
 
-class PlasmaSpawnPoint(PlasmaModifierProperties):
+class PlasmaSpawnPoint(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     pl_id = "spawnpoint"
 
     bl_category = "Logic"
@@ -84,10 +94,90 @@ class PlasmaSpawnPoint(PlasmaModifierProperties):
     bl_description = "Point at which avatars link into the Age"
     bl_object_types = {"EMPTY"}
 
+    def _get_bounds(self) -> int:
+        if self.exit_region is not None:
+            return bounds_type_index(self.exit_region.plasma_modifiers.collision.bounds_type)
+        return bounds_type_index("hull")
+
+    def _set_bounds(self, value: int) -> None:
+        if self.exit_region is not None:
+            self.exit_region.plasma_modifiers.collision.bounds_type = bounds_type_str(value)
+
+    entry_camera = PointerProperty(
+        name="Entry Camera",
+        description="Camera to use when the player spawns at this location",
+        type=bpy.types.Object,
+        poll=idprops.poll_camera_objects
+    )
+
+    exit_region = PointerProperty(
+        name="Exit Region",
+        description="Pop the camera when the player exits this region",
+        type=bpy.types.Object,
+        poll=idprops.poll_mesh_objects
+    )
+
+    bounds_type = EnumProperty(
+        name="Bounds",
+        description="",
+        items=bounds_types,
+        get=_get_bounds,
+        set=_set_bounds,
+        default="hull"
+    )
+
+    def pre_export(self, exporter: Exporter, bo: bpy.types.Object) -> None:
+        if self.entry_camera is None:
+            return
+
+        if self.exit_region is None:
+            self.exit_region = yield utils.create_cube_region(
+                f"{self.key_name}_ExitRgn", 6.0,
+                bo, utils.CubeRegionOrigin.bottom
+            )
+
+        yield self.convert_logic(bo)
+
+    def logicwiz(self, bo, tree):
+        nodes = tree.nodes
+
+        # Generate two responders. The first responder will push the entry camera
+        # onto the camera stack when we first enter the region - usually on link in.
+        # Then, disable the entry sensor once it's fired. The second responder will
+        # always pop the entry camera
+        self._create_nodes(nodes, enter=True, exit=False, camCmd="push", enable="disable")
+        self._create_nodes(nodes, enter=False, exit=True, camCmd="pop")
+
+    def _create_nodes(self, nodes, *, enter: Optional[bool] = None, camCmd: Optional[str] = None, enable: Optional[str] = None):
+        volume_sensor: PlasmaVolumeSensorNode = nodes.new("PlasmaVolumeSensorNode")
+        volume_sensor.bounds = self.bounds_type
+        if enter is not None:
+            volume_sensor.find_input_socket("enter").allow = enter
+        if exit is not None:
+            volume_sensor.find_input_socket("exit").allow = exit
+
+        responder: PlasmaResponderNode = nodes.new("PlasmaResponderNode")
+        responder.link_input(volume_sensor, "satisfies", "condition")
+
+        responder_state: PlasmaResponderStateNode = nodes.new("PlasmaResponderStateNode")
+        responder_state.link_input(responder, "state_refs", "resp")
+
+        camera_msg: PlasmaCameraMsgNode = nodes.new("PlasmaCameraMsgNode")
+        assert camCmd in {"push", "pop"}
+        camera_msg.cmd = camCmd
+        camera_msg.camera = self.entry_camera
+        camera_msg.link_input(responder_state, "msgs", "sender")
+
+        if enable is not None:
+            enable_msg: PlasmaEnableMsgNode = nodes.new("PlasmaEnableMsgNode")
+            enable_LUT = {"enable": "kEnable", "disable": "kDisable"}
+            enable_msg.cmd = enable_LUT[enable]
+            enable_msg.settings = {"kModifiers"}
+            enable_msg.link_input(responder_state, "msgs", "sender")
+            enable_msg.link_output(volume_sensor, "receivers", "message")
+
     def export(self, exporter, bo, so):
-        # Not much to this modifier... It's basically a flag that tells the engine, "hey, this is a
-        # place the avatar can show up." Nice to have a simple one to get started with.
-        spawn = exporter.mgr.add_object(pl=plSpawnModifier, so=so, name=self.key_name)
+        exporter.mgr.add_object(pl=plSpawnModifier, so=so, name=self.key_name)
 
     @property
     def requires_actor(self):

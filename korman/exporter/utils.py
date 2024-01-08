@@ -20,6 +20,7 @@ import bpy
 import mathutils
 
 from contextlib import contextmanager
+import enum
 from typing import *
 
 from PyHSPlasma import *
@@ -122,7 +123,12 @@ def create_camera_object(name: str) -> bpy.types.Object:
     bpy.context.scene.objects.link(cam_obj)
     return cam_obj
 
-def create_cube_region(name: str, size: float, owner_object: bpy.types.Object) -> bpy.types.Object:
+class CubeRegionOrigin(enum.Enum):
+    center = enum.auto()
+    bottom = enum.auto()
+
+
+def create_cube_region(name: str, size: float, owner_object: bpy.types.Object, origin: CubeRegionOrigin = CubeRegionOrigin.center) -> bpy.types.Object:
     """Create a cube shaped region object"""
     region_object = BMeshObject(name)
     region_object.plasma_object.enabled = True
@@ -130,11 +136,12 @@ def create_cube_region(name: str, size: float, owner_object: bpy.types.Object) -
     region_object.hide_render = True
     with region_object as bm:
         bmesh.ops.create_cube(bm, size=(size))
+        origin = owner_object.matrix_world.translation - region_object.matrix_world.translation
+        if origin == CubeRegionOrigin.bottom:
+            origin.z += size * 0.5
         bmesh.ops.transform(
             bm,
-            matrix=mathutils.Matrix.Translation(
-                owner_object.matrix_world.translation - region_object.matrix_world.translation
-            ),
+            matrix=mathutils.Matrix.Translation(origin),
             space=region_object.matrix_world, verts=bm.verts
         )
     return region_object.release()
