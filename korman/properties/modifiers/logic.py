@@ -34,6 +34,15 @@ from ...exporter import ExportError, utils
 from ... import idprops
 from .physics import bounds_type_index, bounds_type_str, bounds_types
 
+entry_cam_pfm = {
+    "filename": "xEntryCam.py",
+    "attribs": (
+        { 'id':  1, 'type': "ptAttribActivator",   'name': "actRegionSensor" },
+        { 'id':  2, 'type': "ptAttribSceneobject", 'name': "camera" },
+        { 'id':  3, 'type': "ptAttribBoolean",     'name': "undoFirstPerson" },
+    )
+}
+
 class PlasmaVersionedNodeTree(idprops.IDPropMixin, bpy.types.PropertyGroup):
     version = EnumProperty(name="Version",
                            description="Plasma versions this node tree exports under",
@@ -131,50 +140,33 @@ class PlasmaSpawnPoint(PlasmaModifierProperties, PlasmaModifierLogicWiz):
             return
 
         if self.exit_region is None:
-            self.exit_region = yield utils.create_cube_region(
-                f"{self.key_name}_ExitRgn", 6.0,
+            self.exit_region = yield utils.create_box_region(
+                f"{self.key_name}_ExitRgn", (2.0, 2.0, 6.0),
                 bo, utils.RegionOrigin.bottom
             )
 
         yield self.convert_logic(bo)
 
     def logicwiz(self, bo, tree):
-        nodes = tree.nodes
+        pfm_node = self._create_python_file_node(
+            tree,
+            entry_cam_pfm["filename"],
+            entry_cam_pfm["attribs"]
+        )
 
-        # Generate two responders. The first responder will push the entry camera
-        # onto the camera stack when we first enter the region - usually on link in.
-        # Then, disable the entry sensor once it's fired. The second responder will
-        # always pop the entry camera
-        self._create_nodes(nodes, enter=True, exit=False, camCmd="push", enable="disable")
-        self._create_nodes(nodes, enter=False, exit=True, camCmd="pop")
-
-    def _create_nodes(self, nodes, *, enter: Optional[bool] = None, camCmd: Optional[str] = None, enable: Optional[str] = None):
-        volume_sensor: PlasmaVolumeSensorNode = nodes.new("PlasmaVolumeSensorNode")
+        volume_sensor: PlasmaVolumeSensorNode = tree.nodes.new("PlasmaVolumeSensorNode")
+        volume_sensor.find_input_socket("enter").allow = True
+        volume_sensor.find_input_socket("exit").allow = True
+        volume_sensor.region_object = self.exit_region
         volume_sensor.bounds = self.bounds_type
-        if enter is not None:
-            volume_sensor.find_input_socket("enter").allow = enter
-        if exit is not None:
-            volume_sensor.find_input_socket("exit").allow = exit
+        volume_sensor.link_output(pfm_node, "satisfies", "actRegionSensor")
 
-        responder: PlasmaResponderNode = nodes.new("PlasmaResponderNode")
-        responder.link_input(volume_sensor, "satisfies", "condition")
+        self._create_python_attribute(
+            pfm_node,
+            "camera",
+            target_object=self.entry_camera
+        )
 
-        responder_state: PlasmaResponderStateNode = nodes.new("PlasmaResponderStateNode")
-        responder_state.link_input(responder, "state_refs", "resp")
-
-        camera_msg: PlasmaCameraMsgNode = nodes.new("PlasmaCameraMsgNode")
-        assert camCmd in {"push", "pop"}
-        camera_msg.cmd = camCmd
-        camera_msg.camera = self.entry_camera
-        camera_msg.link_input(responder_state, "msgs", "sender")
-
-        if enable is not None:
-            enable_msg: PlasmaEnableMsgNode = nodes.new("PlasmaEnableMsgNode")
-            enable_LUT = {"enable": "kEnable", "disable": "kDisable"}
-            enable_msg.cmd = enable_LUT[enable]
-            enable_msg.settings = {"kModifiers"}
-            enable_msg.link_input(responder_state, "msgs", "sender")
-            enable_msg.link_output(volume_sensor, "receivers", "message")
 
     def export(self, exporter, bo, so):
         exporter.mgr.add_object(pl=plSpawnModifier, so=so, name=self.key_name)
