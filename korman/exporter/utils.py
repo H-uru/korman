@@ -123,27 +123,53 @@ def create_camera_object(name: str) -> bpy.types.Object:
     bpy.context.scene.objects.link(cam_obj)
     return cam_obj
 
-class CubeRegionOrigin(enum.Enum):
+class RegionOrigin(enum.Enum):
     center = enum.auto()
     bottom = enum.auto()
 
 
-def create_cube_region(name: str, size: float, owner_object: bpy.types.Object, origin: CubeRegionOrigin = CubeRegionOrigin.center) -> bpy.types.Object:
+def create_cube_region(name: str, size: float, owner_object: bpy.types.Object, origin: RegionOrigin = RegionOrigin.center) -> bpy.types.Object:
     """Create a cube shaped region object"""
+    # Proxy over to the generic rectangular prism implementation to
+    # ensure that it is well tested.
+    return create_box_region(name, (size, size, size), owner_object, origin)
+
+def create_box_region(
+        name: str, size: Union[Tuple[float, float, float], mathutils.Vector],
+        owner_object: bpy.types.Object,
+        origin: RegionOrigin = RegionOrigin.center
+) -> bpy.types.Object:
+    """Create a rectangular prism region object"""
+    if not isinstance(size, mathutils.Vector):
+        size = mathutils.Vector(size)
+
     region_object = BMeshObject(name)
     region_object.plasma_object.enabled = True
     region_object.plasma_object.page = owner_object.plasma_object.page
     region_object.hide_render = True
     with region_object as bm:
-        bmesh.ops.create_cube(bm, size=(size))
-        origin = owner_object.matrix_world.translation - region_object.matrix_world.translation
-        if origin == CubeRegionOrigin.bottom:
-            origin.z += size * 0.5
-        bmesh.ops.transform(
-            bm,
-            matrix=mathutils.Matrix.Translation(origin),
-            space=region_object.matrix_world, verts=bm.verts
-        )
+        center = owner_object.matrix_world.translation
+        if origin == RegionOrigin.bottom:
+            center.z += size.z * 0.5
+        vert_src = [
+            (center.x + size.x * 0.5, center.y + size.y * 0.5, center.z + size.z * 0.5),
+            (center.x + size.x * 0.5, center.y + size.y * 0.5, center.z - size.z * 0.5),
+            (center.x + size.x * 0.5, center.y - size.y * 0.5, center.z + size.z * 0.5),
+            (center.x + size.x * 0.5, center.y - size.y * 0.5, center.z - size.z * 0.5),
+            (center.x - size.x * 0.5, center.y + size.y * 0.5, center.z + size.z * 0.5),
+            (center.x - size.x * 0.5, center.y + size.y * 0.5, center.z - size.z * 0.5),
+            (center.x - size.x * 0.5, center.y - size.y * 0.5, center.z + size.z * 0.5),
+            (center.x - size.x * 0.5, center.y - size.y * 0.5, center.z - size.z * 0.5),
+        ]
+        verts = [bm.verts.new(i) for i in vert_src]
+
+        new_face = bm.faces.new
+        new_face((verts[0], verts[1], verts[3], verts[2])) # X+
+        new_face((verts[4], verts[5], verts[7], verts[6])) # X-
+        new_face((verts[0], verts[1], verts[5], verts[4])) # Y+
+        new_face((verts[2], verts[3], verts[7], verts[6])) # Y-
+        new_face((verts[0], verts[2], verts[6], verts[4])) # Z+
+        new_face((verts[1], verts[3], verts[7], verts[5])) # Z-
     return region_object.release()
 
 @contextmanager

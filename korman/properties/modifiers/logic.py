@@ -133,7 +133,7 @@ class PlasmaSpawnPoint(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         if self.exit_region is None:
             self.exit_region = yield utils.create_cube_region(
                 f"{self.key_name}_ExitRgn", 6.0,
-                bo, utils.CubeRegionOrigin.bottom
+                bo, utils.RegionOrigin.bottom
             )
 
         yield self.convert_logic(bo)
