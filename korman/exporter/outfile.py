@@ -382,15 +382,16 @@ class OutputFiles:
 
         for i in self._generate_files(func):
             # Will only ever run for non-"dat" directories.
-            dst_path = str(self._export_path / i.dirname / i.filename)
+            dst_path = self._export_path.joinpath(i.dirname, i.filename)
+            dst_path.parent.mkdir(parents=True, exist_ok=True)
             if i.file_data:
                 mode = "w" if isinstance(i.file_data, str) else "wb"
-                with open(dst_path, mode) as handle:
+                with dst_path.open(mode) as handle:
                     handle.write(i.file_data)
                 os.utime(dst_path, times)
             elif i.file_path:
                 if i.file_path != dst_path:
-                    shutil.copy2(i.file_path, dst_path)
+                    shutil.copy2(i.file_path, str(dst_path))
             else:
                 report.warn("No data found for dependency file '{}'. It will not be copied into the export directory.",
                             PurePath(i.dirname, i.filename))
