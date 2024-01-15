@@ -242,6 +242,11 @@ class PlasmaWaterModifier(idprops.IDPropMixin, PlasmaModifierProperties, bpy.typ
     def copy_material(self):
         return True
 
+    def sanity_check(self):
+        vertex_color_layers = frozenset((i.name.lower() for i in self.id_data.data.vertex_colors))
+        if {"col", "color", "colour"} in vertex_color_layers:
+            raise ExportError(f"[{self.id_data.name}] Water modifiers cannot use vertex color lighting")
+
     def export(self, exporter, bo, so):
         waveset = exporter.mgr.find_create_object(plWaveSet7, name=bo.name, so=so)
         if self.wind_object:

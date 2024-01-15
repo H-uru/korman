@@ -13,12 +13,18 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import bpy
-from contextlib import ExitStack
-import itertools
+import mathutils
+
 from PyHSPlasma import *
-from math import fabs
-from typing import Iterable
+
+from contextlib import ExitStack
+import functools
+import itertools
+from math import fabs, sqrt
+from typing import *
 import weakref
 
 from ..exporter.logger import ExportProgressLogger
@@ -269,6 +275,56 @@ class MeshConverter(_MeshManager):
 
         return (num_user_texs, total_texs, max_user_texs)
 
+    def _calc_water_color(self, mesh: bpy.types.Mesh) -> Tuple[float]:
+        chain_iterable = itertools.chain.from_iterable
+        Vector = mathutils.Vector
+        vertices = mesh.vertices
+        num_vertices = len(vertices)
+
+        lengths: List[float] = [0.0] * num_vertices
+        weights: List[float] = [0.0] * num_vertices
+
+        # Calculate the length of each edge in the exported triangles. Remember that
+        # some tessfaces Blender hands us could be quads.
+        for tessface in mesh.tessfaces:
+            tessface_vertices = tessface.vertices
+            triangles = [[
+                (tessface_vertices[0], tessface_vertices[1]),
+                (tessface_vertices[1], tessface_vertices[2]),
+                (tessface_vertices[2], tessface_vertices[0]),
+            ]]
+            if len(tessface.vertices) == 4:
+                triangles.append([
+                    (tessface_vertices[0], tessface_vertices[2]),
+                    (tessface_vertices[2], tessface_vertices[3]),
+                    (tessface_vertices[3], tessface_vertices[0]),
+                ])
+            for edges in triangles:
+                edge_lengths_sq = ((Vector(vertices[i].co) - Vector(vertices[j].co)).length_squared for i, j in edges)
+                largest_edge = sqrt(max(edge_lengths_sq))
+                for i in set(chain_iterable(edges)):
+                    lengths[i] += largest_edge
+                    weights[i] += 1.0
+
+        # Average everything out
+        for i in range(num_vertices):
+            if weights[i] > 0.0:
+                lengths[i] /= weights[i]
+            weights[i] = 0.0
+
+        ## TODO
+        # The max plugin's SetWaterColor() function runs through a smoothing pass
+        # that basically runs through each edge and multiplies the result by
+        # a constant and accumulates that same constant in the weights array,
+        # then averages everything out again. We could do that, certainly, but
+        # I don't see the point right now. Just having the edge length data being
+        # something other than 1.0 seems like a good enough win for now.
+
+        # Return 1.0 / (kNumLens * length)
+        kNumLens = 4.0
+        return tuple([1.0 / (i * kNumLens) if i > 0.0 else 1.0 for i in lengths])
+
+
     def _check_vtx_alpha(self, mesh, material_idx):
         if material_idx is not None:
             polygons = (i for i in mesh.polygons if i.material_index == material_idx)
@@ -297,6 +353,9 @@ class MeshConverter(_MeshManager):
                 return True
             if mods.lightmap.bake_lightmap:
                 return True
+
+            # NOTE: Wavesets will fire off at the RT Lights check,
+            # so there is no problem with a waveset mesh's fake alpha layer.
             if self._check_vtx_alpha(mesh, material_idx):
                 return True
 
@@ -383,9 +442,7 @@ class MeshConverter(_MeshManager):
         bumpmap = self.material.get_bump_layer(bo)
 
         # Locate relevant vertex color layers now...
-        lm = bo.plasma_modifiers.lightmap
-        color = None if lm.bake_lightmap else self._find_vtx_color_layer(mesh.tessface_vertex_colors)
-        alpha = self._find_vtx_alpha_layer(mesh.tessface_vertex_colors)
+        vertex_colors = self._get_vertex_colors(bo, mesh)
 
         # Convert Blender faces into things we can stuff into libHSPlasma
         for i, tessface in enumerate(mesh.tessfaces):
@@ -401,24 +458,6 @@ class MeshConverter(_MeshManager):
             # Unpack the UV coordinates from each UV Texture layer
             # NOTE: Blender has no third (W) coordinate
             tessface_uvws = [uvtex.data[i].uv for uvtex in mesh.tessface_uv_textures]
-
-            # Unpack colors
-            if color is None:
-                tessface_colors = ((1.0, 1.0, 1.0), (1.0, 1.0, 1.0), (1.0, 1.0, 1.0), (1.0, 1.0, 1.0))
-            else:
-                src = color[i]
-                tessface_colors = (src.color1, src.color2, src.color3, src.color4)
-
-            # Unpack alpha values
-            if alpha is None:
-                tessface_alphas = (1.0, 1.0, 1.0, 1.0)
-            else:
-                src = alpha[i]
-                # Some time between 2.79b and 2.80, vertex alpha colors appeared in Blender. However,
-                # there is no way to actually visually edit them. That means that we need to keep that
-                # fact in mind because we're just averaging the color to make alpha.
-                tessface_alphas = ((sum(src.color1[:3]) / 3), (sum(src.color2[:3]) / 3),
-                                   (sum(src.color3[:3]) / 3), (sum(src.color4[:3]) / 3))
 
             if bumpmap is not None:
                 gradPass = []
@@ -453,11 +492,11 @@ class MeshConverter(_MeshManager):
                     mult_color = geospans[mat2span_LUT[tessface.material_index]].mult_color
                 else:
                     mult_color = (1.0, 1.0, 1.0, 1.0)
-                tessface_color, tessface_alpha = tessface_colors[j], tessface_alphas[j]
-                vertex_color = (int(tessface_color[0] * mult_color[0] * 255),
-                                int(tessface_color[1] * mult_color[1] * 255),
-                                int(tessface_color[2] * mult_color[2] * 255),
-                                int(tessface_alpha    * mult_color[0] * 255))
+                src_vertex_color = vertex_colors[j]
+                vertex_color = (int(src_vertex_color[0] * mult_color[0] * 255),
+                                int(src_vertex_color[1] * mult_color[1] * 255),
+                                int(src_vertex_color[2] * mult_color[2] * 255),
+                                int(src_vertex_color[3] * mult_color[3] * 255))
 
                 # Now, we'll index into the vertex dict using the per-face elements :(
                 # We're using tuples because lists are not hashable. The many mathutils and PyHSPlasma
@@ -711,20 +750,64 @@ class MeshConverter(_MeshManager):
         else:
             return self._dspans[location][crit]
 
-    def _find_vtx_alpha_layer(self, color_collection):
-        alpha_layer = next((i for i in color_collection if i.name.lower() == "alpha"), None)
-        if alpha_layer is not None:
-            return alpha_layer.data
+    def _find_named_vtx_color_layer(self, color_collection, name: str):
+        color_layer = next((i for i in color_collection if i.name.lower() == name), None)
+        if color_layer is not None:
+            return color_layer.data
         return None
+
+    _find_vtx_alpha_layer = functools.partialmethod(_find_named_vtx_color_layer, name="alpha")
+    if TYPE_CHECKING:
+        def _find_vtx_alpha_layer(self, color_collection):
+            ...
 
     def _find_vtx_color_layer(self, color_collection):
         manual_layer = next((i for i in color_collection if i.name.lower() in _VERTEX_COLOR_LAYERS), None)
         if manual_layer is not None:
             return manual_layer.data
-        baked_layer = color_collection.get("autocolor")
-        if baked_layer is not None:
-            return baked_layer.data
-        return None
+        return self._find_named_vtx_color_layer(color_collection, "autocolor")
+
+    def _get_vertex_colors(self, bo: bpy.types.Object, mesh: bpy.types.Mesh) -> Tuple[Tuple[float, float, float, float]]:
+        num_vertices = len(mesh.vertices)
+        vertex_colors = [None] * num_vertices
+        if bo.plasma_modifiers.water_basic.enabled:
+            # Wavesets have a special meaning for vertex colors. So, we're going to
+            # separate each color channel out into separate layers for clarity.
+            # Here's how it looks:
+            # R = opacity/alpha
+            # G = specularity
+            # B = fresnel
+            # A = edge length
+            opacity_layer = self._find_named_vtx_color_layer(mesh.vertex_colors, "alpha")
+            specular_layer = self._find_named_vtx_color_layer(mesh.vertex_colors, "specularity")
+            fresnel_layer = self._find_named_vtx_color_layer(mesh.vertex_colors, "fresnel")
+            edge_layer = self._find_named_vtx_color_layer(mesh.vertex_colors, "edgelength")
+            water_color = self._calc_water_color(mesh)
+            for i in range(num_vertices):
+                r_channel = opacity_layer[i].color if opacity_layer is not None else (1.0, 1.0, 1.0)
+                b_channel = specular_layer[i].color if specular_layer is not None else (1.0, 1.0, 1.0)
+                g_channel = fresnel_layer[i].color if fresnel_layer is not None else (1.0, 1.0, 1.0)
+                a_channel = edge_layer[i].color if edge_layer is not None else (1.0, 1.0, 1.0)
+                vertex_colors[i] = (
+                    (r_channel[0] + r_channel[1] + r_channel[2]) / 3,
+                    (b_channel[0] + b_channel[1] + b_channel[2]) / 3,
+                    (g_channel[0] + g_channel[1] + g_channel[2]) / 3,
+                    # Modulate our edge length calculation with what the artist thinks.
+                    water_color[i] * (a_channel[0] + a_channel[1] + a_channel[2]) / 3,
+                )
+        else:
+            color_layer = self._find_vtx_color_layer(mesh.vertex_colors)
+            alpha_layer = self._find_vtx_alpha_layer(mesh.vertex_colors)
+            for i in range(num_vertices):
+                color_channels = color_layer[i].color if color_layer is not None else (1.0, 1.0, 1.0)
+                a_channel = alpha_layer[i].color if alpha_layer is not None else (1.0, 1.0, 1.0)
+                vertex_colors[i] = (
+                    color_channels[0],
+                    color_channels[1],
+                    color_channels[2],
+                    (a_channel[0] + a_channel[1] + a_channel[2]) / 3,
+                )
+        return tuple(vertex_colors)
 
     def is_nonpreshaded(self, bo: bpy.types.Object, bm: bpy.types.Material) -> bool:
         return self._non_preshaded[(bo, bm)]
