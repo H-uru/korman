@@ -441,8 +441,9 @@ class MeshConverter(_MeshManager):
         geodata = { idx: _GeoData(len(mesh.vertices)) for idx, _ in materials }
         bumpmap = self.material.get_bump_layer(bo)
 
-        # Locate relevant vertex color layers now...
+        # Locate relevant vertex color and UV layers now...
         vertex_colors = self._get_vertex_colors(bo, mesh)
+        uvws = self._get_uvs(mesh)
 
         # Convert Blender faces into things we can stuff into libHSPlasma
         for i, tessface in enumerate(mesh.tessfaces):
@@ -452,31 +453,22 @@ class MeshConverter(_MeshManager):
 
             face_verts = []
             use_smooth = tessface.use_smooth
+            vertices = tessface.vertices
             dPosDu = hsVector3(0.0, 0.0, 0.0)
             dPosDv = hsVector3(0.0, 0.0, 0.0)
-
-            # Unpack the UV coordinates from each UV Texture layer
-            # NOTE: Blender has no third (W) coordinate
-            tessface_uvws = [uvtex.data[i].uv for uvtex in mesh.tessface_uv_textures]
 
             if bumpmap is not None:
                 gradPass = []
                 gradUVWs = []
 
-                if len(tessface.vertices) != 3:
-                    gradPass.append([tessface.vertices[0], tessface.vertices[1], tessface.vertices[2]])
-                    gradPass.append([tessface.vertices[0], tessface.vertices[2], tessface.vertices[3]])
-                    gradUVWs.append((tuple((uvw[0] for uvw in tessface_uvws)),
-                                     tuple((uvw[1] for uvw in tessface_uvws)),
-                                     tuple((uvw[2] for uvw in tessface_uvws))))
-                    gradUVWs.append((tuple((uvw[0] for uvw in tessface_uvws)),
-                                     tuple((uvw[2] for uvw in tessface_uvws)),
-                                     tuple((uvw[3] for uvw in tessface_uvws))))
+                if len(vertices) != 3:
+                    gradPass.append([vertices[0], vertices[1], vertices[2]])
+                    gradPass.append([vertices[0], vertices[2], vertices[3]])
+                    gradUVWs.append((uvws[vertices[0]], uvws[vertices[1]], uvws[vertices[2]]))
+                    gradUVWs.append((uvws[vertices[0]], uvws[vertices[2]], uvws[vertices[3]]))
                 else:
-                    gradPass.append(tessface.vertices)
-                    gradUVWs.append((tuple((uvw[0] for uvw in tessface_uvws)),
-                                     tuple((uvw[1] for uvw in tessface_uvws)),
-                                     tuple((uvw[2] for uvw in tessface_uvws))))
+                    gradPass.append(vertices)
+                    gradUVWs.append((uvws[vertices[0]], uvws[vertices[1]], uvws[vertices[2]]))
 
                 for p, vids in enumerate(gradPass):
                     dPosDu += self._get_bump_gradient(bumpmap[1], gradUVWs[p], mesh, vids, bumpmap[0], 0)
@@ -484,8 +476,8 @@ class MeshConverter(_MeshManager):
                 dPosDv = -dPosDv
 
             # Convert to per-material indices
-            for j, vertex in enumerate(tessface.vertices):
-                uvws = tuple([tuple(uvw[j]) for uvw in tessface_uvws])
+            for j, vertex in enumerate(vertices):
+                vertex_uvs = uvws[vertex]
 
                 # Calculate vertex colors.
                 if mat2span_LUT:
@@ -501,7 +493,7 @@ class MeshConverter(_MeshManager):
                 # Now, we'll index into the vertex dict using the per-face elements :(
                 # We're using tuples because lists are not hashable. The many mathutils and PyHSPlasma
                 # types are not either, and it's entirely too much work to fool with all that.
-                coluv = (vertex_color, uvws)
+                coluv = (vertex_color, vertex_uvs)
                 if coluv not in data.blender2gs[vertex]:
                     source = mesh.vertices[vertex]
                     geoVertex = plGeometrySpan.TempVertex()
@@ -518,7 +510,11 @@ class MeshConverter(_MeshManager):
                     geoVertex.normal = normal
 
                     geoVertex.color = hsColor32(*vertex_color)
-                    uvs = [hsVector3(uv[0], 1.0 - uv[1], 0.0) for uv in uvws]
+
+                    # Profiling indicates that unrolling this list comprehension is basically
+                    # a no-op for performance. Probably because we're still looping but have
+                    # to use a generator (ie `range`).
+                    uvs = [hsVector3(uv[0], 1.0 - uv[1], 0.0) for uv in vertex_uvs]
                     if bumpmap is not None:
                         uvs.append(dPosDu)
                         uvs.append(dPosDv)
@@ -766,6 +762,14 @@ class MeshConverter(_MeshManager):
         if manual_layer is not None:
             return manual_layer.data
         return self._find_named_vtx_color_layer(color_collection, "autocolor")
+
+    def _get_uvs(self, mesh: bpy.types.Mesh) -> Tuple[Sequence[mathutils.Vector]]:
+        num_vertices = len(mesh.vertices)
+        num_uv_textures = len(mesh.uv_textures)
+        uvws = [[None] * num_uv_textures] * num_vertices
+        for vertex_idx, (uv_idx, uv_layer) in itertools.product(range(num_vertices), enumerate(mesh.uv_layers)):
+            uvws[vertex_idx][uv_idx] = tuple(uv_layer.data[vertex_idx].uv)
+        return tuple((tuple(i) for i in uvws))
 
     def _get_vertex_colors(self, bo: bpy.types.Object, mesh: bpy.types.Mesh) -> Tuple[Tuple[float, float, float, float]]:
         num_vertices = len(mesh.vertices)
