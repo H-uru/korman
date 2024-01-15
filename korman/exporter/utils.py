@@ -150,6 +150,7 @@ def create_box_region(
     with region_object as bm:
         center = owner_object.matrix_world.translation
         if origin == RegionOrigin.bottom:
+            center = center.copy()
             center.z += size.z * 0.5
         vert_src = [
             (center.x + size.x * 0.5, center.y + size.y * 0.5, center.z + size.z * 0.5),
