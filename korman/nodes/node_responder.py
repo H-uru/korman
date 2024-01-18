@@ -68,9 +68,9 @@ class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
             "spawn_empty": True,
         },
 
-         # This version of the states socket has been deprecated.
-         # We need to be able to track 1 socket -> 1 state to manage
-         # responder state IDs
+        # This version of the states socket has been deprecated.
+        # We need to be able to track 1 socket -> 1 state to manage
+        # responder state IDs
         "states": {
             "text": "States",
             "type": "PlasmaRespStateSocket",
@@ -241,6 +241,7 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
     }
 
     output_sockets = {
+        # This socket has been deprecated.
         # While this is deprecated I might aswell also convert it.
         "cmds": {
             "text": "Commands",

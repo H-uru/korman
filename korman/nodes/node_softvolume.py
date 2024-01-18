@@ -109,6 +109,7 @@ class PlasmaSoftVolumeInvertNode(PlasmaNodeBase, bpy.types.Node):
     bl_idname = "PlasmaSoftVolumeInvertNode"
     bl_label = "Soft Volume Invert"
 
+    # The only difference between this and PlasmaSoftVolumeLinkNode is this can only have ONE input
     input_sockets: dict[str, dict[str, str]] = {
         "properties": {
             "text": "Properties",
