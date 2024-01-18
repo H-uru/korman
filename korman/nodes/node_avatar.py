@@ -15,7 +15,6 @@
 
 import bpy
 from bpy.props import *
-from collections import OrderedDict
 from PyHSPlasma import *
 
 from .node_core import PlasmaNodeBase, PlasmaNodeSocketBase
@@ -36,20 +35,20 @@ class PlasmaSittingBehaviorNode(PlasmaNodeBase, bpy.types.Node):
                             default={"kApproachFront", "kApproachLeft", "kApproachRight"},
                             options={"ENUM_FLAG"})
 
-    input_sockets = OrderedDict([
-        ("condition", {
+    input_sockets: dict[str, dict[str, str]] = {
+        "condition": {
             "text": "Condition",
             "type": "PlasmaConditionSocket",
-        }),
-    ])
+        },
+    }
 
-    output_sockets = OrderedDict([
-        ("satisfies", {
+    output_sockets: dict[str, dict[str, any]] = {
+        "satisfies": {
             "text": "Satisfies",
             "type": "PlasmaConditionSocket",
             "valid_link_sockets": {"PlasmaConditionSocket", "PlasmaPythonFileNodeSocket"},
-        }),
-    ])
+        },
+    }
 
     def draw_buttons(self, context, layout):
         col = layout.column()
@@ -170,31 +169,31 @@ class PlasmaAnimStageSettingsNode(PlasmaNodeBase, bpy.types.Node):
                              default={"kNotifyEnter"},
                              options={"ENUM_FLAG"})
 
-    input_sockets = OrderedDict([
-        ("advance_to", {
+    input_sockets: dict[str, dict[str, any]] = {
+        "advance_to": {
             "text": "Advance to Stage",
             "type": "PlasmaAnimStageAdvanceSocketIn",
             "valid_link_nodes": "PlasmaAnimStageNode",
             "valid_link_sockets": "PlasmaAnimStageOrderSocketOut",
             "link_limit": 1,
-        }),
-        ("regress_to", {
+        },
+        "regress_to": {
             "text": "Regress to Stage",
             "type": "PlasmaAnimStageRegressSocketIn",
             "valid_link_nodes": "PlasmaAnimStageNode",
             "valid_link_sockets": "PlasmaAnimStageOrderSocketOut",
             "link_limit": 1,
-        }),
-    ])
+        },
+    }
 
-    output_sockets = OrderedDict([
-        ("stage", {
+    output_sockets: dict[str, dict[str, str]] = {
+        "stage": {
             "text": "Stage",
             "type": "PlasmaAnimStageSettingsSocket",
             "valid_link_nodes": "PlasmaAnimStageNode",
             "valid_link_sockets": "PlasmaAnimStageSettingsSocket",
-        }),
-    ])
+        },
+    }
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "forward")
@@ -230,30 +229,30 @@ class PlasmaAnimStageNode(PlasmaNodeBase, bpy.types.Node):
                             description="Number of times to loop animation",
                             default=0)
 
-    input_sockets = OrderedDict([
-        ("stage_settings", {
+    input_sockets: dict[str, dict[str, any]] = {
+        "stage_settings": {
             "text": "Stage Settings",
             "type": "PlasmaAnimStageSettingsSocket",
             "valid_link_nodes": "PlasmaAnimStageSettingsNode",
             "valid_link_sockets": "PlasmaAnimStageSettingsSocket",
             "link_limit": 1,
-        }),
-    ])
+        },
+    }
 
-    output_sockets = OrderedDict([
-        ("stage", {
+    output_sockets: dict[str, any] = {
+        "stage": {
             "text": "Behavior",
             "type": "PlasmaAnimStageRefSocket",
             "valid_link_nodes": "PlasmaMultiStageBehaviorNode",
             "valid_link_sockets": "PlasmaAnimStageRefSocket",
-        }),
-        ("stage_reference", {
+        },
+        "stage_reference": {
             "text": "Stage Progression",
             "type": "PlasmaAnimStageOrderSocketOut",
             "valid_link_nodes": "PlasmaAnimStageSettingsNode",
             "valid_link_sockets": {"PlasmaAnimStageAdvanceSocketIn", "PlasmaAnimStageRegressSocketIn"} ,
-        }),
-    ])
+        },
+    }
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "anim_name")
@@ -293,39 +292,39 @@ class PlasmaMultiStageBehaviorNode(PlasmaNodeBase, bpy.types.Node):
                               description="Reverse forward/back controls at end",
                               default=False)
 
-    input_sockets = OrderedDict([
-        ("seek_target", {
+    input_sockets: dict[str, any] = {
+        "seek_target": {
             "text": "Seek Target",
             "type": "PlasmaSeekTargetSocketIn",
             "valid_link_sockets": "PlasmaSeekTargetSocketOut",
-        }),
-        ("stage_refs", {
+        },
+        "stage_refs": {
             "text": "Stage",
             "type": "PlasmaAnimStageRefSocket",
             "valid_link_nodes": "PlasmaAnimStageNode",
             "valid_link_sockets": "PlasmaAnimStageRefSocket",
             "link_limit": 1,
             "spawn_empty": True,
-        }),
-        ("condition", {
+        },
+        "condition": {
             "text": "Triggered By",
             "type": "PlasmaConditionSocket",
             "spawn_empty": True,
-        }),
-    ])
+        },
+    }
 
-    output_sockets = OrderedDict([
-        ("hosts", {
+    output_sockets: dict[str, any] = {
+        "hosts": {
             "text": "Host Script",
             "type": "PlasmaBehaviorSocket",
-            "valid_link_nodes": {"PlasmaPythonFileNode"},
+            "valid_link_nodes": "PlasmaPythonFileNode",
             "spawn_empty": True,
-        }),
-        ("satisfies", {
+        },
+        "satisfies": {
             "text": "Trigger",
             "type": "PlasmaConditionSocket",
-        })
-    ])
+        }
+    }
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "freeze_phys")
@@ -463,14 +462,14 @@ class PlasmaSeekTargetNode(PlasmaNodeBase, bpy.types.Node):
                              description="Object defining the Seek Point's position",
                              type=bpy.types.Object)
 
-    output_sockets = OrderedDict([
-        ("seekers", {
+    output_sockets: dict[str, any] = {
+        "seekers": {
             "text": "Seekers",
             "type": "PlasmaSeekTargetSocketOut",
             "valid_link_nodes": {"PlasmaMultiStageBehaviorNode", "PlasmaOneShotMsgNode"},
             "valid_link_sockets": {"PlasmaSeekTargetSocketIn"},
-        })
-    ])
+        },
+    }
 
     def draw_buttons(self, context, layout):
         col = layout.column()

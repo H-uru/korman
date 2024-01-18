@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import bpy
 from bpy.props import *
-from collections import OrderedDict
 import math
 from PyHSPlasma import *
 from typing import *
@@ -44,29 +43,29 @@ class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.N
                           items=bounds_types,
                           default="hull")
 
-    input_sockets = OrderedDict([
-        ("region", {
+    input_sockets: dict[str, any] = {
+        "region": {
             "text": "Avatar Inside Region",
             "type": "PlasmaClickableRegionSocket",
-        }),
-        ("facing", {
+        },
+        "facing": {
             "text": "Avatar Facing Target",
             "type": "PlasmaFacingTargetSocket",
-        }),
-        ("message", {
+        },
+        "message": {
             "text": "Message",
             "type": "PlasmaEnableMessageSocket",
             "spawn_empty": True,
-        }),
-    ])
+        },
+    }
 
-    output_sockets = OrderedDict([
-        ("satisfies", {
+    output_sockets: dict[str, dict[str, any]] = {
+        "satisfies": {
             "text": "Satisfies",
             "type": "PlasmaConditionSocket",
             "valid_link_sockets": {"PlasmaConditionSocket", "PlasmaPythonFileNodeSocket"},
-        }),
-    ])
+        },
+    }
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "clickable_object", icon="MESH_DATA")
@@ -168,12 +167,12 @@ class PlasmaClickableRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.t
                           items=bounds_types,
                           default="hull")
 
-    output_sockets = OrderedDict([
-        ("satisfies", {
+    output_sockets = {
+        "satisfies": {
             "text": "Satisfies",
             "type": "PlasmaClickableRegionSocket",
-        }),
-    ])
+        },
+    }
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "region_object", icon="MESH_DATA")
@@ -280,13 +279,13 @@ class PlasmaFacingTargetNode(PlasmaNodeBase, bpy.types.Node):
                                  get=_get_tolerance, set=_set_tolerance,
                                  subtype="ANGLE", options=set())
 
-    output_sockets = OrderedDict([
-        ("satisfies", {
+    output_sockets: dict[str, dict[str, any]] = {
+        "satisfies": {
             "text": "Satisfies",
             "type": "PlasmaFacingTargetSocket",
             "link_limit": 1,
-        }),
-    ])
+        },
+    }
 
     def _draw_sub_prop(self, layout, prop_name, *, active=True, sidebar=False, **kwargs):
         sub = layout.row() if sidebar else layout.column()
@@ -380,13 +379,13 @@ class PlasmaVolumeReportNode(PlasmaNodeBase, bpy.types.Node):
                     description="How many objects should be in the region for it to trigger",
                     min=0)
 
-    output_sockets = OrderedDict([
-        ("settings", {
+    output_sockets: dict[str, dict[str, any]] = {
+        "settings": {
             "text": "Trigger Settings",
             "type": "PlasmaVolumeSettingsSocketOut",
             "valid_link_sockets": {"PlasmaVolumeSettingsSocketIn"},
-        }),
-    ])
+        },
+    }
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "report_when")
@@ -433,35 +432,35 @@ class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.type
                              default={"kGroupAvatar"},
                              update=_update_report_on)
 
-    input_sockets = OrderedDict([
-        ("facing", {
+    input_sockets: dict[str, dict[str, any]] = {
+        "facing": {
             "text": "Avatar Facing Target",
             "type": "PlasmaFacingTargetSocket",
-        }),
-        ("enter", {
+        },
+        "enter": {
             "text": "Trigger on Enter",
             "type": "PlasmaVolumeSettingsSocketIn",
             "valid_link_sockets": {"PlasmaVolumeSettingsSocketOut"},
-        }),
-        ("exit", {
+        },
+        "exit": {
             "text": "Trigger on Exit",
             "type": "PlasmaVolumeSettingsSocketIn",
             "valid_link_sockets": {"PlasmaVolumeSettingsSocketOut"},
-        }),
-        ("message", {
+        },
+        "message": {
             "text": "Message",
             "type": "PlasmaEnableMessageSocket",
             "spawn_empty": True,
-        }),
-    ])
+        },
+    }
 
-    output_sockets = OrderedDict([
-        ("satisfies", {
+    output_sockets: dict[str, dict[str, any]] = {
+        "satisfies": {
             "text": "Satisfies",
             "type": "PlasmaConditionSocket",
             "valid_link_sockets": {"PlasmaConditionSocket", "PlasmaPythonFileNodeSocket"},
-        }),
-    ])
+        },
+    }
 
     def init(self, context):
         # The default value for the facing socket is a bit silly for this node type.

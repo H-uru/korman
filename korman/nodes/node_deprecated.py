@@ -16,7 +16,6 @@
 import abc
 import bpy
 from bpy.props import *
-from collections import OrderedDict
 
 from .node_core import *
 
@@ -53,28 +52,28 @@ class PlasmaResponderCommandNode(PlasmaDeprecatedNode, bpy.types.Node):
     bl_idname = "PlasmaResponderCommandNode"
     bl_label = "Responder Command"
 
-    input_sockets = OrderedDict([
-        ("whodoneit", {
+    input_sockets: dict[str, dict[str, str]] = {
+        "whodoneit": {
             "text": "Condition",
             "type": "PlasmaRespCommandSocket",
-        }),
-    ])
+        },
+    }
 
-    output_sockets = OrderedDict([
-        ("msg", {
+    output_sockets: dict[str, any] = {
+        "msg": {
             "link_limit": 1,
             "text": "Message",
             "type": "PlasmaMessageSocket",
-        }),
-        ("trigger", {
+        },
+        "trigger": {
             "text": "Trigger",
             "type": "PlasmaRespCommandSocket",
-        }),
-        ("reenable", {
+        },
+        "reenable": {
             "text": "Local Reenable",
             "type": "PlasmaEnableMessageSocket",
-        }),
-    ])
+        },
+    }
 
     def _find_message_sender_node(self, parentCmdNode=None):
         if parentCmdNode is None:
