@@ -242,7 +242,7 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
 
     output_sockets = {
         # This socket has been deprecated.
-        # While this is deprecated I might aswell also convert it.
+        # While this is deprecated I might as well also convert it.
         "cmds": {
             "text": "Commands",
             "type": "PlasmaRespCommandSocket",
