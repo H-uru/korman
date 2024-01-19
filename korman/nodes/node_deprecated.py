@@ -15,6 +15,8 @@
 
 import abc
 import bpy
+from __future__ import annotations
+from typing import *
 from bpy.props import *
 
 from .node_core import *

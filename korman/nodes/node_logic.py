@@ -15,6 +15,8 @@
 
 import bpy
 from bpy.props import *
+from __future__ import annotations
+from typing import *
 from PyHSPlasma import *
 
 from .node_core import *

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import bpy
 from bpy.props import *
+from typing import *
 import inspect
 from PyHSPlasma import *
 import uuid
