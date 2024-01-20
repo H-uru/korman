@@ -45,7 +45,7 @@ class PlasmaSittingBehaviorNode(PlasmaNodeBase, bpy.types.Node):
         },
     }
 
-    output_sockets: dict[str, dict[str, any]] = {
+    output_sockets: dict[str, dict[str, Any]] = {
         "satisfies": {
             "text": "Satisfies",
             "type": "PlasmaConditionSocket",
@@ -172,7 +172,7 @@ class PlasmaAnimStageSettingsNode(PlasmaNodeBase, bpy.types.Node):
                              default={"kNotifyEnter"},
                              options={"ENUM_FLAG"})
 
-    input_sockets: dict[str, dict[str, any]] = {
+    input_sockets: dict[str, dict[str, Any]] = {
         "advance_to": {
             "text": "Advance to Stage",
             "type": "PlasmaAnimStageAdvanceSocketIn",
@@ -232,7 +232,7 @@ class PlasmaAnimStageNode(PlasmaNodeBase, bpy.types.Node):
                             description="Number of times to loop animation",
                             default=0)
 
-    input_sockets: dict[str, dict[str, any]] = {
+    input_sockets: dict[str, dict[str, Any]] = {
         "stage_settings": {
             "text": "Stage Settings",
             "type": "PlasmaAnimStageSettingsSocket",
@@ -242,7 +242,7 @@ class PlasmaAnimStageNode(PlasmaNodeBase, bpy.types.Node):
         },
     }
 
-    output_sockets: dict[str, any] = {
+    output_sockets: dict[str, Any] = {
         "stage": {
             "text": "Behavior",
             "type": "PlasmaAnimStageRefSocket",
@@ -295,7 +295,7 @@ class PlasmaMultiStageBehaviorNode(PlasmaNodeBase, bpy.types.Node):
                               description="Reverse forward/back controls at end",
                               default=False)
 
-    input_sockets: dict[str, any] = {
+    input_sockets: dict[str, Any] = {
         "seek_target": {
             "text": "Seek Target",
             "type": "PlasmaSeekTargetSocketIn",
@@ -316,7 +316,7 @@ class PlasmaMultiStageBehaviorNode(PlasmaNodeBase, bpy.types.Node):
         },
     }
 
-    output_sockets: dict[str, any] = {
+    output_sockets: dict[str, Any] = {
         "hosts": {
             "text": "Host Script",
             "type": "PlasmaBehaviorSocket",
@@ -465,7 +465,7 @@ class PlasmaSeekTargetNode(PlasmaNodeBase, bpy.types.Node):
                              description="Object defining the Seek Point's position",
                              type=bpy.types.Object)
 
-    output_sockets: dict[str, any] = {
+    output_sockets: dict[str, Any] = {
         "seekers": {
             "text": "Seekers",
             "type": "PlasmaSeekTargetSocketOut",

@@ -155,7 +155,7 @@ class PlasmaSoftVolumeInvertNode(PlasmaNodeBase, bpy.types.Node):
 
 
 class PlasmaSoftVolumeLinkNode(PlasmaNodeBase):
-    input_sockets: dict[str, any] = {
+    input_sockets: dict[str, Any] = {
         "properties": {
             "text": "Properties",
             "type": "PlasmaSoftVolumePropertiesNodeSocket",

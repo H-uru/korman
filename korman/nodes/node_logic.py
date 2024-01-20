@@ -53,7 +53,7 @@ class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.typ
     block_cameras = BoolProperty(name="Block Cameras",
                                 description="The region blocks cameras when it has been cleared")
 
-    input_sockets:dict[str, dict[str, any]] = {
+    input_sockets:dict[str, dict[str, Any]] = {
         "safe_point": {
             "type": "PlasmaExcludeSafePointSocket",
             "text": "Safe Point",
@@ -68,7 +68,7 @@ class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.typ
         },
     }
 
-    output_sockets: dict[str, dict[str, any]] = {
+    output_sockets: dict[str, dict[str, Any]] = {
         "keyref": {
             "text": "References",
             "type": "PlasmaPythonReferenceNodeSocket",

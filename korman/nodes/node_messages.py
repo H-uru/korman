@@ -38,7 +38,7 @@ class PlasmaMessageSocket(PlasmaMessageSocketBase, bpy.types.NodeSocket):
 
 class PlasmaMessageNode(PlasmaNodeBase):
 
-    input_sockets: dict[str, dict[str, any]] = {
+    input_sockets: dict[str, dict[str, Any]] = {
         "sender": {
             "text": "Sender",
             "type": "PlasmaMessageSocket",
@@ -404,7 +404,7 @@ class PlasmaEnableMsgNode(PlasmaMessageNode, bpy.types.Node):
     bl_idname = "PlasmaEnableMsgNode"
     bl_label = "Enable/Disable"
 
-    output_sockets: dict[str, dict[str, any]] = {
+    output_sockets: dict[str, dict[str, Any]] = {
         "receivers": {
             "text": "Send To",
             "type": "PlasmaEnableMessageSocket",
@@ -703,7 +703,7 @@ class PlasmaSceneObjectMsgRcvrNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bp
     bl_label = "Send To Object"
     bl_width_default = 190
 
-    input_sockets: dict[str, dict[str, any]]= {
+    input_sockets: dict[str, dict[str, Any]]= {
         "message": {
             "text": "Message",
             "type": "PlasmaNodeSocketInputGeneral",
@@ -1030,7 +1030,7 @@ class PlasmaTriggerMultiStageMsgNode(PlasmaMessageNode, bpy.types.Node):
     bl_idname = "PlasmaTriggerMultiStageMsgNode"
     bl_label = "Trigger MultiStage"
 
-    output_sockets: dict[str, dict[str, any]] = {
+    output_sockets: dict[str, dict[str, Any]] = {
         "satisfies": {
             "text": "Trigger",
             "type": "PlasmaConditionSocket",

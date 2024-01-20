@@ -43,7 +43,7 @@ class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.N
                           items=bounds_types,
                           default="hull")
 
-    input_sockets: dict[str, any] = {
+    input_sockets: dict[str, Any] = {
         "region": {
             "text": "Avatar Inside Region",
             "type": "PlasmaClickableRegionSocket",
@@ -59,7 +59,7 @@ class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.N
         },
     }
 
-    output_sockets: dict[str, dict[str, any]] = {
+    output_sockets: dict[str, dict[str, Any]] = {
         "satisfies": {
             "text": "Satisfies",
             "type": "PlasmaConditionSocket",
@@ -279,7 +279,7 @@ class PlasmaFacingTargetNode(PlasmaNodeBase, bpy.types.Node):
                                  get=_get_tolerance, set=_set_tolerance,
                                  subtype="ANGLE", options=set())
 
-    output_sockets: dict[str, dict[str, any]] = {
+    output_sockets: dict[str, dict[str, Any]] = {
         "satisfies": {
             "text": "Satisfies",
             "type": "PlasmaFacingTargetSocket",
@@ -379,7 +379,7 @@ class PlasmaVolumeReportNode(PlasmaNodeBase, bpy.types.Node):
                     description="How many objects should be in the region for it to trigger",
                     min=0)
 
-    output_sockets: dict[str, dict[str, any]] = {
+    output_sockets: dict[str, dict[str, Any]] = {
         "settings": {
             "text": "Trigger Settings",
             "type": "PlasmaVolumeSettingsSocketOut",
@@ -432,7 +432,7 @@ class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.type
                              default={"kGroupAvatar"},
                              update=_update_report_on)
 
-    input_sockets: dict[str, dict[str, any]] = {
+    input_sockets: dict[str, dict[str, Any]] = {
         "facing": {
             "text": "Avatar Facing Target",
             "type": "PlasmaFacingTargetSocket",
@@ -454,7 +454,7 @@ class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.type
         },
     }
 
-    output_sockets: dict[str, dict[str, any]] = {
+    output_sockets: dict[str, dict[str, Any]] = {
         "satisfies": {
             "text": "Satisfies",
             "type": "PlasmaConditionSocket",

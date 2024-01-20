@@ -46,7 +46,7 @@ class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
     default_state = IntProperty(name="Default State Index",
                                 options=set())
 
-    input_sockets: dict[str, dict[str, any]] = {
+    input_sockets: dict[str, dict[str, Any]] = {
         "condition": {
             "text": "Condition",
             "type": "PlasmaConditionSocket",
@@ -54,7 +54,7 @@ class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
         },
     }
 
-    output_sockets: dict[str, dict[str, any]] = {
+    output_sockets: dict[str, dict[str, Any]] = {
         "keyref": {
             "text": "References",
             "type": "PlasmaPythonReferenceNodeSocket",
@@ -227,7 +227,7 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
                                  set=_set_default_state,
                                  options=set())
 
-    input_sockets: dict[str, any] = {
+    input_sockets: dict[str, Any] = {
         "condition": {
             "text": "Triggers State",
             "type": "PlasmaRespStateSocket",

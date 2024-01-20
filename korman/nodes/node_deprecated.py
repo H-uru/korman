@@ -62,7 +62,7 @@ class PlasmaResponderCommandNode(PlasmaDeprecatedNode, bpy.types.Node):
         },
     }
 
-    output_sockets: dict[str, any] = {
+    output_sockets: dict[str, Any] = {
         "msg": {
             "link_limit": 1,
             "text": "Message",
