@@ -13,10 +13,12 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import abc
 import bpy
+from typing import *
 from bpy.props import *
-from collections import OrderedDict
 
 from .node_core import *
 
@@ -53,28 +55,28 @@ class PlasmaResponderCommandNode(PlasmaDeprecatedNode, bpy.types.Node):
     bl_idname = "PlasmaResponderCommandNode"
     bl_label = "Responder Command"
 
-    input_sockets = OrderedDict([
-        ("whodoneit", {
+    input_sockets: dict[str, dict[str, str]] = {
+        "whodoneit": {
             "text": "Condition",
             "type": "PlasmaRespCommandSocket",
-        }),
-    ])
+        },
+    }
 
-    output_sockets = OrderedDict([
-        ("msg", {
+    output_sockets: dict[str, Any] = {
+        "msg": {
             "link_limit": 1,
             "text": "Message",
             "type": "PlasmaMessageSocket",
-        }),
-        ("trigger", {
+        },
+        "trigger": {
             "text": "Trigger",
             "type": "PlasmaRespCommandSocket",
-        }),
-        ("reenable", {
+        },
+        "reenable": {
             "text": "Local Reenable",
             "type": "PlasmaEnableMessageSocket",
-        }),
-    ])
+        },
+    }
 
     def _find_message_sender_node(self, parentCmdNode=None):
         if parentCmdNode is None:

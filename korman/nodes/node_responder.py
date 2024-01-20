@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import bpy
 from bpy.props import *
-from collections import OrderedDict
+from typing import *
 import inspect
 from PyHSPlasma import *
 import uuid
@@ -46,38 +46,38 @@ class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
     default_state = IntProperty(name="Default State Index",
                                 options=set())
 
-    input_sockets = OrderedDict([
-        ("condition", {
+    input_sockets: dict[str, dict[str, Any]] = {
+        "condition": {
             "text": "Condition",
             "type": "PlasmaConditionSocket",
             "spawn_empty": True,
-        }),
-    ])
+        },
+    }
 
-    output_sockets = OrderedDict([
-        ("keyref", {
+    output_sockets: dict[str, dict[str, Any]] = {
+        "keyref": {
             "text": "References",
             "type": "PlasmaPythonReferenceNodeSocket",
             "valid_link_nodes": {"PlasmaPythonFileNode"},
-        }),
-        ("state_refs", {
+        },
+        "state_refs": {
             "text": "State",
             "type": "PlasmaRespStateRefSocket",
             "valid_link_nodes": "PlasmaResponderStateNode",
             "valid_link_sockets": "PlasmaRespStateRefSocket",
             "link_limit": 1,
             "spawn_empty": True,
-        }),
+        },
 
         # This version of the states socket has been deprecated.
         # We need to be able to track 1 socket -> 1 state to manage
         # responder state IDs
-        ("states", {
+        "states": {
             "text": "States",
             "type": "PlasmaRespStateSocket",
             "hidden": True,
-        }),
-    ])
+        }
+    }
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "detect_trigger")
@@ -227,40 +227,40 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
                                  set=_set_default_state,
                                  options=set())
 
-    input_sockets = OrderedDict([
-        ("condition", {
+    input_sockets: dict[str, Any] = {
+        "condition": {
             "text": "Triggers State",
             "type": "PlasmaRespStateSocket",
             "spawn_empty": True,
-        }),
-        ("resp", {
+        },
+        "resp": {
             "text": "Responder",
             "type": "PlasmaRespStateRefSocket",
             "valid_link_nodes": "PlasmaResponderNode",
             "valid_link_sockets": "PlasmaRespStateRefSocket",
-        }),
-    ])
+        },
+    }
 
-    output_sockets = OrderedDict([
+    output_sockets = {
         # This socket has been deprecated.
-        ("cmds", {
+        # While this is deprecated I might as well also convert it.
+        "cmds": {
             "text": "Commands",
             "type": "PlasmaRespCommandSocket",
             "hidden": True,
-        }),
-
-        # These sockets are valid.
-        ("msgs", {
+        },
+        # These ones are valid.
+        "msgs": {
             "text": "Send Message",
             "type": "PlasmaMessageSocket",
             "valid_link_sockets": "PlasmaMessageSocket",
-        }),
-        ("gotostate", {
+        },
+        "gotostate": {
             "link_limit": 1,
             "text": "Triggers State",
             "type": "PlasmaRespStateSocket",
-        }),
-    ])
+        },
+    }
 
     def draw_buttons(self, context, layout):
         layout.active = self.find_input("resp") is not None

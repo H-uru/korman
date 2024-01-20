@@ -13,9 +13,11 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import bpy
 from bpy.props import *
-from collections import OrderedDict
+from typing import *
 from PyHSPlasma import *
 
 from .node_core import *
@@ -51,28 +53,28 @@ class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.typ
     block_cameras = BoolProperty(name="Block Cameras",
                                 description="The region blocks cameras when it has been cleared")
 
-    input_sockets = OrderedDict([
-        ("safe_point", {
+    input_sockets:dict[str, dict[str, Any]] = {
+        "safe_point": {
             "type": "PlasmaExcludeSafePointSocket",
             "text": "Safe Point",
             "spawn_empty": True,
             # This never links to anything...
             "valid_link_sockets": frozenset(),
-        }),
-        ("msg", {
+        },
+        "msg": {
             "type": "PlasmaExcludeMessageSocket",
             "text": "Message",
             "spawn_empty": True,
-        }),
-    ])
+        },
+    }
 
-    output_sockets = OrderedDict([
-        ("keyref", {
+    output_sockets: dict[str, dict[str, Any]] = {
+        "keyref": {
             "text": "References",
             "type": "PlasmaPythonReferenceNodeSocket",
             "valid_link_nodes": {"PlasmaPythonFileNode"},
-        }),
-    ])
+        },
+    }
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "region_object", icon="MESH_DATA")

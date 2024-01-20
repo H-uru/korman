@@ -19,7 +19,6 @@ import bpy
 from bpy.props import *
 from PyHSPlasma import *
 
-from collections import OrderedDict
 from typing import *
 
 from .node_core import *
@@ -38,14 +37,15 @@ class PlasmaMessageSocket(PlasmaMessageSocketBase, bpy.types.NodeSocket):
 
 
 class PlasmaMessageNode(PlasmaNodeBase):
-    input_sockets = OrderedDict([
-        ("sender", {
+
+    input_sockets: dict[str, dict[str, Any]] = {
+        "sender": {
             "text": "Sender",
             "type": "PlasmaMessageSocket",
             "valid_link_sockets": "PlasmaMessageSocket",
             "spawn_empty": True,
-        }),
-    ])
+        },
+    }
 
     @property
     def has_callbacks(self):
@@ -54,14 +54,14 @@ class PlasmaMessageNode(PlasmaNodeBase):
 
 
 class PlasmaMessageWithCallbacksNode(PlasmaMessageNode):
-    output_sockets = OrderedDict([
-        ("msgs", {
+    soutput_sockets: dict[str, dict[str, str]] = {
+        "msgs": {
             "can_link": "can_link_callback",
             "text": "Send On Completion",
             "type": "PlasmaMessageSocket",
             "valid_link_sockets": "PlasmaMessageSocket",
-        }),
-    ])
+        },
+    }
 
     @property
     def can_link_callback(self):
@@ -404,13 +404,13 @@ class PlasmaEnableMsgNode(PlasmaMessageNode, bpy.types.Node):
     bl_idname = "PlasmaEnableMsgNode"
     bl_label = "Enable/Disable"
 
-    output_sockets = OrderedDict([
-        ("receivers", {
+    output_sockets: dict[str, dict[str, Any]] = {
+        "receivers": {
             "text": "Send To",
             "type": "PlasmaEnableMessageSocket",
             "valid_link_sockets": {"PlasmaEnableMessageSocket", "PlasmaNodeSocketInputGeneral"},
-        }),
-    ])
+        },
+    }
 
     cmd = EnumProperty(name="Command",
                        description="How should we affect the object's state?",
@@ -499,12 +499,12 @@ class PlasmaExcludeRegionMsg(PlasmaMessageNode, bpy.types.Node):
     bl_idname = "PlasmaExcludeRegionMsg"
     bl_label = "Exclude Region"
 
-    output_sockets = OrderedDict([
-        ("region", {
+    output_sockets: dict[str, dict[str, str]] = {
+        "region": {
             "text": "Region",
             "type": "PlasmaExcludeMessageSocket"
-        }),
-    ])
+        },
+    }
 
     cmd = EnumProperty(name="Command",
                        description="Exclude Region State",
@@ -703,14 +703,14 @@ class PlasmaSceneObjectMsgRcvrNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bp
     bl_label = "Send To Object"
     bl_width_default = 190
 
-    input_sockets = OrderedDict([
-        ("message", {
+    input_sockets: dict[str, dict[str, Any]]= {
+        "message": {
             "text": "Message",
             "type": "PlasmaNodeSocketInputGeneral",
             "valid_link_sockets": {"PlasmaEnableMessageSocket"},
             "spawn_empty": True,
-        }),
-    ])
+        },
+    }
 
     target_object = PointerProperty(name="Object",
                                     description="Object to send the message to",
@@ -1030,15 +1030,15 @@ class PlasmaTriggerMultiStageMsgNode(PlasmaMessageNode, bpy.types.Node):
     bl_idname = "PlasmaTriggerMultiStageMsgNode"
     bl_label = "Trigger MultiStage"
 
-    output_sockets = OrderedDict([
-        ("satisfies", {
+    output_sockets: dict[str, dict[str, Any]] = {
+        "satisfies": {
             "text": "Trigger",
             "type": "PlasmaConditionSocket",
             "valid_link_nodes": "PlasmaMultiStageBehaviorNode",
             "valid_link_sockets": "PlasmaConditionSocket",
             "link_limit": 1,
-        })
-    ])
+        }
+    }
 
     def convert_message(self, exporter, so):
         # Yeah, this is not a REAL Plasma message, but the Korman way is to try to hide these little
