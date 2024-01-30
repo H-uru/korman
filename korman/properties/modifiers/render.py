@@ -430,6 +430,7 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
                              items=[
                                 ("lightmap", "Lightmap Texture", "Bakes lighting to a lightmap texture"),
                                 ("vcol", "Vertex Colors", "Bakes lighting to vertex colors"),
+                                ("lmandvcol", "Lightmap with Vertex Colors", "Bakes both a lightmap and vertex colors")
                              ],
                              options=set())
 
@@ -465,6 +466,8 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
                 return True
             elif self.bake_type == "lightmap" and age.lighting_method == "bake":
                 return True
+            elif self.bake_type == "lmandvcol" and age.lighting_method == "bake":
+                return True
             else:
                 return False
         else:
@@ -475,7 +478,7 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
         return self.bake_lightmap
 
     def export(self, exporter, bo, so):
-        # If we're exporting vertex colors, who gives a rat's behind?
+        # If we're exporting *only* vertex colors, who gives a rat's behind?
         if not self.bake_lightmap:
             return
 

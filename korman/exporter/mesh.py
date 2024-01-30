@@ -384,7 +384,7 @@ class MeshConverter(_MeshManager):
 
         # Locate relevant vertex color layers now...
         lm = bo.plasma_modifiers.lightmap
-        color = None if lm.bake_lightmap else self._find_vtx_color_layer(mesh.tessface_vertex_colors)
+        color = None if lm.bake_lightmap and lm.bake_type == "lightmap" else self._find_vtx_color_layer(mesh.tessface_vertex_colors)
         alpha = self._find_vtx_alpha_layer(mesh.tessface_vertex_colors)
 
         # Convert Blender faces into things we can stuff into libHSPlasma

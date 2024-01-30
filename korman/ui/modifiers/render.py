@@ -224,10 +224,10 @@ def lighting(modifier, layout, context):
 
 def lightmap(modifier, layout, context):
     pl_scene = context.scene.plasma_scene
-    is_texture = modifier.bake_type == "lightmap"
+    is_texture = modifier.bake_type == "lightmap" or modifier.bake_type == "lmandvcol"
 
     layout.prop(modifier, "bake_type")
-    if modifier.bake_type == "vcol":
+    if modifier.bake_type == "vcol" or modifier.bake_type == "lmandvcol":
         col_layer = next((i for i in modifier.id_data.data.vertex_colors if i.name.lower() in _VERTEX_COLOR_LAYERS), None)
         if col_layer is not None:
             layout.label("Mesh color layer '{}' will override this lighting.".format(col_layer.name), icon="ERROR")
