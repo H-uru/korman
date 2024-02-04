@@ -226,7 +226,7 @@ class PlasmaCameraAnimationPanel(CameraButtonsPanel, bpy.types.Panel):
 
 
 class PlasmaCameraViewPanel(CameraButtonsPanel, bpy.types.Panel):
-    bl_label = "Camera Lens"
+    bl_label = "Lens (Plasma)"
 
     def draw(self, context):
         camera = context.camera.plasma_camera

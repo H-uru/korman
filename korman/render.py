@@ -59,6 +59,10 @@ properties_data_lamp.DATA_PT_falloff_curve.COMPAT_ENGINES.add("PLASMA_GAME")
 properties_data_lamp.DATA_PT_custom_props_lamp.COMPAT_ENGINES.add("PLASMA_GAME")
 del properties_data_lamp
 
+from bl_ui import properties_data_camera
+properties_data_camera.DATA_PT_lens.COMPAT_ENGINES.add("PLASMA_GAME")
+del properties_data_camera
+
 from bl_ui import properties_render
 _whitelist_all(properties_render)
 del properties_render
