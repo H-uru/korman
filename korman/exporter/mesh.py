@@ -384,7 +384,7 @@ class MeshConverter(_MeshManager):
 
         # Locate relevant vertex color layers now...
         lm = bo.plasma_modifiers.lightmap
-        color = None if lm.bake_lightmap else self._find_vtx_color_layer(mesh.tessface_vertex_colors)
+        color = self._find_vtx_color_layer(mesh.tessface_vertex_colors, autocolor=not lm.bake_lightmap, manual=True)
         alpha = self._find_vtx_alpha_layer(mesh.tessface_vertex_colors)
 
         # Convert Blender faces into things we can stuff into libHSPlasma
@@ -717,13 +717,15 @@ class MeshConverter(_MeshManager):
             return alpha_layer.data
         return None
 
-    def _find_vtx_color_layer(self, color_collection):
-        manual_layer = next((i for i in color_collection if i.name.lower() in _VERTEX_COLOR_LAYERS), None)
-        if manual_layer is not None:
-            return manual_layer.data
-        baked_layer = color_collection.get("autocolor")
-        if baked_layer is not None:
-            return baked_layer.data
+    def _find_vtx_color_layer(self, color_collection, autocolor: bool = True, manual: bool = True):
+        if manual:
+            manual_layer = next((i for i in color_collection if i.name.lower() in _VERTEX_COLOR_LAYERS), None)
+            if manual_layer is not None:
+                return manual_layer.data
+        if autocolor:
+            baked_layer = color_collection.get("autocolor")
+            if baked_layer is not None:
+                return baked_layer.data
         return None
 
     def is_nonpreshaded(self, bo: bpy.types.Object, bm: bpy.types.Material) -> bool:
