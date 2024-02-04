@@ -54,7 +54,7 @@ class PlasmaMessageNode(PlasmaNodeBase):
 
 
 class PlasmaMessageWithCallbacksNode(PlasmaMessageNode):
-    soutput_sockets: dict[str, dict[str, str]] = {
+    output_sockets: dict[str, dict[str, str]] = {
         "msgs": {
             "can_link": "can_link_callback",
             "text": "Send On Completion",
