@@ -42,6 +42,7 @@ function Invoke-GitHubRequest($Method, $Uri, $Body, $ValidResults) {
         -Uri "$Uri" `
         -Method "$Method" `
         -Headers $RequestHeaders `
+        -ContentType "application/json" `
         -Body @(ConvertTo-JSON $Body) `
         -SkipHttpErrorCheck
     Test-GitHubResult `
