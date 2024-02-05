@@ -13,7 +13,14 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import bpy
+
+from typing import *
+
+if TYPE_CHECKING:
+    from ...properties.modifiers.logic import *
 
 from .. import ui_list
 
@@ -36,8 +43,18 @@ def advanced_logic(modifier, layout, context):
         layout.row().prop_menu_enum(logic, "version")
         layout.prop(logic, "node_tree", icon="NODETREE")
 
-def spawnpoint(modifier, layout, context):
+def spawnpoint(modifier: PlasmaSpawnPoint, layout, context):
     layout.label(text="Avatar faces negative Y.")
+    layout.separator()
+
+    col = layout.column()
+    col.prop(modifier, "entry_camera", icon="CAMERA_DATA")
+    sub = col.row()
+    sub.active = modifier.entry_camera is not None
+    sub.prop(modifier, "exit_region", icon="MESH_DATA")
+    sub = col.row()
+    sub.active = modifier.entry_camera is not None and modifier.exit_region is not None
+    sub.prop(modifier, "bounds_type")
 
 def maintainersmarker(modifier, layout, context):
     layout.label(text="Positive Y is North, positive Z is up.")

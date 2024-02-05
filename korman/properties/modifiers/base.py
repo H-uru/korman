@@ -13,12 +13,17 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import bpy
 from bpy.props import *
 
 import abc
 import itertools
-from typing import Any, Dict, FrozenSet, Optional
+from typing import *
+
+if TYPE_CHECKING:
+    from ...nodes.node_python import *
 
 from ... import helpers
 
@@ -202,24 +207,23 @@ class PlasmaModifierLogicWiz:
         pfm_node.update()
         return pfm_node
 
-    def _create_python_attribute(self, pfm_node, attribute_name: str, attribute_type: Optional[str] = None, **kwargs):
+    def _create_python_attribute(self, pfm_node: PlasmaPythonFileNode, attribute_name: str, **kwargs):
         """Creates and links a Python Attribute Node to the Python File Node given by `pfm_node`.
-           This will automatically handle simple attribute types such as numbers and strings, however,
-           for object linkage, you should specify the optional `attribute_type` to ensure the proper
-           attribute type is found. For attribute nodes that require multiple values, the `value` may
-           be set to None and handled in your code."""
-        from ...nodes.node_python import PlasmaAttribute, PlasmaAttribNodeBase
-        if attribute_type is None:
-            assert len(kwargs) == 1 and "value" in kwargs, \
-                "In order to deduce the attribute_type, exactly one attribute value must be passed as a kw named `value`"
-            attribute_type = PlasmaAttribute.type_LUT.get(kwargs["value"].__class__)
+           For attribute nodes that require multiple values, the `value` may be set to None and
+           handled in your code."""
+        attribute_defn = next((i for i in pfm_node.attributes if i.attribute_name == attribute_name), None)
+        if attribute_defn is None:
+            raise KeyError(attribute_name)
+
+        from ...nodes.node_python import PlasmaAttribNodeBase
+        attribute_type = attribute_defn.attribute_type
         node_cls = next((i for i in PlasmaAttribNodeBase.__subclasses__() if attribute_type in i.pl_attrib), None)
-        assert node_cls is not None, "'{}': Unable to find attribute node type for '{}' ('{}')".format(
-            self.id_data.name, attribute_name, attribute_type
-        )
+        assert node_cls is not None, \
+            f"'{self.id_data.name}': Unable to find attribute node type for '{attribute_name}' ('{attribute_type}')"
 
         node = pfm_node.id_data.nodes.new(node_cls.bl_idname)
         node.link_output(pfm_node, "pfm", attribute_name)
+        assert kwargs
         for i, j in kwargs.items():
             setattr(node, i, j)
         return node
