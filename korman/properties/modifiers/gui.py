@@ -257,13 +257,9 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         clickable_region = nodes.new("PlasmaClickableRegionNode")
         clickable_region.region_object = self.clickable_region
 
-        facing_object = nodes.new("PlasmaFacingTargetNode")
-        facing_object.directional = False
-        facing_object.tolerance = math.degrees(-1)
-
         clickable = nodes.new("PlasmaClickableNode")
+        clickable.find_input_socket("facing").allow_simple = False
         clickable.link_input(clickable_region, "satisfies", "region")
-        clickable.link_input(facing_object, "satisfies", "facing")
         clickable.link_output(journalnode, "satisfies", "bookClickable")
         clickable.clickable_object = clickable_object
 
@@ -287,13 +283,9 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         clickable_region = nodes.new("PlasmaClickableRegionNode")
         clickable_region.region_object = self.clickable_region
 
-        facing_object = nodes.new("PlasmaFacingTargetNode")
-        facing_object.directional = False
-        facing_object.tolerance = math.degrees(-1)
-
         clickable = nodes.new("PlasmaClickableNode")
+        clickable.find_input_socket("facing").allow_simple = False
         clickable.link_input(clickable_region, "satisfies", "region")
-        clickable.link_input(facing_object, "satisfies", "facing")
         clickable.link_output(journalnode, "satisfies", "actClickableBook")
         clickable.clickable_object = clickable_object
 
