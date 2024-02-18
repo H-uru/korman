@@ -49,10 +49,12 @@ class GuiConverter:
 
     if TYPE_CHECKING:
         _parent: weakref.ref[Exporter] = ...
+        _pages: Dict[str, Any] = ...
         _mods_exported: Set[str] = ...
 
     def __init__(self, parent: Optional[Exporter] = None):
         self._parent = weakref.ref(parent) if parent is not None else None
+        self._pages = {}
         self._mods_exported = set()
 
         # Go ahead and prepare the GUI transparent material for future use.
@@ -205,6 +207,12 @@ class GuiConverter:
             c2w[i, 2] *= -1.0
             w2c[2, i] *= -1.0
         return PostEffectModMatrices(c2w, w2c)
+
+    def check_pre_export(self, name: str, **kwargs):
+        previous = self._pages.setdefault(name, kwargs)
+        if previous != kwargs:
+            diff = set(previous.items()) - set(kwargs.items())
+            raise ExportError(f"GUI Page '{name}' has target modifiers with conflicting settings:\n{diff}")
 
     def create_note_gui(self, gui_page: str, gui_camera: bpy.types.Object):
         if not gui_page in self._mods_exported:

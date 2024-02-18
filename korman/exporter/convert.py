@@ -229,7 +229,7 @@ class Exporter:
                 for mod in bl_obj.plasma_modifiers.modifiers:
                     fn = getattr(mod, "sanity_check", None)
                     if fn is not None:
-                        fn()
+                        fn(self)
                 inc_progress()
         self.report.msg("... Age is grinning and holding a spatula. Must be OK, then.")
 
@@ -502,7 +502,9 @@ class Exporter:
                 # Wow, recursively generated objects. Aren't you special?
                 with indent():
                     for mod in temporary.plasma_modifiers.modifiers:
-                        mod.sanity_check()
+                        fn = getattr(mod, "sanity_check", None)
+                        if fn is not None:
+                            fn(self)
                     do_pre_export(temporary)
             return temporary
 

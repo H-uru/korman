@@ -660,7 +660,7 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
             share.link_input(share_anim_stage, "stage", "stage_refs")
             share.link_output(linkingnode, "hosts", "shareBookSeek")
 
-    def sanity_check(self):
+    def sanity_check(self, exporter):
         if self.clickable is None:
             raise ExportError("{}: Linking Book modifier requires a clickable!", self.id_data.name)
         if self.seek_point is None:
@@ -724,10 +724,14 @@ class PlasmaNotePopupModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         if self.id_data.type == "MESH":
             return self.id_data
 
-    def sanity_check(self):
+    def sanity_check(self, exporter: Exporter):
         page_type = helpers.get_page_type(self.id_data.plasma_object.page)
         if page_type != "room":
             raise ExportError(f"Note Popup modifiers should be in a 'room' page, not a '{page_type}' page!")
+
+        # It's OK if multiple note popups point to the same GUI page,
+        # they just need to have the same camera.
+        exporter.gui.check_pre_export(self.gui_page, pl_id="note_popup", camera=self.gui_camera)
 
     def pre_export(self, exporter: Exporter, bo: bpy.types.Object):
         # The GUI converter will debounce duplicate GUI dialogs.

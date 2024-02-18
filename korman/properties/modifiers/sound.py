@@ -533,7 +533,7 @@ class PlasmaSoundEmitter(PlasmaModifierProperties):
     stereize_left = PointerProperty(type=bpy.types.Object, options={"HIDDEN", "SKIP_SAVE"})
     stereize_right = PointerProperty(type=bpy.types.Object, options={"HIDDEN", "SKIP_SAVE"})
 
-    def sanity_check(self):
+    def sanity_check(self, exporter):
         modifiers = self.id_data.plasma_modifiers
 
         # Sound emitters can potentially export sounds to more than one emitter SceneObject. Currently,

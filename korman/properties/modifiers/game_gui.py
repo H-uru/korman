@@ -70,7 +70,7 @@ class _GameGuiMixin:
     def requires_dyntext(self) -> bool:
         return False
 
-    def sanity_check(self):
+    def sanity_check(self, exporter):
         age: PlasmaAge = bpy.context.scene.world.plasma_age
 
         # Game GUI modifiers must be attached to objects in a GUI page, ONLY

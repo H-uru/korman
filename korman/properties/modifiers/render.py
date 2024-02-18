@@ -120,7 +120,7 @@ class PlasmaBlendMod(PlasmaModifierProperties):
         for i in (j.blend_onto for j in self.dependencies if j.blend_onto is not None and j.enabled):
             yield i
 
-    def sanity_check(self):
+    def sanity_check(self, exporter):
         if self.has_circular_dependency:
             raise ExportError("'{}': Circular Render Dependency detected!".format(self.id_data.name))
 
@@ -770,7 +770,7 @@ class PlasmaLocalizedTextModifier(PlasmaModifierProperties, PlasmaModifierLogicW
     def localization_set(self):
         return "DynaTexts"
 
-    def sanity_check(self):
+    def sanity_check(self, exporter):
         if self.texture is None:
             raise ExportError("'{}': Localized Text modifier requires a texture", self.id_data.name)
 
