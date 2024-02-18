@@ -32,6 +32,7 @@ from . import utils
 if TYPE_CHECKING:
     from .convert import Exporter
     from .logger import _ExportLogger as ExportLogger
+    from ..properties.modifiers.game_gui import *
 
 
 class Clipping(NamedTuple):
@@ -48,9 +49,11 @@ class GuiConverter:
 
     if TYPE_CHECKING:
         _parent: weakref.ref[Exporter] = ...
+        _mods_exported: Set[str] = ...
 
     def __init__(self, parent: Optional[Exporter] = None):
         self._parent = weakref.ref(parent) if parent is not None else None
+        self._mods_exported = set()
 
         # Go ahead and prepare the GUI transparent material for future use.
         if parent is not None:
@@ -202,6 +205,87 @@ class GuiConverter:
             c2w[i, 2] *= -1.0
             w2c[2, i] *= -1.0
         return PostEffectModMatrices(c2w, w2c)
+
+    def create_note_gui(self, gui_page: str, gui_camera: bpy.types.Object):
+        if not gui_page in self._mods_exported:
+            guidialog_object = utils.create_empty_object(f"{gui_page}_NoteDialog")
+            guidialog_object.plasma_object.enabled = True
+            guidialog_object.plasma_object.page = gui_page
+            yield guidialog_object
+
+            guidialog_mod: PlasmaGameGuiDialogModifier = guidialog_object.plasma_modifiers.gui_dialog
+            guidialog_mod.enabled = True
+            guidialog_mod.is_modal = True
+            if gui_camera is not None:
+                guidialog_mod.camera_object = gui_camera
+            else:
+                # Abuse the GUI Dialog's lookat caLculation to make us a camera that looks at everything
+                # the artist has placed into the GUI page. We want to do this NOW because we will very
+                # soon be adding more objects into the GUI page.
+                camera_object = yield utils.create_camera_object(f"{gui_page}_GUICamera")
+                camera_object.data.angle = math.radians(45.0)
+                camera_object.data.lens_unit = "FOV"
+
+                visible_objects = [
+                    i for i in self._parent().get_objects(gui_page)
+                    if i.type == "MESH" and i.data.materials
+                ]
+                camera_object.matrix_world = self.calc_camera_matrix(
+                    bpy.context.scene,
+                    visible_objects,
+                    camera_object.data.angle
+                )
+                clipping = self.calc_clipping(
+                    camera_object.matrix_world,
+                    bpy.context.scene,
+                    visible_objects,
+                    camera_object.data.angle
+                )
+                camera_object.data.clip_start = clipping.hither
+                camera_object.data.clip_end = clipping.yonder
+                guidialog_mod.camera_object = camera_object
+
+            # Begin creating the object for the clickoff plane. We want to yield it immediately
+            # to the exporter in case something goes wrong during the export, allowing the stale
+            # object to be cleaned up.
+            click_plane_object = utils.BMeshObject(f"{gui_page}_Exit")
+            click_plane_object.matrix_world = guidialog_mod.camera_object.matrix_world
+            click_plane_object.plasma_object.enabled = True
+            click_plane_object.plasma_object.page = gui_page
+            yield click_plane_object
+
+            # We have a camera on guidialog_mod.camera_object. We will now use it to generate the
+            # points for the click-off plane button.
+            # TODO: Allow this to be configurable to 4:3, 16:9, or 21:9?
+            with ExitStack() as stack:
+                stack.enter_context(self.generate_camera_render_settings(bpy.context.scene))
+                toggle = stack.enter_context(helpers.GoodNeighbor())
+
+                # Temporarily adjust the clipping plane out to the farthest point we can find to ensure
+                # that the click-off button ecompasses everything. This is a bit heavy-handed, but if
+                # you want more refined control, you won't be using this helper.
+                clipping = max((guidialog_mod.camera_object.data.clip_start, guidialog_mod.camera_object.data.clip_end))
+                toggle.track(guidialog_mod.camera_object.data, "clip_start", clipping - 0.1)
+                view_frame = guidialog_mod.camera_object.data.view_frame(bpy.context.scene)
+
+            click_plane_object.data.materials.append(self.transparent_material)
+            with click_plane_object as click_plane_mesh:
+                verts = [click_plane_mesh.verts.new(i) for i in view_frame]
+                face = click_plane_mesh.faces.new(verts)
+                # TODO: Ensure the face is pointing toward the camera!
+                # I feel like we should be fine by assuming that Blender returns the viewframe
+                # verts in the correct order, but this is Blender... So test that assumption carefully.
+                # TODO: Apparently not!
+                face.normal_flip()
+
+            # We've now created the mesh object - handle the GUI Button stuff
+            click_plane_object.plasma_modifiers.gui_button.enabled = True
+
+            # NOTE: We will be using xDialogToggle.py, so we use a special tag ID instead of the
+            # close dialog procedure.
+            click_plane_object.plasma_modifiers.gui_control.tag_id = 99
+
+        self._mods_exported.add(gui_page)
 
     @contextmanager
     def generate_camera_render_settings(self, scene: bpy.types.Scene) -> Iterator[None]:

@@ -730,82 +730,8 @@ class PlasmaNotePopupModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz):
             raise ExportError(f"Note Popup modifiers should be in a 'room' page, not a '{page_type}' page!")
 
     def pre_export(self, exporter: Exporter, bo: bpy.types.Object):
-        guidialog_object = utils.create_empty_object(f"{self.gui_page}_NoteDialog")
-        guidialog_object.plasma_object.enabled = True
-        guidialog_object.plasma_object.page = self.gui_page
-        yield guidialog_object
-
-        guidialog_mod: PlasmaGameGuiDialogModifier = guidialog_object.plasma_modifiers.gui_dialog
-        guidialog_mod.enabled = True
-        guidialog_mod.is_modal = True
-        if self.gui_camera:
-            guidialog_mod.camera_object = self.gui_camera
-        else:
-            # Abuse the GUI Dialog's lookat caLculation to make us a camera that looks at everything
-            # the artist has placed into the GUI page. We want to do this NOW because we will very
-            # soon be adding more objects into the GUI page.
-            camera_object = yield utils.create_camera_object(f"{self.key_name}_GUICamera")
-            camera_object.data.angle = math.radians(45.0)
-            camera_object.data.lens_unit = "FOV"
-
-            visible_objects = [
-                i for i in exporter.get_objects(self.gui_page)
-                if i.type == "MESH" and i.data.materials
-            ]
-            camera_object.matrix_world = exporter.gui.calc_camera_matrix(
-                bpy.context.scene,
-                visible_objects,
-                camera_object.data.angle
-            )
-            clipping = exporter.gui.calc_clipping(
-                camera_object.matrix_world,
-                bpy.context.scene,
-                visible_objects,
-                camera_object.data.angle
-            )
-            camera_object.data.clip_start = clipping.hither
-            camera_object.data.clip_end = clipping.yonder
-            guidialog_mod.camera_object = camera_object
-
-        # Begin creating the object for the clickoff plane. We want to yield it immediately
-        # to the exporter in case something goes wrong during the export, allowing the stale
-        # object to be cleaned up.
-        click_plane_object = utils.BMeshObject(f"{self.key_name}_Exit")
-        click_plane_object.matrix_world = guidialog_mod.camera_object.matrix_world
-        click_plane_object.plasma_object.enabled = True
-        click_plane_object.plasma_object.page = self.gui_page
-        yield click_plane_object
-
-        # We have a camera on guidialog_mod.camera_object. We will now use it to generate the
-        # points for the click-off plane button.
-        # TODO: Allow this to be configurable to 4:3, 16:9, or 21:9?
-        with ExitStack() as stack:
-            stack.enter_context(exporter.gui.generate_camera_render_settings(bpy.context.scene))
-            toggle = stack.enter_context(helpers.GoodNeighbor())
-
-            # Temporarily adjust the clipping plane out to the farthest point we can find to ensure
-            # that the click-off button ecompasses everything. This is a bit heavy-handed, but if
-            # you want more refined control, you won't be using this helper.
-            clipping = max((guidialog_mod.camera_object.data.clip_start, guidialog_mod.camera_object.data.clip_end))
-            toggle.track(guidialog_mod.camera_object.data, "clip_start", clipping - 0.1)
-            view_frame = guidialog_mod.camera_object.data.view_frame(bpy.context.scene)
-
-        click_plane_object.data.materials.append(exporter.gui.transparent_material)
-        with click_plane_object as click_plane_mesh:
-            verts = [click_plane_mesh.verts.new(i) for i in view_frame]
-            face = click_plane_mesh.faces.new(verts)
-            # TODO: Ensure the face is pointing toward the camera!
-            # I feel like we should be fine by assuming that Blender returns the viewframe
-            # verts in the correct order, but this is Blender... So test that assumption carefully.
-            # TODO: Apparently not!
-            face.normal_flip()
-
-        # We've now created the mesh object - handle the GUI Button stuff
-        click_plane_object.plasma_modifiers.gui_button.enabled = True
-
-        # NOTE: We will be using xDialogToggle.py, so we use a special tag ID instead of the
-        # close dialog procedure.
-        click_plane_object.plasma_modifiers.gui_control.tag_id = 99
+        # The GUI converter will debounce duplicate GUI dialogs.
+        yield from exporter.gui.create_note_gui(self.gui_page, self.gui_camera)
 
         # Auto-generate a six-foot cube region around the clickable if none was provided.
         if self.clickable_region is None:
