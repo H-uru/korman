@@ -189,7 +189,7 @@ class PlasmaSittingBehavior(idprops.IDPropObjectMixin, PlasmaModifierProperties,
         # This should be an empty, really...
         return True
 
-    def sanity_check(self):
+    def sanity_check(self, exporter):
         # The user absolutely MUST specify a clickable or this won't export worth crap.
         if self.clickable_object is None:
             raise ExportError("'{}': Sitting Behavior's clickable object is invalid".format(self.key_name))

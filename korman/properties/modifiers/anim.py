@@ -42,7 +42,7 @@ class ActionModifier:
                 return None
         raise ExportError("'{}': Object has an animation modifier but is not animated".format(bo.name))
 
-    def sanity_check(self) -> None:
+    def sanity_check(self, exporter) -> None:
         if not self.id_data.plasma_object.has_animation_data:
             raise ExportError("'{}': Has an animation modifier but no animation data.", self.id_data.name)
 

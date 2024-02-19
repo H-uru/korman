@@ -154,7 +154,7 @@ class PlasmaTelescope(PlasmaModifierProperties, PlasmaModifierLogicWiz):
                                     type=bpy.types.Object,
                                     poll=idprops.poll_camera_objects)
 
-    def sanity_check(self):
+    def sanity_check(self, exporter):
         if self.camera_object is None:
             raise ExportError(f"'{self.id_data.name}': Telescopes must specify a camera!")
 
