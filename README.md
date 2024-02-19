@@ -8,20 +8,14 @@ Dependencies
 ------------
 - [Blender](http://blender3d.org) - 3D modeling software
 - [libHSPlasma](https://github.com/H-uru/libhsplasma) - Universal Plasma library used for manipulating data
-- [PhysX 2.6 SDK](http://www.nvidia.com/object/physx_archives.html) - optional, required only for exporting
-ages to the Myst Online: URU Live format with libHSPlasma.
 
 Building
 --------
 Korman is written primarily in Python and therefore requires little in the way of compiling. However, Korman
 depends on the libHSPlasma Python bindings called "PyHSPlasma". Therefore, you will need to compile libHSPlasma
-with python bindings for the platform of your choice. You will need to be certain that you use the same version
-of Python that ships with your Blender install. Once you have done this, copy the HSPlasma library and PyHSPlasma
-python library into Blender's `python/lib/site-packages`.
-
-See the installer directory for NSIS scripts. You can make a Windows installer by using `makensis
--DPYTHON_DLL=[pythonDllName] Installer.nsi`. Be sure to provide the Visual C++ redistributable and
-libHSPlasma libraries. Prebuilt installers will be provided on the Guild of Writers website.
+with python bindings for the platform of your choice. A helper script has been provided to compile PyHSPlasma
+and all dependency libraries for you on Windows. To build Korman for rapid development, run
+`./build.ps1 -Dev -BlenderDir "<path to blender 2.79>"`
 
 Installing
 ----------
