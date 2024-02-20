@@ -300,6 +300,7 @@ class PhysicsConverter:
                     bo.name, volume
                 )
                 self._export_trimesh(bo, physical, local_space, mat)
+                return
 
             if local_space:
                 physical.pos = hsVector3(*mat.to_translation())
