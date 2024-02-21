@@ -68,7 +68,7 @@ jobs:
 
       - name: Upload Korman+Blender Bundle
         if: startsWith(github.ref, 'refs/tags')
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: korman-blender-${{ matrix.cfg.str }}
           path: build/package
