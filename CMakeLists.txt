@@ -17,7 +17,7 @@ cmake_minimum_required(VERSION 3.12)
 
 set(_PROJECT_INFO
     korman
-    VERSION 0.16
+    VERSION 0.17
     DESCRIPTION "Blender plugin for creating ages for Cyan Worlds' proprietary Plasma engine and its open source variant, CyanWorlds.com Engine."
     LANGUAGES CXX # This should probably be NONE, but we need the compiler for string_theory tests
 )
