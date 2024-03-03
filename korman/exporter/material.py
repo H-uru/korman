@@ -777,15 +777,19 @@ class MaterialConverter:
             pl_env.addTargetNode(self._mgr.find_key(plSceneObject, bl=bo))
             pl_env.addMatLayer(layer.key)
 
-            # This is really just so we don't raise any eyebrows if anyone is looking at the files.
-            # If you're disabling DCMs, then you're obviuously trolling!
-            # Cyan generates a single color image, but we'll just set the layer colors and go away.
-            fake_layer = self._mgr.find_create_object(plLayer, bl=bo, name="{}_DisabledDynEnvMap".format(texture.name))
-            fake_layer.ambient = layer.ambient
-            fake_layer.preshade = layer.preshade
-            fake_layer.runtime = layer.runtime
-            fake_layer.specular = layer.specular
-            pl_env.disableTexture = fake_layer.key
+            # Generate a single color image for use as a disabled texture.
+            disabled_color = utils.color_to_argb(texture.plasma_layer.envmap_color)
+            mm_name = f"StaticColorTex_4x4_{disabled_color:08X}"
+            tex_loc = self._mgr.get_textures_page(pl_env.key)
+            color_mm = self._mgr.find_object(plMipmap, name=mm_name, loc=tex_loc)
+            if color_mm is None:
+                color_mm = plMipmap(
+                    name=mm_name, width=4, height=4, numLevels=1,
+                    compType=plBitmap.kUncompressed, format=plBitmap.kRGB8888
+                )
+                color_mm.setRawImage(int.to_bytes(disabled_color, 4, byteorder="little") * 16)
+                self._mgr.add_object(color_mm, loc=tex_loc)
+            pl_env.disableTexture = color_mm.key
 
             if pl_env.camera is None:
                 layer.UVWSrc = plLayerInterface.kUVWPosition
