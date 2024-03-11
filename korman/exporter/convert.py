@@ -538,10 +538,9 @@ class Exporter:
                     # my_object.foo = bar
                     # ```
                     pre_result = proc(self, bo)
-                    assert (
-                        inspect.isgenerator(pre_result) or pre_result is None,
+                    assert \
+                        inspect.isgenerator(pre_result) or pre_result is None, \
                         "pre_export() should return a generator or None"
-                    )
                     try:
                         gen_result = None
                         while pre_result is not None:
