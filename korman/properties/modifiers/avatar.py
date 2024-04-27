@@ -145,7 +145,7 @@ class PlasmaSittingBehavior(idprops.IDPropObjectMixin, PlasmaModifierProperties,
 
             # Camera Object
             cameraobj = nodes.new("PlasmaAttribObjectNode")
-            cameraobj.link_output(sittingnode, "pfm", "sitCam")
+            cameraobj.link_output(sittingpynode, "pfm", "sitCam")
             cameraobj.target_object = self.sitting_camera
 
         # Clickable
