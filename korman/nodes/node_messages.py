@@ -839,7 +839,10 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
         # Remember that 3D stereo sounds are exported as two emitters...
         # But, if we only have one sound attached, who cares, we can just address the message to all
         msg = plSoundMsg()
-        sound_keys = tuple(soundemit.get_sound_keys(exporter, self.sound_name))
+        try:
+            sound_keys = tuple(soundemit.get_sound_keys(exporter, self.sound_name))
+        except ValueError as ex:
+            self.raise_error(f"Invalid sound specified {ex}")
         indices = frozenset((i[1] for i in sound_keys))
 
         if indices:

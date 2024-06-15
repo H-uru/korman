@@ -691,8 +691,10 @@ class PlasmaSoundEmitter(PlasmaModifierProperties):
             lfm_key.object.addStereizer(stereizer.key)
 
     def get_sound_keys(self, exporter, name=None, sound=None) -> Iterator[Tuple[plKey, int]]:
-        assert name or sound
+        assert name is not None or sound is not None
         if sound is None:
+            if not name:
+                raise ValueError(f"{self.id_data.name}: (No sound specified)")
             sound = next((i for i in self.sounds if i.name == name), None)
             if sound is None:
                 raise ValueError(f"{self.id_data.name}: Sound {name}")
