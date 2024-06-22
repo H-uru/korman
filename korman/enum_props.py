@@ -20,6 +20,32 @@ from bpy.props import *
 from typing import *
 import warnings
 
+# Workaround for Blender memory management limitation,
+# don't change this to a literal in the code!
+_ENTIRE_ANIMATION = "(Entire Animation)"
+
+def _get_object_animation_names(self, object_attr: str) -> Sequence[Tuple[str, str, str]]:
+    target_object = getattr(self, object_attr)
+    if target_object is not None:
+        items = [(anim.animation_name, anim.animation_name, "")
+                for anim in target_object.plasma_modifiers.animation.subanimations]
+    else:
+        items = [(_ENTIRE_ANIMATION, _ENTIRE_ANIMATION, "")]
+
+    # We always want "(Entire Animation)", if it exists, to be the first item.
+    entire = items.index((_ENTIRE_ANIMATION, _ENTIRE_ANIMATION, ""))
+    if entire not in (-1, 0):
+        items.pop(entire)
+        items.insert(0, (_ENTIRE_ANIMATION, _ENTIRE_ANIMATION, ""))
+
+    return items
+
+def animation(object_attr: str, **kwargs) -> str:
+    def get_items(self, context):
+        return _get_object_animation_names(self, object_attr)
+
+    return EnumProperty(items=get_items, **kwargs)
+
 # These are the kinds of physical bounds Plasma can work with.
 # This sequence is acceptable in any EnumProperty
 _bounds_types = (
@@ -105,3 +131,37 @@ def upgrade_bounds(bl, bounds_attr: str) -> None:
     if bounds_value_curr != bounds_value_new:
         print(f"Stashing bounds property: [{bl.name}] ({cls.__name__}) {bounds_value_curr} -> {bounds_value_new}") # TEMP
         setattr(bl, bounds_attr, bounds_value_new)
+
+def _get_texture_animation_names(self, object_attr: str, material_attr: str, texture_attr: str) -> Sequence[Tuple[str, str, str]]:
+    target_object = getattr(self, object_attr)
+    material = getattr(self, material_attr)
+    texture = getattr(self, texture_attr)
+
+    if texture is not None:
+        items = [(anim.animation_name, anim.animation_name, "")
+                  for anim in texture.plasma_layer.subanimations]
+    elif material is not None or target_object is not None:
+        if material is None:
+            materials = (i.material for i in target_object.material_slots if i and i.material)
+        else:
+            materials = (material,)
+        layer_props = (i.texture.plasma_layer for mat in materials for i in mat.texture_slots if i and i.texture)
+        all_anims = frozenset((anim.animation_name for i in layer_props for anim in i.subanimations))
+        items = [(i, i, "") for i in all_anims]
+    else:
+        items = [(_ENTIRE_ANIMATION, _ENTIRE_ANIMATION, "")]
+
+    # We always want "(Entire Animation)", if it exists, to be the first item.
+    entire = items.index((_ENTIRE_ANIMATION, _ENTIRE_ANIMATION, ""))
+    if entire not in (-1, 0):
+        items.pop(entire)
+        items.insert(0, (_ENTIRE_ANIMATION, _ENTIRE_ANIMATION, ""))
+
+    return items
+
+def triprop_animation(object_attr: str, material_attr: str, texture_attr: str, **kwargs) -> str:
+    def get_items(self, context):
+        return _get_texture_animation_names(self, object_attr, material_attr, texture_attr)
+
+    assert not {"items", "get", "set"} & kwargs.keys(), "You cannot use the `items`, `get`, or `set` keyword arguments"
+    return EnumProperty(items=get_items, **kwargs)
