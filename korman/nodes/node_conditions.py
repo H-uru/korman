@@ -21,8 +21,8 @@ import math
 from PyHSPlasma import *
 from typing import *
 
+from .. import enum_props
 from .node_core import *
-from ..properties.modifiers.physics import bounds_types
 from .. import idprops
 
 class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.Node):
@@ -38,10 +38,13 @@ class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.N
                                        description="Mesh object that is clickable",
                                        type=bpy.types.Object,
                                        poll=idprops.poll_mesh_objects)
-    bounds = EnumProperty(name="Bounds",
-                          description="Clickable's bounds (NOTE: only used if your clickable is not a collider)",
-                          items=bounds_types,
-                          default="hull")
+
+    bounds = enum_props.bounds(
+        "clickable_object", store_on_collider=False,
+        name="Bounds",
+        description="Clickable's bounds (NOTE: only used if your clickable is not a collider)",
+        default="hull"
+    )
 
     input_sockets: dict[str, Any] = {
         "region": {
@@ -162,10 +165,12 @@ class PlasmaClickableRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.t
                                     description="Object that defines the region mesh",
                                     type=bpy.types.Object,
                                     poll=idprops.poll_mesh_objects)
-    bounds = EnumProperty(name="Bounds",
-                          description="Physical object's bounds (NOTE: only used if your clickable is not a collider)",
-                          items=bounds_types,
-                          default="hull")
+    bounds = enum_props.bounds(
+        "region_object", store_on_collider=False,
+        name="Bounds",
+        description="Physical object's bounds (NOTE: only used if your clickable is not a collider)",
+        default="hull"
+    )
 
     output_sockets = {
         "satisfies": {
@@ -419,9 +424,11 @@ class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.type
                                     description="Object that defines the region mesh",
                                     type=bpy.types.Object,
                                     poll=idprops.poll_mesh_objects)
-    bounds = EnumProperty(name="Bounds",
-                          description="Physical object's bounds",
-                          items=bounds_types)
+    bounds = enum_props.bounds(
+        "region_object", store_on_collider=False,
+        name="Bounds",
+        description="Physical object's bounds"
+    )
 
     # Detector Properties
     report_on = EnumProperty(name="Triggerers",

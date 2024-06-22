@@ -23,8 +23,8 @@ from ...helpers import bmesh_from_object
 from ... import idprops
 
 from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz
+from ... import enum_props
 from ..prop_camera import PlasmaCameraProperties
-from .physics import bounds_types
 
 footstep_surface_ids = {
     "dirt": 0,
@@ -136,14 +136,18 @@ class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     bl_description = "Footstep Region"
     bl_object_types = {"MESH"}
 
-    surface = EnumProperty(name="Surface",
-                           description="What kind of surface are we walking on?",
-                           items=footstep_surfaces,
-                           default="stone")
-    bounds = EnumProperty(name="Region Bounds",
-                          description="Physical object's bounds",
-                          items=bounds_types,
-                          default="hull")
+    surface = EnumProperty(
+        name="Surface",
+        description="What kind of surface are we walking on?",
+        items=footstep_surfaces,
+        default="stone"
+    )
+    bounds = enum_props.bounds(
+        store_on_collider=False,
+        name="Region Bounds",
+        description="Physical object's bounds",
+        default="hull"
+    )
 
     def logicwiz(self, bo, tree):
         nodes = tree.nodes
