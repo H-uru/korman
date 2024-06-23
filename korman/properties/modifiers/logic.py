@@ -34,15 +34,6 @@ from ...exporter import ExportError, utils
 from ... import idprops
 from .physics import bounds_type_index, bounds_type_str, bounds_types
 
-entry_cam_pfm = {
-    "filename": "xEntryCam.py",
-    "attribs": (
-        { 'id':  1, 'type': "ptAttribActivator",   'name': "actRegionSensor" },
-        { 'id':  2, 'type': "ptAttribSceneobject", 'name': "camera" },
-        { 'id':  3, 'type': "ptAttribBoolean",     'name': "undoFirstPerson" },
-    )
-}
-
 class PlasmaVersionedNodeTree(idprops.IDPropMixin, bpy.types.PropertyGroup):
     version = EnumProperty(name="Version",
                            description="Plasma versions this node tree exports under",
@@ -148,11 +139,7 @@ class PlasmaSpawnPoint(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         yield self.convert_logic(bo)
 
     def logicwiz(self, bo, tree):
-        pfm_node = self._create_python_file_node(
-            tree,
-            entry_cam_pfm["filename"],
-            entry_cam_pfm["attribs"]
-        )
+        pfm_node = self._create_standard_python_file_node(tree, "xEntryCam.py")
 
         volume_sensor: PlasmaVolumeSensorNode = tree.nodes.new("PlasmaVolumeSensorNode")
         volume_sensor.find_input_socket("enter").allow = True
@@ -204,17 +191,6 @@ class PlasmaMaintainersMarker(PlasmaModifierProperties):
         return True
 
 
-telescope_pfm = {
-    "filename": "xTelescope.py",
-    "attribs": (
-        { 'id':  1, 'type': "ptAttribActivator", 'name': "Activate" },
-        { 'id':  2, 'type': "ptAttribSceneobject", 'name': "Camera" },
-        { 'id':  3, 'type': "ptAttribBehavior", 'name': "Behavior" },
-        { 'id':  4, 'type': "ptAttribString", 'name': "Vignette" },
-    )
-}
-
-
 class PlasmaTelescope(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     pl_id="telescope"
 
@@ -255,7 +231,7 @@ class PlasmaTelescope(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         nodes = tree.nodes
 
         # Create Python Node
-        telescopepynode = self._create_python_file_node(tree, telescope_pfm["filename"], telescope_pfm["attribs"])
+        telescopepynode = self._create_standard_python_file_node(tree, "xTelescope.py")
 
         # Clickable
         telescopeclick = nodes.new("PlasmaClickableNode")

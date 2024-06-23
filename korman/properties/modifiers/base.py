@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from ...nodes.node_python import *
 
 from ... import helpers
+from ... import plasma_api
 
 class PlasmaModifierProperties(bpy.types.PropertyGroup):
     @property
@@ -206,6 +207,10 @@ class PlasmaModifierLogicWiz:
                 new_attr.attribute_name = attr["name"]
         pfm_node.update()
         return pfm_node
+
+    def _create_standard_python_file_node(self, tree, filename: str) -> bpy.types.Node:
+        """Create a Python File Node for a standard Plasma Python API file (e.g. xAgeSDLBoolShowHide.py)"""
+        return self._create_python_file_node(tree, filename, plasma_api.python_files[filename])
 
     def _create_python_attribute(self, pfm_node: PlasmaPythonFileNode, attribute_name: str, **kwargs):
         """Creates and links a Python Attribute Node to the Python File Node given by `pfm_node`.
