@@ -599,6 +599,10 @@ class Exporter:
             return bpy.context.scene.world.plasma_age.age_name
 
     @property
+    def age_sdl(self) -> bool:
+        return bpy.context.scene.world.plasma_age.age_sdl
+
+    @property
     def dat_only(self):
         return self._op.dat_only
 

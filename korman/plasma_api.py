@@ -14,6 +14,22 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 python_files = {
+    "xAgeSDLBoolShowHide.py": (
+        { "id": 1, "type": "ptAttribString",  "name": "sdlName" },
+        { "id": 2, "type": "ptAttribBoolean", "name": "showOnTrue" },
+        # --- CWE Only Below ---
+        { "id": 3, "type": "ptAttribBoolean", "name": "defaultValue" },
+        { "id": 4, "type": "ptAttribBoolean", "name": "evalOnFirstUpdate "},
+    ),
+
+    "xAgeSDLIntShowHide.py": (
+        { "id": 1, "type": "ptAttribString",  "name": "stringVarName" },
+        { "id": 2, "type": "ptAttribString",  "name": "stringShowStates" },
+        # --- CWE Only Below ---
+        { "id": 3, "type": "ptAttribInt",     "name": "intDefault" },
+        { "id": 4, "type": "ptAttribBoolean", "name": "boolFirstUpdate "},
+    ),
+
     # Provided by all variants of Uru and Myst V
     "xDialogToggle.py": (
         { "id":  1, "type": "ptAttribActivator", "name": "Activate" },

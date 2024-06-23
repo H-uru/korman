@@ -60,6 +60,43 @@ def maintainersmarker(modifier, layout, context):
     layout.label(text="Positive Y is North, positive Z is up.")
     layout.prop(modifier, "calibration")
 
+def sdl_showhide(modifier: PlasmaSDLShowHide, layout, context):
+    if not context.scene.world.plasma_age.age_sdl:
+        layout.label("This modifier requires Age Global SDL!", icon="ERROR")
+        return
+
+    valid_variable = modifier.sdl_variable.strip()
+    layout.alert = not valid_variable
+    layout.prop(modifier, "sdl_variable")
+    if not valid_variable:
+        layout.label("A valid SDL variable is required!", icon="ERROR")
+    layout.alert = False
+    layout.prop(modifier, "variable_type")
+    layout.separator()
+
+    def setup_collection_operator(op):
+        op.context = "object"
+        op.group_path = modifier.path_from_id()
+        op.collection_prop = "int_states"
+        op.index_prop = ""
+
+    if modifier.variable_type == "bool":
+        layout.prop(modifier, "bool_state")
+    elif modifier.variable_type == "int":
+        layout.label("Show when SDL variable is:")
+        sub = layout.column_flow()
+        for i, state in enumerate(modifier.int_states):
+            row = sub.row(align=True)
+            row.prop(state, "value", text="Value")
+            op = row.operator("ui.plasma_collection_remove", icon="ZOOMOUT", text="")
+            setup_collection_operator(op)
+            op.manual_index = i
+
+        op = layout.operator("ui.plasma_collection_add", icon="ZOOMIN", text="Add State Value")
+        setup_collection_operator(op)
+    else:
+        raise RuntimeError()
+
 def telescope(modifier, layout, context):
     layout.prop(modifier, "clickable_region")
     layout.prop(modifier, "seek_target_object", icon="EMPTY_DATA")

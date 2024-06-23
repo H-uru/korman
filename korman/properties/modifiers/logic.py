@@ -15,10 +15,8 @@
 
 from __future__ import annotations
 
-import bmesh
 import bpy
 from bpy.props import *
-import mathutils
 from PyHSPlasma import *
 from typing import *
 
@@ -27,6 +25,11 @@ if TYPE_CHECKING:
     from ...nodes.node_conditions import *
     from ...nodes.node_messages import *
     from ...nodes.node_responder import *
+
+from typing import *
+
+if TYPE_CHECKING:
+    from ...exporter import Exporter
 
 from ...addon_prefs import game_versions
 from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz
@@ -189,6 +192,85 @@ class PlasmaMaintainersMarker(PlasmaModifierProperties):
     @property
     def requires_actor(self):
         return True
+
+
+class PlasmaSDLIntState(bpy.types.PropertyGroup):
+    value: int = IntProperty(
+        name="State Value",
+        description="The object is shown when the SDL variable is set to this value",
+        min=0,
+        soft_max=255,
+        options=set()
+    )
+
+
+class PlasmaSDLShowHide(PlasmaModifierProperties, PlasmaModifierLogicWiz):
+    pl_id = "sdl_showhide"
+
+    bl_category = "Logic"
+    bl_label = "SDL Show/Hide"
+    bl_description = "Show/Hide an object based on an SDL Variable"
+    bl_object_types = {"MESH", "FONT"}
+    bl_icon = "VISIBLE_IPO_OFF"
+
+    sdl_variable: str = StringProperty(
+        name="SDL Variable",
+        description="Name of the SDL variable that controls visibility",
+        options=set()
+    )
+    variable_type: str = EnumProperty(
+        name="Type",
+        description="Data type of the SDL variable",
+        items=[
+            ("bool", "Boolean", "A boolean, used to represent simple on/off for a single state"),
+            ("int", "Integer", "An integer, used to represent multiple state combinations"),
+        ],
+        options=set()
+    )
+
+    int_states = CollectionProperty(type=PlasmaSDLIntState)
+    bool_state: bool = BoolProperty(
+        name="Show When True",
+        description="If checked, show this object when the SDL Variable is TRUE. If not, hide it when TRUE.",
+        default=True,
+        options=set()
+    )
+
+    def created(self):
+        # Ensure at least one SDL int state is precreated for ease of use.
+        # REMEMBER: Blender's "sequences" don't do truthiness correctly...
+        if len(self.int_states) == 0:
+            self.int_states.add()
+
+    def sanity_check(self, exporter: Exporter):
+        if not exporter.age_sdl:
+            raise ExportError(f"'{self.id_data.name}': Age Global SDL is required for the SDL Show/Hide modifier!")
+        if not self.sdl_variable.strip():
+            raise ExportError(f"'{self.id_data.name}': A valid SDL variable is required for the SDL Show/Hide modifier!")
+
+    def logicwiz(self, bo, tree):
+        if self.variable_type == "bool":
+            pfm_node = self._create_standard_python_file_node(tree, "xAgeSDLBoolShowHide.py")
+            self._create_python_attribute(pfm_node, "sdlName", value=self.sdl_variable)
+            self._create_python_attribute(pfm_node, "showOnTrue", value=self.bool_state)
+        elif self.variable_type == "int":
+            pfm_node = self._create_standard_python_file_node(tree, "xAgeSDLIntShowHide.py")
+            self._create_python_attribute(pfm_node, "stringVarName", value=self.sdl_variable)
+            self._create_python_attribute(pfm_node, "stringShowStates", value=",".join(self._states))
+        else:
+            raise RuntimeError()
+
+    @property
+    def key_name(self):
+        if self.variable_type == "bool":
+            return f"cPythBoolShowHide_{self.sdl_variable}_{self.bool_state:d}"
+        elif self.variable_type == "int":
+            return f"cPythIntShowHide_{self.sdl_variable}_{'-'.join(self._states)}"
+
+    @property
+    def _states(self) -> Iterable[str]:
+        """Returns a sorted, deduplicated iterable of the integer (converted to strings) states we should be visible in."""
+        return (str(i) for i in sorted(frozenset((i.value for i in self.int_states))))
 
 
 class PlasmaTelescope(PlasmaModifierProperties, PlasmaModifierLogicWiz):
