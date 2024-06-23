@@ -13,16 +13,35 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import bmesh
 import bpy
 from bpy.props import *
 import mathutils
 from PyHSPlasma import *
+from typing import *
+
+if TYPE_CHECKING:
+    from ...exporter import Exporter
+    from ...nodes.node_conditions import *
+    from ...nodes.node_messages import *
+    from ...nodes.node_responder import *
 
 from ...addon_prefs import game_versions
 from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz
 from ...exporter import ExportError, utils
 from ... import idprops
+from .physics import bounds_type_index, bounds_type_str, bounds_types
+
+entry_cam_pfm = {
+    "filename": "xEntryCam.py",
+    "attribs": (
+        { 'id':  1, 'type': "ptAttribActivator",   'name': "actRegionSensor" },
+        { 'id':  2, 'type': "ptAttribSceneobject", 'name': "camera" },
+        { 'id':  3, 'type': "ptAttribBoolean",     'name': "undoFirstPerson" },
+    )
+}
 
 class PlasmaVersionedNodeTree(idprops.IDPropMixin, bpy.types.PropertyGroup):
     version = EnumProperty(name="Version",
@@ -76,7 +95,7 @@ class PlasmaAdvancedLogic(PlasmaModifierProperties):
         return any((i.node_tree.requires_actor for i in self.logic_groups if i.node_tree))
 
 
-class PlasmaSpawnPoint(PlasmaModifierProperties):
+class PlasmaSpawnPoint(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     pl_id = "spawnpoint"
 
     bl_category = "Logic"
@@ -84,10 +103,73 @@ class PlasmaSpawnPoint(PlasmaModifierProperties):
     bl_description = "Point at which avatars link into the Age"
     bl_object_types = {"EMPTY"}
 
+    def _get_bounds(self) -> int:
+        if self.exit_region is not None:
+            return bounds_type_index(self.exit_region.plasma_modifiers.collision.bounds_type)
+        return bounds_type_index("hull")
+
+    def _set_bounds(self, value: int) -> None:
+        if self.exit_region is not None:
+            self.exit_region.plasma_modifiers.collision.bounds_type = bounds_type_str(value)
+
+    entry_camera = PointerProperty(
+        name="Entry Camera",
+        description="Camera to use when the player spawns at this location",
+        type=bpy.types.Object,
+        poll=idprops.poll_camera_objects
+    )
+
+    exit_region = PointerProperty(
+        name="Exit Region",
+        description="Pop the camera when the player exits this region",
+        type=bpy.types.Object,
+        poll=idprops.poll_mesh_objects
+    )
+
+    bounds_type = EnumProperty(
+        name="Bounds",
+        description="",
+        items=bounds_types,
+        get=_get_bounds,
+        set=_set_bounds,
+        default="hull"
+    )
+
+    def pre_export(self, exporter: Exporter, bo: bpy.types.Object) -> None:
+        if self.entry_camera is None:
+            return
+
+        if self.exit_region is None:
+            self.exit_region = yield utils.create_box_region(
+                f"{self.key_name}_ExitRgn", (2.0, 2.0, 6.0),
+                bo, utils.RegionOrigin.bottom
+            )
+
+        yield self.convert_logic(bo)
+
+    def logicwiz(self, bo, tree):
+        pfm_node = self._create_python_file_node(
+            tree,
+            entry_cam_pfm["filename"],
+            entry_cam_pfm["attribs"]
+        )
+
+        volume_sensor: PlasmaVolumeSensorNode = tree.nodes.new("PlasmaVolumeSensorNode")
+        volume_sensor.find_input_socket("enter").allow = True
+        volume_sensor.find_input_socket("exit").allow = True
+        volume_sensor.region_object = self.exit_region
+        volume_sensor.bounds = self.bounds_type
+        volume_sensor.link_output(pfm_node, "satisfies", "actRegionSensor")
+
+        self._create_python_attribute(
+            pfm_node,
+            "camera",
+            target_object=self.entry_camera
+        )
+
+
     def export(self, exporter, bo, so):
-        # Not much to this modifier... It's basically a flag that tells the engine, "hey, this is a
-        # place the avatar can show up." Nice to have a simple one to get started with.
-        spawn = exporter.mgr.add_object(pl=plSpawnModifier, so=so, name=self.key_name)
+        exporter.mgr.add_object(pl=plSpawnModifier, so=so, name=self.key_name)
 
     @property
     def requires_actor(self):
