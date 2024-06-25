@@ -471,7 +471,7 @@ class PlasmaGameGuiDialogModifier(PlasmaModifierProperties, _GameGuiMixin):
 
         post_effect = exporter.mgr.find_create_object(plPostEffectMod, bl=bo)
         post_effect.defaultC2W, post_effect.defaultW2C = exporter.gui.convert_post_effect_matrices(camera_matrix)
-        post_effect.fovX = math.degrees(fov)
+        post_effect.fovX = math.degrees(fov * 1.15)
         post_effect.fovY = math.degrees(fov * (3.0 / 4.0))
         post_effect.hither = min((hither, yonder))
         post_effect.yon = max((hither, yonder))
