@@ -22,7 +22,7 @@ from ...exporter import ExportError, ExportAssertionError
 from ...helpers import bmesh_from_object
 from ... import idprops
 
-from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz
+from .base import PlasmaModifierProperties, PlasmaModifierUpgradable, PlasmaModifierLogicWiz
 from ... import enum_props
 from ..prop_camera import PlasmaCameraProperties
 
@@ -128,7 +128,7 @@ class PlasmaCameraRegion(PlasmaModifierProperties):
         return self.camera_type == "auto_follow"
 
 
-class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
+class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierUpgradable, PlasmaModifierLogicWiz):
     pl_id = "footstep"
 
     bl_category = "Region"
@@ -143,7 +143,6 @@ class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         default="stone"
     )
     bounds = enum_props.bounds(
-        store_on_collider=False,
         name="Region Bounds",
         description="Physical object's bounds",
         default="hull"
@@ -175,6 +174,16 @@ class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     @property
     def key_name(self):
         return "{}_FootRgn".format(self.id_data.name)
+
+    @property
+    def latest_version(self):
+        return 2
+
+    def upgrade(self):
+        # Version 2 converts the bounds type to a proxy to the collision modifier.
+        if self.current_version < 2:
+            enum_props.upgrade_bounds(self, "bounds")
+            self.current_version = 2
 
 
 class PlasmaPanicLinkRegion(PlasmaModifierProperties):
