@@ -30,9 +30,9 @@ if TYPE_CHECKING:
 
 from ...addon_prefs import game_versions
 from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz
+from ... import enum_props
 from ...exporter import ExportError, utils
 from ... import idprops
-from .physics import bounds_type_index, bounds_type_str, bounds_types
 
 entry_cam_pfm = {
     "filename": "xEntryCam.py",
@@ -103,15 +103,6 @@ class PlasmaSpawnPoint(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     bl_description = "Point at which avatars link into the Age"
     bl_object_types = {"EMPTY"}
 
-    def _get_bounds(self) -> int:
-        if self.exit_region is not None:
-            return bounds_type_index(self.exit_region.plasma_modifiers.collision.bounds_type)
-        return bounds_type_index("hull")
-
-    def _set_bounds(self, value: int) -> None:
-        if self.exit_region is not None:
-            self.exit_region.plasma_modifiers.collision.bounds_type = bounds_type_str(value)
-
     entry_camera = PointerProperty(
         name="Entry Camera",
         description="Camera to use when the player spawns at this location",
@@ -126,12 +117,10 @@ class PlasmaSpawnPoint(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         poll=idprops.poll_mesh_objects
     )
 
-    bounds_type = EnumProperty(
+    bounds_type = enum_props.bounds(
+        "exit_region",
         name="Bounds",
         description="",
-        items=bounds_types,
-        get=_get_bounds,
-        set=_set_bounds,
         default="hull"
     )
 

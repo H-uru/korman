@@ -21,6 +21,7 @@ from PyHSPlasma import *
 
 from typing import *
 
+from .. import enum_props
 from .node_core import *
 from ..properties.modifiers.physics import subworld_types
 from ..properties.modifiers.region import footstep_surfaces, footstep_surface_ids
@@ -113,39 +114,30 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
                                     ("TEXTURE", "Texture", "Texture Action")],
                              default="OBJECT")
 
-    def _poll_texture(self, value):
-        # must be a legal option... but is it a member of this material... or, if no material,
-        # any of the materials attached to the object?
-        if self.target_material is not None:
-            return value.name in self.target_material.texture_slots
-        elif self.target_object is not None:
-            for i in (slot.material for slot in self.target_object.material_slots if slot and slot.material):
-                if value in (slot.texture for slot in i.texture_slots if slot and slot.texture):
-                    return True
-            return False
+    def _poll_target_object(self, value: bpy.types.Object) -> bool:
+        if self.anim_type == "TEXTURE":
+            return idprops.poll_drawable_objects(self, value)
+        elif self.anim_type == "MESH":
+            return idprops.poll_animated_objects(self, value)
         else:
-            return True
+            raise RuntimeError()
 
-    def _poll_material(self, value):
-        # Don't filter materials by texture - this would (potentially) result in surprising UX
-        # in that you would have to clear the texture selection before being able to select
-        # certain materials.
-        if self.target_object is not None:
-            object_materials = (slot.material for slot in self.target_object.material_slots if slot and slot.material)
-            return value in object_materials
-        return True
-
-    target_object = PointerProperty(name="Object",
-                                    description="Target object",
-                                    type=bpy.types.Object)
-    target_material = PointerProperty(name="Material",
-                                      description="Target material",
-                                      type=bpy.types.Material,
-                                      poll=_poll_material)
-    target_texture = PointerProperty(name="Texture",
-                                     description="Target texture",
-                                     type=bpy.types.Texture,
-                                     poll=_poll_texture)
+    target_object = idprops.triprop_object(
+        "target_object", "target_material", "target_texture",
+        name="Object",
+        description="Target object",
+        poll=_poll_target_object
+    )
+    target_material = idprops.triprop_material(
+        "target_object", "target_material", "target_texture",
+        name="Material",
+        description="Target material"
+    )
+    target_texture = idprops.triprop_texture(
+        "target_object", "target_material", "target_texture",
+        name="Texture",
+        description="Target texture"
+    )
 
     go_to = EnumProperty(name="Go To",
                          description="Where should the animation start?",
@@ -205,36 +197,13 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
                                 ("kStop", "Stop", "When the action is stopped by a message")],
                          default="kEnd")
 
-    # Blender memory workaround
-    _ENTIRE_ANIMATION = "(Entire Animation)"
     def _get_anim_names(self, context):
         if self.anim_type == "OBJECT":
-            items = [(anim.animation_name, anim.animation_name, "")
-                     for anim in self.target_object.plasma_modifiers.animation.subanimations]
+            return enum_props._get_object_animation_names(self, "target_object")
         elif self.anim_type == "TEXTURE":
-            if self.target_texture is not None:
-                items = [(anim.animation_name, anim.animation_name, "")
-                         for anim in self.target_texture.plasma_layer.subanimations]
-            elif self.target_material is not None or self.target_object is not None:
-                if self.target_material is None:
-                    materials = (i.material for i in self.target_object.material_slots if i and i.material)
-                else:
-                    materials = (self.target_material,)
-                layer_props = (i.texture.plasma_layer for mat in materials for i in mat.texture_slots if i and i.texture)
-                all_anims = frozenset((anim.animation_name for i in layer_props for anim in i.subanimations))
-                items = [(i, i, "") for i in all_anims]
-            else:
-                items = [(PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, "")]
+            return enum_props._get_texture_animation_names(self, "target_object", "target_material", "target_texture")
         else:
             raise RuntimeError()
-
-        # We always want "(Entire Animation)", if it exists, to be the first item.
-        entire = items.index((PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, ""))
-        if entire not in (-1, 0):
-            items.pop(entire)
-            items.insert(0, (PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, PlasmaAnimCmdMsgNode._ENTIRE_ANIMATION, ""))
-
-        return items
 
     anim_name = EnumProperty(name="Animation",
                              description="Name of the animation to control",

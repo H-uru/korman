@@ -263,7 +263,7 @@ def _restore_properties(dummy):
     # again and BOOM--there are no deprecated properties available. Therefore,
     # we reregister them here.
     for mod_cls in PlasmaModifierUpgradable.__subclasses__():
-        for prop_name in mod_cls.deprecated_properties:
+        for prop_name in getattr(mod_cls, "deprecated_properties", []):
             # Unregistered propertes are a sequence of (property function,
             # property keyword arguments). Interesting design decision :)
             prop_cb, prop_kwargs = getattr(mod_cls, prop_name)
@@ -283,6 +283,6 @@ def _upgrade_modifiers(dummy):
     # Now that everything is upgraded, forcibly remove all properties
     # from the modifiers to prevent sneaky zombie-data type export bugs
     for mod_cls in PlasmaModifierUpgradable.__subclasses__():
-        for prop in mod_cls.deprecated_properties:
+        for prop in getattr(mod_cls, "deprecated_properties", []):
             RemoveProperty(mod_cls, attr=prop)
 bpy.app.handlers.load_post.append(_upgrade_modifiers)

@@ -21,11 +21,12 @@ import math
 from PyHSPlasma import *
 from typing import *
 
+from .. import enum_props
 from .node_core import *
-from ..properties.modifiers.physics import bounds_types
+from .node_deprecated import PlasmaVersionedNode
 from .. import idprops
 
-class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.Node):
+class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaVersionedNode, bpy.types.Node):
     bl_category = "CONDITIONS"
     bl_idname = "PlasmaClickableNode"
     bl_label = "Clickable"
@@ -38,10 +39,13 @@ class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.N
                                        description="Mesh object that is clickable",
                                        type=bpy.types.Object,
                                        poll=idprops.poll_mesh_objects)
-    bounds = EnumProperty(name="Bounds",
-                          description="Clickable's bounds (NOTE: only used if your clickable is not a collider)",
-                          items=bounds_types,
-                          default="hull")
+
+    bounds = enum_props.bounds(
+        "clickable_object",
+        name="Bounds",
+        description="Clickable's bounds",
+        default="hull"
+    )
 
     input_sockets: dict[str, Any] = {
         "region": {
@@ -151,8 +155,20 @@ class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.N
     def _idprop_mapping(cls):
         return {"clickable_object": "clickable"}
 
+    @property
+    def latest_version(self):
+        return 2
 
-class PlasmaClickableRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.Node):
+    def upgrade(self):
+        # In version 1 of this node, the bounds type was stored on this node. This could
+        # be overridden by whatever was in the collision modifier. Version 2 changes the
+        # bounds property to proxy to the collision modifier's bounds settings.
+        if self.version == 2:
+            enum_props.upgrade_bounds(self, "bounds")
+            self.version = 2
+
+
+class PlasmaClickableRegionNode(idprops.IDPropObjectMixin, PlasmaVersionedNode, bpy.types.Node):
     bl_category = "CONDITIONS"
     bl_idname = "PlasmaClickableRegionNode"
     bl_label = "Clickable Region Settings"
@@ -162,10 +178,12 @@ class PlasmaClickableRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.t
                                     description="Object that defines the region mesh",
                                     type=bpy.types.Object,
                                     poll=idprops.poll_mesh_objects)
-    bounds = EnumProperty(name="Bounds",
-                          description="Physical object's bounds (NOTE: only used if your clickable is not a collider)",
-                          items=bounds_types,
-                          default="hull")
+    bounds = enum_props.bounds(
+        "region_object",
+        name="Bounds",
+        description="Physical object's bounds",
+        default="hull"
+    )
 
     output_sockets = {
         "satisfies": {
@@ -214,6 +232,18 @@ class PlasmaClickableRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.t
     @classmethod
     def _idprop_mapping(cls):
         return {"region_object": "region"}
+
+    @property
+    def latest_version(self):
+        return 2
+
+    def upgrade(self):
+        # In version 1 of this node, the bounds type was stored on this node. This could
+        # be overridden by whatever was in the collision modifier. Version 2 changes the
+        # bounds property to proxy to the collision modifier's bounds settings.
+        if self.version == 1:
+            enum_props.upgrade_bounds(self, "bounds")
+            self.version = 2
 
 
 class PlasmaClickableRegionSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
@@ -395,7 +425,7 @@ class PlasmaVolumeReportNode(PlasmaNodeBase, bpy.types.Node):
             row.prop(self, "threshold", text="")
 
 
-class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.Node):
+class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaVersionedNode, bpy.types.Node):
     bl_category = "CONDITIONS"
     bl_idname = "PlasmaVolumeSensorNode"
     bl_label = "Region Sensor"
@@ -419,9 +449,11 @@ class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.type
                                     description="Object that defines the region mesh",
                                     type=bpy.types.Object,
                                     poll=idprops.poll_mesh_objects)
-    bounds = EnumProperty(name="Bounds",
-                          description="Physical object's bounds",
-                          items=bounds_types)
+    bounds = enum_props.bounds(
+        "region_object",
+        name="Bounds",
+        description="Physical object's bounds"
+    )
 
     # Detector Properties
     report_on = EnumProperty(name="Triggerers",
@@ -585,6 +617,18 @@ class PlasmaVolumeSensorNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.type
     def report_exits(self):
         return (self.find_input_socket("exit").allow or
                 self.find_input("exit", "PlasmaVolumeReportNode") is not None)
+
+    @property
+    def latest_version(self):
+        return 2
+
+    def upgrade(self):
+        # In version 1 of this node, the bounds type was stored on this node. This could
+        # be overridden by whatever was in the collision modifier. Version 2 changes the
+        # bounds property to proxy to the collision modifier's bounds settings.
+        if self.version == 1:
+            enum_props.upgrade_bounds(self, "bounds")
+            self.version = 2
 
 
 class PlasmaVolumeSettingsSocket(PlasmaNodeSocketBase):

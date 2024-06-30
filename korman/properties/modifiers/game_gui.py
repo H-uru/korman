@@ -203,26 +203,6 @@ class GameGuiAnimation(bpy.types.PropertyGroup):
         else:
             return idprops.poll_drawable_objects(self, value)
 
-    def _poll_texture(self, value):
-        # must be a legal option... but is it a member of this material... or, if no material,
-        # any of the materials attached to the object?
-        if self.target_material is not None:
-            return value.name in self.target_material.texture_slots
-        else:
-            target_object = self.target_object if self.target_object is not None else self.id_data
-            for i in (slot.material for slot in target_object.material_slots if slot and slot.material):
-                if value in (slot.texture for slot in i.texture_slots if slot and slot.texture):
-                    return True
-            return False
-
-    def _poll_material(self, value):
-        # Don't filter materials by texture - this would (potentially) result in surprising UX
-        # in that you would have to clear the texture selection before being able to select
-        # certain materials.
-        target_object = self.target_object if self.target_object is not None else self.id_data
-        object_materials = (slot.material for slot in target_object.material_slots if slot and slot.material)
-        return value in object_materials
-
     anim_type: str = EnumProperty(
         name="Type",
         description="Animation type to affect",
@@ -233,23 +213,21 @@ class GameGuiAnimation(bpy.types.PropertyGroup):
         default="OBJECT",
         options=set()
     )
-    target_object: bpy.types.Object = PointerProperty(
+    target_object: bpy.types.Object = idprops.triprop_object(
+        "target_object", "target_material", "target_texure",
         name="Object",
         description="Target object",
         poll=_poll_target_object,
-        type=bpy.types.Object
     )
-    target_material: bpy.types.Material = PointerProperty(
+    target_material: bpy.types.Material = idprops.triprop_material(
+        "target_object", "target_material", "target_texure",
         name="Material",
         description="Target material",
-        type=bpy.types.Material,
-        poll=_poll_material
     )
-    target_texture: bpy.types.Texture = PointerProperty(
+    target_texture: bpy.types.Texture = idprops.triprop_texture(
+        "target_object", "target_material", "target_texure",
         name="Texture",
         description="Target texture",
-        type=bpy.types.Texture,
-        poll=_poll_texture
     )
 
 

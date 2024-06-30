@@ -145,6 +145,86 @@ def poll_visregion_objects(self, value):
 def poll_envmap_textures(self, value):
     return isinstance(value, bpy.types.EnvironmentMapTexture)
 
+def triprop_material(object_attr: str, material_attr: str, texture_attr: str, **kwargs) -> bpy.types.Material:
+    user_poll = kwargs.pop("poll", None)
+
+    def poll_proc(self, value: bpy.types.Material) -> bool:
+        target_object = getattr(self, object_attr)
+        if target_object is None:
+            target_object = getattr(self, "id_data", None)
+
+        # Don't filter materials by texture - this would (potentially) result in surprising UX
+        # in that you would have to clear the texture selection before being able to select
+        # certain materials.
+        if target_object is not None:
+            object_materials = (slot.material for slot in target_object.material_slots if slot and slot.material)
+            result = value in object_materials
+        else:
+            result = True
+
+        # Downstream processing, if any.
+        if result and user_poll is not None:
+            result = user_poll(self, value)
+        return result
+
+    assert not "type" in kwargs
+    return PointerProperty(
+        type=bpy.types.Material,
+        poll=poll_proc,
+        **kwargs
+    )
+
+def triprop_object(object_attr: str, material_attr: str, texture_attr: str, **kwargs) -> bpy.types.Texture:
+    assert not "type" in kwargs
+    if not "poll" in kwargs:
+        kwargs["poll"] = poll_drawable_objects
+    return PointerProperty(
+        type=bpy.types.Object,
+        **kwargs
+    )
+
+def triprop_texture(object_attr: str, material_attr: str, texture_attr: str, **kwargs) -> bpy.types.Object:
+    user_poll = kwargs.pop("poll", None)
+
+    def poll_proc(self, value: bpy.types.Texture) -> bool:
+        target_material = getattr(self, material_attr)
+        target_object = getattr(self, object_attr)
+        if target_object is None:
+            target_object = getattr(self, "id_data", None)
+
+        # must be a legal option... but is it a member of this material... or, if no material,
+        # any of the materials attached to the object?
+        if target_material is not None:
+            result = value.name in target_material.texture_slots
+        elif target_object is not None:
+            for i in (slot.material for slot in target_object.material_slots if slot and slot.material):
+                if value in (slot.texture for slot in i.texture_slots if slot and slot.texture):
+                    result = True
+                    break
+            else:
+                result = False
+        else:
+            result = False
+
+        # Is it animated?
+        if result and target_material is not None:
+            result = (
+                (target_material.animation_data is not None and target_material.animation_data.action is not None)
+                or (value.animation_data is not None and value.animation_data.action is not None)
+            )
+
+        # Downstream processing, if any.
+        if result and user_poll:
+            result = user_poll(self, value)
+        return result
+
+    assert not "type" in kwargs
+    return PointerProperty(
+        type=bpy.types.Texture,
+        poll=poll_proc,
+        **kwargs
+    )
+
 @bpy.app.handlers.persistent
 def _upgrade_node_trees(dummy):
     """

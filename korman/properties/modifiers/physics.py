@@ -18,17 +18,9 @@ from bpy.props import *
 from PyHSPlasma import *
 
 from .base import PlasmaModifierProperties
+from ...enum_props import _bounds_types
 from ...exporter import ExportError
 from ... import idprops
-
-# These are the kinds of physical bounds Plasma can work with.
-# This sequence is acceptable in any EnumProperty
-bounds_types = (
-    ("box", "Bounding Box", "Use a perfect bounding box"),
-    ("sphere", "Bounding Sphere", "Use a perfect bounding sphere"),
-    ("hull", "Convex Hull", "Use a convex set encompasing all vertices"),
-    ("trimesh", "Triangle Mesh", "Use the exact triangle mesh (SLOW!)")
-)
 
 # These are the collision sound surface types
 surface_types = (
@@ -55,12 +47,6 @@ subworld_types = (
     ("subworld", "Separate World", "Causes all objects to be placed in a separate physics simulation"),
 )
 
-def bounds_type_index(key):
-    return list(zip(*bounds_types))[0].index(key)
-
-def bounds_type_str(idx):
-    return bounds_types[idx][0]
-
 def _set_phys_prop(prop, sim, phys, value=True):
     """Sets properties on plGenericPhysical and plSimulationInterface (seeing as how they are duped)"""
     sim.setProperty(prop, value)
@@ -78,7 +64,7 @@ class PlasmaCollider(PlasmaModifierProperties):
 
     bounds = EnumProperty(name="Bounds Type",
                           description="",
-                          items=bounds_types,
+                          items=_bounds_types,
                           default="hull")
 
     avatar_blocker = BoolProperty(name="Blocks Avatars",

@@ -22,9 +22,9 @@ from ...exporter import ExportError, ExportAssertionError
 from ...helpers import bmesh_from_object
 from ... import idprops
 
-from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz
+from .base import PlasmaModifierProperties, PlasmaModifierUpgradable, PlasmaModifierLogicWiz
+from ... import enum_props
 from ..prop_camera import PlasmaCameraProperties
-from .physics import bounds_types
 
 footstep_surface_ids = {
     "dirt": 0,
@@ -128,7 +128,7 @@ class PlasmaCameraRegion(PlasmaModifierProperties):
         return self.camera_type == "auto_follow"
 
 
-class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
+class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierUpgradable, PlasmaModifierLogicWiz):
     pl_id = "footstep"
 
     bl_category = "Region"
@@ -136,14 +136,17 @@ class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     bl_description = "Footstep Region"
     bl_object_types = {"MESH"}
 
-    surface = EnumProperty(name="Surface",
-                           description="What kind of surface are we walking on?",
-                           items=footstep_surfaces,
-                           default="stone")
-    bounds = EnumProperty(name="Region Bounds",
-                          description="Physical object's bounds",
-                          items=bounds_types,
-                          default="hull")
+    surface = EnumProperty(
+        name="Surface",
+        description="What kind of surface are we walking on?",
+        items=footstep_surfaces,
+        default="stone"
+    )
+    bounds = enum_props.bounds(
+        name="Region Bounds",
+        description="Physical object's bounds",
+        default="hull"
+    )
 
     def logicwiz(self, bo, tree):
         nodes = tree.nodes
@@ -171,6 +174,16 @@ class PlasmaFootstepRegion(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     @property
     def key_name(self):
         return "{}_FootRgn".format(self.id_data.name)
+
+    @property
+    def latest_version(self):
+        return 2
+
+    def upgrade(self):
+        # Version 2 converts the bounds type to a proxy to the collision modifier.
+        if self.current_version < 2:
+            enum_props.upgrade_bounds(self, "bounds")
+            self.current_version = 2
 
 
 class PlasmaPanicLinkRegion(PlasmaModifierProperties):

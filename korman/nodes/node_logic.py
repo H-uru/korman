@@ -20,8 +20,8 @@ from bpy.props import *
 from typing import *
 from PyHSPlasma import *
 
+from .. import enum_props
 from .node_core import *
-from ..properties.modifiers.physics import bounds_types, bounds_type_index, bounds_type_str
 from .. import idprops
 
 class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.Node):
@@ -33,25 +33,19 @@ class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.typ
     # ohey, this can be a Python attribute
     pl_attrib = {"ptAttribExcludeRegion"}
 
-    def _get_bounds(self):
-        if self.region_object is not None:
-            return bounds_type_index(self.region_object.plasma_modifiers.collision.bounds)
-        return bounds_type_index("hull")
-    def _set_bounds(self, value):
-        if self.region_object is not None:
-            self.region_object.plasma_modifiers.collision.bounds = bounds_type_str(value)
-
     region_object = PointerProperty(name="Region",
                                     description="Region object's name",
                                     type=bpy.types.Object,
                                     poll=idprops.poll_mesh_objects)
-    bounds = EnumProperty(name="Bounds",
-                          description="Region bounds",
-                          items=bounds_types,
-                          get=_get_bounds,
-                          set=_set_bounds)
-    block_cameras = BoolProperty(name="Block Cameras",
-                                description="The region blocks cameras when it has been cleared")
+    bounds = enum_props.bounds(
+        "region_object",
+        name="Bounds",
+        description="Region bounds"
+    )
+    block_cameras = BoolProperty(
+        name="Block Cameras",
+        description="The region blocks cameras when it has been cleared"
+    )
 
     input_sockets:dict[str, dict[str, Any]] = {
         "safe_point": {

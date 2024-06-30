@@ -21,6 +21,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from PyHSPlasma import *
 
+from .. import enum_props
 from .node_core import *
 from .node_deprecated import PlasmaDeprecatedNode, PlasmaVersionedNode
 from .. import idprops
@@ -823,81 +824,43 @@ class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.typ
     pl_attrib = ("ptAttribMaterial", "ptAttribMaterialList",
                  "ptAttribDynamicMap", "ptAttribMaterialAnimation")
 
-    def _poll_material(self, value: bpy.types.Material) -> bool:
-        # Don't filter materials by texture - this would (potentially) result in surprising UX
-        # in that you would have to clear the texture selection before being able to select
-        # certain materials.
-        if self.target_object is not None:
-            object_materials = (slot.material for slot in self.target_object.material_slots if slot and slot.material)
-            return value in object_materials
-        return True
-
     def _poll_texture(self, value: bpy.types.Texture) -> bool:
         # is this the type of dealio that we're looking for?
         attrib = self.to_socket
         if attrib is not None:
             attrib = attrib.attribute_type
-            if attrib == "ptAttribDynamicMap":
-                if not self._is_dyntext(value):
-                    return False
-            elif attrib == "ptAttribMaterialAnimation":
-                if not self._is_animated(self.material, value):
-                    return False
-
-        # must be a legal option... but is it a member of this material... or, if no material,
-        # any of the materials attached to the object?
-        if self.material is not None:
-            return value.name in self.material.texture_slots
-        elif self.target_object is not None:
-            for i in (slot.material for slot in self.target_object.material_slots if slot and slot.material):
-                if value in (slot.texture for slot in i.texture_slots if slot and slot.texture):
-                    return True
+            if attrib == "ptAttribDynamicMap" and self._is_dyntext(value):
+                return True
+            elif attrib == "ptAttribMaterialAnimation" and not self._is_dyntext:
+                return True
             return False
-        else:
-            return True
 
-    target_object = PointerProperty(name="Object",
-                                    description="",
-                                    type=bpy.types.Object,
-                                    poll=idprops.poll_drawable_objects)
-    material = PointerProperty(name="Material",
-                               description="Material the texture is attached to",
-                               type=bpy.types.Material,
-                               poll=_poll_material)
-    texture = PointerProperty(name="Texture",
-                              description="Texture to expose to Python",
-                              type=bpy.types.Texture,
-                              poll=_poll_texture)
+        # We're not hooked up to a PFM node yet, so let anything slide.
+        return True
 
-    # Blender memory workaround
-    _ENTIRE_ANIMATION = "(Entire Animation)"
-    def _get_anim_names(self, context):
-        if self.texture is not None:
-            items = [(anim.animation_name, anim.animation_name, "")
-                        for anim in self.texture.plasma_layer.subanimations]
-        elif self.material is not None or self.target_object is not None:
-            if self.material is None:
-                materials = (i.material for i in self.target_object.material_slots if i and i.material)
-            else:
-                materials = (self.material,)
-            layer_props = (i.texture.plasma_layer for mat in materials for i in mat.texture_slots if i and i.texture)
-            all_anims = frozenset((anim.animation_name for i in layer_props for anim in i.subanimations))
-            items = [(i, i, "") for i in all_anims]
-        else:
-            items = [(PlasmaAttribTextureNode._ENTIRE_ANIMATION, PlasmaAttribTextureNode._ENTIRE_ANIMATION, "")]
+    target_object = idprops.triprop_object(
+        "target_object", "material", "texture",
+        name="Object",
+        description="Target object"
+    )
+    material = idprops.triprop_material(
+        "target_object", "material", "texture",
+        name="Material",
+        description="Material the texture is attached to"
+    )
+    texture = idprops.triprop_texture(
+        "target_object", "material", "texture",
+        name="Texture",
+        description="Texture to expose to Python",
+        poll=_poll_texture
+    )
 
-        # We always want "(Entire Animation)", if it exists, to be the first item.
-        entire = items.index((PlasmaAttribTextureNode._ENTIRE_ANIMATION, PlasmaAttribTextureNode._ENTIRE_ANIMATION, ""))
-        if entire not in (-1, 0):
-            items.pop(entire)
-            items.insert(0, (PlasmaAttribTextureNode._ENTIRE_ANIMATION, PlasmaAttribTextureNode._ENTIRE_ANIMATION, ""))
-
-        return items
-
-    anim_name = EnumProperty(name="Animation",
-                             description="Name of the animation to control",
-                             items=_get_anim_names,
-                             options=set())
+    anim_name = enum_props.triprop_animation(
+        "target_object", "material", "texture",
+        name="Animation",
+        description="Name of the animation to control",
+        options=set()
+    )
 
     def init(self, context):
         super().init(context)
@@ -966,10 +929,6 @@ class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.typ
     def _idprop_sources(self):
         return {"material_name": bpy.data.materials,
                 "texture_name": bpy.data.textures}
-
-    def _is_animated(self, material, texture):
-        return   ((material.animation_data is not None and material.animation_data.action is not None)
-               or (texture.animation_data is not None and texture.animation_data.action is not None))
 
     def _is_dyntext(self, texture):
         return texture.type == "IMAGE" and texture.image is None
