@@ -77,11 +77,17 @@ class CollectionRemoveOperator(UIOperator, bpy.types.Operator):
     index_prop = StringProperty(name="Index Property",
                                 description="Name of the active element index property",
                                 options=set())
+    manual_index = IntProperty(name="Manual Index",
+                               description="Manual integer index to remove",
+                               options=set())
 
     def execute(self, context):
         props = getattr(context, self.context).path_resolve(self.group_path)
         collection = getattr(props, self.collection_prop)
-        index = getattr(props, self.index_prop)
+        if self.index_prop:
+            index = getattr(props, self.index_prop)
+        else:
+            index = self.manual_index
         if len(collection) > index:
             collection.remove(index)
             setattr(props, self.index_prop, index - 1)

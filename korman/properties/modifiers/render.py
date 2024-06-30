@@ -624,30 +624,6 @@ class PlasmaLightingMod(PlasmaModifierProperties):
         return False
 
 
-_LOCALIZED_TEXT_PFM = (
-    { 'id': 1,  'type': "ptAttribDynamicMap",   'name': "dynTextMap", },
-    { 'id': 2,  'type': "ptAttribString",       'name': "locPath" },
-    { 'id': 3,  'type': "ptAttribString",       'name': "fontFace" },
-    { 'id': 4,  'type': "ptAttribInt",          'name': "fontSize" },
-    { 'id': 5,  'type': "ptAttribFloat",        'name': "fontColorR" },
-    { 'id': 6,  'type': "ptAttribFloat",        'name': "fontColorG" },
-    { 'id': 7,  'type': "ptAttribFloat",        'name': "fontColorB" },
-    { 'id': 8,  'type': "ptAttribFloat",        'name': "fontColorA" },
-    { 'id': 9,  'type': "ptAttribInt",          'name': "marginTop" },
-    { 'id': 10, 'type': "ptAttribInt",          'name': "marginLeft" },
-    { 'id': 11, 'type': "ptAttribInt",          'name': "marginBottom" },
-    { 'id': 12, 'type': "ptAttribInt",          'name': "marginRight" },
-    { 'id': 13, 'type': "ptAttribInt",          'name': "lineSpacing" },
-    # Yes, it's really a ptAttribDropDownList, but those are only for use in
-    # artist generated node trees.
-    { 'id': 14, 'type': "ptAttribString",       'name': "justify" },
-    { 'id': 15, 'type': "ptAttribFloat",        'name': "clearColorR" },
-    { 'id': 16, 'type': "ptAttribFloat",        'name': "clearColorG" },
-    { 'id': 17, 'type': "ptAttribFloat",        'name': "clearColorB" },
-    { 'id': 18, 'type': "ptAttribFloat",        'name': "clearColorA" },
-    { 'id': 19, 'type': "ptAttribBoolean",      'name': "blockRGB" },
-)
-
 class PlasmaLocalizedTextModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz, TranslationMixin):
     pl_id = "dynatext"
     pl_page_types = {"gui", "room"}
@@ -738,7 +714,7 @@ class PlasmaLocalizedTextModifier(PlasmaModifierProperties, PlasmaModifierLogicW
             self._create_nodes(bo, tree, age_name=age_name, version=version)
 
     def _create_nodes(self, bo, tree, *, age_name, version, material=None, clear_color=None):
-        pfm_node = self._create_python_file_node(tree, "xDynTextLoc.py", _LOCALIZED_TEXT_PFM)
+        pfm_node = self._create_standard_python_file_node(tree, "xDynTextLoc.py")
         loc_path = self.key_name if version <= pvPots else "{}.{}.{}".format(age_name, self.localization_set, self.key_name)
 
         self._create_python_attribute(pfm_node, "dynTextMap", "ptAttribDynamicMap",

@@ -78,16 +78,6 @@ class PlasmaLadderModifier(PlasmaModifierProperties):
         return True
 
 
-# Use xSitCam.py for when we want a camera to pop up
-sitting_pfm = {
-    "filename": "xSitCam.py",
-    "attribs": (
-        { 'id':  1, 'type': "ptAttribActivator", 'name': "sitAct" },
-        { 'id':  2, 'type': "ptAttribSceneobject", 'name': "sitCam" },
-    )
-}
-
-
 sitting_approach_flags = [("kApproachFront", "Front", "Approach from the font"),
                           ("kApproachLeft", "Left", "Approach from the left"),
                           ("kApproachRight", "Right", "Approach from the right"),
@@ -140,7 +130,7 @@ class PlasmaSittingBehavior(idprops.IDPropObjectMixin, PlasmaModifierProperties,
         sittingmod.name = "SittingBeh"
         # xSitCam.py PythonFileMod
         if self.sitting_camera is not None:
-            sittingpynode = self._create_python_file_node(tree, sitting_pfm["filename"], sitting_pfm["attribs"])
+            sittingpynode = self._create_python_standard_file_node(tree, "xSitCam.py")
             sittingmod.link_output(sittingpynode, "satisfies", "sitAct")
 
             # Camera Object
