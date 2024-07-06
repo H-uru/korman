@@ -35,33 +35,6 @@ if TYPE_CHECKING:
     from ...exporter import Exporter
     from .game_gui import PlasmaGameGuiDialogModifier
 
-
-journal_pfms = {
-    pvPots : {
-        # Supplied by the OfflineKI script:
-        # https://gitlab.com/diafero/offline-ki/blob/master/offlineki/xSimpleJournal.py
-        "filename": "xSimpleJournal.py",
-        "attribs": (
-            { 'id':  1, 'type': "ptAttribActivator", "name": "bookClickable" },
-            { 'id':  2, 'type': "ptAttribString",    "name": "journalFileName" },
-            { 'id':  3, 'type': "ptAttribBoolean",   "name": "isNotebook" },
-            { 'id':  4, 'type': "ptAttribFloat",     "name": "BookWidth" },
-            { 'id':  5, 'type': "ptAttribFloat",     "name": "BookHeight" },
-        )
-    },
-    pvMoul : {
-        "filename": "xJournalBookGUIPopup.py",
-        "attribs": (
-            { 'id':  1, 'type': "ptAttribActivator", 'name': "actClickableBook" },
-            { 'id': 10, 'type': "ptAttribBoolean",   'name': "StartOpen" },
-            { 'id': 11, 'type': "ptAttribFloat",     'name': "BookWidth" },
-            { 'id': 12, 'type': "ptAttribFloat",     'name': "BookHeight" },
-            { 'id': 13, 'type': "ptAttribString",    'name': "LocPath" },
-            { 'id': 14, 'type': "ptAttribString",    'name': "GUIType" },
-        )
-    },
-}
-
 # Do not change the numeric IDs. They allow the list to be rearranged.
 _languages = [("Dutch", "Nederlands", "Dutch", 0),
               ("English", "English", "", 1),
@@ -246,11 +219,11 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
 
     def logicwiz(self, bo, tree, age_name, version):
         # Assign journal script based on target version
-        journal_pfm = journal_pfms[version]
-        journalnode = self._create_python_file_node(tree, journal_pfm["filename"], journal_pfm["attribs"])
         if version <= pvPots:
+            journalnode = self._create_standard_python_file_node(tree, "xSimpleJournal.py")
             self._create_pots_nodes(bo, tree.nodes, journalnode, age_name)
         else:
+            journalnode = self._create_standard_python_file_node(tree, "xJournalBookGUIPopup.py")
             self._create_moul_nodes(bo, tree.nodes, journalnode, age_name)
 
     def _create_pots_nodes(self, clickable_object, nodes, journalnode, age_name):
@@ -322,43 +295,6 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
     def translations(self):
         # Backwards compatibility thunk.
         return self.journal_translations
-
-
-linking_pfms = {
-    pvPots : {
-        # Supplied by the OfflineKI script:
-        # https://gitlab.com/diafero/offline-ki/blob/master/offlineki/xSimpleLinkingBook.py
-        "filename": "xSimpleLinkingBook.py",
-        "attribs": (
-            { 'id':  1, 'type': "ptAttribActivator", "name": "bookClickable" },
-            { 'id':  2, 'type': "ptAttribString",    "name": "destinationAge" },
-            { 'id':  3, 'type': "ptAttribString",    "name": "spawnPoint" },
-            { 'id':  4, 'type': "ptAttribString",    "name": "linkPanel" },
-            { 'id':  5, 'type': "ptAttribString",    "name": "bookCover" },
-            { 'id':  6, 'type': "ptAttribString",    "name": "stampTexture" },
-            { 'id':  7, 'type': "ptAttribFloat",     "name": "stampX" },
-            { 'id':  8, 'type': "ptAttribFloat",     "name": "stampY" },
-            { 'id':  9, 'type': "ptAttribFloat",     "name": "bookWidth" },
-            { 'id': 10, 'type': "ptAttribFloat",     "name": "BookHeight" },
-            { 'id': 11, 'type': "ptAttribBehavior",  "name": "msbSeekBeforeUI" },
-            { 'id': 12, 'type': "ptAttribResponder", "name": "respOneShot" },
-        )
-    },
-    pvMoul : {
-        "filename": "xLinkingBookGUIPopup.py",
-        "attribs": (
-            { 'id':  1, 'type': "ptAttribActivator", 'name': "actClickableBook" },
-            { 'id':  2, 'type': "ptAttribBehavior",  'name': "SeekBehavior" },
-            { 'id':  3, 'type': "ptAttribResponder", 'name': "respLinkResponder" },
-            { 'id':  4, 'type': "ptAttribString",    'name': "TargetAge" },
-            { 'id':  5, 'type': "ptAttribActivator", 'name': "actBookshelf" },
-            { 'id':  6, 'type': "ptAttribActivator", 'name': "shareRegion" },
-            { 'id':  7, 'type': "ptAttribBehavior",  'name': "shareBookSeek" },
-            { 'id': 10, 'type': "ptAttribBoolean",   'name': "IsDRCStamped" },
-            { 'id': 11, 'type': "ptAttribBoolean",   'name': "ForceThirdPerson" },
-        )
-    },
-}
 
 
 class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz):
@@ -495,12 +431,11 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
             yield self.seek_point.name
 
     def logicwiz(self, bo, tree, age_name, version):
-        # Assign linking book script based on target version
-        linking_pfm = linking_pfms[version]
-        linkingnode = self._create_python_file_node(tree, linking_pfm["filename"], linking_pfm["attribs"])
         if version <= pvPots:
+            linkingnode = self._create_standard_python_file_node(tree, "xSimpleLinkingBook.py")
             self._create_pots_nodes(bo, tree.nodes, linkingnode, age_name)
         else:
+            linkingnode = self._create_standard_python_file_node(tree, "xLinkingBookGUIPopup.py")
             self._create_moul_nodes(bo, tree.nodes, linkingnode, age_name)
 
     def _create_pots_nodes(self, clickable_object, nodes, linkingnode, age_name):
@@ -667,14 +602,6 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
             raise ExportError("{}: Linking Book modifier requires a seek point!", self.id_data.name)
 
 
-dialog_toggle = {
-    "filename": "xDialogToggle.py",
-    "attribs": (
-        { 'id':  1, 'type': "ptAttribActivator", 'name': "Activate" },
-        { 'id':  4, 'type': "ptAttribString",    'name': "Vignette" },
-    )
-}
-
 class PlasmaNotePopupModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     pl_id = "note_popup"
 
@@ -755,11 +682,7 @@ class PlasmaNotePopupModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz):
         nodes = tree.nodes
 
         # xDialogToggle.py PythonFile Node
-        dialog_node = self._create_python_file_node(
-            tree,
-            dialog_toggle["filename"],
-            dialog_toggle["attribs"]
-        )
+        dialog_node = self._create_standard_python_file_node(tree, "xDialogToggle.py")
         self._create_python_attribute(dialog_node, "Vignette", value=self.gui_page)
 
         # Clickable

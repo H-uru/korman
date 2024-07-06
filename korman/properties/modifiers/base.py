@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from ...nodes.node_python import *
 
 from ... import helpers
+from ... import plasma_api
 
 class PlasmaModifierProperties(bpy.types.PropertyGroup):
     @property
@@ -180,20 +181,24 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
 
 class PlasmaModifierLogicWiz:
     def convert_logic(self, bo, **kwargs):
-        """Creates, converts, and returns an unmanaged NodeTree for this logic wizard. If the wizard
-           fails during conversion, the temporary tree is deleted for you. However, on success, you
-           are responsible for removing the tree from Blender, if applicable."""
+        """Attempts to look up an already existing logic tree matching the name provided and returns
+           it, if found. If not, creates, converts, and returns an unmanaged NodeTree for this wizard.
+           If the wizard fails during conversion, the temporary tree is deleted for you. However, on
+           success, you are responsible for removing the tree from Blender, if applicable."""
         name = kwargs.pop("name", self.key_name)
         assert not "tree" in kwargs
-        tree = bpy.data.node_groups.new(name, "PlasmaNodeTree")
-        kwargs["tree"] = tree
-        try:
-            self.logicwiz(bo, **kwargs)
-        except:
-            bpy.data.node_groups.remove(tree)
-            raise
-        else:
-            return tree
+
+        node_groups = bpy.data.node_groups
+        tree = node_groups.get(name)
+        if tree is None:
+            tree = node_groups.new(name, "PlasmaNodeTree")
+            kwargs["tree"] = tree
+            try:
+                self.logicwiz(bo, **kwargs)
+            except:
+                bpy.data.node_groups.remove(tree)
+                raise
+        return tree
 
     def _create_python_file_node(self, tree, filename: str, attributes: Dict[str, Any]) -> bpy.types.Node:
         pfm_node = tree.nodes.new("PlasmaPythonFileNode")
@@ -206,6 +211,10 @@ class PlasmaModifierLogicWiz:
                 new_attr.attribute_name = attr["name"]
         pfm_node.update()
         return pfm_node
+
+    def _create_standard_python_file_node(self, tree, filename: str) -> bpy.types.Node:
+        """Create a Python File Node for a standard Plasma Python API file (e.g. xAgeSDLBoolShowHide.py)"""
+        return self._create_python_file_node(tree, filename, plasma_api.python_files[filename])
 
     def _create_python_attribute(self, pfm_node: PlasmaPythonFileNode, attribute_name: str, **kwargs):
         """Creates and links a Python Attribute Node to the Python File Node given by `pfm_node`.

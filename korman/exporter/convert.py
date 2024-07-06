@@ -510,8 +510,12 @@ class Exporter:
 
         @handle_temporary.register(bpy.types.NodeTree)
         def _(temporary, parent):
-            self.exit_stack.enter_context(TemporaryObject(temporary, bpy.data.node_groups.remove))
-            log_msg(f"'{parent.name}' generated NodeTree '{temporary.name}'")
+            # NodeTrees are reuseable, so make sure we haven't already encountered it.
+            if not temporary.name in self.want_node_trees:
+                self.exit_stack.enter_context(TemporaryObject(temporary, bpy.data.node_groups.remove))
+                log_msg(f"'{parent.name}' generated NodeTree '{temporary.name}'")
+            else:
+                log_msg(f"'{parent.name}' reused NodeTree '{temporary.name}'")
             if temporary.bl_idname == "PlasmaNodeTree":
                 parent_so = self.mgr.find_create_object(plSceneObject, bl=parent)
                 self.want_node_trees[temporary.name].add((parent, parent_so))
@@ -593,6 +597,10 @@ class Exporter:
             return Path(self._op.filepath).stem
         else:
             return bpy.context.scene.world.plasma_age.age_name
+
+    @property
+    def age_sdl(self) -> bool:
+        return bpy.context.scene.world.plasma_age.age_sdl
 
     @property
     def dat_only(self):
