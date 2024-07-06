@@ -182,8 +182,8 @@ class PlasmaWaterModifier(idprops.IDPropMixin, PlasmaModifierProperties, bpy.typ
     bl_description = "Basic water properties"
     bl_object_types = {"MESH"}
 
-    wind_object = PointerProperty(name="Wind Object",
-                                  description="Object whose Y axis represents the wind direction",
+    wind_object = PointerProperty(name="Reference Object",
+                                  description="Object whose Y axis represents the wind direction and whose Z axis represents the water height",
                                   type=bpy.types.Object,
                                   poll=idprops.poll_empty_objects)
     wind_speed = FloatProperty(name="Wind Speed",
@@ -244,15 +244,9 @@ class PlasmaWaterModifier(idprops.IDPropMixin, PlasmaModifierProperties, bpy.typ
 
     def export(self, exporter, bo, so):
         waveset = exporter.mgr.find_create_object(plWaveSet7, name=bo.name, so=so)
-        if self.wind_object:
-            if exporter.has_coordiface(self.wind_object):
-                waveset.refObj = exporter.mgr.find_create_key(plSceneObject, bl=self.wind_object)
-                waveset.setFlag(plWaveSet7.kHasRefObject, True)
-
-            # This is much like what happened in PyPRP
-            speed = self.wind_speed
-            matrix = self.wind_object.matrix_world
-            wind_dir = hsVector3(matrix[1][0] * speed, matrix[1][1] * speed, matrix[1][2] * speed)
+        if self.wind_object is not None:
+            waveset.refObj = exporter.mgr.find_create_key(plSceneObject, bl=self.wind_object)
+            waveset.setFlag(plWaveSet7.kHasRefObject, True)
         else:
             # Stolen shamelessly from PyPRP
             wind_dir = hsVector3(0.0871562, 0.996195, 0.0)
@@ -295,6 +289,10 @@ class PlasmaWaterModifier(idprops.IDPropMixin, PlasmaModifierProperties, bpy.typ
             mods.water_texstate.convert_default_wavestate(state.texState)
         if not mods.water_shore.enabled:
             mods.water_shore.convert_default(state)
+
+    def harvest_actors(self):
+        if self.wind_object is not None:
+            yield self.wind_object.name
 
     @classmethod
     def _idprop_mapping(cls):
