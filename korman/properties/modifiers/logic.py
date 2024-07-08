@@ -57,6 +57,7 @@ class PlasmaVersionedNodeTree(idprops.IDPropMixin, bpy.types.PropertyGroup):
 
 class PlasmaAdvancedLogic(PlasmaModifierProperties):
     pl_id = "advanced_logic"
+    pl_page_types = {"gui", "room"}
 
     bl_category = "Logic"
     bl_label = "Advanced"

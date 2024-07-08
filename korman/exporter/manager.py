@@ -36,7 +36,7 @@ _pool_types = (
     plFactory.ClassIndex("plDynaRippleMgr"),
     plFactory.ClassIndex("plDynaBulletMgr"),
     plFactory.ClassIndex("plDynaPuddleMgr"),
-    plFactory.ClassIndex("plATCAnim"),
+    #plFactory.ClassIndex("plATCAnim"), # Only Avatar Animations need to be pool objects
     plFactory.ClassIndex("plEmoteAnim"),
     plFactory.ClassIndex("plDynaRippleVSMgr"),
     plFactory.ClassIndex("plDynaTorpedoMgr"),
@@ -256,7 +256,7 @@ class ExportManager:
         key = self._keys.get((location, pClass, name), None)
         if key is not None and so is not None:
             # Purposefully not checking for plObjInterface -- they should never be shared.
-            if issubclass(pClass, plModifier):
+            if issubclass(pClass, plModifier) and plFactory.ClassIndex(pClass.__name__) not in _pool_types:
                 if key not in so.modifiers:
                     # We really shouldn't add plSingleModifiers to multiple objects. This may
                     # potentially cause URU to crash. I'm uncertain though, so we'll just warn
