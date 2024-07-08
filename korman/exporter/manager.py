@@ -36,7 +36,7 @@ _pool_types = (
     plFactory.ClassIndex("plDynaRippleMgr"),
     plFactory.ClassIndex("plDynaBulletMgr"),
     plFactory.ClassIndex("plDynaPuddleMgr"),
-    plFactory.ClassIndex("plATCAnim"),
+    #plFactory.ClassIndex("plATCAnim"), # Only Avatar Animations need to be pool objects
     plFactory.ClassIndex("plEmoteAnim"),
     plFactory.ClassIndex("plDynaRippleVSMgr"),
     plFactory.ClassIndex("plDynaTorpedoMgr"),
