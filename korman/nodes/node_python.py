@@ -751,10 +751,10 @@ class PlasmaAttribObjectNode(idprops.IDPropObjectMixin, PlasmaAttribNodeBase, bp
         layout.prop(self, "target_object", text=self.attribute_name)
 
     def get_key(self, exporter, so):
-        attrib = self.to_socket
-        if attrib is None:
+        attrib_socket = self.to_socket
+        if attrib_socket is None:
             self.raise_error("must be connected to a Python File node!")
-        attrib = attrib.attribute_type
+        attrib = attrib_socket.attribute_type
 
         bo = self.target_object
         if bo is None:
@@ -788,7 +788,7 @@ class PlasmaAttribObjectNode(idprops.IDPropObjectMixin, PlasmaAttribNodeBase, bp
             if not gui_dialog.enabled:
                 self.raise_error(f"GUI Dialog modifier not enabled on '{self.object_name}'")
             dialog_mod = exporter.mgr.find_create_object(pfGUIDialogMod, so=ref_so, bl=bo)
-            dialog_mod.procReceiver = attrib.node.get_key(exporter, so)
+            dialog_mod.procReceiver = attrib_socket.node.get_key(exporter, so)
             return dialog_mod.key
 
     @classmethod
