@@ -289,6 +289,8 @@ def viewfacemod(modifier, layout, context):
             layout.separator()
 
         layout.prop(modifier, "pivot_on_y")
+        # TikiBear: add special pivot flag
+        layout.prop(modifier, "special_pivots")
         layout.separator()
 
         split = layout.split()
