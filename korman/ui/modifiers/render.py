@@ -123,6 +123,7 @@ def dynatext(modifier, layout, context):
     sub.alert = not modifier.font_face.strip()
     sub.prop(modifier, "font_face", text="", icon="OUTLINER_DATA_FONT")
     col.prop(modifier, "font_size", text="Size")
+    col.prop(modifier, "font_color", text="")
 
     layout.separator()
     split = layout.split()
