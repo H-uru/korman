@@ -717,7 +717,7 @@ class PlasmaLocalizedTextModifier(PlasmaModifierProperties, PlasmaModifierLogicW
         pfm_node = self._create_standard_python_file_node(tree, "xDynTextLoc.py")
         loc_path = self.key_name if version <= pvPots else "{}.{}.{}".format(age_name, self.localization_set, self.key_name)
 
-        self._create_python_attribute(pfm_node, "dynTextMap", "ptAttribDynamicMap",
+        self._create_python_attribute(pfm_node, "dynTextMap",
                                       target_object=bo, material=material, texture=self.texture)
         self._create_python_attribute(pfm_node, "locPath", value=loc_path)
         self._create_python_attribute(pfm_node, "fontFace", value=self.font_face)
