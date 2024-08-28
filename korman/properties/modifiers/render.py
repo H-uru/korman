@@ -798,7 +798,7 @@ class PlasmaViewFaceMod(idprops.IDPropObjectMixin, PlasmaModifierProperties):
     bl_category = "Render"
     bl_label = "Swivel"
     bl_description = "Swivel object to face the camera, player, or another object"
-    bl_object_types = {"MESH", "FONT"}
+    bl_object_types = {"MESH", "FONT", "EMPTY"}
 
     preset_options = EnumProperty(name="Type",
                                   description="Type of Facing",
