@@ -213,7 +213,7 @@ class Exporter:
 
                 if (default_enabled and not page) or (page in pages_enabled):
                     self._objects.append(obj)
-                elif page not in all_pages or page in external_pages:
+                elif page not in all_pages or page not in external_pages:
                     error.add(page, obj.name)
             inc_progress()
         error.raise_if_error()
