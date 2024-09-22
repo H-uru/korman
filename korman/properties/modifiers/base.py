@@ -32,7 +32,7 @@ class PlasmaModifierProperties(bpy.types.PropertyGroup):
     @property
     def allowed(self) -> bool:
         """Returns if this modifier is allowed to be enabled on the owning Object"""
-        allowed_page_types = getattr(self, "pl_page_types", {"room"})
+        allowed_page_types = getattr(self, "pl_page_types", {"room", "gui"})
         allowed_object_types = getattr(self, "bl_object_types", set())
         page_name = self.id_data.plasma_object.page
         if not allowed_object_types or self.id_data.type in allowed_object_types:
