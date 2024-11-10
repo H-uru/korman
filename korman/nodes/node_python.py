@@ -13,12 +13,16 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import bpy
 from bpy.props import *
 
 from collections.abc import Iterable
 from contextlib import contextmanager
 from pathlib import Path
+from typing import *
+
 from PyHSPlasma import *
 
 from .. import enum_props
@@ -68,9 +72,12 @@ _attrib2param = {
 _attrib_key_types = {
     "ptAttribSceneobject": plFactory.ClassIndex("plSceneObject"),
     "ptAttribSceneobjectList": plFactory.ClassIndex("plSceneObject"),
-    "ptAttribActivator": plFactory.ClassIndex("plLogicModifier"),
-    "ptAttribActivatorList": plFactory.ClassIndex("plLogicModifier"),
-    "ptAttribNamedActivator": plFactory.ClassIndex("plLogicModifier"),
+    "ptAttribActivator": (plFactory.ClassIndex("plLogicModifier"),
+                          plFactory.ClassIndex("plPythonFileMod")),
+    "ptAttribActivatorList": (plFactory.ClassIndex("plLogicModifier"),
+                              plFactory.ClassIndex("plPythonFileMod")),
+    "ptAttribNamedActivator": (plFactory.ClassIndex("plLogicModifier"),
+                               plFactory.ClassIndex("plPythonFileMod")),
     "ptAttribResponder": plFactory.ClassIndex("plResponderModifier"),
     "ptAttribResponderList": plFactory.ClassIndex("plResponderModifier"),
     "ptAttribNamedResponder": plFactory.ClassIndex("plResponderModifier"),
@@ -186,6 +193,17 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
     bl_idname = "PlasmaPythonFileNode"
     bl_label = "Python File"
     bl_width_default = 290
+
+    # Yas, a PythonFileMod can activate another PythonFileMod
+    pl_attrib = {"ptAttribActivator", "ptAttribActivatorList", "ptAttribNamedActivator"}
+
+    output_sockets: dict[str, dict[str, Any]] = {
+        "satisfies": {
+            "text": "Satisfies",
+            "type": "PlasmaConditionSocket",
+            "valid_link_nodes": "PlasmaPythonFileNode",
+        },
+    }
 
     def _poll_pytext(self, value):
         return value.name.endswith(".py")
@@ -304,7 +322,7 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
                 param.value = i
 
                 if not socket.is_simple_value:
-                    self._export_key_attrib(exporter, bo, so, i, socket)
+                    self._export_key_attrib(exporter, bo, so, pfm, i, socket)
                 pfm.addParameter(param)
 
     def _export_ancillary_sceneobject(self, exporter, bo, so: plSceneObject) -> None:
@@ -317,7 +335,7 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
                 exporter.report.msg(f"Marking RT light '{so.key.name}' as animated due to usage in a Python File node", so.key.name)
                 light.setProperty(plLightInfo.kLPMovable, True)
 
-    def _export_key_attrib(self, exporter, bo, so : plSceneObject, key : plKey, socket) -> None:
+    def _export_key_attrib(self, exporter, bo, so: plSceneObject, pfm: plPythonFileMod, key: plKey, socket) -> None:
         if key is None:
             exporter.report.warn("Attribute '{}' didn't return a key and therefore will be unavailable to Python",
                                  self.id_data.name, socket.links[0].name)
@@ -333,8 +351,11 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
                                  self.id_data.name, socket.links[0].from_node.name,
                                  plFactory.ClassName(key.type))
 
-        if isinstance(key.object, plSceneObject):
-            self._export_ancillary_sceneobject(exporter, bo, key.object)
+        key_object = key.object
+        if isinstance(key_object, plSceneObject):
+            self._export_ancillary_sceneobject(exporter, bo, key_object)
+        elif isinstance(key_object, plPythonFileMod):
+            key_object.addReceiver(pfm.key)
 
     def _get_attrib_sockets(self, idx):
         for i in self.inputs:
@@ -342,8 +363,9 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
                 yield i
 
     def generate_valid_links_for(self, context, socket, is_output):
-        # Python nodes have no outputs...
-        assert is_output is False
+        if is_output:
+            yield from PlasmaNodeBase.generate_valid_links_for(self, context, socket, True)
+            return
 
         attrib_type = socket.attribute_type
         for i in bpy.types.Node.__subclasses__():
@@ -492,6 +514,10 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
                         self._make_attrib_socket(attrib, empty)
                     while len(unconnected) > 1:
                         self.inputs.remove(unconnected.pop())
+
+            # Make sure the output sockets are present and accounted for.
+            self._update_extant_sockets(self.output_sockets, self.outputs)
+            self._update_init_sockets(self.output_sockets, self.outputs)
 
     @property
     def latest_version(self):
