@@ -117,7 +117,7 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
     def _poll_target_object(self, value: bpy.types.Object) -> bool:
         if self.anim_type == "TEXTURE":
             return idprops.poll_drawable_objects(self, value)
-        elif self.anim_type == "MESH":
+        elif self.anim_type == "OBJECT":
             return idprops.poll_animated_objects(self, value)
         else:
             raise RuntimeError()
