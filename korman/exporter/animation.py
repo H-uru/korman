@@ -26,6 +26,7 @@ import weakref
 from PyHSPlasma import *
 
 from . import utils
+from ..helpers import GoodNeighbor
 
 class AnimationConverter:
     def __init__(self, exporter):
@@ -36,38 +37,69 @@ class AnimationConverter:
         return frame_num / self._bl_fps
 
     def convert_object_animations(self, bo: bpy.types.Object, so: plSceneObject, anim_name: str, *,
-                                  start: Optional[int] = None, end: Optional[int] = None) -> Iterable[plAGApplicator]:
+                                  start: Optional[int] = None, end: Optional[int] = None, bake_frame_step: Optional[int] = None) -> Iterable[plAGApplicator]:
         if not bo.plasma_object.has_animation_data:
             return []
 
-        def fetch_animation_data(id_data):
+        temporary_actions = []
+
+        def bake_animation_data():
+            # Baking animations is a Blender operator, so requires a bit of boilerplate...
+            with GoodNeighbor() as toggle:
+                # Make sure we have only this object selected.
+                toggle.track(bo, "hide", False)
+                for i in bpy.data.objects:
+                    i.select = i == bo
+                bpy.context.scene.objects.active = bo
+
+                # Do bake, but make sure we don't mess the user's data.
+                old_action = bo.animation_data.action
+                try:
+                    frame_start = start if start is not None else bpy.context.scene.frame_start
+                    frame_end = end if end is not None else bpy.context.scene.frame_end
+                    bpy.ops.nla.bake(frame_start=frame_start, frame_end=frame_end, step=bake_frame_step, visual_keying=True, bake_types={"POSE", "OBJECT"})
+                    action = bo.animation_data.action
+                finally:
+                    bo.animation_data.action = old_action
+                temporary_actions.append(action)
+                return action
+
+        def fetch_animation_data(id_data, can_bake):
             if id_data is not None:
                 if id_data.animation_data is not None:
                     action = id_data.animation_data.action
+                    if bake_frame_step is not None and can_bake:
+                        action = bake_animation_data()
                     return action, getattr(action, "fcurves", [])
             return None, []
 
-        obj_action, obj_fcurves = fetch_animation_data(bo)
-        data_action, data_fcurves = fetch_animation_data(bo.data)
+        try:
+            obj_action, obj_fcurves = fetch_animation_data(bo, True)
+            data_action, data_fcurves = fetch_animation_data(bo.data, False)
 
-        # We're basically just going to throw all the FCurves at the controller converter (read: wall)
-        # and see what sticks. PlasmaMAX has some nice animation channel stuff that allows for some
-        # form of separation, but Blender's NLA editor is way confusing and appears to not work with
-        # things that aren't the typical position, rotation, scale animations.
-        applicators = []
-        if isinstance(bo.data, bpy.types.Camera):
-            applicators.append(self._convert_camera_animation(bo, so, obj_fcurves, data_fcurves, anim_name, start, end))
-        else:
-            applicators.append(self._convert_transform_animation(bo, obj_fcurves, bo.matrix_local, bo.matrix_parent_inverse, start=start, end=end))
-        if bo.plasma_modifiers.soundemit.enabled:
-            applicators.extend(self._convert_sound_volume_animation(bo.name, obj_fcurves, bo.plasma_modifiers.soundemit, start, end))
-        if isinstance(bo.data, bpy.types.Lamp):
-            lamp = bo.data
-            applicators.extend(self._convert_lamp_color_animation(bo.name, data_fcurves, lamp, start, end))
-            if isinstance(lamp, bpy.types.SpotLamp):
-                applicators.extend(self._convert_spot_lamp_animation(bo.name, data_fcurves, lamp, start, end))
-            if isinstance(lamp, bpy.types.PointLamp):
-                applicators.extend(self._convert_omni_lamp_animation(bo.name, data_fcurves, lamp, start, end))
+            # We're basically just going to throw all the FCurves at the controller converter (read: wall)
+            # and see what sticks. PlasmaMAX has some nice animation channel stuff that allows for some
+            # form of separation, but Blender's NLA editor is way confusing and appears to not work with
+            # things that aren't the typical position, rotation, scale animations.
+            applicators = []
+            if isinstance(bo.data, bpy.types.Camera):
+                applicators.append(self._convert_camera_animation(bo, so, obj_fcurves, data_fcurves, anim_name, start, end))
+            else:
+                applicators.append(self._convert_transform_animation(bo, obj_fcurves, bo.matrix_local, bo.matrix_parent_inverse, start=start, end=end))
+            if bo.plasma_modifiers.soundemit.enabled:
+                applicators.extend(self._convert_sound_volume_animation(bo.name, obj_fcurves, bo.plasma_modifiers.soundemit, start, end))
+            if isinstance(bo.data, bpy.types.Lamp):
+                lamp = bo.data
+                applicators.extend(self._convert_lamp_color_animation(bo.name, data_fcurves, lamp, start, end))
+                if isinstance(lamp, bpy.types.SpotLamp):
+                    applicators.extend(self._convert_spot_lamp_animation(bo.name, data_fcurves, lamp, start, end))
+                if isinstance(lamp, bpy.types.PointLamp):
+                    applicators.extend(self._convert_omni_lamp_animation(bo.name, data_fcurves, lamp, start, end))
+
+        finally:
+            for action in temporary_actions:
+                # Baking data is temporary, but the lifetime of our user's data is eternal !
+                bpy.data.actions.remove(action)
 
         return [i for i in applicators if i is not None]
 
