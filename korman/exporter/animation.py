@@ -16,66 +16,103 @@
 import bpy
 
 from collections import defaultdict
+from contextlib import ExitStack
 import functools
 import itertools
 import math
 import mathutils
 from typing import *
 import weakref
+import re
 
 from PyHSPlasma import *
 
 from . import utils
-from ..helpers import GoodNeighbor
+from ..helpers import *
 
 class AnimationConverter:
     def __init__(self, exporter):
         self._exporter = weakref.ref(exporter)
         self._bl_fps = bpy.context.scene.render.fps
+        self._bone_data_path_regex = re.compile('^pose\\.bones\\["(.*)"]\\.(.*)$')
 
     def convert_frame_time(self, frame_num: int) -> float:
         return frame_num / self._bl_fps
+
+    def copy_armature_animation_to_temporary_bones(self, arm_bo: bpy.types.Object, generated_bones):
+        # Enable the anim group. We will need it to reroute anim messages to children bones.
+        # Please note: Plasma supports grouping many animation channels into a single ATC anim, but only programmatically.
+        # So instead we will do it the Cyan Way(tm), which is to make dozens or maybe even hundreds of small ATC anims. Derp.
+        temporary_objects = []
+        anim = arm_bo.plasma_modifiers.animation
+        anim_group = arm_bo.plasma_modifiers.animation_group
+        do_bake = anim.bake
+        exit_stack = ExitStack()
+        toggle = GoodNeighbor()
+        toggle.track(anim, "bake", False)
+        toggle.track(anim_group, "enabled", True)
+        temporary_objects.append(toggle)
+        temporary_objects.append(exit_stack)
+
+        armature_action = arm_bo.animation_data.action
+        if do_bake:
+            armature_action = self._bake_animation_data(arm_bo, anim.bake_frame_step, None, None)
+
+        try:
+            for bone_name, bone in generated_bones.items():
+                child = exit_stack.enter_context(TemporaryCollectionItem(anim_group.children))
+                child.child_anim = bone
+                # Copy animation modifier and its properties if it exists..
+                # Cheating ? Very much yes. Do not try this at home, kids.
+                bone.plasma_modifiers["animation"] = arm_bo.plasma_modifiers["animation"]
+                bone.plasma_modifiers["animation_loop"] = arm_bo.plasma_modifiers["animation_loop"]
+
+                # Now copy animation data.
+                anim_data = bone.animation_data_create()
+                action = bpy.data.actions.new("{}_action".format(bone.name))
+                temporary_objects.append(action)
+                anim_data.action = action
+                self._exporter().report.warn(str([(i.data_path, i.array_index) for i in armature_action.fcurves]))
+                for fcurve in armature_action.fcurves:
+                    match = self._bone_data_path_regex.match(fcurve.data_path)
+                    if not match:
+                        continue
+                    name, data_path = match.groups()
+                    if name != bone_name:
+                        continue
+                    new_curve = action.fcurves.new(data_path, fcurve.array_index)
+                    for point in fcurve.keyframe_points:
+                        # Thanks to bone_parent we can just copy the animation without a care in the world ! :P
+                        p = new_curve.keyframe_points.insert(point.co[0], point.co[1])
+                for original_marker in armature_action.pose_markers:
+                    marker = action.pose_markers.new(original_marker.name)
+                    marker.frame = original_marker.frame
+        finally:
+            if do_bake:
+                bpy.data.actions.remove(armature_action)
+
+        return temporary_objects
 
     def convert_object_animations(self, bo: bpy.types.Object, so: plSceneObject, anim_name: str, *,
                                   start: Optional[int] = None, end: Optional[int] = None, bake_frame_step: Optional[int] = None) -> Iterable[plAGApplicator]:
         if not bo.plasma_object.has_animation_data:
             return []
 
-        temporary_actions = []
-
-        def bake_animation_data():
-            # Baking animations is a Blender operator, so requires a bit of boilerplate...
-            with GoodNeighbor() as toggle:
-                # Make sure we have only this object selected.
-                toggle.track(bo, "hide", False)
-                for i in bpy.data.objects:
-                    i.select = i == bo
-                bpy.context.scene.objects.active = bo
-
-                # Do bake, but make sure we don't mess the user's data.
-                old_action = bo.animation_data.action
-                try:
-                    frame_start = start if start is not None else bpy.context.scene.frame_start
-                    frame_end = end if end is not None else bpy.context.scene.frame_end
-                    bpy.ops.nla.bake(frame_start=frame_start, frame_end=frame_end, step=bake_frame_step, visual_keying=True, bake_types={"POSE", "OBJECT"})
-                    action = bo.animation_data.action
-                finally:
-                    bo.animation_data.action = old_action
-                temporary_actions.append(action)
-                return action
-
-        def fetch_animation_data(id_data, can_bake):
+        def fetch_animation_data(id_data):
             if id_data is not None:
                 if id_data.animation_data is not None:
                     action = id_data.animation_data.action
-                    if bake_frame_step is not None and can_bake:
-                        action = bake_animation_data()
                     return action, getattr(action, "fcurves", [])
             return None, []
 
+        obj_action, obj_fcurves = fetch_animation_data(bo)
+        data_action, data_fcurves = fetch_animation_data(bo.data)
+        temporary_action = None
+
         try:
-            obj_action, obj_fcurves = fetch_animation_data(bo, True)
-            data_action, data_fcurves = fetch_animation_data(bo.data, False)
+            if bake_frame_step is not None and obj_action is not None:
+                temporary_action = obj_action = self._bake_animation_data(bo, bake_frame_step, start, end)
+                obj_fcurves = obj_action.fcurves
 
             # We're basically just going to throw all the FCurves at the controller converter (read: wall)
             # and see what sticks. PlasmaMAX has some nice animation channel stuff that allows for some
@@ -97,11 +134,31 @@ class AnimationConverter:
                     applicators.extend(self._convert_omni_lamp_animation(bo.name, data_fcurves, lamp, start, end))
 
         finally:
-            for action in temporary_actions:
+            if temporary_action is not None:
                 # Baking data is temporary, but the lifetime of our user's data is eternal !
-                bpy.data.actions.remove(action)
+                bpy.data.actions.remove(temporary_action)
 
         return [i for i in applicators if i is not None]
+
+    def _bake_animation_data(self, bo, bake_frame_step: int, start: Optional[int] = None, end: Optional[int] = None):
+        # Baking animations is a Blender operator, so requires a bit of boilerplate...
+        with GoodNeighbor() as toggle:
+            # Make sure we have only this object selected.
+            toggle.track(bo, "hide", False)
+            for i in bpy.data.objects:
+                i.select = i == bo
+            bpy.context.scene.objects.active = bo
+
+            # Do bake, but make sure we don't mess the user's data.
+            old_action = bo.animation_data.action
+            try:
+                frame_start = start if start is not None else bpy.context.scene.frame_start
+                frame_end = end if end is not None else bpy.context.scene.frame_end
+                bpy.ops.nla.bake(frame_start=frame_start, frame_end=frame_end, step=bake_frame_step, only_selected=False, visual_keying=True, bake_types={"POSE", "OBJECT"})
+                baked_anim = bo.animation_data.action
+                return baked_anim
+            finally:
+                bo.animation_data.action = old_action
 
     def _convert_camera_animation(self, bo, so, obj_fcurves, data_fcurves, anim_name: str,
                                   start: Optional[int], end: Optional[int]):

@@ -21,6 +21,7 @@ import functools
 import inspect
 from pathlib import Path
 from typing import *
+from mathutils import Matrix
 
 from ..helpers import TemporaryObject
 from ..korlib import ConsoleToggler
@@ -28,6 +29,7 @@ from ..korlib import ConsoleToggler
 from PyHSPlasma import *
 
 from .animation import AnimationConverter
+from .armature import ArmatureConverter
 from .camera import CameraConverter
 from .decal import DecalConverter
 from . import explosions
@@ -56,6 +58,7 @@ class Exporter:
         physics: PhysicsConverter = ...
         light: LightConverter = ...
         animation: AnimationConverter = ...
+        armature: ArmatureConverter = ...
         output: OutputFiles = ...
         camera: CameraConverter = ...
         image: ImageCache = ...
@@ -80,6 +83,7 @@ class Exporter:
             self.physics = PhysicsConverter(self)
             self.light = LightConverter(self)
             self.animation = AnimationConverter(self)
+            self.armature = ArmatureConverter(self)
             self.output = OutputFiles(self, self._op.filepath)
             self.camera = CameraConverter(self)
             self.image = ImageCache(self)
@@ -252,12 +256,20 @@ class Exporter:
 
     def _export_actor(self, so, bo):
         """Exports a Coordinate Interface if we need one"""
+        parent = bo.parent
+        parent_bone_name = bo.parent_bone
+        offset_matrix = None
+        if parent_bone_name:
+            # Object is parented to a bone, so use it instead.
+            parent_bone = parent.data.bones[parent_bone_name]
+            parent = bpy.context.scene.objects[ArmatureConverter.get_bone_name(parent, parent_bone)]
+            # ...Actually, it's parented to the bone's /tip/. So we need to offset the child...
+            offset_matrix = Matrix.Translation((0, 0, -parent_bone.length))
         if self.has_coordiface(bo):
-            self._export_coordinate_interface(so, bo)
+            self._export_coordinate_interface(so, bo, offset_matrix)
 
         # If this object has a parent, then we will need to go upstream and add ourselves to the
         # parent's CoordinateInterface... Because life just has to be backwards.
-        parent = bo.parent
         if parent is not None:
             if parent.plasma_object.enabled:
                 self.report.msg(f"Attaching to parent SceneObject '{parent.name}'")
@@ -268,18 +280,25 @@ class Exporter:
                                  The object may not appear in the correct location or animate properly.".format(
                                     bo.name, parent.name))
 
-    def _export_coordinate_interface(self, so, bl):
+    def _export_coordinate_interface(self, so, bl, matrix: Matrix = None):
         """Ensures that the SceneObject has a CoordinateInterface"""
         if so is None:
             so = self.mgr.find_create_object(plSceneObject, bl=bl)
+        ci = None
         if so.coord is None:
             ci_cls = bl.plasma_object.ci_type
             ci = self.mgr.add_object(ci_cls, bl=bl, so=so)
-
+        if ci is not None or matrix is not None:
+            # We just created the CI, or we have an extra transform that we may have previously skipped.
+            matrix_local = bl.matrix_local
+            matrix_world = bl.matrix_world
+            if matrix is not None:
+                matrix_local = matrix_local * matrix
+                matrix_world = matrix_world * matrix
             # Now we have the "fun" work of filling in the CI
-            ci.localToWorld = utils.matrix44(bl.matrix_world)
+            ci.localToWorld = utils.matrix44(matrix_world)
             ci.worldToLocal = ci.localToWorld.inverse()
-            ci.localToParent = utils.matrix44(bl.matrix_local)
+            ci.localToParent = utils.matrix44(matrix_local)
             ci.parentToLocal = ci.localToParent.inverse()
             return ci
         return so.coord.object
@@ -333,6 +352,9 @@ class Exporter:
                     with indent():
                         mod.export(self, bl_obj, sceneobject)
             inc_progress()
+
+    def _export_armature_blobj(self, so, bo):
+        pass
 
     def _export_camera_blobj(self, so, bo):
         # Hey, guess what? Blender's camera data is utter crap!
@@ -403,7 +425,7 @@ class Exporter:
             inc_progress()
 
     def has_coordiface(self, bo):
-        if bo.type in {"CAMERA", "EMPTY", "LAMP"}:
+        if bo.type in {"CAMERA", "EMPTY", "LAMP", "ARMATURE"}:
             return True
         if bo.parent is not None or bo.children:
             return True
@@ -469,7 +491,7 @@ class Exporter:
             # Maybe this was an embedded context manager?
             if hasattr(temporary, "__enter__"):
                 ctx_temporary = self.exit_stack.enter_context(temporary)
-                if ctx_temporary is not None:
+                if ctx_temporary is not None and ctx_temporary != temporary:
                     return handle_temporary(ctx_temporary, parent)
             else:
                 raise RuntimeError("Temporary object of type '{}' generated by '{}' was unhandled".format(temporary.__class__, parent.name))
@@ -522,6 +544,13 @@ class Exporter:
             return temporary
 
         def do_pre_export(bo):
+            if bo.type == "ARMATURE":
+                so = self.mgr.find_create_object(plSceneObject, bl=bo)
+                self._export_actor(so, bo)
+                # Bake all armature bones to empties - this will make it easier to export animations and such.
+                for temporary_object in self.armature.convert_armature_to_empties(bo):
+                    # This could be a Blender object, an action, a context manager... I have no idea, handle_temporary will figure it out !
+                    handle_temporary(temporary_object, bo)
             for mod in bo.plasma_modifiers.modifiers:
                 proc = getattr(mod, "pre_export", None)
                 if proc is not None:
