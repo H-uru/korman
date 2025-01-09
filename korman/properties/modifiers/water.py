@@ -247,6 +247,9 @@ class PlasmaWaterModifier(idprops.IDPropMixin, PlasmaModifierProperties, bpy.typ
         if self.wind_object is not None:
             waveset.refObj = exporter.mgr.find_create_key(plSceneObject, bl=self.wind_object)
             waveset.setFlag(plWaveSet7.kHasRefObject, True)
+            speed = self.wind_speed
+            matrix = self.wind_object.matrix_world
+            wind_dir = hsVector3(matrix[1][0] * speed, matrix[1][1] * speed, matrix[1][2] * speed)
         else:
             # Stolen shamelessly from PyPRP
             wind_dir = hsVector3(0.0871562, 0.996195, 0.0)
