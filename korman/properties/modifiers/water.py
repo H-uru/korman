@@ -186,9 +186,6 @@ class PlasmaWaterModifier(idprops.IDPropMixin, PlasmaModifierProperties, bpy.typ
                                   description="Object whose Y axis represents the wind direction and whose Z axis represents the water height",
                                   type=bpy.types.Object,
                                   poll=idprops.poll_empty_objects)
-    wind_speed = FloatProperty(name="Wind Speed",
-                               description="Magnitude of the wind",
-                               default=1.0)
     envmap = PointerProperty(name="EnvMap",
                              description="Texture defining an environment map for this water object",
                              type=bpy.types.Texture,
@@ -247,9 +244,9 @@ class PlasmaWaterModifier(idprops.IDPropMixin, PlasmaModifierProperties, bpy.typ
         if self.wind_object is not None:
             waveset.refObj = exporter.mgr.find_create_key(plSceneObject, bl=self.wind_object)
             waveset.setFlag(plWaveSet7.kHasRefObject, True)
-            speed = self.wind_speed
             matrix = self.wind_object.matrix_world
-            wind_dir = hsVector3(matrix[1][0] * speed, matrix[1][1] * speed, matrix[1][2] * speed)
+            # Store the wind direction to keep our PRP pretty. Plasma doesn't give a damn and will recompute this at runtime anyway.
+            wind_dir = hsVector3(matrix[1][0], matrix[1][1], matrix[1][2])
         else:
             # Stolen shamelessly from PyPRP
             wind_dir = hsVector3(0.0871562, 0.996195, 0.0)
