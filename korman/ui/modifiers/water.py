@@ -59,10 +59,7 @@ def swimregion(modifier, layout, context):
 def water_basic(modifier, layout, context):
     layout.prop(modifier, "wind_object")
     layout.prop(modifier, "envmap")
-
-    row = layout.row()
-    row.prop(modifier, "wind_speed")
-    row.prop(modifier, "envmap_radius")
+    layout.prop(modifier, "envmap_radius")
     layout.separator()
 
     split = layout.split()
