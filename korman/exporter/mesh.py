@@ -398,7 +398,7 @@ class MeshConverter(_MeshManager):
             dPosDv = hsVector3(0.0, 0.0, 0.0)
 
             # Unpack normals
-            tessface_normals = [tuple(n) for n in tessface.split_normals]
+            tessface_normals = tessface.split_normals
 
             # Unpack the UV coordinates from each UV Texture layer
             # NOTE: Blender has no third (W) coordinate
@@ -448,7 +448,7 @@ class MeshConverter(_MeshManager):
 
             # Convert to per-material indices
             for j, vertex in enumerate(tessface.vertices):
-                vertex_normal = tessface_normals[j]
+                vertex_normal = tuple(tessface_normals[j])
                 uvws = tuple([tuple(uvw[j]) for uvw in tessface_uvws])
 
                 # Calculate vertex colors.
