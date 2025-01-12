@@ -394,9 +394,11 @@ class MeshConverter(_MeshManager):
                 continue
 
             face_verts = []
-            use_smooth = tessface.use_smooth
             dPosDu = hsVector3(0.0, 0.0, 0.0)
             dPosDv = hsVector3(0.0, 0.0, 0.0)
+
+            # Unpack normals
+            tessface_normals = tessface.split_normals
 
             # Unpack the UV coordinates from each UV Texture layer
             # NOTE: Blender has no third (W) coordinate
@@ -446,6 +448,7 @@ class MeshConverter(_MeshManager):
 
             # Convert to per-material indices
             for j, vertex in enumerate(tessface.vertices):
+                vertex_normal = tuple(tessface_normals[j])
                 uvws = tuple([tuple(uvw[j]) for uvw in tessface_uvws])
 
                 # Calculate vertex colors.
@@ -462,18 +465,14 @@ class MeshConverter(_MeshManager):
                 # Now, we'll index into the vertex dict using the per-face elements :(
                 # We're using tuples because lists are not hashable. The many mathutils and PyHSPlasma
                 # types are not either, and it's entirely too much work to fool with all that.
-                coluv = (vertex_color, uvws)
-                if coluv not in data.blender2gs[vertex]:
+                normcoluv = (vertex_normal, vertex_color, uvws)
+                if normcoluv not in data.blender2gs[vertex]:
                     source = mesh.vertices[vertex]
                     geoVertex = plGeometrySpan.TempVertex()
                     geoVertex.position = hsVector3(*source.co)
 
-                    # If this face has smoothing, use the vertex normal
-                    # Otherwise, use the face normal
-                    normal = source.normal if use_smooth else tessface.normal
-
                     # MOUL/DX9 craps its pants if any element of the normal is exactly 0.0
-                    normal = map(lambda x: max(x, 0.01) if x >= 0.0 else min(x, -0.01), normal)
+                    normal = map(lambda x: max(x, 0.01) if x >= 0.0 else min(x, -0.01), vertex_normal)
                     normal = hsVector3(*normal)
                     normal.normalize()
                     geoVertex.normal = normal
@@ -486,7 +485,7 @@ class MeshConverter(_MeshManager):
                     geoVertex.uvs = uvs
 
                     idx = len(data.vertices)
-                    data.blender2gs[vertex][coluv] = idx
+                    data.blender2gs[vertex][normcoluv] = idx
                     data.vertices.append(geoVertex)
                     face_verts.append(idx)
                 else:
@@ -494,7 +493,7 @@ class MeshConverter(_MeshManager):
                     # this face to the vertex's magic channels
                     if bumpmap is not None:
                         num_user_uvs = len(uvws)
-                        geoVertex = data.vertices[data.blender2gs[vertex][coluv]]
+                        geoVertex = data.vertices[data.blender2gs[vertex][normcoluv]]
 
                         # Unfortunately, PyHSPlasma returns a copy of everything. Previously, editing
                         # in place would result in silent failures; however, as of python_refactor,
@@ -503,7 +502,7 @@ class MeshConverter(_MeshManager):
                         geoUVs[num_user_uvs] += dPosDu
                         geoUVs[num_user_uvs+1] += dPosDv
                         geoVertex.uvs = geoUVs
-                    face_verts.append(data.blender2gs[vertex][coluv])
+                    face_verts.append(data.blender2gs[vertex][normcoluv])
 
             # Convert to triangles, if need be...
             num_faces = len(face_verts)
@@ -614,6 +613,7 @@ class MeshConverter(_MeshManager):
                 return self._export_mesh(bo, mesh)
 
     def _export_mesh(self, bo, mesh):
+        mesh.calc_normals_split()
         mesh.calc_tessface()
 
         # Step 0.8: Determine materials needed for export... Three considerations here:
