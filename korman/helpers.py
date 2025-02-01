@@ -18,6 +18,7 @@ import bpy
 from contextlib import contextmanager
 import math
 from typing import *
+from uuid import uuid4
 
 @contextmanager
 def bmesh_from_object(bl):
@@ -64,12 +65,14 @@ class GoodNeighbor:
 @contextmanager
 def TemporaryCollectionItem(collection):
     item = collection.add()
+    # Blender may recreate the `item` instance as the collection grows and shrink...
+    # Assign it a unique name so we know which item to delete later on.
+    name = item.name = str(uuid4())
     try:
         yield item
     finally:
-        index = next((i for i, j in enumerate(collection) if j == item), None)
-        if index is not None:
-            collection.remove(index)
+        index = collection.find(name)
+        collection.remove(index)
 
 class TemporaryObject:
     def __init__(self, obj, remove_func):

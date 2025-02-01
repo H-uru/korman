@@ -60,19 +60,7 @@ class AnimationConverter:
 
         try:
             for bone_name, bone in generated_bones.items():
-                child = exit_stack.enter_context(TemporaryCollectionItem(anim_group.children))
-                child.child_anim = bone
-                # Copy animation modifier and its properties if it exists..
-                # Cheating ? Very much yes. Do not try this at home, kids.
-                bone.plasma_modifiers["animation"] = arm_bo.plasma_modifiers["animation"]
-                bone.plasma_modifiers["animation_loop"] = arm_bo.plasma_modifiers["animation_loop"]
-
-                # Now copy animation data.
-                anim_data = bone.animation_data_create()
-                action = bpy.data.actions.new("{}_action".format(bone.name))
-                temporary_objects.append(action)
-                anim_data.action = action
-                self._exporter().report.warn(str([(i.data_path, i.array_index) for i in armature_action.fcurves]))
+                fcurves = []
                 for fcurve in armature_action.fcurves:
                     match = self._bone_data_path_regex.match(fcurve.data_path)
                     if not match:
@@ -80,6 +68,18 @@ class AnimationConverter:
                     name, data_path = match.groups()
                     if name != bone_name:
                         continue
+                    fcurves.append((fcurve, data_path))
+
+                if not fcurves:
+                    # No animation data for this bone.
+                    continue
+
+                # Copy animation data.
+                anim_data = bone.animation_data_create()
+                action = bpy.data.actions.new("{}_action".format(bone.name))
+                temporary_objects.append(action)
+                anim_data.action = action
+                for fcurve, data_path in fcurves:
                     new_curve = action.fcurves.new(data_path, fcurve.array_index)
                     for point in fcurve.keyframe_points:
                         # Thanks to bone_parent we can just copy the animation without a care in the world ! :P
@@ -87,6 +87,13 @@ class AnimationConverter:
                 for original_marker in armature_action.pose_markers:
                     marker = action.pose_markers.new(original_marker.name)
                     marker.frame = original_marker.frame
+
+                # Copy animation modifier and its properties if it exists.
+                # Cheating ? Very much yes. Do not try this at home, kids.
+                bone.plasma_modifiers["animation"] = arm_bo.plasma_modifiers["animation"]
+                bone.plasma_modifiers["animation_loop"] = arm_bo.plasma_modifiers["animation_loop"]
+                child = exit_stack.enter_context(TemporaryCollectionItem(anim_group.children))
+                child.child_anim = bone
         finally:
             if do_bake:
                 bpy.data.actions.remove(armature_action)
@@ -152,8 +159,9 @@ class AnimationConverter:
             # Do bake, but make sure we don't mess the user's data.
             old_action = bo.animation_data.action
             try:
-                frame_start = start if start is not None else bpy.context.scene.frame_start
-                frame_end = end if end is not None else bpy.context.scene.frame_end
+                keyframes = [keyframe.co[0] for curve in old_action.fcurves for keyframe in curve.keyframe_points]
+                frame_start = start if start is not None else min(keyframes)
+                frame_end = end if end is not None else max(keyframes)
                 bpy.ops.nla.bake(frame_start=frame_start, frame_end=frame_end, step=bake_frame_step, only_selected=False, visual_keying=True, bake_types={"POSE", "OBJECT"})
                 baked_anim = bo.animation_data.action
                 return baked_anim

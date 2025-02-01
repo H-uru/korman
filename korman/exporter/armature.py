@@ -23,13 +23,15 @@ from . import utils
 class ArmatureConverter:
     def __init__(self, exporter):
         self._exporter = weakref.ref(exporter)
+        self._skinned_objects_modifiers = {}
+        self._bones_local_to_world = {}
 
     def convert_armature_to_empties(self, bo):
         # Creates Blender equivalents to each bone of the armature, adjusting a whole bunch of stuff along the way.
         # Yes, this is ugly, but required to get anims to export properly. I tried other ways to export armatures,
-        # but AFAICT sooner or later you have to implement similar hacks. Might as well create something that the
+        # but AFAICT sooner or later you have to implement similar hacks. Might as well generate something that the
         # animation exporter can already deal with, with no modification...
-        # Don't worry, we'll return a list of temporary objects to clean up after ourselves.
+        # Obviously the returned temporary_objects will be cleaned up afterwards.
         armature = bo.data
         pose = bo.pose if armature.pose_position == "POSE" else None
         generated_bones = {} # name: Blender empty.
@@ -45,10 +47,43 @@ class ArmatureConverter:
 
         return temporary_objects
 
+    def get_bone_local_to_world(self, bo):
+        return self._bones_local_to_world[bo]
+
+    def get_skin_modifiers(self, bo):
+        if self.is_skinned(bo):
+            return self._skinned_objects_modifiers[bo]
+        return []
+
+    def is_skinned(self, bo):
+        if bo.type != "MESH":
+            return False
+        if bo in self._skinned_objects_modifiers:
+            return True
+
+        # We need to cache the armature modifiers, because mesh.py will likely fiddle with them later.
+        armatures = []
+        for mod in bo.modifiers:
+            # Armature modifiers only result in exporting skinning if they are linked to an exported armature.
+            # If the armature is not exported, the deformation will simply get baked into the exported mesh.
+            if mod.type == "ARMATURE" and mod.object is not None and mod.object.plasma_object.enabled and mod.use_vertex_groups and mod.show_render:
+                armatures.append(mod)
+        if len(armatures):
+            self._skinned_objects_modifiers[bo] = armatures
+            return True
+        return False
+
     def _export_bone(self, bo, bone, parent, matrix, pose, generated_bones, temporary_objects):
         bone_empty = bpy.data.objects.new(ArmatureConverter.get_bone_name(bo, bone), None)
         bpy.context.scene.objects.link(bone_empty)
         bone_empty.plasma_object.enabled = True
+
+        if pose is not None:
+            pose_bone = pose.bones[bone.name]
+            bone_empty.rotation_mode = pose_bone.rotation_mode
+            pose_matrix = pose_bone.matrix_basis
+        else:
+            pose_matrix = Matrix.Identity(4)
 
         # Grmbl, animation is relative to rest pose in Blender, and relative to parent in Plasma...
         # Using matrix_parent_inverse or manually adjust keyframes will just mess up rotation keyframes,
@@ -59,19 +94,14 @@ class ArmatureConverter:
         bone_parent.parent = parent
         bone_empty.parent = bone_parent
         bone_empty.matrix_local = Matrix.Identity(4)
-
-        if pose is not None:
-            pose_bone = pose.bones[bone.name]
-            bone_empty.rotation_mode = pose_bone.rotation_mode
-            pose_matrix = pose_bone.matrix_basis
-        else:
-            pose_bone = None
-            pose_matrix = Matrix.Identity(4)
+        temporary_objects.append(bone_parent)
+        bone_parent.matrix_local = matrix * bone.matrix_local * pose_matrix
+        # The bone's local to world matrix may change when we copy animations over, which we don't want.
+        # Cache the matrix so we can use it when exporting meshes.
+        self._bones_local_to_world[bone_empty] = bo.matrix_world * bone.matrix_local
 
         temporary_objects.append(bone_empty)
-        temporary_objects.append(bone_parent)
         generated_bones[bone.name] = bone_empty
-        bone_parent.matrix_local = matrix * bone.matrix_local.to_4x4() * pose_matrix
 
         for child in bone.children:
             child_empty = self._export_bone(bo, child, bone_empty, bone.matrix_local.inverted(), pose, generated_bones, temporary_objects)

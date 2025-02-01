@@ -257,28 +257,33 @@ class Exporter:
     def _export_actor(self, so, bo):
         """Exports a Coordinate Interface if we need one"""
         parent = bo.parent
-        parent_bone_name = bo.parent_bone
+        parent_bone_name = bo.parent_bone if parent is not None else None
         offset_matrix = None
-        if parent_bone_name:
+        if parent_bone_name and parent.plasma_object.enabled:
             # Object is parented to a bone, so use it instead.
             parent_bone = parent.data.bones[parent_bone_name]
             parent = bpy.context.scene.objects[ArmatureConverter.get_bone_name(parent, parent_bone)]
             # ...Actually, it's parented to the bone's /tip/. So we need to offset the child...
-            offset_matrix = Matrix.Translation((0, 0, -parent_bone.length))
+            offset_matrix = Matrix.Translation(bo.matrix_local.row[1].xyz * parent_bone.length)
         if self.has_coordiface(bo):
             self._export_coordinate_interface(so, bo, offset_matrix)
 
-        # If this object has a parent, then we will need to go upstream and add ourselves to the
-        # parent's CoordinateInterface... Because life just has to be backwards.
-        if parent is not None:
-            if parent.plasma_object.enabled:
-                self.report.msg(f"Attaching to parent SceneObject '{parent.name}'")
-                parent_ci = self._export_coordinate_interface(None, parent)
-                parent_ci.addChild(so.key)
-            else:
-                self.report.warn("You have parented Plasma Object '{}' to '{}', which has not been marked for export. \
-                                 The object may not appear in the correct location or animate properly.".format(
-                                    bo.name, parent.name))
+            # If this object has a parent, then we will need to go upstream and add ourselves to the
+            # parent's CoordinateInterface... Because life just has to be backwards.
+            if parent is not None:
+                if parent.plasma_object.enabled:
+                    if not self.armature.is_skinned(parent):
+                        self.report.msg(f"Attaching to parent SceneObject '{parent.name}'")
+                        parent_ci = self._export_coordinate_interface(None, parent)
+                        parent_ci.addChild(so.key)
+                    else:
+                        self.report.warn("You have parented Plasma Object '{}' to '{}', which is deformed by an armature. This is not supported. \
+                                        The object may not appear in the correct location or animate properly.".format(
+                                            bo.name, parent.name))
+                else:
+                    self.report.warn("You have parented Plasma Object '{}' to '{}', which has not been marked for export. \
+                                    The object may not appear in the correct location or animate properly.".format(
+                                        bo.name, parent.name))
 
     def _export_coordinate_interface(self, so, bl, matrix: Matrix = None):
         """Ensures that the SceneObject has a CoordinateInterface"""
@@ -425,6 +430,13 @@ class Exporter:
             inc_progress()
 
     def has_coordiface(self, bo):
+        if self.armature.is_skinned(bo):
+            # We forbid skinned objects from having a coordinate interface. See mesh.py for details.
+            for mod in bo.plasma_modifiers.modifiers:
+                if mod.enabled and mod.requires_actor:
+                    raise RuntimeError("Object '{}' is skinned, which is incompatible with modifier '{}'.".format(bo, mod))
+            return False
+
         if bo.type in {"CAMERA", "EMPTY", "LAMP", "ARMATURE"}:
             return True
         if bo.parent is not None or bo.children:
@@ -435,9 +447,8 @@ class Exporter:
             return True
 
         for mod in bo.plasma_modifiers.modifiers:
-            if mod.enabled:
-                if mod.requires_actor:
-                    return True
+            if mod.enabled and mod.requires_actor:
+                return True
         return False
 
     def _post_process_scene_objects(self):
@@ -490,6 +501,7 @@ class Exporter:
         def handle_temporary(temporary, parent):
             # Maybe this was an embedded context manager?
             if hasattr(temporary, "__enter__"):
+                log_msg(f"'{parent.name}': generated context manager '{temporary}' ")
                 ctx_temporary = self.exit_stack.enter_context(temporary)
                 if ctx_temporary is not None and ctx_temporary != temporary:
                     return handle_temporary(ctx_temporary, parent)
