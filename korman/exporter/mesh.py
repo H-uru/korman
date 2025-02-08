@@ -21,6 +21,7 @@ from math import fabs
 from typing import Iterable
 import weakref
 
+from .armature import ArmatureConverter
 from ..exporter.logger import ExportProgressLogger
 from . import explosions
 from .. import helpers
@@ -157,6 +158,8 @@ class _GeoData:
         self.blender2gs = [{} for i in range(numVtxs)]
         self.triangles = []
         self.vertices = []
+        self.max_deform_bones = 0
+        self.total_weight_by_bones = {}
 
 
 class _MeshManager:
@@ -166,6 +169,8 @@ class _MeshManager:
             self._report = report
         self._entered = False
         self._overrides = {}
+        self._objects_armatures = {}
+        self._geospans_armatures = {}
 
     @staticmethod
     def add_progress_presteps(report):
@@ -200,15 +205,24 @@ class _MeshManager:
                 # Remember, storing actual pointers to the Blender objects can cause bad things to
                 # happen because Blender's memory management SUCKS!
                 self._overrides[i.name] = { "mesh": i.data.name, "modifiers": [] }
-                i.data = i.to_mesh(scene, True, "RENDER", calc_tessface=False)
 
                 # If the modifiers are left on the object, the lightmap bake can break under some
-                # situations. Therefore, we now cache the modifiers and clear them away...
+                # situations. Therefore, we now cache the modifiers and will clear them away...
                 if i.plasma_object.enabled:
                     cache_mods = self._overrides[i.name]["modifiers"]
+
                     for mod in i.modifiers:
-                        cache_mods.append(self._build_prop_dict(mod))
+                        mod_prop_dict = self._build_prop_dict(mod)
+                        cache_mods.append(mod_prop_dict)
+
+                    # Disable armatures if need be (only when exporting)
+                    self._disable_armatures(i)
+
+                i.data = i.to_mesh(scene, True, "RENDER", calc_tessface=False)
+
+                if i.plasma_object.enabled:
                     i.modifiers.clear()
+
             self._report.progress_increment()
         return self
 
@@ -233,6 +247,10 @@ class _MeshManager:
                             continue
                         setattr(mod, key, value)
             self._entered = False
+
+    def _disable_armatures(self, bo):
+        # Overridden when necessary.
+        pass
 
     def is_collapsed(self, bo) -> bool:
         return bo.name in self._overrides
@@ -351,6 +369,16 @@ class MeshConverter(_MeshManager):
 
         return geospan
 
+    def _disable_armatures(self, bo):
+        armatures = []
+        for armature_mod in self._exporter().armature.get_skin_modifiers(bo):
+            # We'll use armatures to export bones later. Disable it so it doesn't get baked into the mesh.
+            armatures.append(armature_mod.object)
+            # Note that this gets reverted when we reapply cached modifiers.
+            armature_mod.show_render = False
+        if armatures:
+            self._objects_armatures[bo.name] = armatures
+
     def finalize(self):
         """Prepares all baked Plasma geometry to be flushed to the disk"""
         self._report.progress_advance()
@@ -365,6 +393,9 @@ class MeshConverter(_MeshManager):
                 for dspan in loc.values():
                     log_msg("[DrawableSpans '{}']", dspan.key.name)
 
+                    # We do one last pass to register bones.
+                    self._register_bones_before_merge(dspan)
+
                     # This mega-function does a lot:
                     # 1. Converts SourceSpans (geospans) to Icicles and bakes geometry into plGBuffers
                     # 2. Calculates the Icicle bounds
@@ -372,6 +403,87 @@ class MeshConverter(_MeshManager):
                     # 4. Clears the SourceSpans
                     dspan.composeGeometry(True, True)
                 inc_progress()
+
+    def _register_bones_before_merge(self, dspan):
+        # We export all armatures used by this DSpan only once, unless an object uses multiple armatures - in which case, we treat the list of armatures as a single armature:
+        # [Armature 0: bone A, bone B, bone C...]
+        # [Armature 1: bone D, bone E, bone F...]
+        # [Armature 0, armature 1: bone A, bone B, bone C... bone D, bone E, bone F...]
+        # But really, the latter case should NEVER happen because users never use more than one armature modifier, cm'on.
+        # NOTE: we will export all bones, even those that are not used by any vertices in the DSpan. Would be too complex otherwise.
+        # NOTE: DSpan bone transforms are shared between all drawables in this dspan. This implies all skinned meshes must share the same
+        # coordinate system - and that's easier if these objects simply don't have a coordinate interface.
+        # Hence, we forbid skinned objects from having a coordint.
+        # The alternative is exporting each bone once per drawable with different l2w/w2l/l2b/b2l, but this is more complex
+        # and there is no good reason to do so - this just increases the risk of deformations going crazy due to a misaligned object.
+
+        armature_list_to_base_matrix = {}
+
+        def find_create_armature(armature_list):
+            nonlocal armature_list_to_base_matrix
+            existing_base_matrix = armature_list_to_base_matrix.get(armature_list)
+            if existing_base_matrix is not None:
+                # Armature already exported. Return the base bone ID.
+                return existing_base_matrix
+
+            # Not already exported. Do so now.
+            # Will be used to offset the DI/icicle's baseMatrix.
+            base_matrix_id = dspan.numTransforms
+            armature_list_to_base_matrix[armature_list] = base_matrix_id
+            for armature in armature_list:
+                # Create the null bone. We have 1 per matrix
+                identity = hsMatrix44.Identity()
+                dspan.addTransform(identity, identity, identity, identity)
+                # Now create the transforms for all bones, and make sure they are referenced by a draw interface.
+                for bone in armature.data.bones:
+                    find_create_bone(armature, bone)
+
+            return base_matrix_id
+
+        def find_create_bone(armature_bo, bone_bo):
+            bone_so_name = ArmatureConverter.get_bone_name(armature_bo, bone_bo)
+            bone_empty_bo = bpy.context.scene.objects[bone_so_name]
+            bone_empty_so = self._mgr.find_object(plSceneObject, bl=bone_empty_bo)
+
+            # Add the bone's transform.
+            identity = hsMatrix44.Identity()
+            localToWorld = utils.matrix44(self._exporter().armature.get_bone_local_to_world(bone_empty_bo))
+            transform_index = dspan.addTransform( \
+                # local2world, world2local: always identity it seems.
+                identity, identity, \
+                # local2bone, bone2local
+                localToWorld.inverse(), localToWorld)
+
+            # Add a draw interface to the object itself (if not already done).
+            di = self._mgr.find_create_object(plDrawInterface, bl=bone_empty_bo, so=bone_empty_so)
+            bone_empty_so.draw = di.key
+
+            # If the DI already has a reference to the DSpan, add the transform to the dspan's DIIndex.
+            # If not, create the DIIndex and the transform, and add it to the DI.
+            found = False
+            for key, id in di.drawables:
+                if dspan.key == key:
+                    # Already exported because the user has an object with two armatures.
+                    # Just readd the transform...
+                    dii = dspan.DIIndices[id]
+                    dii.indices = (*dii.indices, transform_index)
+            if not found:
+                dii = plDISpanIndex()
+                dii.flags = plDISpanIndex.kMatrixOnly
+                dii.indices = (transform_index,)
+                di_index = dspan.addDIIndex(dii)
+                di.addDrawable(dspan.key, di_index)
+
+        for i in range(len(dspan.sourceSpans)):
+            geospan = dspan.sourceSpans[i]
+            # Let's get any armature data.
+            armature_info = self._geospans_armatures.get((dspan, i))
+            if armature_info is None:
+                continue
+            armatures = armature_info[0]
+            # Export the armature (if not already done), and retrieve the BaseMatrix.
+            geospan.baseMatrix = find_create_armature(tuple(armatures))
+            geospan.numMatrices = sum(len(arm.data.bones) for arm in armatures) + 1
 
     def _export_geometry(self, bo, mesh, materials, geospans, mat2span_LUT):
         self._report.msg(f"Converting geometry from '{mesh.name}'...")
@@ -386,6 +498,26 @@ class MeshConverter(_MeshManager):
         lm = bo.plasma_modifiers.lightmap
         color = self._find_vtx_color_layer(mesh.tessface_vertex_colors, autocolor=not lm.bake_lightmap, manual=True)
         alpha = self._find_vtx_alpha_layer(mesh.tessface_vertex_colors)
+
+        # And retrieve the vertex groups that are deformed by an armature.
+        armatures = self._objects_armatures.get(bo.name)
+        export_deform = armatures is not None
+        if export_deform:
+            # We will need to remap IDs of each bone per armature usage. This is annoying, especially since we support multiple armatures...
+            i = 1
+            all_bone_names = {}
+            for armature in armatures:
+                for bone in armature.data.bones:
+                    all_bone_names[bone.name] = i
+                    i += 1
+            # This will map the group ID (used by Blender vertices) to the bone index exported to Plasma.
+            # Theoretically supports multiple armatures, except if the two armatures have the same bone names (because that would be REALLY asking for a lot here).
+            # If the bone is not found, we'll just map to the null bone.
+            group_id_to_bone_id = [all_bone_names.get(group.name, 0) for group in bo.vertex_groups]
+            # We will also need to know which bones deform the most vertices per material, for max/pen bones.
+            for gd in geodata.values():
+                gd.total_weight_by_bones = { j: 0.0 for j in range(i) }
+            warned_extra_bone_weights = False
 
         # Convert Blender faces into things we can stuff into libHSPlasma
         for i, tessface in enumerate(mesh.tessfaces):
@@ -484,6 +616,37 @@ class MeshConverter(_MeshManager):
                         uvs.append(dPosDv)
                     geoVertex.uvs = uvs
 
+                    if export_deform:
+                        # Get bone ID and weight from the vertex' "group" data.
+                        # While we're at it, sort it by weight, and filter groups that
+                        # have no bone assigned. Take only the first 3 bones.
+                        weights = sorted([ \
+                                (group_id_to_bone_id[group.group], group.weight) \
+                                for group in source.groups \
+                                if group.weight > 0 \
+                            ], key=lambda t: t[1], reverse=True)
+                        if len(weights) > 3 and not warned_extra_bone_weights:
+                            warned_extra_bone_weights = True
+                            self._report.warn(f"'{bo.name}': only three bones can deform a vertex at a time. Please use Weight Tools -> Limit Total at 3 to ensure deformation is consistent between Blender and Plasma.")
+                        weights = weights[:3]
+                        total_weight = sum((w[1] for w in weights))
+                        # NOTE: Blender will ALWAYS normalize bone weights when deforming !
+                        # This means if weights don't add up to 1, we CANNOT assign the remaining weight to the null bone.
+                        # For instance, a vertex with a single bone of weight 0.25 will move as if it were weighted 1.0.
+                        # However, a vertex with no bone at all will not move at all (null bone).
+                        weights = [(id, weight / total_weight) for id, weight in weights]
+                        # Count how many bones deform this vertex, so we know how many skin indices to enable.
+                        num_bones = len(weights)
+                        data.max_deform_bones = max(data.max_deform_bones, num_bones)
+                        # Keep track of how much weight each bone is handling
+                        for id, weight in weights:
+                            data.total_weight_by_bones[id] += weight
+                        # Pad to 3 weights to make it simpler.
+                        weights += [(0, 0.0)] * (3 - len(weights))
+                        # And store all this into the vertex.
+                        geoVertex.indices = weights[0][0] | (weights[1][0] << 8) | (weights[2][0] << 16)
+                        geoVertex.weights = tuple((weight for id, weight in weights))
+
                     idx = len(data.vertices)
                     data.blender2gs[vertex][normcoluv] = idx
                     data.vertices.append(geoVertex)
@@ -534,6 +697,39 @@ class MeshConverter(_MeshManager):
                     uvMap[numUVs - 2].normalize()
                     uvMap[numUVs - 1].normalize()
                     vtx.uvs = uvMap
+
+            if export_deform:
+                # MaxBoneIdx and PenBoneIdx: these are the indices of the two highest-weighted bones on the mesh.
+                # Plasma will use those to compute a bounding box for the deformed object at run-time,
+                # in order to clip them when outside the view frustum.
+                # (The new BB is computed by extending the base BB with two versions of itself transformed by the max/pen bones).
+                # See plDrawableSpans::IUpdateMatrixPaletteBoundsHack.
+                # This is... about as reliable as you can expect: it kinda works, it's not great. This will have to do for now.
+                # (If you ask me, I'd rip the entire thing out and just not clip anything, framerate be damned.)
+                # Note that max/pen bones are determined by how many vertices they deform, which is a bit different (and more efficient)
+                # than whatever the Max plugin does in plMAXVertexAccumulator::StuffMyData.
+                sorted_ids_by_weight = sorted(((weight, id) for id, weight in data.total_weight_by_bones.items()), reverse = True)
+                # We should be guaranteed to have at least two bones - there are no armatures with no bones (...right?),
+                # and there is always the null bone if we really have nothing else.
+                geospan.maxBoneIdx = sorted_ids_by_weight[0][1]
+                geospan.penBoneIdx = sorted_ids_by_weight[1][1]
+
+                # This is also a good time to specify how many bones per vertices we allow, for optimization purposes.
+                max_deform_bones = data.max_deform_bones
+                if max_deform_bones == 3:
+                    geospan.format |= plGeometrySpan.kSkin3Weights | plGeometrySpan.kSkinIndices
+                elif max_deform_bones == 2:
+                    geospan.format |= plGeometrySpan.kSkin2Weights | plGeometrySpan.kSkinIndices
+                else: # max_bones_per_vert == 1
+                    geospan.format |= plGeometrySpan.kSkin1Weight
+                    if len(group_id_to_bone_id) > 1:
+                        geospan.format |= plGeometrySpan.kSkinIndices
+                    else:
+                        # No skin indices required... BUT! We have assigned some weight to the null bone on top of the only bone, so we need to fix that.
+                        for vtx in data.vertices:
+                            weight = vtx.weights[0]
+                            weight = 1 - weight
+                            vtx.weights = (weight, 0.0, 0.0)
 
             # If we're still here, let's add our data to the GeometrySpan
             geospan.indices = data.triangles
@@ -636,9 +832,13 @@ class MeshConverter(_MeshManager):
             dspan = self._find_create_dspan(bo, i.geospan, i.pass_index)
             self._report.msg("Exported hsGMaterial '{}' geometry into '{}'",
                              i.geospan.material.name, dspan.key.name)
+            armatures = self._objects_armatures.get(bo.name)
             idx = dspan.addSourceSpan(i.geospan)
             diidx = _diindices.setdefault(dspan, [])
             diidx.append(idx)
+            if armatures is not None:
+                bone_id_to_name = {group.index: group.name for group in bo.vertex_groups}
+                self._geospans_armatures[(dspan, idx)] = (armatures, bone_id_to_name)
 
         # Step 3.1: Harvest Span indices and create the DIIndices
         drawables = []
