@@ -26,26 +26,29 @@ class ArmatureConverter:
         self._skinned_objects_modifiers = {}
         self._bones_local_to_world = {}
 
-    def convert_armature_to_empties(self, bo):
+    def convert_armature_to_empties(self, bo, handle_temporary):
         # Creates Blender equivalents to each bone of the armature, adjusting a whole bunch of stuff along the way.
         # Yes, this is ugly, but required to get anims to export properly. I tried other ways to export armatures,
         # but AFAICT sooner or later you have to implement similar hacks. Might as well generate something that the
         # animation exporter can already deal with, with no modification...
-        # Obviously the returned temporary_objects will be cleaned up afterwards.
+        # Obviously the created objects will be cleaned up afterwards.
         armature = bo.data
-        pose = bo.pose if armature.pose_position == "POSE" else None
         generated_bones = {} # name: Blender empty.
-        temporary_objects = []
-        for bone in armature.bones:
-            if bone.parent:
-                continue
-            self._export_bone(bo, bone, bo, Matrix.Identity(4), pose, generated_bones, temporary_objects)
+        temporary_bones = []
+        # Note: ideally we would give the temporary bone objects to handle_temporary as soon as they are created.
+        # However we need to delay until we actually create their animation modifiers, so that these get exported.
+        try:
+            for bone in armature.bones:
+                if bone.parent:
+                    continue
+                self._export_bone(bo, bone, bo, Matrix.Identity(4), bo.pose, armature.pose_position == "POSE", generated_bones, temporary_bones)
 
-        if bo.plasma_modifiers.animation.enabled and bo.animation_data is not None and bo.animation_data.action is not None:
-            # Let the anim exporter handle the anim crap.
-            temporary_objects.extend(self._exporter().animation.copy_armature_animation_to_temporary_bones(bo, generated_bones))
-
-        return temporary_objects
+            if bo.plasma_modifiers.animation.enabled and bo.animation_data is not None and bo.animation_data.action is not None:
+                # Let the anim exporter handle the anim crap.
+                self._exporter().animation.copy_armature_animation_to_temporary_bones(bo, generated_bones, handle_temporary)
+        finally:
+            for bone in temporary_bones:
+                handle_temporary(bone)
 
     def get_bone_local_to_world(self, bo):
         return self._bones_local_to_world[bo]
@@ -73,14 +76,14 @@ class ArmatureConverter:
             return True
         return False
 
-    def _export_bone(self, bo, bone, parent, matrix, pose, generated_bones, temporary_objects):
+    def _export_bone(self, bo, bone, parent, matrix, pose, pose_mode, generated_bones, temporary_bones):
         bone_empty = bpy.data.objects.new(ArmatureConverter.get_bone_name(bo, bone), None)
         bpy.context.scene.objects.link(bone_empty)
         bone_empty.plasma_object.enabled = True
+        pose_bone = pose.bones[bone.name]
+        bone_empty.rotation_mode = pose_bone.rotation_mode
 
-        if pose is not None:
-            pose_bone = pose.bones[bone.name]
-            bone_empty.rotation_mode = pose_bone.rotation_mode
+        if pose_mode:
             pose_matrix = pose_bone.matrix_basis
         else:
             pose_matrix = Matrix.Identity(4)
@@ -94,18 +97,16 @@ class ArmatureConverter:
         bone_parent.parent = parent
         bone_empty.parent = bone_parent
         bone_empty.matrix_local = Matrix.Identity(4)
-        temporary_objects.append(bone_parent)
+        temporary_bones.append(bone_parent)
         bone_parent.matrix_local = matrix * bone.matrix_local * pose_matrix
         # The bone's local to world matrix may change when we copy animations over, which we don't want.
         # Cache the matrix so we can use it when exporting meshes.
         self._bones_local_to_world[bone_empty] = bo.matrix_world * bone.matrix_local
-
-        temporary_objects.append(bone_empty)
+        temporary_bones.append(bone_empty)
         generated_bones[bone.name] = bone_empty
 
         for child in bone.children:
-            child_empty = self._export_bone(bo, child, bone_empty, bone.matrix_local.inverted(), pose, generated_bones, temporary_objects)
-        return bone_empty
+            self._export_bone(bo, child, bone_empty, bone.matrix_local.inverted(), pose, pose_mode, generated_bones, temporary_bones)
 
     @staticmethod
     def get_bone_name(bo, bone):

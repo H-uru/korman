@@ -560,9 +560,7 @@ class Exporter:
                 so = self.mgr.find_create_object(plSceneObject, bl=bo)
                 self._export_actor(so, bo)
                 # Bake all armature bones to empties - this will make it easier to export animations and such.
-                for temporary_object in self.armature.convert_armature_to_empties(bo):
-                    # This could be a Blender object, an action, a context manager... I have no idea, handle_temporary will figure it out !
-                    handle_temporary(temporary_object, bo)
+                self.armature.convert_armature_to_empties(bo, lambda obj: handle_temporary(obj, bo))
             for mod in bo.plasma_modifiers.modifiers:
                 proc = getattr(mod, "pre_export", None)
                 if proc is not None:

@@ -39,67 +39,6 @@ class AnimationConverter:
     def convert_frame_time(self, frame_num: int) -> float:
         return frame_num / self._bl_fps
 
-    def copy_armature_animation_to_temporary_bones(self, arm_bo: bpy.types.Object, generated_bones):
-        # Enable the anim group. We will need it to reroute anim messages to children bones.
-        # Please note: Plasma supports grouping many animation channels into a single ATC anim, but only programmatically.
-        # So instead we will do it the Cyan Way(tm), which is to make dozens or maybe even hundreds of small ATC anims. Derp.
-        temporary_objects = []
-        anim = arm_bo.plasma_modifiers.animation
-        anim_group = arm_bo.plasma_modifiers.animation_group
-        do_bake = anim.bake
-        exit_stack = ExitStack()
-        toggle = GoodNeighbor()
-        toggle.track(anim, "bake", False)
-        toggle.track(anim_group, "enabled", True)
-        temporary_objects.append(toggle)
-        temporary_objects.append(exit_stack)
-
-        armature_action = arm_bo.animation_data.action
-        if do_bake:
-            armature_action = self._bake_animation_data(arm_bo, anim.bake_frame_step, None, None)
-
-        try:
-            for bone_name, bone in generated_bones.items():
-                fcurves = []
-                for fcurve in armature_action.fcurves:
-                    match = self._bone_data_path_regex.match(fcurve.data_path)
-                    if not match:
-                        continue
-                    name, data_path = match.groups()
-                    if name != bone_name:
-                        continue
-                    fcurves.append((fcurve, data_path))
-
-                if not fcurves:
-                    # No animation data for this bone.
-                    continue
-
-                # Copy animation data.
-                anim_data = bone.animation_data_create()
-                action = bpy.data.actions.new("{}_action".format(bone.name))
-                temporary_objects.append(action)
-                anim_data.action = action
-                for fcurve, data_path in fcurves:
-                    new_curve = action.fcurves.new(data_path, fcurve.array_index)
-                    for point in fcurve.keyframe_points:
-                        # Thanks to bone_parent we can just copy the animation without a care in the world ! :P
-                        p = new_curve.keyframe_points.insert(point.co[0], point.co[1])
-                for original_marker in armature_action.pose_markers:
-                    marker = action.pose_markers.new(original_marker.name)
-                    marker.frame = original_marker.frame
-
-                # Copy animation modifier and its properties if it exists.
-                # Cheating ? Very much yes. Do not try this at home, kids.
-                bone.plasma_modifiers["animation"] = arm_bo.plasma_modifiers["animation"]
-                bone.plasma_modifiers["animation_loop"] = arm_bo.plasma_modifiers["animation_loop"]
-                child = exit_stack.enter_context(TemporaryCollectionItem(anim_group.children))
-                child.child_anim = bone
-        finally:
-            if do_bake:
-                bpy.data.actions.remove(armature_action)
-
-        return temporary_objects
-
     def convert_object_animations(self, bo: bpy.types.Object, so: plSceneObject, anim_name: str, *,
                                   start: Optional[int] = None, end: Optional[int] = None, bake_frame_step: Optional[int] = None) -> Iterable[plAGApplicator]:
         if not bo.plasma_object.has_animation_data:
@@ -114,38 +53,85 @@ class AnimationConverter:
 
         obj_action, obj_fcurves = fetch_animation_data(bo)
         data_action, data_fcurves = fetch_animation_data(bo.data)
-        temporary_action = None
 
-        try:
-            if bake_frame_step is not None and obj_action is not None:
-                temporary_action = obj_action = self._bake_animation_data(bo, bake_frame_step, start, end)
-                obj_fcurves = obj_action.fcurves
+        if bake_frame_step is not None and obj_action is not None:
+            obj_action = self._bake_animation_data(bo, bake_frame_step, start, end)
+            obj_fcurves = obj_action.fcurves
 
-            # We're basically just going to throw all the FCurves at the controller converter (read: wall)
-            # and see what sticks. PlasmaMAX has some nice animation channel stuff that allows for some
-            # form of separation, but Blender's NLA editor is way confusing and appears to not work with
-            # things that aren't the typical position, rotation, scale animations.
-            applicators = []
-            if isinstance(bo.data, bpy.types.Camera):
-                applicators.append(self._convert_camera_animation(bo, so, obj_fcurves, data_fcurves, anim_name, start, end))
-            else:
-                applicators.append(self._convert_transform_animation(bo, obj_fcurves, bo.matrix_local, bo.matrix_parent_inverse, start=start, end=end))
-            if bo.plasma_modifiers.soundemit.enabled:
-                applicators.extend(self._convert_sound_volume_animation(bo.name, obj_fcurves, bo.plasma_modifiers.soundemit, start, end))
-            if isinstance(bo.data, bpy.types.Lamp):
-                lamp = bo.data
-                applicators.extend(self._convert_lamp_color_animation(bo.name, data_fcurves, lamp, start, end))
-                if isinstance(lamp, bpy.types.SpotLamp):
-                    applicators.extend(self._convert_spot_lamp_animation(bo.name, data_fcurves, lamp, start, end))
-                if isinstance(lamp, bpy.types.PointLamp):
-                    applicators.extend(self._convert_omni_lamp_animation(bo.name, data_fcurves, lamp, start, end))
-
-        finally:
-            if temporary_action is not None:
-                # Baking data is temporary, but the lifetime of our user's data is eternal !
-                bpy.data.actions.remove(temporary_action)
+        # We're basically just going to throw all the FCurves at the controller converter (read: wall)
+        # and see what sticks. PlasmaMAX has some nice animation channel stuff that allows for some
+        # form of separation, but Blender's NLA editor is way confusing and appears to not work with
+        # things that aren't the typical position, rotation, scale animations.
+        applicators = []
+        if isinstance(bo.data, bpy.types.Camera):
+            applicators.append(self._convert_camera_animation(bo, so, obj_fcurves, data_fcurves, anim_name, start, end))
+        else:
+            applicators.append(self._convert_transform_animation(bo, obj_fcurves, bo.matrix_local, bo.matrix_parent_inverse, start=start, end=end))
+        if bo.plasma_modifiers.soundemit.enabled:
+            applicators.extend(self._convert_sound_volume_animation(bo.name, obj_fcurves, bo.plasma_modifiers.soundemit, start, end))
+        if isinstance(bo.data, bpy.types.Lamp):
+            lamp = bo.data
+            applicators.extend(self._convert_lamp_color_animation(bo.name, data_fcurves, lamp, start, end))
+            if isinstance(lamp, bpy.types.SpotLamp):
+                applicators.extend(self._convert_spot_lamp_animation(bo.name, data_fcurves, lamp, start, end))
+            if isinstance(lamp, bpy.types.PointLamp):
+                applicators.extend(self._convert_omni_lamp_animation(bo.name, data_fcurves, lamp, start, end))
 
         return [i for i in applicators if i is not None]
+
+    def copy_armature_animation_to_temporary_bones(self, arm_bo: bpy.types.Object, generated_bones, handle_temporary):
+        # Enable the anim group. We will need it to reroute anim messages to children bones.
+        # Please note: Plasma supports grouping many animation channels into a single ATC anim, but only programmatically.
+        # So instead we will do it the Cyan Way(tm), which is to make dozens or maybe even hundreds of small ATC anims. Derp.
+        anim = arm_bo.plasma_modifiers.animation
+        anim_group = arm_bo.plasma_modifiers.animation_group
+        do_bake = anim.bake
+        exit_stack = ExitStack()
+        toggle = GoodNeighbor()
+        toggle.track(anim, "bake", False)
+        toggle.track(anim_group, "enabled", True)
+        handle_temporary(toggle)
+        handle_temporary(exit_stack)
+
+        armature_action = arm_bo.animation_data.action
+        if do_bake:
+            armature_action = self._bake_animation_data(arm_bo, anim.bake_frame_step, None, None)
+
+        for bone_name, bone in generated_bones.items():
+            fcurves = []
+            for fcurve in armature_action.fcurves:
+                match = self._bone_data_path_regex.match(fcurve.data_path)
+                if not match:
+                    continue
+                name, data_path = match.groups()
+                if name != bone_name:
+                    continue
+                fcurves.append((fcurve, data_path))
+
+            if not fcurves:
+                # No animation data for this bone.
+                continue
+
+            # Copy animation data.
+            anim_data = bone.animation_data_create()
+            action = bpy.data.actions.new("{}_action".format(bone.name))
+            handle_temporary(action)
+            anim_data.action = action
+            for fcurve, data_path in fcurves:
+                new_curve = action.fcurves.new(data_path, fcurve.array_index)
+                for point in fcurve.keyframe_points:
+                    # Thanks to bone_parent we can just copy the animation without a care in the world ! :P
+                    p = new_curve.keyframe_points.insert(point.co[0], point.co[1])
+            for original_marker in armature_action.pose_markers:
+                marker = action.pose_markers.new(original_marker.name)
+                marker.frame = original_marker.frame
+
+            # Copy animation modifier and its properties if it exists.
+            # Cheating ? Very much yes. Do not try this at home, kids.
+            bone.plasma_modifiers["animation"] = arm_bo.plasma_modifiers["animation"]
+            bone.plasma_modifiers["animation_loop"] = arm_bo.plasma_modifiers["animation_loop"]
+            child = exit_stack.enter_context(TemporaryCollectionItem(anim_group.children))
+            child.child_anim = bone
 
     def _bake_animation_data(self, bo, bake_frame_step: int, start: Optional[int] = None, end: Optional[int] = None):
         # Baking animations is a Blender operator, so requires a bit of boilerplate...
@@ -158,15 +144,14 @@ class AnimationConverter:
 
             # Do bake, but make sure we don't mess the user's data.
             old_action = bo.animation_data.action
-            try:
-                keyframes = [keyframe.co[0] for curve in old_action.fcurves for keyframe in curve.keyframe_points]
-                frame_start = start if start is not None else min(keyframes)
-                frame_end = end if end is not None else max(keyframes)
-                bpy.ops.nla.bake(frame_start=frame_start, frame_end=frame_end, step=bake_frame_step, only_selected=False, visual_keying=True, bake_types={"POSE", "OBJECT"})
-                baked_anim = bo.animation_data.action
-                return baked_anim
-            finally:
-                bo.animation_data.action = old_action
+            toggle.track(bo.animation_data, "action", old_action)
+            keyframes = [keyframe.co[0] for curve in old_action.fcurves for keyframe in curve.keyframe_points]
+            frame_start = start if start is not None else min(keyframes)
+            frame_end = end if end is not None else max(keyframes)
+            bpy.ops.nla.bake(frame_start=frame_start, frame_end=frame_end, step=bake_frame_step, only_selected=False, visual_keying=True, bake_types={"POSE", "OBJECT"})
+            baked_anim = bo.animation_data.action
+            self._exporter().exit_stack.enter_context(TemporaryObject(baked_anim, bpy.data.actions.remove))
+            return baked_anim
 
     def _convert_camera_animation(self, bo, so, obj_fcurves, data_fcurves, anim_name: str,
                                   start: Optional[int], end: Optional[int]):
