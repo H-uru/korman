@@ -215,14 +215,8 @@ class _MeshManager:
                         mod_prop_dict = self._build_prop_dict(mod)
                         cache_mods.append(mod_prop_dict)
 
-                    armatures = []
-                    for armature_mod in self._exporter().armature.get_skin_modifiers(i):
-                        # We'll use armatures to export bones later. Disable it so it doesn't get baked into the mesh.
-                        armatures.append(armature_mod.object)
-                        # Note that this gets reverted when we reapply cached modifiers.
-                        armature_mod.show_render = False
-                    if armatures:
-                        self._objects_armatures[i.name] = armatures
+                    # Disable armatures if need be (only when exporting)
+                    self._disable_armatures(i)
 
                 i.data = i.to_mesh(scene, True, "RENDER", calc_tessface=False)
 
@@ -253,6 +247,10 @@ class _MeshManager:
                             continue
                         setattr(mod, key, value)
             self._entered = False
+
+    def _disable_armatures(self, bo):
+        # Overridden when necessary.
+        pass
 
     def is_collapsed(self, bo) -> bool:
         return bo.name in self._overrides
@@ -370,6 +368,16 @@ class MeshConverter(_MeshManager):
             geospan.addPermaProj(i)
 
         return geospan
+
+    def _disable_armatures(self, bo):
+        armatures = []
+        for armature_mod in self._exporter().armature.get_skin_modifiers(bo):
+            # We'll use armatures to export bones later. Disable it so it doesn't get baked into the mesh.
+            armatures.append(armature_mod.object)
+            # Note that this gets reverted when we reapply cached modifiers.
+            armature_mod.show_render = False
+        if armatures:
+            self._objects_armatures[bo.name] = armatures
 
     def finalize(self):
         """Prepares all baked Plasma geometry to be flushed to the disk"""
