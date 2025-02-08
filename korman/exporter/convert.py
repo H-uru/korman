@@ -21,7 +21,7 @@ import functools
 import inspect
 from pathlib import Path
 from typing import *
-from mathutils import Matrix
+from mathutils import Matrix, Vector
 
 from ..helpers import TemporaryObject
 from ..korlib import ConsoleToggler
@@ -258,15 +258,17 @@ class Exporter:
         """Exports a Coordinate Interface if we need one"""
         parent = bo.parent
         parent_bone_name = bo.parent_bone if parent is not None else None
-        offset_matrix = None
+        offset_matrix_local = None
+        offset_matrix_world = None
         if parent_bone_name and parent.plasma_object.enabled:
             # Object is parented to a bone, so use it instead.
             parent_bone = parent.data.bones[parent_bone_name]
             parent = bpy.context.scene.objects[ArmatureConverter.get_bone_name(parent, parent_bone)]
             # ...Actually, it's parented to the bone's /tip/. So we need to offset the child...
-            offset_matrix = Matrix.Translation(bo.matrix_local.row[1].xyz * parent_bone.length)
+            offset_matrix_local = Matrix.Translation(Vector((0, parent_bone.length, 0)))
+            offset_matrix_world = Matrix.Translation(bo.matrix_world.row[1].xyz * parent_bone.length)
         if self.has_coordiface(bo):
-            self._export_coordinate_interface(so, bo, offset_matrix)
+            self._export_coordinate_interface(so, bo, offset_matrix_local, offset_matrix_world)
 
             # If this object has a parent, then we will need to go upstream and add ourselves to the
             # parent's CoordinateInterface... Because life just has to be backwards.
@@ -285,7 +287,7 @@ class Exporter:
                                     The object may not appear in the correct location or animate properly.".format(
                                         bo.name, parent.name))
 
-    def _export_coordinate_interface(self, so, bl, matrix: Matrix = None):
+    def _export_coordinate_interface(self, so, bl, offset_matrix_local: Matrix = None, offset_matrix_world: Matrix = None):
         """Ensures that the SceneObject has a CoordinateInterface"""
         if so is None:
             so = self.mgr.find_create_object(plSceneObject, bl=bl)
@@ -293,13 +295,14 @@ class Exporter:
         if so.coord is None:
             ci_cls = bl.plasma_object.ci_type
             ci = self.mgr.add_object(ci_cls, bl=bl, so=so)
-        if ci is not None or matrix is not None:
+        if ci is not None or offset_matrix_local is not None or offset_matrix_world is not None:
             # We just created the CI, or we have an extra transform that we may have previously skipped.
             matrix_local = bl.matrix_local
             matrix_world = bl.matrix_world
-            if matrix is not None:
-                matrix_local = matrix_local * matrix
-                matrix_world = matrix_world * matrix
+            if offset_matrix_local is not None:
+                matrix_local = offset_matrix_local * matrix_local
+            if offset_matrix_world is not None:
+                matrix_world = offset_matrix_world * matrix_world
             # Now we have the "fun" work of filling in the CI
             ci.localToWorld = utils.matrix44(matrix_world)
             ci.worldToLocal = ci.localToWorld.inverse()
