@@ -82,6 +82,10 @@ class PhysicsConverter:
                 mesh.update(calc_tessface=indices)
                 vertices = [hsVector3(*i.co) for i in mesh.vertices]
 
+            # Trying to export a collider with no vertices, eh?
+            if not vertices:
+                raise ExportError(f"[{bo.name}]: Cannot export a collision mesh with no vertices!")
+
             if indices:
                 return (vertices, self._convert_indices(mesh))
             else:
