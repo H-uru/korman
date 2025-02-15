@@ -12,7 +12,7 @@ jobs:
               cmake-arch: Win32,
               python-arch: x86,
               str: windows-x86,
-              blender-url: "https://github.com/Hoikas/blender2.7/releases/download/blender2.79_20250208/blender-2.79.0-git20250208.106afc6db53a-windows32.zip",
+              blender-url: "https://github.com/Hoikas/blender2.7/releases/download/blender2.79_20250209/blender-2.79.0-git20250209.0dc3b0e244e8-windows32.zip",
             }
           - {
               os: windows-2022,
@@ -20,7 +20,7 @@ jobs:
               cmake-arch: x64,
               python-arch: x64,
               str: windows-x64,
-              blender-url: "https://github.com/Hoikas/blender2.7/releases/download/blender2.79_20250208/blender-2.79.0-git20250208.106afc6db53a-windows64.zip",
+              blender-url: "https://github.com/Hoikas/blender2.7/releases/download/blender2.79_20250209/blender-2.79.0-git20250209.0dc3b0e244e8-windows64.zip",
             }
 
     env:
