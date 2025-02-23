@@ -189,7 +189,7 @@ endfunction()
 if(korman_BUILD_JPEG)
     korman_add_external_project(libjpeg-turbo
         GIT_REPOSITORY "https://github.com/libjpeg-turbo/libjpeg-turbo.git"
-        GIT_TAG 3.0.3
+        GIT_TAG 3.1.0
         CMAKE_CACHE_ARGS
             -DBUILD_SHARED_LIBS:BOOL=OFF
             -DENABLE_SHARED:BOOL=FALSE
@@ -222,7 +222,7 @@ if(korman_BUILD_STRING_THEORY)
     if(MSVC AND MSVC_VERSION LESS 1900)
         set(_string_theory_tag 2.4)
     else()
-        set(_string_theory_tag 3.7)
+        set(_string_theory_tag 3.8)
     endif()
 
     korman_add_external_project(string_theory
@@ -247,7 +247,7 @@ if(korman_BUILD_ZLIB)
     endif()
     korman_add_external_project(zlib
         GIT_REPOSITORY "https://github.com/zlib-ng/zlib-ng.git"
-        GIT_TAG 2.1.7
+        GIT_TAG 2.2.4
         CMAKE_CACHE_ARGS
             -DBUILD_SHARED_LIBS:BOOL=OFF
             -DZLIB_COMPAT:BOOL=ON
@@ -258,9 +258,9 @@ endif()
 
 if(korman_BUILD_PNG)
     korman_add_external_project(libpng
-        URL "https://sourceforge.net/projects/libpng/files/libpng16/1.6.43/libpng-1.6.43.tar.gz/download"
-        DOWNLOAD_NAME "libpng-1.6.43.tar.gz"
-        URL_HASH "SHA256=e804e465d4b109b5ad285a8fb71f0dd3f74f0068f91ce3cdfde618180c174925"
+        URL "https://sourceforge.net/projects/libpng/files/libpng16/1.6.45/libpng-1.6.45.tar.gz/download"
+        DOWNLOAD_NAME "libpng-1.6.45.tar.gz"
+        URL_HASH "SHA256=7dee9e1ca8152bf52f919456f4190330aee48209887f2ec0b3d9f0ad571df11b"
         CMAKE_CACHE_ARGS
             -DBUILD_SHARED_LIBS:BOOL=OFF
             -DPNG_EXECUTABLES:BOOL=OFF
@@ -273,7 +273,7 @@ if(korman_BUILD_HSPLASMA)
     korman_add_external_project(HSPlasma
         GIT_REPOSITORY "https://github.com/H-uru/libhsplasma.git"
         # Be sure to increase this as the feature set used by Korman increases
-        GIT_TAG f372a43a8ce78b056fe21c7ed372f04a88b20e98
+        GIT_TAG 93fb48b5ce0911e0f58b731f7d7b3e4e5ccabfd8
         # We can only do shallow checkouts if the above is a branch or tag.
         GIT_SHALLOW FALSE
         CMAKE_CACHE_ARGS
