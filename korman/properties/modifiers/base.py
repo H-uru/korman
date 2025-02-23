@@ -24,6 +24,7 @@ from typing import *
 
 if TYPE_CHECKING:
     from ...nodes.node_python import *
+    from ...nodes.node_responder import *
 
 from ... import helpers
 from ... import plasma_api
@@ -236,6 +237,36 @@ class PlasmaModifierLogicWiz:
         for i, j in kwargs.items():
             setattr(node, i, j)
         return node
+
+    def _create_responder_nodes(
+            self, tree: bpy.types.NodeGroup,
+            *messages: Tuple[str, Dict[str, Any]],
+            **responder_settings
+        ) -> PlasmaResponderNode:
+        """Creates and links together a Responder node tree. Each message sould be specified by a tuple
+           of string message type and a dict of attributes to set on the message node. Messages will be
+           created and linked in the order they are specified, including any callback waits if needed.
+           Attributes on the responder node can be set by passing them in as keyword arguments.
+        """
+
+        nodes = tree.nodes
+        respNode = nodes.new("PlasmaResponderNode")
+        for attr, value in responder_settings.items():
+            setattr(respNode, attr, value)
+        respStateNode = nodes.new("PlasmaResponderStateNode")
+        respNode.link_output(respStateNode, "state_refs", "resp")
+
+        linkMsgTo = respStateNode
+        for msgNodeType, msgNodeAttrs in messages:
+            msgNode = nodes.new(msgNodeType)
+            for attr, value in msgNodeAttrs.items():
+                setattr(msgNode, attr, value)
+
+            linkMsgTo.link_output(msgNode, "msgs", "sender")
+            if msgNode.has_callbacks and msgNode.can_link_callbacks:
+                linkMsgTo = msgNode
+
+        return respNode
 
     @abc.abstractmethod
     def logicwiz(self, bo, tree):

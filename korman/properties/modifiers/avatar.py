@@ -128,15 +128,24 @@ class PlasmaSittingBehavior(idprops.IDPropObjectMixin, PlasmaModifierProperties,
         sittingmod = nodes.new("PlasmaSittingBehaviorNode")
         sittingmod.approach = self.approach
         sittingmod.name = "SittingBeh"
-        # xSitCam.py PythonFileMod
-        if self.sitting_camera is not None:
-            sittingpynode = self._create_python_standard_file_node(tree, "xSitCam.py")
-            sittingmod.link_output(sittingpynode, "satisfies", "sitAct")
 
-            # Camera Object
-            cameraobj = nodes.new("PlasmaAttribObjectNode")
-            cameraobj.link_output(sittingpynode, "pfm", "sitCam")
-            cameraobj.target_object = self.sitting_camera
+        # Sitting Camera handling
+        if self.sitting_camera is not None:
+            sitDownRespNode = self._create_responder_nodes(
+                tree,
+                ("PlasmaCameraMsgNode", { "camera": self.sitting_camera, "cmd": "push" }),
+                detect_trigger=True, detect_untrigger=False,
+                name="SitDown"
+            )
+            standUpRespNode = self._create_responder_nodes(
+                tree,
+                ("PlasmaCameraMsgNode", { "camera": self.sitting_camera, "cmd": "pop" }),
+                detect_trigger=False, detect_untrigger=True,
+                name="StandUp"
+            )
+
+            sittingmod.link_output(sitDownRespNode, "satisfies", "condition")
+            sittingmod.link_output(standUpRespNode, "satisfies", "condition")
 
         # Clickable
         clickable = nodes.new("PlasmaClickableNode")
