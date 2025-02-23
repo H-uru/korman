@@ -189,6 +189,8 @@ class PhysicsConverter:
                 if mod.camera_blocker:
                     physical.LOSDBs |= plSimDefs.kLOSDBCameraBlockers
                     _set_phys_prop(plSimulationInterface.kCameraAvoidObject, simIface, physical)
+                if mod.clickable_blocker:
+                    physical.LOSDBs |= plSimDefs.kLOSDBUIBlockers
                 if mod.terrain:
                     physical.LOSDBs |= plSimDefs.kLOSDBAvatarWalkable
 

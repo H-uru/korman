@@ -73,6 +73,9 @@ class PlasmaCollider(PlasmaModifierProperties):
     camera_blocker = BoolProperty(name="Blocks Camera LOS",
                                   description="Object blocks camera line-of-sight",
                                   default=True)
+    clickable_blocker = BoolProperty(name="Blocks Clickables",
+                                     description="Object blocks clickables, including avatar name hotspots",
+                                     default=True)
     dynamic_blocker = BoolProperty(name="Blocks Dynamics",
                                    description="Object blocks dynamic objects (kickables)",
                                    default=True)
