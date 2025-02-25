@@ -18,6 +18,7 @@ import bpy
 from contextlib import contextmanager
 import math
 from typing import *
+from uuid import uuid4
 
 @contextmanager
 def bmesh_from_object(bl):
