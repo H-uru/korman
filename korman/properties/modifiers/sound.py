@@ -285,6 +285,12 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
                          options={"ANIMATABLE"},
                          subtype="PERCENTAGE")
 
+    reverb_amount = IntProperty(name="Reverb amount",
+                                description="Amount of reverb to apply to this sound (at 0%, reverb volume is reduced by 100 dB and thus disabled)",
+                                min=0, max=100, default=100,
+                                options=set(),
+                                subtype="PERCENTAGE")
+
     fade_in = PointerProperty(type=PlasmaSfxFade, options=set())
     fade_out = PointerProperty(type=PlasmaSfxFade, options=set())
 
@@ -424,6 +430,21 @@ class PlasmaSound(idprops.IDPropMixin, bpy.types.PropertyGroup):
             sound.channel = plWin32Sound.kLeftChannel
         else:
             sound.channel = plWin32Sound.kRightChannel
+
+        # Reverb/EAX
+        if self.sfx_type in {"kSoundFX", "kNPCVoices"} and self.reverb_amount > 0:
+            eax = sound.eaxSettings
+            eax.enable = True
+            # Occlusion: the minimum is -100 dB (but the value is multiplied by 100 in EAX's API)
+            eax.room = int(-10000 * (1 - (self.reverb_amount / 100.0)))
+
+            # I couldn't get doppler effect working ingame, nor could I figure out how soft
+            # starts/ends are supposed to work in conjunction with the soft region.
+            # If you have more infos about those, feel free to share.
+
+            # Make sure we use sensible defaults for soft starts/ends
+            eax.softStarts.reset()
+            eax.softEnds.reset()
 
         # Whew, that was a lot of work!
         return sound.key
