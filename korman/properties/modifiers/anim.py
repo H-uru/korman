@@ -99,8 +99,9 @@ class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
                 start, end = min((start, end)), max((start, end))
             else:
                 start, end = None, None
+            bake_frame_step = anim.bake_frame_step if anim.bake else None
 
-            applicators = converter.convert_object_animations(bo, so, anim_name, start=start, end=end)
+            applicators = converter.convert_object_animations(bo, so, anim_name, start=start, end=end, bake_frame_step=bake_frame_step)
             if not applicators:
                 exporter.report.warn(f"Animation '{anim_name}' generated no applicators. Nothing will be exported.")
                 continue
