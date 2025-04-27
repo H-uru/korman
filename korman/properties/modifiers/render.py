@@ -280,6 +280,39 @@ class PlasmaFadeMod(PlasmaModifierProperties):
         return self.fader_type == "FadeOpacity"
 
 
+fog_types = {
+    "none":     plFogEnvironment.kNoFog,
+    "linear":   plFogEnvironment.kLinearFog,
+    "exp2":     plFogEnvironment.kExp2Fog
+}
+
+class PlasmaFogEnvMod(PlasmaModifierProperties):
+    pl_id = "fogenv"
+
+    bl_category = "Render"
+    bl_label = "Fog Environment"
+    bl_description = "Adjust per-object fog settings"
+    bl_icon = "MAT_SPHERE_SKY"
+
+    environment = PointerProperty(name="Environment",
+                                  description="Environment defining the fog settings for this object",
+                                  type=bpy.types.World)
+
+    def export(self, exporter, bo, so):
+        if self.environment is None or self.environment == bpy.context.scene.world:
+            # Don't generate a FogEnv for the default Age FNI fog
+            return
+
+        fe = exporter.mgr.find_create_object(plFogEnvironment, bl=bo, name=self.environment.name)
+        env = self.environment.plasma_fni
+
+        fe.type = fog_types[env.fog_method]
+        fe.color = hsColorRGBA(env.fog_color.r, env.fog_color.g, env.fog_color.b, 1.0)
+        fe.start = env.fog_start
+        fe.end = env.fog_end
+        fe.density = env.fog_density
+
+
 class PlasmaFollowMod(idprops.IDPropObjectMixin, PlasmaModifierProperties):
     pl_id = "followmod"
 
