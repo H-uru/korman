@@ -196,6 +196,7 @@ class PlasmaSDLIntState(bpy.types.PropertyGroup):
 
 class PlasmaSDLShowHide(PlasmaModifierProperties, PlasmaModifierLogicWiz):
     pl_id = "sdl_showhide"
+    pl_page_types = {"gui", "room"}
 
     bl_category = "Logic"
     bl_label = "SDL Show/Hide"
