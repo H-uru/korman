@@ -46,8 +46,10 @@ def copy_object(bl, name: Optional[str] = None):
 class GoodNeighbor:
     """Leave Things the Way You Found Them! (TM)"""
 
-    def __enter__(self):
+    def __init__(self):
         self._tracking = {}
+
+    def __enter__(self):
         return self
 
     def track(self, cls, attr, value):
