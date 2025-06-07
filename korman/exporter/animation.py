@@ -479,7 +479,8 @@ class AnimationConverter:
             return 0.0, 0.0
 
     def make_matrix44_controller(self, fcurves, pos_path: str, scale_path: str, pos_default, scale_default,
-                                 *, start: Optional[int] = None, end: Optional[int] = None) -> Optional[plLeafController]:
+                                 *, start: Optional[int] = None, end: Optional[int] = None,
+                                 name: str = "") -> Optional[plLeafController]:
         def convert_matrix_keyframe(**kwargs) -> hsMatrix44:
             pos = kwargs[pos_path]
             scale = kwargs[scale_path]
@@ -499,7 +500,7 @@ class AnimationConverter:
         channels = { pos_path: 3, scale_path: 3 }
         default_values = { pos_path: pos_default, scale_path: scale_default }
         keyframes = self._process_fcurves(fcurves, channels, 1, convert_matrix_keyframe,
-                                          default_values, start=start, end=end)
+                                          default_values, start=start, end=end, name=name)
         if not keyframes:
             return None
 
@@ -508,10 +509,10 @@ class AnimationConverter:
 
     def make_pos_controller(self, fcurves, data_path: str, default_xform,
                             convert: Optional[Callable] = None, *, start: Optional[int] = None,
-                            end: Optional[int] = None) -> Optional[plLeafController]:
+                            end: Optional[int] = None, name: str = "") -> Optional[plLeafController]:
         pos_curves = [i for i in fcurves if i.data_path == data_path and i.keyframe_points]
         keyframes, bez_chans = self._process_keyframes(pos_curves, 3, default_xform, convert,
-                                                       start=start, end=end)
+                                                       start=start, end=end, name=name)
         if not keyframes:
             return None
 
@@ -522,7 +523,7 @@ class AnimationConverter:
 
     def make_rot_controller(self, fcurves, rotation_mode: str, default_xform,
                             convert: Optional[Callable] = None, *, start: Optional[int] = None,
-                            end: Optional[int] = None) -> Union[None, plCompoundController, plLeafController]:
+                            end: Optional[int] = None, name: str = "") -> Union[None, plCompoundController, plLeafController]:
         if rotation_mode in {"AXIS_ANGLE", "QUATERNION"}:
             rot_curves = [i for i in fcurves if i.data_path == "rotation_{}".format(rotation_mode.lower()) and i.keyframe_points]
             if not rot_curves:
@@ -543,7 +544,7 @@ class AnimationConverter:
             # I think that opting into quaternion keyframes is a good enough indication that
             # you're OK with that.
             keyframes, bez_chans = self._process_keyframes(rot_curves, 4, default_xform, convert,
-                                                           start=start, end=end)
+                                                           start=start, end=end, name=name)
             if keyframes:
                 return self._make_quat_controller(keyframes)
         else:
@@ -564,7 +565,7 @@ class AnimationConverter:
 
             euler_convert = convert_euler_keyframe if rotation_mode != "XYZ" else convert
             keyframes, bez_chans = self._process_keyframes(rot_curves, 3, default_xform.to_euler(rotation_mode),
-                                                           euler_convert, start=start, end=end)
+                                                           euler_convert, start=start, end=end, name=name)
             if keyframes:
                 # Once again, quaternion keyframes do not support bezier interpolation. Ideally,
                 # we would just drop support for rotation beziers entirely to simplify all this
@@ -576,10 +577,11 @@ class AnimationConverter:
 
     def make_scale_controller(self, fcurves, data_path: str, default_xform,
                               convert: Optional[Callable] = None, *, start: Optional[int] = None,
-                              end: Optional[int] = None) -> Optional[plLeafController]:
+                              end: Optional[int] = None,
+                              name: str = "") -> Optional[plLeafController]:
         scale_curves = [i for i in fcurves if i.data_path == data_path and i.keyframe_points]
         keyframes, bez_chans = self._process_keyframes(scale_curves, 3, default_xform, convert,
-                                                       start=start, end=end)
+                                                       start=start, end=end, name=name)
         if not keyframes:
             return None
 
@@ -590,8 +592,9 @@ class AnimationConverter:
     def make_scalar_leaf_controller(self, fcurve: bpy.types.FCurve,
                                     convert: Optional[Callable] = None, *,
                                     start: Optional[int] = None,
-                                    end: Optional[int] = None) -> Optional[plLeafController]:
-        keyframes, bezier = self._process_fcurve(fcurve, convert, start=start, end=end)
+                                    end: Optional[int] = None,
+                                    name: str = "") -> Optional[plLeafController]:
+        keyframes, bezier = self._process_fcurve(fcurve, convert, start=start, end=end, name=name)
         if not keyframes:
             return None
 
@@ -741,7 +744,8 @@ class AnimationConverter:
         return [keyframes_sorted[i] for i in filtered_indices]
 
     def _process_fcurve(self, fcurve: bpy.types.FCurve, convert: Optional[Callable] = None, *,
-                        start: Optional[int] = None, end: Optional[int] = None) -> Tuple[Sequence, AbstractSet]:
+                        start: Optional[int] = None, end: Optional[int] = None,
+                        name: str = "") -> Tuple[Sequence, AbstractSet]:
         """Like _process_keyframes, but for one fcurve"""
 
         # Adapt from incoming single item sequence to a single argument.
@@ -750,7 +754,7 @@ class AnimationConverter:
         else:
             single_convert = None
         # Can't proxy to _process_fcurves because it only supports linear interoplation.
-        return self._process_keyframes([fcurve], 1, [0.0], single_convert, start=start, end=end)
+        return self._process_keyframes([fcurve], 1, [0.0], single_convert, start=start, end=end, name=name)
 
     def _santize_converted_values(self, num_channels: int, raw_values: Union[Dict, Sequence], convert: Callable):
         assert convert is not None
@@ -772,7 +776,8 @@ class AnimationConverter:
 
     def _process_fcurves(self, fcurves: Sequence, channels: Dict[str, int], result_channels: int,
                          convert: Callable, defaults: Dict[str, Union[float, Sequence]], *,
-                         start: Optional[int] = None, end: Optional[int] = None) -> Sequence:
+                         start: Optional[int] = None, end: Optional[int] = None,
+                         name: str = "") -> Sequence:
         """This consumes a sequence of Blender FCurves that map to a single Plasma controller.
            Like `_process_keyframes()`, except the converter function is mandatory, and each
            Blender `data_path` must have a fixed number of channels.
@@ -838,11 +843,14 @@ class AnimationConverter:
             keyframe.out_tans = [0.0] * result_channels
             keyframes[frame_num] = keyframe
 
-        return self._sort_and_dedupe_keyframes(keyframes)
+        sorted_keyframes = self._sort_and_dedupe_keyframes(keyframes)
+        if keyframes and not sorted_keyframes and name:
+            self._exporter().report.warn(f"All keyframes for '{name}' are identical and have been discarded!")
+        return sorted_keyframes
 
     def _process_keyframes(self, fcurves, num_channels: int, default_values: Sequence,
                            convert: Optional[Callable] = None, *, start: Optional[int] = None,
-                           end: Optional[int] = None) -> Tuple[Sequence, AbstractSet]:
+                           end: Optional[int] = None, name: str = "") -> Tuple[Sequence, AbstractSet]:
         """Groups all FCurves for the same frame together"""
         keyframe_data = type("KeyFrameData", (), {})
         fps, pi = self._bl_fps, math.pi
@@ -901,7 +909,10 @@ class AnimationConverter:
             keyframes[frame_num] = keyframe
 
         # Return the keyframes in a sequence sorted by frame number
-        return (self._sort_and_dedupe_keyframes(keyframes), bez_chans)
+        sorted_keyframes = self._sort_and_dedupe_keyframes(keyframes)
+        if keyframes and not sorted_keyframes and name:
+            self._exporter().report.warn(f"All keyframes for '{name}' are identical and have been discarded!")
+        return (sorted_keyframes, bez_chans)
 
     @property
     def _mgr(self):

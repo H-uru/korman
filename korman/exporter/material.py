@@ -529,7 +529,9 @@ class MaterialConverter:
             # Export any layer animations
             # NOTE: animated stencils and bumpmaps are nonsense.
             if not slot.use_stencil and not wantBumpmap:
-                layer = self._export_layer_animations(bo, bm, slot, idx, layer)
+                self._report.msg("Exporting layer animations")
+                with self._report.indent():
+                    layer = self._export_layer_animations(bo, bm, slot, idx, layer)
 
             # Stash the top of the stack for later in the export
             if bm is not None:
@@ -562,12 +564,18 @@ class MaterialConverter:
         if texture is not None:
             layer_props = texture.plasma_layer
             for anim in layer_props.subanimations:
+                self._report.msg(f"Exporting '{anim.animation_name}'")
+
                 if not anim.is_entire_animation:
                     start, end = anim.start, anim.end
                 else:
                     start, end = None, None
-                controllers = self._export_layer_controllers(bo, bm, tex_slot, idx, base_layer,
-                                                             start=start, end=end)
+
+                with self._report.indent():
+                    controllers = self._export_layer_controllers(
+                        bo, bm, tex_slot, idx, base_layer,
+                        start=start, end=end
+                )
                 if not controllers:
                     continue
 
@@ -584,7 +592,9 @@ class MaterialConverter:
                     top_layer.varName = anim.sdl_var
         else:
             # Crappy automatic entire layer animation. Loop it by default.
-            controllers = self._export_layer_controllers(bo, bm, tex_slot, idx, base_layer)
+            self._report.msg(f"Exporting crappy '(Entire Animation)'")
+            with self._report.indent():
+                controllers = self._export_layer_controllers(bo, bm, tex_slot, idx, base_layer)
             if controllers:
                 attach_layer(plLayerAnimation, "(Entire Animation)", controllers)
                 atc = top_layer.timeConvert
@@ -630,14 +640,21 @@ class MaterialConverter:
 
         # Take the FCurves and ram them through our converters, hopefully returning some valid
         # animation controllers.
-        controllers = {}
+        controllers: Dict[str, plController] = {}
         for attr, converter in self._animation_exporters.items():
-            ctrl = converter(bo, bm, tex_slot, base_layer, fcurves, start=start, end=end)
+            ctrl = converter(bo, bm, tex_slot, base_layer, fcurves, start=start, end=end, ctrlName=attr)
             if ctrl is not None:
+                if isinstance(ctrl, plLeafController):
+                    self._report.msg(f"'{attr}': {len(ctrl.keys)} keyframes")
+                elif isinstance(ctrl, plCompoundController):
+                    # Shouldn't happen, but for completeness' sake.
+                    self._report.msg(f"{attr}: X={len(ctrl.X.keys)}, Y={len(ctrl.Y.keys)}, Z={len(ctrl.Z.keys)} keyframes")
+                else:
+                    raise RuntimeError()
                 controllers[attr] = ctrl
         return controllers
 
-    def _export_layer_diffuse_animation(self, bo, bm, tex_slot, base_layer, fcurves, *, start, end, converter):
+    def _export_layer_diffuse_animation(self, bo, bm, tex_slot, base_layer, fcurves, *, start, end, converter, ctrlName: str = ""):
         assert converter is not None
 
         # If there's no material, then this is simply impossible.
@@ -649,12 +666,15 @@ class MaterialConverter:
             result = converter(bo, bm, tex_slot, mathutils.Color(color_sequence))
             return result.red, result.green, result.blue
 
-        ctrl = self._exporter().animation.make_pos_controller(fcurves, "diffuse_color",
-                                                              bm.diffuse_color, translate_color,
-                                                              start=start, end=end)
+        ctrl = self._exporter().animation.make_pos_controller(
+            fcurves, "diffuse_color",
+            bm.diffuse_color, translate_color,
+            start=start, end=end,
+            name=ctrlName
+        )
         return ctrl
 
-    def _export_layer_opacity_animation(self, bo, bm, tex_slot, base_layer, fcurves, *, start, end):
+    def _export_layer_opacity_animation(self, bo, bm, tex_slot, base_layer, fcurves, *, start, end, ctrlName: str):
         # Dumb function to intercept the opacity values and properly flag the base layer
         def process_opacity(value):
             self._handle_layer_opacity(base_layer, value)
@@ -662,20 +682,27 @@ class MaterialConverter:
 
         for i in fcurves:
             if i.data_path == "plasma_layer.opacity":
-                ctrl = self._exporter().animation.make_scalar_leaf_controller(i, process_opacity, start=start, end=end)
+                ctrl = self._exporter().animation.make_scalar_leaf_controller(
+                    i, process_opacity,
+                    start=start, end=end,
+                    name=ctrlName
+                )
                 return ctrl
         return None
 
-    def _export_layer_transform_animation(self, bo, bm, tex_slot, base_layer, fcurves, *, start, end):
+    def _export_layer_transform_animation(self, bo, bm, tex_slot, base_layer, fcurves, *, start, end, ctrlName: str):
         if tex_slot is not None:
             path = tex_slot.path_from_id()
             pos_path = "{}.offset".format(path)
             scale_path = "{}.scale".format(path)
 
             # Plasma uses the controller to generate a matrix44... so we have to produce a leaf controller
-            ctrl = self._exporter().animation.make_matrix44_controller(fcurves, pos_path, scale_path,
-                                                                       tex_slot.offset, tex_slot.scale,
-                                                                       start=start, end=end)
+            ctrl = self._exporter().animation.make_matrix44_controller(
+                fcurves, pos_path, scale_path,
+                tex_slot.offset, tex_slot.scale,
+                start=start, end=end,
+                name=ctrlName
+            )
             return ctrl
         return None
 
