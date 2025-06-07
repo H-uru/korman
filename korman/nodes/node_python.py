@@ -347,9 +347,11 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
         else:
             good_key = key.type == key_type
         if not good_key:
-            exporter.report.warn("'{}' Node '{}' returned an unexpected key type '{}'",
-                                 self.id_data.name, socket.links[0].from_node.name,
-                                 plFactory.ClassName(key.type))
+            exporter.report.warn(
+                f"'{self.id_data.name}' Node '{socket.links[0].from_node.name}' "
+                f"returned an unexpected key type '{plFactory.ClassName(key.type)}' "
+                f"for use in Python File Node '{self.name}' attribute ID:{socket.attribute_id}",
+            )
 
         key_object = key.object
         if isinstance(key_object, plSceneObject):
