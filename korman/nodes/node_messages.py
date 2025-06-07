@@ -255,7 +255,7 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
         msg.addCallback(cb)
         msg.setCmd(plAnimCmdMsg.kAddCallbacks, True)
 
-    def convert_message(self, exporter, so):
+    def convert_message(self, exporter: Exporter, so: plSceneObject):
         msg = plAnimCmdMsg()
 
         # We're either sending this off to an AGMasterMod or a LayerAnim
@@ -271,13 +271,18 @@ class PlasmaAnimCmdMsgNode(idprops.IDPropMixin, PlasmaMessageWithCallbacksNode, 
             texture = self.target_texture
             if obj is None and material is None and texture is None:
                 self.raise_error("At least one of: target object, material, texture MUST be specified")
-            target = exporter.mesh.material.get_texture_animation_key(obj, material, texture, self.anim_name)
+            target = tuple(exporter.mesh.material.get_texture_animation_key(obj, material, texture, self.anim_name))
 
-        target = [i for i in target if not isinstance(i.object, (plAgeGlobalAnim, plLayerSDLAnimation))]
-        if not target:
-            self.raise_error("No controllable animations were found.")
-        for i in target:
-            msg.addReceiver(i)
+        filtered_target = [i for i in target if not isinstance(i.object, (plAgeGlobalAnim, plLayerSDLAnimation))]
+        if not filtered_target and target:
+            self.raise_error("No controllable animations were found!")
+        elif not filtered_target and not target:
+            self.raise_error("No animations were found!")
+        elif filtered_target:
+            for i in filtered_target:
+                msg.addReceiver(i)
+        else:
+            raise RuntimeError()
 
         # Check the enum properties to see what commands we need to add
         for prop in (self.go_to, self.action, self.play_direction, self.looping):
