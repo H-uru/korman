@@ -83,7 +83,7 @@ _attrib_key_types = {
     "ptAttribNamedResponder": plFactory.ClassIndex("plResponderModifier"),
     "ptAttribDynamicMap": plFactory.ClassIndex("plDynamicTextMap"),
     "ptAttribGUIDialog": plFactory.ClassIndex("pfGUIDialogMod"),
-    "ptAttribExcludeRegion": plFactory.ClassIndex("plExcludeRegionMod"),
+    "ptAttribExcludeRegion": plFactory.ClassIndex("plExcludeRegionModifier"),
     "ptAttribAnimation": (plFactory.ClassIndex("plAGMasterMod"),
                           plFactory.ClassIndex("plMsgForwarder")),
     "ptAttribBehavior": plFactory.ClassIndex("plMultistageBehMod"),
