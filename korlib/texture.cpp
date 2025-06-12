@@ -77,18 +77,19 @@ static inline bool _get_float(PyObject* source, const char* attr, float& result)
 static inline int _get_num_levels(size_t width, size_t height) {
     int num_levels = (int)std::floor(std::log2(std::max((float)width, (float)height))) + 1;
 
-    // Major Workaround Ahoy
-    // There is a bug in Cyan's level size algorithm that causes it to not allocate enough memory
-    // for the color block in certain mipmaps. I personally have encountered an access violation on
-    // 1x1 DXT5 mip levels -- the code only allocates an alpha block and not a color block. Paradox
-    // reports that if any dimension is smaller than 4px in a mip level, OpenGL doesn't like Cyan generated
-    // data. So, we're going to lop off the last two mip levels, which should be 1px and 2px as the smallest.
-    // This bug is basically unfixable without crazy hacks because of the way Plasma reads in texture data.
+    // Major Workaround No More!
+    // Previously, we lopped off the last two mip levels. DXT compression acts on 4x4 blocks, so
+    // it's not possible to DXT compress anything smaller than that. libHSPlasma used to not take
+    // that into account and would try to allocate memory for things like 2x2 and 1x1 mip levels.
+    // These allocations were never correct, and would crash the exporter when libHSPlasma tried to
+    // compress those too-small mip levels. As of libHSPlasma#298, mip levels smaller than 4x4 are
+    // stored uncompressed, so we can now use the technically correct level calculation from above.
+    // Technically correct is often the best kind of correct, but this is still relevant:
     //     "<Deledrius> I feel like any texture at a 1x1 level is essentially academic.  I mean, JPEG/DXT
     //                  doesn't even compress that, and what is it?  Just the average color of the whole
     //                  texture in a single pixel?"
     // :)
-    return std::max(num_levels - 2, 2);
+    return num_levels;
 }
 
 static void _scale_image(const uint8_t* srcBuf, const size_t srcW, const size_t srcH, 
