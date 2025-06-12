@@ -26,23 +26,23 @@ from ..plasma_magic import *
 
 # These objects have to be in the plSceneNode pool in order to be loaded...
 # NOTE: We are using Factory indices because I doubt all of these classes are implemented.
-_pool_types = (
-    plFactory.ClassIndex("plPostEffectMod"),
-    plFactory.ClassIndex("pfGUIDialogMod"),
-    plFactory.ClassIndex("plMsgForwarder"),
-    plFactory.ClassIndex("plClothingItem"),
-    plFactory.ClassIndex("plArmatureEffectFootSound"),
-    plFactory.ClassIndex("plDynaFootMgr"),
-    plFactory.ClassIndex("plDynaRippleMgr"),
-    plFactory.ClassIndex("plDynaBulletMgr"),
-    plFactory.ClassIndex("plDynaPuddleMgr"),
-    #plFactory.ClassIndex("plATCAnim"), # Only Avatar Animations need to be pool objects
-    plFactory.ClassIndex("plEmoteAnim"),
-    plFactory.ClassIndex("plDynaRippleVSMgr"),
-    plFactory.ClassIndex("plDynaTorpedoMgr"),
-    plFactory.ClassIndex("plDynaTorpedoVSMgr"),
-    plFactory.ClassIndex("plClusterGroup"),
-)
+_pool_types = {
+    plFactory.kPostEffectMod,
+    plFactory.kGUIDialogMod,
+    plFactory.kMsgForwarder,
+    plFactory.kClothingItem,
+    plFactory.kArmatureEffectFootSound,
+    plFactory.kDynaFootMgr,
+    plFactory.kDynaRippleMgr,
+    plFactory.kDynaBulletMgr,
+    plFactory.kDynaPuddleMgr,
+    #plFactory.kATCAnim, # Only Avatar Animations need to be pool objects
+    plFactory.kEmoteAnim,
+    plFactory.kDynaRippleVSMgr,
+    plFactory.kDynaTorpedoMgr,
+    plFactory.kDynaTorpedoVSMgr,
+    plFactory.kClusterGroup,
+}
 
 
 class ExportManager:

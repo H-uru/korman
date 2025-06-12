@@ -70,34 +70,44 @@ _attrib2param = {
 }
 
 _attrib_key_types = {
-    "ptAttribSceneobject": plFactory.ClassIndex("plSceneObject"),
-    "ptAttribSceneobjectList": plFactory.ClassIndex("plSceneObject"),
-    "ptAttribActivator": (plFactory.ClassIndex("plLogicModifier"),
-                          plFactory.ClassIndex("plPythonFileMod")),
-    "ptAttribActivatorList": (plFactory.ClassIndex("plLogicModifier"),
-                              plFactory.ClassIndex("plPythonFileMod")),
-    "ptAttribNamedActivator": (plFactory.ClassIndex("plLogicModifier"),
-                               plFactory.ClassIndex("plPythonFileMod")),
-    "ptAttribResponder": plFactory.ClassIndex("plResponderModifier"),
-    "ptAttribResponderList": plFactory.ClassIndex("plResponderModifier"),
-    "ptAttribNamedResponder": plFactory.ClassIndex("plResponderModifier"),
-    "ptAttribDynamicMap": plFactory.ClassIndex("plDynamicTextMap"),
-    "ptAttribGUIDialog": plFactory.ClassIndex("pfGUIDialogMod"),
-    "ptAttribExcludeRegion": plFactory.ClassIndex("plExcludeRegionModifier"),
-    "ptAttribAnimation": (plFactory.ClassIndex("plAGMasterMod"),
-                          plFactory.ClassIndex("plMsgForwarder")),
-    "ptAttribBehavior": plFactory.ClassIndex("plMultistageBehMod"),
-    "ptAttribMaterial": plFactory.ClassIndex("plLayer"),
-    "ptAttribMaterialList": plFactory.ClassIndex("plLayer"),
-    "ptAttribGUIPopUpMenu": plFactory.ClassIndex("pfGUIPopUpMenu"),
-    "ptAttribGUISkin": plFactory.ClassIndex("pfGUISkin"),
-    "ptAttribWaveSet": plFactory.ClassIndex("plWaveSet7"),
-    "ptAttribSwimCurrent": (plFactory.ClassIndex("plSwimRegionInterface"),
-                            plFactory.ClassIndex("plSwimCircularCurrentRegion"),
-                            plFactory.ClassIndex("plSwimStraightCurrentRegion")),
-    "ptAttribClusterList": plFactory.ClassIndex("plClusterGroup"),
-    "ptAttribMaterialAnimation": plFactory.ClassIndex("plLayerAnimation"),
-    "ptAttribGrassShader": plFactory.ClassIndex("plGrassShaderMod"),
+    "ptAttribSceneobject": { plFactory.kSceneObject },
+    "ptAttribSceneobjectList": { plFactory.kSceneObject },
+    "ptAttribActivator": {
+        plFactory.kLogicModifier,
+        plFactory.kPythonFileMod
+    },
+    "ptAttribActivatorList": {
+        plFactory.kLogicModifier,
+        plFactory.kPythonFileMod
+    },
+    "ptAttribNamedActivator": {
+        plFactory.kLogicModifier,
+        plFactory.kPythonFileMod
+    },
+    "ptAttribResponder": { plFactory.kResponderModifier },
+    "ptAttribResponderList": { plFactory.kResponderModifier },
+    "ptAttribNamedResponder": { plFactory.kResponderModifier },
+    "ptAttribDynamicMap": { plFactory.kDynamicTextMap },
+    "ptAttribGUIDialog": { plFactory.kGUIDialogMod },
+    "ptAttribExcludeRegion": { plFactory.kExcludeRegionModifier },
+    "ptAttribAnimation": {
+        plFactory.kAGMasterMod,
+        plFactory.kMsgForwarder
+    },
+    "ptAttribBehavior": { plFactory.kMultistageBehMod },
+    "ptAttribMaterial": { plFactory.kLayer },
+    "ptAttribMaterialList": { plFactory.kLayer },
+    "ptAttribGUIPopUpMenu": { plFactory.kGUIPopUpMenu },
+    "ptAttribGUISkin": { plFactory.kGUISkin },
+    "ptAttribWaveSet": { plFactory.kWaveSet7 },
+    "ptAttribSwimCurrent": {
+        plFactory.kSwimRegionInterface,
+        plFactory.kSwimCircularCurrentRegion,
+        plFactory.kSwimStraightCurrentRegion,
+    },
+    "ptAttribClusterList": { plFactory.kClusterGroup },
+    "ptAttribMaterialAnimation": { plFactory.kLayerAnimation },
+    "ptAttribGrassShader": { plFactory.kGrassShaderMod },
 }
 
 
@@ -342,11 +352,7 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
             return
 
         key_type = _attrib_key_types[socket.attribute_type]
-        if isinstance(key_type, tuple):
-            good_key = key.type in key_type
-        else:
-            good_key = key.type == key_type
-        if not good_key:
+        if not key.type in key_type:
             exporter.report.warn(
                 f"'{self.id_data.name}' Node '{socket.links[0].from_node.name}' "
                 f"returned an unexpected key type '{plFactory.ClassName(key.type)}' "
