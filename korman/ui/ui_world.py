@@ -51,6 +51,7 @@ class PlasmaGameHelper:
     def legal_game(self):
         if self.active_game is not None:
             return bool(bpy.context.world.plasma_age.age_name.strip())
+        return False
 
 
 class PlasmaGameExportMenu(PlasmaGameHelper, bpy.types.Menu):
