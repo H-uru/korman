@@ -67,6 +67,11 @@ def draw_single_animation(layout, anim):
             col.active = anim.loop and not anim.sdl_var
             col.prop_search(anim, "loop_start", action, "pose_markers", icon="PMARKER")
             col.prop_search(anim, "loop_end", action, "pose_markers", icon="PMARKER")
+            layout.separator()
+            split = layout.split()
+            split.prop(anim, "bake")
+            if anim.bake:
+                split.prop(anim, "bake_frame_step")
 
     layout.separator()
     layout.prop(anim, "sdl_var")

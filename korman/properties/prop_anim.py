@@ -127,6 +127,29 @@ class PlasmaAnimation(bpy.types.PropertyGroup):
                 bpy.types.Texture: "plasma_layer.anim_loop_end",
             },
         },
+        "bake": {
+            "type": BoolProperty,
+            "property": {
+                "name": "Bake Keyframes",
+                "description": "Bake animation keyframes on export. This generates a lot more intermediary keyframes but allows exporting inverse kinematics, and may improve timing for complex animations",
+                "default": False,
+            },
+            "entire_animation": {
+                bpy.types.Object: "plasma_modifiers.animation.bake",
+            },
+        },
+        "bake_frame_step": {
+            "type": IntProperty,
+            "property": {
+                "name": "Frame step",
+                "description": "How many frames between each keyframe sample",
+                "default": 1,
+                "min": 1,
+            },
+            "entire_animation": {
+                bpy.types.Object: "plasma_modifiers.animation.bake_frame_step",
+            },
+        },
         "sdl_var": {
             "type": StringProperty,
             "property": {
