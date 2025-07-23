@@ -21,7 +21,7 @@ import bpy.types
 from .. import ui_list
 
 if TYPE_CHECKING:
-    from ...properties.modifiers.game_gui import GameGuiAnimation, GameGuiAnimationGroup
+    from ...properties.modifiers.game_gui import *
 
 class GuiAnimListUI(bpy.types.UIList):
     def _iter_target_names(self, item: GameGuiAnimation):
@@ -93,6 +93,11 @@ def gui_button(modifier, layout, context):
         col.prop_search(modifier, "mouse_up_sound", soundemit, "sounds", text="Mouse Up", icon="SPEAKER")
         col.prop_search(modifier, "mouse_over_sound", soundemit, "sounds", text="Mouse Over", icon="SPEAKER")
         col.prop_search(modifier, "mouse_off_sound", soundemit, "sounds", text="Mouse Off", icon="SPEAKER")
+
+def gui_clickmap(modifier: PlasamGameGuiClickMapModifier, layout, context):
+    sub = layout.row()
+    sub.label("Report When:")
+    sub.prop(modifier, "report_while")
 
 def gui_control(modifier, layout, context):
     split = layout.split()

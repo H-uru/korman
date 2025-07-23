@@ -372,6 +372,34 @@ class PlasmaGameGuiButtonModifier(PlasmaModifierProperties, _GameGuiMixin):
         self.mouse_click_anims.export(exporter, bo, so, ctrl, ctrl.addAnimationKey, "animName")
 
 
+class PlasamGameGuiClickMapModifier(PlasmaModifierProperties, _GameGuiMixin):
+    pl_id = "gui_clickmap"
+    pl_depends = {"gui_control"}
+    pl_page_types = {"gui"}
+
+    bl_category = "GUI"
+    bl_label = "GUI ClickMap (ex)"
+    bl_description = "XXX"
+
+    report_while: Set[str] = EnumProperty(
+        name="Report While",
+        description="",
+        items=[
+            ("kMouseDragged", "Dragging", ""),
+            ("kMouseHovered", "Hovering", ""),
+        ],
+        options={"ENUM_FLAG"}
+    )
+
+    def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> pfGUIClickMapCtrl:
+        return exporter.mgr.find_create_object(pfGUIClickMapCtrl, bl=bo, so=so)
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        ctrl = self.get_control(exporter, bo, so)
+        for report in self.report_while:
+            ctrl.setFlag(getattr(pfGUIClickMapCtrl, report), True)
+
+
 class PlasmaGameGuiDialogModifier(PlasmaModifierProperties, _GameGuiMixin):
     pl_id = "gui_dialog"
     pl_page_types = {"gui"}
