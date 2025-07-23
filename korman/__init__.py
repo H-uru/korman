@@ -23,10 +23,11 @@ from . import operators
 bl_info = {
     "name":        "Korman",
     "author":      "Guild of Writers",
-    "version":     (0, 17),
+    "version":     (0, 18),
     "blender":     (2, 79, 0),
     "location":    "File > Import-Export",
     "description": "Exporter for Cyan Worlds' Plasma Engine",
+    "warning":     "pre-release",
     "category":    "System",
 }
 
