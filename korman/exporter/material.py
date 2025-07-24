@@ -581,15 +581,16 @@ class MaterialConverter:
 
                 pClass = plLayerSDLAnimation if anim.sdl_var else plLayerAnimation
                 attach_layer(pClass, anim.animation_name, controllers)
-                atc = top_layer.timeConvert
-                atc.begin, atc.end = converter.get_frame_time_range(*controllers.values())
-                atc.loopBegin, atc.loopEnd = atc.begin, atc.end
-                if not anim.auto_start:
-                    atc.flags |= plAnimTimeConvert.kStopped
-                if anim.loop:
-                    atc.flags |= plAnimTimeConvert.kLoop
                 if isinstance(top_layer, plLayerSDLAnimation):
                     top_layer.varName = anim.sdl_var
+                else:
+                    atc = top_layer.timeConvert
+                    atc.begin, atc.end = converter.get_frame_time_range(*controllers.values())
+                    atc.loopBegin, atc.loopEnd = atc.begin, atc.end
+                    if not anim.auto_start:
+                        atc.flags |= plAnimTimeConvert.kStopped
+                    if anim.loop:
+                        atc.flags |= plAnimTimeConvert.kLoop
         else:
             # Crappy automatic entire layer animation. Loop it by default.
             self._report.msg(f"Exporting crappy '(Entire Animation)'")
