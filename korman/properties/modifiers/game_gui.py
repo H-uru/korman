@@ -470,6 +470,27 @@ class PlasamGameGuiClickMapModifier(PlasmaModifierProperties, _GameGuiMixin):
             ctrl.setFlag(getattr(pfGUIClickMapCtrl, report), True)
 
 
+class PlasmaGameGuiDragBarModifier(PlasmaModifierProperties, _GameGuiMixin):
+    pl_id = "gui_dragbar"
+    pl_depends = {"gui_control"}
+    pl_page_types = {"gui"}
+
+    bl_category = "GUI"
+    bl_label = "GUI Drag Bar (ex)"
+    bl_description = "XXX"
+
+    def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> pfGUIDragBarCtrl:
+        return exporter.mgr.find_create_object(pfGUIDragBarCtrl, bl=bo, so=so)
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        ctrl = self.get_control(exporter, bo, so)
+        ctrl.setFlag(pfGUIControlMod.kBetterHitTesting, True)
+
+    @property
+    def requires_actor(self):
+        return True
+
+
 class PlasmaGameGuiDialogModifier(PlasmaModifierProperties, _GameGuiMixin):
     pl_id = "gui_dialog"
     pl_page_types = {"gui"}

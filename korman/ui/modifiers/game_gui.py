@@ -149,6 +149,9 @@ def gui_control(modifier, layout, context):
     row.active = col.active and modifier.proc == "console_command"
     row.prop(modifier, "console_command")
 
+def gui_dragbar(modifier: PlasmaGameGuiDragBarModifier, layout, context):
+    layout.label("Drag Bars have no settings.")
+
 def gui_dialog(modifier, layout, context):
     row = layout.row(align=True)
     row.prop(modifier, "camera_object")
