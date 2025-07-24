@@ -34,9 +34,9 @@ if TYPE_CHECKING:
 
 class _GameGuiMixin:
     @property
-    def gui_sounds(self) -> Iterable[Tuple[str, int]]:
-        """Overload to automatically export GUI sounds on the control. This should return an iterable
-           of tuple attribute name and sound index.
+    def gui_sounds(self) -> Dict[str, int]:
+        """Overload to automatically export GUI sounds on the control.
+           This should return a dict of string attribute names to indices.
         """
         return []
 
@@ -91,7 +91,7 @@ class _GameGuiMixin:
 
         # Blow up on invalid sounds
         soundemit = self.id_data.plasma_modifiers.soundemit
-        for attr_name, _ in self.gui_sounds:
+        for attr_name in self.gui_sounds:
             sound_name = getattr(self, attr_name)
             if not sound_name:
                 continue
@@ -158,7 +158,7 @@ class PlasmaGameGuiControlModifier(PlasmaModifierProperties, _GameGuiMixin):
         # NOTE that zero is a special value here meaning no sound, so we need to offset the sounds
         # that we get from the emitter modifier by +1.
         sound_indices = {}
-        for attr_name, gui_sound_idx in ctrl_mod.gui_sounds:
+        for attr_name, gui_sound_idx in ctrl_mod.gui_sounds.items():
             sound_name = getattr(ctrl_mod, attr_name)
             if not sound_name:
                 continue
@@ -344,13 +344,13 @@ class PlasmaGameGuiButtonModifier(PlasmaModifierProperties, _GameGuiMixin):
     )
 
     @property
-    def gui_sounds(self):
-        return (
-            ("mouse_down_sound", pfGUIButtonMod.kMouseDown),
-            ("mouse_up_sound", pfGUIButtonMod.kMouseUp),
-            ("mouse_over_sound", pfGUIButtonMod.kMouseOver),
-            ("mouse_off_sound", pfGUIButtonMod.kMouseOff),
-        )
+    def gui_sounds(self) -> Dict[str, int]:
+        return {
+            "mouse_down_sound": pfGUIButtonMod.kMouseDown,
+            "mouse_up_sound": pfGUIButtonMod.kMouseUp,
+            "mouse_over_sound": pfGUIButtonMod.kMouseOver,
+            "mouse_off_sound": pfGUIButtonMod.kMouseOff,
+        }
 
     def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> pfGUIButtonMod:
         return exporter.mgr.find_create_object(pfGUIButtonMod, bl=bo, so=so)
