@@ -34,6 +34,12 @@ if TYPE_CHECKING:
 
 class _GameGuiMixin:
     @property
+    def copy_material(self) -> bool:
+        # If this control uses a dynamic text map, then its contents are unique.
+        # Therefore, we need to copy the material.
+        return self.requires_dyntext
+
+    @property
     def gui_sounds(self) -> Dict[str, int]:
         """Overload to automatically export GUI sounds on the control.
            This should return a dict of string attribute names to indices.
@@ -100,7 +106,7 @@ class _GameGuiMixin:
                 raise ExportError(f"'{self.id_data.name}': Invalid '{attr_name}' GUI Sound '{sound_name}'")
 
 
-class PlasmaGameGuiControlModifier(PlasmaModifierProperties, _GameGuiMixin):
+class PlasmaGameGuiControlModifier(_GameGuiMixin, PlasmaModifierProperties):
     pl_id = "gui_control"
     pl_page_types = {"gui"}
 
@@ -287,7 +293,7 @@ class GameGuiAnimationGroup(bpy.types.PropertyGroup):
                 add_func(i)
 
 
-class PlasmaGameGuiButtonModifier(PlasmaModifierProperties, _GameGuiMixin):
+class PlasmaGameGuiButtonModifier(_GameGuiMixin, PlasmaModifierProperties):
     pl_id = "gui_button"
     pl_depends = {"gui_control"}
     pl_page_types = {"gui"}
@@ -373,7 +379,7 @@ class PlasmaGameGuiButtonModifier(PlasmaModifierProperties, _GameGuiMixin):
 
 
 
-class PlasmaGameGuiCheckBoxModifier(PlasmaModifierProperties, _GameGuiMixin):
+class PlasmaGameGuiCheckBoxModifier(_GameGuiMixin, PlasmaModifierProperties):
     pl_id = "gui_checkbox"
     pl_depends = {"gui_control"}
     pl_page_types = {"gui"}
@@ -442,7 +448,7 @@ class PlasmaGameGuiCheckBoxModifier(PlasmaModifierProperties, _GameGuiMixin):
         self.anims.export(exporter, bo, so, ctrl, ctrl.addAnimKey, "animName")
 
 
-class PlasamGameGuiClickMapModifier(PlasmaModifierProperties, _GameGuiMixin):
+class PlasamGameGuiClickMapModifier(_GameGuiMixin, PlasmaModifierProperties):
     pl_id = "gui_clickmap"
     pl_depends = {"gui_control"}
     pl_page_types = {"gui"}
@@ -470,7 +476,7 @@ class PlasamGameGuiClickMapModifier(PlasmaModifierProperties, _GameGuiMixin):
             ctrl.setFlag(getattr(pfGUIClickMapCtrl, report), True)
 
 
-class PlasmaGameGuiDragBarModifier(PlasmaModifierProperties, _GameGuiMixin):
+class PlasmaGameGuiDragBarModifier(_GameGuiMixin, PlasmaModifierProperties):
     pl_id = "gui_dragbar"
     pl_depends = {"gui_control"}
     pl_page_types = {"gui"}
@@ -491,7 +497,7 @@ class PlasmaGameGuiDragBarModifier(PlasmaModifierProperties, _GameGuiMixin):
         return True
 
 
-class PlasmaGameGuiDialogModifier(PlasmaModifierProperties, _GameGuiMixin):
+class PlasmaGameGuiDialogModifier(_GameGuiMixin, PlasmaModifierProperties):
     pl_id = "gui_dialog"
     pl_page_types = {"gui"}
 

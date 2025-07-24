@@ -27,6 +27,17 @@ from .render import *
 from .sound import *
 from .water import *
 
+# Check our mixins to ensure that the subclasses have them first in their MRO.
+_mod_mixins = [game_gui._GameGuiMixin]
+for mixin in _mod_mixins:
+    for sub in mixin.__subclasses__():
+        mro = sub.__mro__
+        if mro.index(mixin) > mro.index(PlasmaModifierProperties):
+            raise ImportError(
+                f"{sub.__name__} base class {mixin.__name__} isn't properly "
+                "overriding PlasmaModifierProperties!"
+                )
+
 class PlasmaModifiers(bpy.types.PropertyGroup):
     def determine_next_id(self):
         """Gets the ID for the next modifier in the UI"""
