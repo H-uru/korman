@@ -390,8 +390,10 @@ class OutputFiles:
                     handle.write(i.file_data)
                 os.utime(dst_path, times)
             elif i.file_path:
-                if i.file_path != dst_path:
-                    shutil.copy2(i.file_path, str(dst_path))
+                try:
+                    shutil.copy2(i.file_path, dst_path)
+                except shutil.SameFileError:
+                    pass
             else:
                 report.warn("No data found for dependency file '{}'. It will not be copied into the export directory.",
                             PurePath(i.dirname, i.filename))
