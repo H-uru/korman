@@ -71,6 +71,30 @@ def _gui_anim(name: str, group: GameGuiAnimationGroup, layout, context):
             col.prop(anim, "target_material")
             col.prop(anim, "target_texture")
 
+def _gui_sounds(modifier, layout, context, sounds: Dict[str, str]):
+    box = layout.box()
+    row = box.row(align=True)
+    if hasattr(modifier, "show_expanded_sounds"):
+        exicon = "TRIA_DOWN" if modifier.show_expanded_sounds else "TRIA_RIGHT"
+        row.prop(modifier, "show_expanded_sounds", text="", icon=exicon, emboss=False)
+
+    row.label("Sound Effects")
+    if not getattr(modifier, "show_expanded_sounds", True):
+        return
+
+    soundemit = modifier.id_data.plasma_modifiers.soundemit
+    col = box.column()
+    col.active = soundemit.enabled
+    for sound_attr, label_text in sounds.items():
+        sound_name = getattr(modifier, sound_attr)
+        if sound_name:
+            sound = next((i for i in soundemit.sounds if i.name == sound_name), None)
+            alert = sound is None
+        else:
+            alert = False
+
+        col.alert = alert
+        col.prop_search(modifier, sound_attr, soundemit, "sounds", text=label_text, icon="ERROR" if alert else "SPEAKER")
 
 def gui_button(modifier, layout, context):
     row = layout.row()
@@ -80,19 +104,15 @@ def gui_button(modifier, layout, context):
     _gui_anim("Mouse Click", modifier.mouse_click_anims, layout, context)
     _gui_anim("Mouse Over", modifier.mouse_over_anims, layout, context)
 
-    box = layout.box()
-    row = box.row(align=True)
-    exicon = "TRIA_DOWN" if modifier.show_expanded_sounds else "TRIA_RIGHT"
-    row.prop(modifier, "show_expanded_sounds", text="", icon=exicon, emboss=False)
-    row.label("Sound Effects")
-    if modifier.show_expanded_sounds:
-        col = box.column()
-        soundemit = modifier.id_data.plasma_modifiers.soundemit
-        col.active = soundemit.enabled
-        col.prop_search(modifier, "mouse_down_sound", soundemit, "sounds", text="Mouse Down", icon="SPEAKER")
-        col.prop_search(modifier, "mouse_up_sound", soundemit, "sounds", text="Mouse Up", icon="SPEAKER")
-        col.prop_search(modifier, "mouse_over_sound", soundemit, "sounds", text="Mouse Over", icon="SPEAKER")
-        col.prop_search(modifier, "mouse_off_sound", soundemit, "sounds", text="Mouse Off", icon="SPEAKER")
+    _gui_sounds(
+        modifier, layout, context,
+        {
+            "mouse_down_sound": "Mouse Down",
+            "mouse_up_sound": "Mouse Up",
+            "mouse_over_sound": "Mouse Over",
+            "mouse_off_sound": "Mouse Off",
+        }
+    )
 
 def gui_clickmap(modifier: PlasamGameGuiClickMapModifier, layout, context):
     sub = layout.row()
