@@ -114,6 +114,21 @@ def gui_button(modifier, layout, context):
         }
     )
 
+def gui_checkbox(modifier: PlasmaGameGuiCheckBoxModifier, layout, context):
+    layout.prop(modifier, "checked")
+
+    _gui_anim("Check", modifier.anims, layout, context)
+
+    _gui_sounds(
+        modifier, layout, context,
+        {
+            "mouse_down_sound": "Mouse Down",
+            "mouse_up_sound": "Mouse Up",
+            "mouse_over_sound": "Mouse Over",
+            "mouse_off_sound": "Mouse Off",
+        }
+    )
+
 def gui_clickmap(modifier: PlasamGameGuiClickMapModifier, layout, context):
     sub = layout.row()
     sub.label("Report When:")

@@ -372,6 +372,76 @@ class PlasmaGameGuiButtonModifier(PlasmaModifierProperties, _GameGuiMixin):
         self.mouse_click_anims.export(exporter, bo, so, ctrl, ctrl.addAnimationKey, "animName")
 
 
+
+class PlasmaGameGuiCheckBoxModifier(PlasmaModifierProperties, _GameGuiMixin):
+    pl_id = "gui_checkbox"
+    pl_depends = {"gui_control"}
+    pl_page_types = {"gui"}
+
+    bl_category = "GUI"
+    bl_label = "GUI Checkbox (ex)"
+    bl_description = "XXX"
+    bl_object_types = {"MESH"}
+
+    def _update_notify_type(self, context):
+        # It doesn't make sense to have no notify type at all selected, so
+        # default to at least one option.
+        if not self.notify_type:
+            self.notify_type = {"DOWN"}
+
+    anims: GameGuiAnimationGroup = PointerProperty(type=GameGuiAnimationGroup)
+    show_expanded_sounds: bool = BoolProperty(options={"HIDDEN"})
+
+    checked: bool = BoolProperty(
+        name="Checked by Default",
+        description="Does the checkbox default to checked?",
+        options=set()
+    )
+
+    mouse_down_sound: str = StringProperty(
+        name="Mouse Down SFX",
+        description="Sound played when the mouse button is down",
+        options=set()
+    )
+
+    mouse_up_sound: str = StringProperty(
+        name="Mouse Up SFX",
+        description="Sound played when the mouse button is released",
+        options=set()
+    )
+
+    mouse_over_sound: str = StringProperty(
+        name="Mouse Over SFX",
+        description="Sound played when the mouse moves over the GUI button",
+        options=set()
+    )
+
+    mouse_off_sound: str = StringProperty(
+        name="Mouse Off SFX",
+        description="Sound played when the mouse moves off of the GUI button",
+        options=set()
+    )
+
+    @property
+    def gui_sounds(self) -> Dict[str, int]:
+        return {
+            "mouse_down_sound": pfGUICheckBoxCtrl.kMouseDown,
+            "mouse_up_sound": pfGUICheckBoxCtrl.kMouseUp,
+            "mouse_over_sound": pfGUICheckBoxCtrl.kMouseOver,
+            "mouse_off_sound": pfGUICheckBoxCtrl.kMouseOff,
+        }
+
+    def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> pfGUICheckBoxCtrl:
+        return exporter.mgr.find_create_object(pfGUICheckBoxCtrl, bl=bo, so=so)
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        ctrl = self.get_control(exporter, bo, so)
+        ctrl.setFlag(pfGUIControlMod.kWantsInterest, True)
+        ctrl.checked = self.checked
+
+        self.anims.export(exporter, bo, so, ctrl, ctrl.addAnimKey, "animName")
+
+
 class PlasamGameGuiClickMapModifier(PlasmaModifierProperties, _GameGuiMixin):
     pl_id = "gui_clickmap"
     pl_depends = {"gui_control"}
