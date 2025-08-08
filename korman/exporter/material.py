@@ -13,6 +13,8 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import bpy
 import mathutils
 
@@ -21,7 +23,7 @@ import functools
 import itertools
 import math
 from pathlib import Path
-from typing import Dict, Iterator, Optional, Union
+from typing import *
 import weakref
 
 from PyHSPlasma import *
@@ -30,6 +32,9 @@ from .explosions import *
 from .. import helpers
 from ..korlib import *
 from . import utils
+
+if TYPE_CHECKING:
+    from .manager import ExportManager
 
 _MAX_STENCILS = 6
 
@@ -1300,7 +1305,7 @@ class MaterialConverter:
                 data[i] = level_data
         return numLevels, eWidth, eHeight, [data,]
 
-    def get_materials(self, bo: bpy.types.Object, bm: Optional[bpy.types.Material] = None) -> Iterator[plKey]:
+    def get_materials(self, bo: bpy.types.Object, bm: Optional[bpy.types.Material] = None) -> Iterator[plKey[hsGMaterial]]:
         material_dict = self._obj2mat.get(bo, {})
         if bm is None:
             return material_dict.values()
@@ -1309,7 +1314,7 @@ class MaterialConverter:
 
     def get_layers(self, bo: Optional[bpy.types.Object] = None,
                    bm: Optional[bpy.types.Material] = None,
-                   tex: Optional[bpy.types.Texture] = None) -> Iterator[plKey]:
+                   tex: Optional[bpy.types.Texture] = None) -> Iterator[plKey[plLayerInterface]]:
 
         # All three? Simple.
         if bo is not None and bm is not None and tex is not None:
@@ -1428,7 +1433,7 @@ class MaterialConverter:
             return bm.emit > 0.0 and (tex_slot.use_map_emit or not any((i.use_map_emit for i in bm.texture_slots if i)))
 
     @property
-    def _mgr(self):
+    def _mgr(self) -> ExportManager:
         return self._exporter().mgr
 
     def _propagate_material_settings(self, bo, bm, tex_slot, layer):

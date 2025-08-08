@@ -42,7 +42,7 @@ class PlasmaNodeBase:
                 notify.addReceiver(key)
         return notify
 
-    def get_key(self, exporter: Exporter, so: plSceneObject):
+    def get_key(self, exporter: Exporter, so: plSceneObject) -> Optional[plKey]:
         return None
 
     def get_key_name(self, single, suffix=None, bl=None, so=None):

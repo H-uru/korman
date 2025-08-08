@@ -74,7 +74,7 @@ class ExportManager:
         self._keys[(location, obj.__class__, key.name)] = key
         self.mgr.AddObject(location, obj)
 
-    def add_object(self, pl, name=None, bl=None, loc=None, so=None):
+    def add_object(self, pl: Type[KeyedT], name=None, bl=None, loc=None, so=None) -> KeyedT:
         """Automates adding a converted Blender object to our Plasma Resource Manager"""
         if loc is not None:
             location = loc

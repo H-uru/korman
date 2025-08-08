@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import abc
 from contextlib import contextmanager
 from pathlib import Path
 import threading
@@ -31,7 +32,7 @@ _HEADING_SIZE = 60
 _MAX_ELIPSES = 3
 _MAX_TIME_UNTIL_ELIPSES = 2.0
 
-class _ExportLogger:
+class _ExportLogger(abc.ABC):
     def __init__(self, print_logs: bool, age_path: Optional[str] = None):
         self._errors: List[str] = []
         self._porting: List[str] = []
@@ -124,6 +125,16 @@ class _ExportLogger:
     def progress_increment(self):
         pass
 
+    @property
+    @abc.abstractmethod
+    def progress_range(self) -> int:
+        ...
+
+    @progress_range.setter
+    @abc.abstractmethod
+    def progress_range(self, value: int) -> None:
+        ...
+
     def progress_start(self, action):
         if self._age_path is not None:
             self.msg(f"Exporting '{self._age_path.name}'")
@@ -153,6 +164,16 @@ class _ExportLogger:
             print(msg)
         cache = args[0] if len(args) == 1 else args[0].format(*args[1:])
         self._warnings.append(cache)
+
+    @property
+    @abc.abstractmethod
+    def progress_value(self) -> int:
+        ...
+
+    @progress_value.setter
+    @abc.abstractmethod
+    def progress_value(self, value: int) -> None:
+        ...
 
 
 class ExportProgressLogger(_ExportLogger):
@@ -283,13 +304,14 @@ class ExportProgressLogger(_ExportLogger):
                 stage_whitespace=stage_whitespace, stage=stage)
             print_func(line)
 
-    def _progress_get_max(self):
+    @property
+    def progress_range(self) -> int:
         return self._step_max
-    def _progress_set_max(self, value):
-        assert self._step_id != -1
+
+    @progress_range.setter
+    def progress_range(self, value: int) -> None:
         self._step_max = value
         self._progress_print_step()
-    progress_range = property(_progress_get_max, _progress_set_max)
 
     def progress_start(self, action):
         super().progress_start(action)
@@ -335,21 +357,21 @@ class ExportProgressLogger(_ExportLogger):
                     print('.' * num_dots, end=" " * (_MAX_ELIPSES - num_dots))
                     self._cursor.update()
 
-    def _progress_get_current(self):
+    @property
+    def progress_value(self) -> int:
         return self._step_progress
-    def _progress_set_current(self, value):
+
+    @progress_value.setter
+    def progress_value(self, value: int):
         assert self._step_id != -1
         self._step_progress = value
         if self._step_max != 0:
             self._progress_print_step()
-    progress_value = property(_progress_get_current, _progress_set_current)
 
 
 class ExportVerboseLogger(_ExportLogger):
     def __init__(self, age_path=None):
         super().__init__(True, age_path)
-        self.progress_range = 0
-        self.progress_value = 0
 
     def __exit__(self, type, value, traceback):
         if value is not None:
@@ -357,3 +379,21 @@ class ExportVerboseLogger(_ExportLogger):
             self.msg("\nAborted after {:.2f}s", export_time)
             self.msg("Error: {}", value)
         return super().__exit__(type, value, traceback)
+
+    @property
+    def progress_range(self) -> int:
+        return 0
+
+    @progress_range.setter
+    def progress_range(self, value: int) -> None:
+        # Who cares?
+        pass
+
+    @property
+    def progress_value(self) -> int:
+        return 0
+
+    @progress_value.setter
+    def progress_value(self, value: int):
+        # Who cares?
+        pass
