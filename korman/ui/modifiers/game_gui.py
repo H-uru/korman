@@ -163,6 +163,10 @@ def gui_control(modifier, layout, context):
     col.prop(modifier, "visible")
 
     col = split.column()
+    col.active = modifier.allow_text_scaling
+    col.prop(modifier, "scale_text")
+
+    col = split.column()
     col.prop(modifier, "tag_id")
 
     col = layout.column()

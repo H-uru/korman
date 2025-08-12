@@ -62,6 +62,10 @@ class _GameGuiMixin:
         return False
 
     @property
+    def allow_text_scaling(self) -> bool:
+        return self.requires_dyntext
+
+    @property
     def copy_material(self) -> bool:
         # If this control uses a dynamic text map, then its contents are unique.
         # Therefore, we need to copy the material.
@@ -80,6 +84,10 @@ class _GameGuiMixin:
     @property
     def has_gui_proc(self) -> bool:
         return True
+
+    @property
+    def intangible(self) -> bool:
+        return False
 
     def iterate_control_modifiers(self) -> Iterator[_GameGuiMixin]:
         pl_mods = self.id_data.plasma_modifiers
@@ -136,6 +144,10 @@ class _GameGuiMixin:
     @property
     def wants_colorscheme(self) -> bool:
         return self.requires_dyntext
+
+    @property
+    def wants_interest(self) -> bool:
+        return False
 
 
 class PlasmaGameGuiColorSchemeModifier(_GameGuiMixin, PlasmaModifierProperties):
@@ -301,6 +313,11 @@ class PlasmaGameGuiControlModifier(_GameGuiMixin, PlasmaModifierProperties):
         ],
         options=set()
     )
+    scale_text: bool = BoolProperty(
+        name="Scale Text",
+        description="Scale text up as game resolution increases",
+        options=set()
+    )
 
     def sanity_check(self, exporter: Exporter):
         if self.requires_dyntext and self.texture is None:
@@ -329,6 +346,14 @@ class PlasmaGameGuiControlModifier(_GameGuiMixin, PlasmaModifierProperties):
                 pfGUIControlMod.kBetterHitTesting,
                 self.hit_testing == "hull"
             )
+        if ctrl_mod.allow_text_scaling:
+            ctrl.setFlag(
+                pfGUIControlMod.kScaleTextWithResolution,
+                self.scale_text
+            )
+
+        ctrl.setFlag(pfGUIControlMod.kIntangible, ctrl_mod.intangible)
+        ctrl.setFlag(pfGUIControlMod.kWantsInterest, ctrl_mod.wants_interest)
 
     def convert_gui_sounds(self, exporter: Exporter, ctrl: pfGUIControlMod, ctrl_mod: _GameGuiMixin):
         soundemit = ctrl_mod.id_data.plasma_modifiers.soundemit
@@ -389,6 +414,10 @@ class PlasmaGameGuiControlModifier(_GameGuiMixin, PlasmaModifierProperties):
     @property
     def allow_better_hit_testing(self) -> bool:
         return any((i.allow_better_hit_testing for i in self.iterate_control_modifiers()))
+
+    @property
+    def allow_text_scaling(self) -> bool:
+        return any((i.allow_text_scaling for i in self.iterate_control_modifiers()))
 
     @property
     def has_gui_proc(self) -> bool:
@@ -575,7 +604,6 @@ class PlasmaGameGuiButtonModifier(_GameGuiMixin, PlasmaModifierProperties):
 
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
         ctrl = self.get_control(exporter, bo, so)
-        ctrl.setFlag(pfGUIControlMod.kWantsInterest, True)
 
         if self.notify_type == {"UP"}:
             ctrl.notifyType = pfGUIButtonMod.kNotifyOnUp
@@ -589,6 +617,9 @@ class PlasmaGameGuiButtonModifier(_GameGuiMixin, PlasmaModifierProperties):
         self.mouse_over_anims.export(exporter, bo, so, ctrl, ctrl.addMouseOverKey, "mouseOverAnimName")
         self.mouse_click_anims.export(exporter, bo, so, ctrl, ctrl.addAnimationKey, "animName")
 
+    @property
+    def wants_interest(self):
+        return True
 
 
 class PlasmaGameGuiCheckBoxModifier(_GameGuiMixin, PlasmaModifierProperties):
@@ -705,10 +736,13 @@ class PlasmaGameGuiCheckBoxModifier(_GameGuiMixin, PlasmaModifierProperties):
 
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
         ctrl = self.get_control(exporter, bo, so)
-        ctrl.setFlag(pfGUIControlMod.kWantsInterest, True)
         ctrl.checked = self.checked
 
         self.anims.export(exporter, bo, so, ctrl, ctrl.addAnimKey, "animName")
+
+    @property
+    def wants_interest(self):
+        return True
 
 
 class PlasamGameGuiClickMapModifier(_GameGuiMixin, PlasmaModifierProperties):
@@ -764,6 +798,10 @@ class PlasmaGameGuiDragBarModifier(_GameGuiMixin, PlasmaModifierProperties):
     def requires_actor(self) -> bool:
         return True
 
+    @property
+    def wants_interest(self):
+        return True
+
 
 class PlasmaGameGuiDynamicDisplayModifier(_GameGuiMixin, PlasmaModifierProperties):
     pl_id = "gui_dynamic_display"
@@ -813,6 +851,10 @@ class PlasmaGameGuiDynamicDisplayModifier(_GameGuiMixin, PlasmaModifierPropertie
                     # a little wasteful.
                     if material not in ctrl.materials:
                         ctrl.addMaterial(material)
+
+    @property
+    def intangible(self):
+        return True
 
 
 class PlasmaGameGuiProgressControlModifier(_GameGuiMixin, PlasmaModifierProperties):
@@ -888,6 +930,10 @@ class PlasmaGameGuiRadioGroupModifier(_GameGuiMixin, PlasmaModifierProperties):
             ctrl.addControl(cb_mod.get_control(exporter, i.id_data).key)
             if cb_mod.checked:
                 ctrl.defaultValue = i
+
+    @property
+    def intangible(self):
+        return True
 
     def iter_checkbox_mods(self, context: bpy.types.Context) -> Iterator[PlasmaGameGuiCheckBoxModifier]:
         # This is really not the fastest way to do this. The fastest way would be for us
@@ -973,11 +1019,14 @@ class PlasmaGameGuiTextBoxModifier(_GameGuiMixin, TranslationMixin, PlasmaModifi
 
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
         ctrl = self.get_control(exporter, bo, so)
-        ctrl.setFlag(pfGUIControlMod.kIntangible, True)
 
         just_flag = self._JUSTIFICATION_LUT.get(self.justification)
         if just_flag is not None:
             ctrl.setFlag(just_flag, True)
+
+    @property
+    def intangible(self):
+        return True
 
     @property
     def localization_set(self) -> str:
