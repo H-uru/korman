@@ -68,7 +68,7 @@ class _GameGuiMixin:
         """Overload to automatically export GUI sounds on the control.
            This should return a dict of string attribute names to indices.
         """
-        return []
+        return {}
 
     def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> Optional[pfGUIControlMod]:
         return None
@@ -266,7 +266,7 @@ class PlasmaGameGuiControlModifier(_GameGuiMixin, PlasmaModifierProperties):
         description="",
         default=True,
         options=set()
-        )
+    )
     proc = EnumProperty(
         name="Notification Procedure",
         description="",
@@ -304,6 +304,8 @@ class PlasmaGameGuiControlModifier(_GameGuiMixin, PlasmaModifierProperties):
             handler = pfGUIConsoleCmdProc()
             handler.command = self.console_command
             ctrl.handler = handler
+        else:
+            raise ValueError(self.proc)
 
     def convert_gui_sounds(self, exporter: Exporter, ctrl: pfGUIControlMod, ctrl_mod: _GameGuiMixin):
         soundemit = ctrl_mod.id_data.plasma_modifiers.soundemit
