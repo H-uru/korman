@@ -815,6 +815,48 @@ class PlasmaGameGuiDynamicDisplayModifier(_GameGuiMixin, PlasmaModifierPropertie
                         ctrl.addMaterial(material)
 
 
+class PlasmaGameGuiProgressControlModifier(_GameGuiMixin, PlasmaModifierProperties):
+    pl_id = "gui_progress"
+    pl_depends = {"gui_control", "gui_value"}
+    pl_page_types = {"gui"}
+
+    bl_category = "GUI"
+    bl_label = "GUI Progress Control (ex)"
+    bl_description = "XXX"
+    bl_icon = "SETTINGS"
+
+    anims: GameGuiAnimationGroup = PointerProperty(type=GameGuiAnimationGroup)
+    show_expanded_sounds: bool = BoolProperty(options={"HIDDEN"})
+    animate_sound: str = StringProperty(
+        name="Animate Sound",
+        description="Sound played as the progress control animates",
+        options=set()
+    )
+    direction: str = EnumProperty(
+        name="Direction",
+        description="Which direction the animation should play",
+        items=[
+            ("foreward", "Foreward", "Play animation such that 100% progress is the end"),
+            ("backward", "Backward", "Play the animation such that 100% progress is the beginning"),
+        ],
+        options=set()
+    )
+
+    @property
+    def gui_sounds(self) -> Dict[str, int]:
+        return {
+            "animate_sound": pfGUIProgressCtrl.kAnimateSound,
+        }
+
+    def get_control(self, exporter: Exporter, bo = None, so = None) -> pfGUIProgressCtrl:
+        return exporter.mgr.find_create_object(pfGUIProgressCtrl, bl=bo, so=so)
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject) -> None:
+        ctrl = self.get_control(exporter, bo, so)
+        self.anims.export(exporter, bo, so, ctrl, ctrl.addAnimKey, "animName")
+        ctrl.setFlag(pfGUIProgressCtrl.kReverseValues, self.direction == "backward")
+
+
 class PlasmaGameGuiRadioGroupModifier(_GameGuiMixin, PlasmaModifierProperties):
     pl_id = "gui_radio_group"
     pl_depends = {"gui_control"}
@@ -948,6 +990,56 @@ class PlasmaGameGuiTextBoxModifier(_GameGuiMixin, TranslationMixin, PlasmaModifi
     @property
     def requires_dyntext(self):
         return True
+
+
+class PlasmaGameGuiValueControlModifier(_GameGuiMixin, PlasmaModifierProperties):
+    pl_id = "gui_value"
+    pl_depends = {"gui_control"}
+    pl_page_types = {"gui"}
+
+    bl_category = "GUI"
+    bl_label = "GUI Value Control (ex)"
+    bl_description = "XXX"
+    bl_icon = "LINENUMBERS_ON"
+
+    min_value = FloatProperty(
+        name="Min",
+        description="Minimum Value",
+        options=set()
+    )
+
+    max_value = FloatProperty(
+        name="Max",
+        description="Maximum Value",
+        default=10.0,
+        min=-10000.0,
+        max=10000.0,
+        options=set()
+    )
+
+    step = FloatProperty(
+        name="Step",
+        description="",
+        default=1.0,
+        options=set()
+    )
+
+    @property
+    def has_gui_proc(self) -> bool:
+        return False
+
+    @classmethod
+    def is_game_gui_control(cls) -> bool:
+        # This is a base class
+        return False
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        for ctrl_mod in self.iterate_control_modifiers():
+            ctrl = ctrl_mod.get_control(exporter, bo, so)
+            if isinstance(ctrl, pfGUIValueCtrl):
+                ctrl.min = min(self.min_value, self.max_value)
+                ctrl.max = max(self.min_value, self.max_value)
+                ctrl.step = self.step
 
 
 class PlasmaGameGuiDialogModifier(_GameGuiMixin, PlasmaModifierProperties):

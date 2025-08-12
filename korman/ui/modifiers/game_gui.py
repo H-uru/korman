@@ -188,6 +188,16 @@ def gui_dynamic_display(modifier: PlasmaGameGuiDynamicDisplayModifier, layout, c
     layout.alert = modifier.texture is None
     layout.prop(modifier, "texture")
 
+def gui_progress(modifier: PlasmaGameGuiProgressControlModifier, layout, context):
+    layout.prop(modifier, "direction")
+    _gui_anim("Animation", modifier.anims, layout, context)
+    _gui_sounds(
+        modifier, layout, context,
+        {
+            "animate_sound": "Animation",
+        }
+    )
+
 def gui_radio_group(modifier: PlasmaGameGuiRadioGroupModifier, layout, context):
     layout.operator("object.plasma_select_radio_group", icon="RESTRICT_SELECT_OFF")
     layout.prop(modifier, "allow_no_selection")
@@ -204,6 +214,13 @@ def gui_textbox(modifier: PlasmaGameGuiTextBoxModifier, layout, context):
         print(e)
     else:
         sub.prop(translation, "value")
+
+def gui_value(modifier: PlasmaGameGuiValueControlModifier, layout, context):
+    row = layout.row(align=True)
+    row.alert = modifier.min_value >= modifier.max_value
+    row.prop(modifier, "min_value")
+    row.prop(modifier, "step")
+    row.prop(modifier, "max_value")
 
 def gui_dialog(modifier, layout, context):
     row = layout.row(align=True)
