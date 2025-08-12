@@ -115,6 +115,7 @@ def gui_button(modifier, layout, context):
     )
 
 def gui_checkbox(modifier: PlasmaGameGuiCheckBoxModifier, layout, context):
+    layout.prop(modifier, "radio_group", icon="RADIOBUT_ON")
     layout.prop(modifier, "checked")
 
     _gui_anim("Check", modifier.anims, layout, context)
@@ -178,6 +179,10 @@ def gui_control(modifier, layout, context):
 
 def gui_dragbar(modifier: PlasmaGameGuiDragBarModifier, layout, context):
     layout.label("Drag Bars have no settings.")
+
+def gui_radio_group(modifier: PlasmaGameGuiRadioGroupModifier, layout, context):
+    layout.operator("object.plasma_select_radio_group", icon="RESTRICT_SELECT_OFF")
+    layout.prop(modifier, "allow_no_selection")
 
 def gui_textbox(modifier: PlasmaGameGuiTextBoxModifier, layout, context):
     layout.prop(modifier, "justification")

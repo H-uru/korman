@@ -578,11 +578,7 @@ class PlasmaGameGuiCheckBoxModifier(_GameGuiMixin, PlasmaModifierProperties):
     anims: GameGuiAnimationGroup = PointerProperty(type=GameGuiAnimationGroup)
     show_expanded_sounds: bool = BoolProperty(options={"HIDDEN"})
 
-    checked: bool = BoolProperty(
-        name="Checked by Default",
-        description="Does the checkbox default to checked?",
-        options=set()
-    )
+    checked_value: bool = BoolProperty(options={"HIDDEN"})
 
     mouse_down_sound: str = StringProperty(
         name="Mouse Down SFX",
@@ -606,6 +602,56 @@ class PlasmaGameGuiCheckBoxModifier(_GameGuiMixin, PlasmaModifierProperties):
         name="Mouse Off SFX",
         description="Sound played when the mouse moves off of the GUI button",
         options=set()
+    )
+
+    def _poll_radio_group(self, object: bpy.types.Object):
+        if object.plasma_object.page == self.id_data.plasma_object.page:
+            if object.plasma_modifiers.gui_radio_group.enabled:
+                return True
+        return False
+
+    def _iter_other_checkboxes(self, context: bpy.types.Context) -> Iterator[Self]:
+        if self.radio_group is None:
+            return
+        rg_mod = self.radio_group.plasma_modifiers.gui_radio_group
+        for i in rg_mod.iter_checkbox_mods(context):
+            if i.id_data.name != self.id_data.name:
+                yield i
+
+    def _get_checked(self) -> bool:
+        # Short circuit if we don't think we're checked
+        if not self.checked_value:
+            return False
+
+        if self.radio_group is not None:
+            others = self._iter_other_checkboxes(bpy.context)
+            if any(i.checked_value for i in others):
+                return False
+
+        return self.checked_value
+
+    def _set_checked(self, value: bool) -> None:
+        if not value:
+            self.checked_value = False
+            return
+
+        for i in self._iter_other_checkboxes(bpy.context):
+            i.checked_value = False
+        self.checked_value = True
+
+    checked: bool = BoolProperty(
+        name="Checked",
+        description="Whether or not the checkbox is checked by default",
+        get=_get_checked,
+        set=_set_checked,
+        options=set()
+    )
+
+    radio_group = PointerProperty(
+        name="Radio Group",
+        description="",
+        type=bpy.types.Object,
+        poll=_poll_radio_group
     )
 
     @property
@@ -665,17 +711,67 @@ class PlasmaGameGuiDragBarModifier(_GameGuiMixin, PlasmaModifierProperties):
     bl_category = "GUI"
     bl_label = "GUI Drag Bar (ex)"
     bl_description = "XXX"
+    bl_icon = "ARROW_LEFTRIGHT"
 
     def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> pfGUIDragBarCtrl:
         return exporter.mgr.find_create_object(pfGUIDragBarCtrl, bl=bo, so=so)
 
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
         ctrl = self.get_control(exporter, bo, so)
-        ctrl.setFlag(pfGUIControlMod.kBetterHitTesting, True)
 
     @property
     def requires_actor(self) -> bool:
         return True
+
+
+class PlasmaGameGuiRadioGroupModifier(_GameGuiMixin, PlasmaModifierProperties):
+    pl_id = "gui_radio_group"
+    pl_depends = {"gui_control"}
+    pl_page_types = {"gui"}
+
+    bl_category = "GUI"
+    bl_label = "GUI Radio Group (ex)"
+    bl_description = "XXX"
+    bl_icon = "RADIOBUT_ON"
+
+    allow_no_selection = BoolProperty(
+        name="Allow No Selection",
+        description="Allows no check boxes to be checked",
+        options=set()
+    )
+
+    def get_control(self, exporter: Exporter, bo = None, so = None) -> pfGUIRadioGroupCtrl:
+        return exporter.mgr.find_create_object(pfGUIRadioGroupCtrl, bl=bo, so=so)
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject) -> None:
+        ctrl = self.get_control(exporter, bo, so)
+        ctrl.setFlag(pfGUIRadioGroupCtrl.kAllowNoSelection, self.allow_no_selection)
+        active_cbs = (
+            i for i in self.iter_checkbox_mods(bpy.context)
+            if i.id_data.plasma_object.enabled
+        )
+        for i, cb_mod in enumerate(active_cbs):
+            exporter.report.msg(f"Found checkbox '{cb_mod.id_data.name}'")
+            ctrl.addControl(cb_mod.get_control(exporter, i.id_data).key)
+            if cb_mod.checked:
+                ctrl.defaultValue = i
+
+    def iter_checkbox_mods(self, context: bpy.types.Context) -> Iterator[PlasmaGameGuiCheckBoxModifier]:
+        # This is really not the fastest way to do this. The fastest way would be for us
+        # to maintain a list of the checkbox children here. But that means the user could
+        # try to add a single checkbox to multiple radio groups. That seems silly, but it
+        # feels like a problem waiting to happen. So, instead, we'll set the radio group
+        # on the checkboxes themselves to prevent that tomfoolery. It does mean the export
+        # will be slightly slower because we have to iterate all of the objects in the scene
+        # to find checkboxes, but it should be negligible.
+        for i in context.scene.objects:
+            checkbox_mod: PlasmaGameGuiCheckBoxModifier = i.plasma_modifiers.gui_checkbox
+            if not checkbox_mod.enabled:
+                continue
+
+            rg = checkbox_mod.radio_group
+            if rg is not None and rg.name == self.id_data.name:
+                yield checkbox_mod
 
 
 class PlasmaGameGuiTextBoxModifier(_GameGuiMixin, TranslationMixin, PlasmaModifierProperties):
