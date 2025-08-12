@@ -724,6 +724,56 @@ class PlasmaGameGuiDragBarModifier(_GameGuiMixin, PlasmaModifierProperties):
         return True
 
 
+class PlasmaGameGuiDynamicDisplayModifier(_GameGuiMixin, PlasmaModifierProperties):
+    pl_id = "gui_dynamic_display"
+    pl_depends = {"gui_control"}
+    pl_page_types = {"gui"}
+
+    bl_category = "GUI"
+    bl_label = "GUI Dynamic Display (ex)"
+    bl_description = "XXX"
+    bl_icon = "TPAINT_HLT"
+
+    texture = PointerProperty(
+        name="Texture",
+        description="Texture this GUI control can modify",
+        type=bpy.types.Texture,
+        poll=idprops.poll_object_image_textures
+    )
+
+    def sanity_check(self, exporter):
+        if self.texture is None:
+            raise ExportError(f"'{self.id_data.name}': GUI Dynamic Display Modifier requires a Texture!")
+
+    def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> pfGUIDynDisplayCtrl:
+        return exporter.mgr.find_create_object(pfGUIDynDisplayCtrl, bl=bo, so=so)
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject) -> None:
+        ctrl = self.get_control(exporter, bo, so)
+
+        layers = exporter.mesh.material.get_layers(bo, tex=self.texture)
+        materials = exporter.mesh.material.get_materials(bo)
+        for layer in layers:
+            ctrl.addLayer(layer)
+            tex_key = layer.object.texture
+
+            # It is completely possible and legal to have a plMipmap. That
+            # happens on journal covers. We're provided a default cover
+            # texture that could be swapped out.
+            if tex_key is not None and tex_key.type == plFactory.kDynamicTextMap:
+                ctrl.addTextMap(tex_key)
+
+            # This is a little lazy, but GUIs are so uncommon that we
+            # don't need to sweat efficiency.
+            for material in materials:
+                bottom_iter = (i.object.bottomOfStack for i in material.object.layers)
+                if layer.object.bottomOfStack in bottom_iter:
+                    # PlasmaMax unconditionally adds materials, but that seems
+                    # a little wasteful.
+                    if material not in ctrl.materials:
+                        ctrl.addMaterial(material)
+
+
 class PlasmaGameGuiRadioGroupModifier(_GameGuiMixin, PlasmaModifierProperties):
     pl_id = "gui_radio_group"
     pl_depends = {"gui_control"}

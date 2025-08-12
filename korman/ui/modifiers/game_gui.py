@@ -180,6 +180,10 @@ def gui_control(modifier, layout, context):
 def gui_dragbar(modifier: PlasmaGameGuiDragBarModifier, layout, context):
     layout.label("Drag Bars have no settings.")
 
+def gui_dynamic_display(modifier: PlasmaGameGuiDynamicDisplayModifier, layout, context):
+    layout.alert = modifier.texture is None
+    layout.prop(modifier, "texture")
+
 def gui_radio_group(modifier: PlasmaGameGuiRadioGroupModifier, layout, context):
     layout.operator("object.plasma_select_radio_group", icon="RESTRICT_SELECT_OFF")
     layout.prop(modifier, "allow_no_selection")
