@@ -179,6 +179,19 @@ def gui_control(modifier, layout, context):
 def gui_dragbar(modifier: PlasmaGameGuiDragBarModifier, layout, context):
     layout.label("Drag Bars have no settings.")
 
+def gui_textbox(modifier: PlasmaGameGuiTextBoxModifier, layout, context):
+    layout.prop(modifier, "justification")
+
+    sub = layout.column()
+    sub.prop(modifier, "active_translation")
+    try:
+        translation = modifier.text_translations[modifier.active_translation_index]
+    except Exception as e:
+        sub.label(text="Error (see console)", icon="ERROR")
+        print(e)
+    else:
+        sub.prop(translation, "value")
+
 def gui_dialog(modifier, layout, context):
     row = layout.row(align=True)
     row.prop(modifier, "camera_object")

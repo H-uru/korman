@@ -624,7 +624,7 @@ class PlasmaLightingMod(PlasmaModifierProperties):
         return False
 
 
-class PlasmaLocalizedTextModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz, TranslationMixin):
+class PlasmaLocalizedTextModifier(TranslationMixin, PlasmaModifierProperties, PlasmaModifierLogicWiz):
     pl_id = "dynatext"
     pl_page_types = {"gui", "room"}
 

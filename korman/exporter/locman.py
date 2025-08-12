@@ -13,6 +13,8 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import bpy
 from PyHSPlasma import *
 
@@ -21,7 +23,7 @@ from contextlib import contextmanager
 import itertools
 from pathlib import Path
 import re
-from typing import NamedTuple, Union
+from typing import *
 from xml.sax.saxutils import escape as xml_escape
 import weakref
 
@@ -90,6 +92,24 @@ class LocalizationConverter:
                 )
 
         self._strings[set_name][element_name][language] = value
+
+    def get_localized_string(self, translations: Dict[str, str]):
+        # If there's only an English translation, just output this string directly.
+        if translations.keys() == {"English"}:
+            return translations["English"]
+
+        ignored_translations = frozenset(translations.keys()) - _SP_LANGUAGES
+        if ignored_translations:
+            self._report.warn(
+                f"These translations are not supported in single player: "
+                f"{', '.join(ignored_translations)}"
+            )
+
+        return "".join(
+            f"${lang[0:2]}${value}"
+            for lang, value in translations.items()
+            if lang in _SP_LANGUAGES
+        )
 
     @contextmanager
     def _generate_file(self, filename, **kwargs):
@@ -234,20 +254,27 @@ class LocalizationConverter:
     def _run_harvest_journals(self):
         from ..properties.modifiers import TranslationMixin
 
+        def iter_subclasses(cls):
+            for i in cls.__subclasses__():
+                yield i
+                if i.__subclasses__():
+                    yield from iter_subclasses(i)
+
+
         objects = bpy.context.scene.objects
         self._report.progress_advance()
         self._report.progress_range = len(objects)
         inc_progress = self._report.progress_increment
 
         for i in objects:
-            for mod_type in filter(None, (getattr(j, "pl_id", None) for j in TranslationMixin.__subclasses__())):
+            for mod_type in filter(None, (getattr(j, "pl_id", None) for j in iter_subclasses(TranslationMixin))):
                 modifier = getattr(i.plasma_modifiers, mod_type)
                 if modifier.enabled:
-                    translations = [j for j in modifier.translations if j.text_id is not None]
+                    translations = [j for j in modifier.translations if j.text]
                     if not translations:
                         self._report.error(f"'{i.name}': No content translations available. The localization will not be exported.")
                     for j in translations:
-                        self.add_string(modifier.localization_set, modifier.key_name, j.language, j.text_id)
+                        self.add_string(modifier.localization_set, modifier.key_name, j.language, j.text)
             inc_progress()
 
     def _run_generate(self):

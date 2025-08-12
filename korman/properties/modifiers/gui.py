@@ -87,7 +87,16 @@ class PlasmaImageLibraryModifier(PlasmaModifierProperties):
                     exporter.mesh.material.export_prepared_image(owner=ilmod, image=item.image, allowed_formats={"JPG", "PNG"}, extension="hsm")
 
 
-class PlasmaJournalTranslation(bpy.types.PropertyGroup):
+class TranslationItem:
+    if TYPE_CHECKING:
+        language: str
+
+    @property
+    def text(self) -> Optional[Union[str, bpy.types.Text]]:
+        raise NotImplementedError
+
+
+class PlasmaJournalTranslation(TranslationItem, bpy.types.PropertyGroup):
     def _poll_nonpytext(self, value):
         return not value.name.endswith(".py")
 
@@ -102,15 +111,19 @@ class PlasmaJournalTranslation(bpy.types.PropertyGroup):
                               poll=_poll_nonpytext,
                               options=set())
 
+    @property
+    def text(self) -> Optional[bpy.types.Text]:
+        return self.text_id
+
 
 class TranslationMixin:
     def export_localization(self, exporter):
-        translations = [i for i in self.translations if i.text_id is not None]
+        translations = [i for i in self.translations if i.text is not None]
         if not translations:
             exporter.report.error(f"'{self.id_data.name}': '{self.bl_label}' No content translations available. The localization will not be exported.")
             return
         for i in translations:
-            exporter.locman.add_string(self.localization_set, self.key_name, i.language, i.text_id)
+            exporter.locman.add_string(self.localization_set, self.key_name, i.language, i.text)
 
     def _get_translation(self):
         # Ensure there is always a default (read: English) translation available.
@@ -143,11 +156,11 @@ class TranslationMixin:
             self.active_translation_index = idx
 
     @property
-    def localization_set(self):
+    def localization_set(self) -> str:
         raise RuntimeError("TranslationMixin subclass needs a localization set getter!")
 
     @property
-    def translations(self):
+    def translations(self) -> Iterable[TranslationItem]:
         raise RuntimeError("TranslationMixin subclass needs a translation getter!")
 
 

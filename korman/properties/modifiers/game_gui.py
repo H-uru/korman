@@ -26,11 +26,35 @@ from PyHSPlasma import *
 
 from ...exporter import ExportError
 from .base import PlasmaModifierProperties
+from .gui import (
+    _DEFAULT_LANGUAGE_NAME, languages,
+    TranslationItem, TranslationMixin
+)
 from ... import idprops
 
 if TYPE_CHECKING:
     from ...exporter import Exporter
     from ..prop_world import PlasmaAge, PlasmaPage
+
+
+class GameGuiTranslationItem(TranslationItem, bpy.types.PropertyGroup):
+    language = EnumProperty(
+        name="Language",
+        description="Language of this translation",
+        items=languages,
+        default=_DEFAULT_LANGUAGE_NAME,
+        options=set()
+    )
+    value = StringProperty(
+        name="Text",
+        description="",
+        options=set()
+    )
+
+    @property
+    def text(self) -> str:
+        return self.value
+
 
 class _GameGuiMixin:
     @property
@@ -647,7 +671,92 @@ class PlasmaGameGuiDragBarModifier(_GameGuiMixin, PlasmaModifierProperties):
         ctrl.setFlag(pfGUIControlMod.kBetterHitTesting, True)
 
     @property
-    def requires_actor(self):
+    def requires_actor(self) -> bool:
+        return True
+
+
+class PlasmaGameGuiTextBoxModifier(_GameGuiMixin, TranslationMixin, PlasmaModifierProperties):
+    pl_id = "gui_textbox"
+    pl_depends = {"gui_control"}
+    pl_page_types = {"gui"}
+
+    bl_category = "GUI"
+    bl_label = "GUI Text Box (ex)"
+    bl_description = "XXX"
+    bl_icon = "SYNTAX_OFF"
+    bl_object_types = {"MESH"}
+
+    _JUSTIFICATION_LUT = {
+        "center": pfGUITextBoxMod.kCenterJustify,
+        "right": pfGUITextBoxMod.kRightJustify,
+    }
+
+    justification: str = EnumProperty(
+        name="Justification",
+        description="",
+        items=[
+            ("left", "Left", ""),
+            ("center", "Center", ""),
+            ("right", "Right", ""),
+        ],
+        options=set()
+    )
+
+    text_translations = CollectionProperty(
+        name="Translations",
+        type=GameGuiTranslationItem,
+        options=set()
+    )
+    active_translation_index = IntProperty(options={"HIDDEN"})
+    active_translation = EnumProperty(
+        name="Language",
+        description="Language of this translation",
+        items=languages,
+        get=TranslationMixin._get_translation,
+        set=TranslationMixin._set_translation,
+        options=set()
+    )
+
+    def convert_string(self, exporter: Exporter) -> str:
+        with exporter.report.indent():
+            exporter.report.msg("Converting legacy GUI localization...")
+            value = exporter.locman.get_localized_string(
+                { i.language: i.text for i in self.translations if i.text }
+            )
+            exporter.report.msg(value)
+            return value
+
+    def export_localization(self, exporter: Exporter):
+        # Only MOUL, EoA, and Hex Isle have pfLocalization support in GUIs.
+        # Otherwise, this translation mixin does something we don't actually want.
+        ctrl = self.get_control(exporter, self.id_data)
+        if exporter.mgr.getVer() >= pvMoul:
+            super().export_localization(exporter)
+            ctrl.localizationPath = f"{exporter.age_name}.{self.localization_set}.{self.key_name}"
+        else:
+            ctrl.text = self.convert_string(exporter)
+
+    def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> pfGUITextBoxMod:
+        return exporter.mgr.find_create_object(pfGUITextBoxMod, bl=bo, so=so)
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        ctrl = self.get_control(exporter, bo, so)
+        ctrl.setFlag(pfGUIControlMod.kIntangible, True)
+
+        just_flag = self._JUSTIFICATION_LUT.get(self.justification)
+        if just_flag is not None:
+            ctrl.setFlag(just_flag, True)
+
+    @property
+    def localization_set(self) -> str:
+        return "GUI"
+
+    @property
+    def translations(self) -> Iterable[GameGuiTranslationItem]:
+        return self.text_translations
+
+    @property
+    def requires_dyntext(self):
         return True
 
 
