@@ -134,6 +134,28 @@ def gui_clickmap(modifier: PlasamGameGuiClickMapModifier, layout, context):
     sub.label("Report When:")
     sub.prop(modifier, "report_while")
 
+def gui_colorscheme(
+    modifier: PlasmaGameGuiColorSchemeModifier,
+    layout: bpy.types.UILayout,
+    context: bpy.types.Context
+) -> None:
+    split = layout.split()
+
+    col = split.column()
+    col.prop(modifier, "foreground_color")
+    col.prop(modifier, "background_color")
+
+    col = split.column()
+    col.prop(modifier, "selection_foreground_color")
+    col.prop(modifier, "selection_background_color")
+
+    layout.separator()
+    layout.prop(modifier, "font_face")
+
+    row = layout.row()
+    row.prop_menu_enum(modifier, "font_style")
+    row.prop(modifier, "font_size")
+
 def gui_control(modifier, layout, context):
     split = layout.split()
     col = split.column()

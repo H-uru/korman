@@ -105,6 +105,122 @@ class _GameGuiMixin:
             if sound is None:
                 raise ExportError(f"'{self.id_data.name}': Invalid '{attr_name}' GUI Sound '{sound_name}'")
 
+    @property
+    def wants_colorscheme(self) -> bool:
+        return self.requires_dyntext
+
+
+class PlasmaGameGuiColorSchemeModifier(_GameGuiMixin, PlasmaModifierProperties):
+    pl_id = "gui_colorscheme"
+    pl_page_types = {"gui"}
+
+    bl_category = "GUI"
+    bl_label = "Color Scheme (ex)"
+    bl_description = "XXX"
+    bl_icon = "COLOR"
+
+    foreground_color = FloatVectorProperty(
+        name="Foreground",
+        description="",
+        default=(1.0, 1.0, 1.0, 1.0),
+        min=0.0, max=1.0,
+        subtype="COLOR",
+        size=4,
+        options=set()
+    )
+    background_color = FloatVectorProperty(
+        name="Background",
+        description="",
+        default=(0.0, 0.0, 0.0, 0.0),
+        min=0.0, max=1.0,
+        subtype="COLOR",
+        size=4,
+        options=set()
+    )
+    selection_foreground_color = FloatVectorProperty(
+        name="Selection Foreground",
+        description="",
+        default=(1.0, 1.0, 1.0, 1.0),
+        min=0.0, max=1.0,
+        subtype="COLOR",
+        size=4,
+        options=set()
+    )
+    selection_background_color = FloatVectorProperty(
+        name="Selection Background",
+        description="",
+        default=(0.0, 0.0, 0.0, 0.0),
+        min=0.0, max=1.0,
+        subtype="COLOR",
+        size=4,
+        options=set()
+    )
+
+    font_face: str = StringProperty(
+        name="Font Face",
+        description="",
+        default="Arial",
+        options=set()
+    )
+    font_size: int = IntProperty(
+        name="Size",
+        description="",
+        default=12,
+        subtype="UNSIGNED",
+        soft_min=8,
+        min=1,
+        step=2,
+        options=set()
+    )
+    font_style = EnumProperty(
+        name="Style",
+        description="",
+        items=[
+            ("kFontBold", "Bold", ""),
+            ("kFontItalic", "Italic", ""),
+            ("kFontShadowed", "Shadowed", ""),
+        ],
+        options={"ENUM_FLAG"}
+    )
+
+    def convert_colorscheme(self) -> pfGUIColorScheme:
+        scheme = pfGUIColorScheme()
+        scheme.foreColor = hsColorRGBA(*self.foreground_color)
+        scheme.backColor = hsColorRGBA(*self.background_color)
+        scheme.selForeColor = hsColorRGBA(*self.selection_foreground_color)
+        scheme.selBackColor = hsColorRGBA(*self.selection_background_color)
+        scheme.fontFace = self.font_face
+        scheme.fontSize = self.font_size
+        for flag in self.font_style:
+            scheme.fontFlags |= getattr(pfGUIColorScheme, flag)
+        return scheme
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        scheme_targets: Iterable[_GameGuiMixin] = (
+            getattr(self.id_data.plasma_modifiers, i.pl_id)
+            for i in _GameGuiMixin.__subclasses__()
+        )
+        scheme_targets: List[_GameGuiMixin] = [i for i in scheme_targets if i.wants_colorscheme]
+
+        if not scheme_targets:
+            exporter.report.warn("This modifier has no effect because no GUI modifiers want a color scheme!")
+            return
+
+        # Internally, libHSPlasma will steal the color scheme that we give to pfGUIControlMods,
+        # so we need to give each control a unique color scheme object. Dialogs will copy, but
+        # that's a less common case.
+        for i in scheme_targets:
+            ctrl = i.get_control(exporter, i.id_data)
+            if ctrl is not None:
+                ctrl.colorScheme = self.convert_colorscheme()
+
+    @classmethod
+    def is_game_gui_control(cls):
+        # This is just an optional field on the GUI control itself.
+        # It's also on dialogs themselves, so we separate it from
+        # the main control.
+        return False
+
 
 class PlasmaGameGuiControlModifier(_GameGuiMixin, PlasmaModifierProperties):
     pl_id = "gui_control"
@@ -557,6 +673,10 @@ class PlasmaGameGuiDialogModifier(_GameGuiMixin, PlasmaModifierProperties):
         options=set()
     )
 
+    def get_control(self, exporter: Exporter, bo = None, so = None) -> pfGUIDialogMod:
+        # This isn't really a control, but we may need this.
+        return exporter.mgr.find_create_object(pfGUIDialogMod, bl=bo, so=so)
+
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
         # Find all of the visible objects in the GUI page for use in hither/yon raycast and
         # camera matrix calculations.
@@ -646,3 +766,7 @@ class PlasmaGameGuiDialogModifier(_GameGuiMixin, PlasmaModifierProperties):
             ctrl_key = control.key
             exporter.report.msg(f"GUIDialog '{bo.name}': [{control.ClassName()}] '{ctrl_key.name}'")
             dialog.addControl(ctrl_key)
+
+    @property
+    def wants_colorscheme(self) -> bool:
+        return True
