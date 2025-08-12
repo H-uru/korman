@@ -58,6 +58,10 @@ class GameGuiTranslationItem(TranslationItem, bpy.types.PropertyGroup):
 
 class _GameGuiMixin:
     @property
+    def allow_better_hit_testing(self) -> bool:
+        return False
+
+    @property
     def copy_material(self) -> bool:
         # If this control uses a dynamic text map, then its contents are unique.
         # Therefore, we need to copy the material.
@@ -288,12 +292,25 @@ class PlasmaGameGuiControlModifier(_GameGuiMixin, PlasmaModifierProperties):
         type=bpy.types.Texture,
         poll=idprops.poll_object_dyntexts
     )
+    hit_testing = EnumProperty(
+        name="Hit Testing",
+        description="",
+        items=[
+            ("bounding_box", "Bounding Box", ""),
+            ("hull", "2D Convex Hull", ""),
+        ],
+        options=set()
+    )
 
     def sanity_check(self, exporter: Exporter):
         if self.requires_dyntext and self.texture is None:
             raise ExportError(f"'{self.id_data.name}': GUI Control requires a Texture to draw onto.")
 
-    def convert_gui_control(self, exporter: Exporter, ctrl: pfGUIControlMod, bo: bpy.types.Object, so: plSceneObject):
+    def convert_gui_control(
+        self, exporter: Exporter,
+        ctrl: pfGUIControlMod, ctrl_mod: _GameGuiMixin,
+        bo: bpy.types.Object, so: plSceneObject
+    ) -> None:
         ctrl.tagID = self.tag_id
         ctrl.visible = self.visible
         if self.proc == "default":
@@ -306,6 +323,12 @@ class PlasmaGameGuiControlModifier(_GameGuiMixin, PlasmaModifierProperties):
             ctrl.handler = handler
         else:
             raise ValueError(self.proc)
+
+        if ctrl_mod.allow_better_hit_testing:
+            ctrl.setFlag(
+                pfGUIControlMod.kBetterHitTesting,
+                self.hit_testing == "hull"
+            )
 
     def convert_gui_sounds(self, exporter: Exporter, ctrl: pfGUIControlMod, ctrl_mod: _GameGuiMixin):
         soundemit = ctrl_mod.id_data.plasma_modifiers.soundemit
@@ -354,7 +377,7 @@ class PlasmaGameGuiControlModifier(_GameGuiMixin, PlasmaModifierProperties):
         for ctrl_mod in ctrl_mods:
             ctrl_obj = ctrl_mod.get_control(exporter, bo, so)
             if ctrl_obj is not None:
-                self.convert_gui_control(exporter, ctrl_obj, bo, so)
+                self.convert_gui_control(exporter, ctrl_obj, ctrl_mod, bo, so)
                 self.convert_gui_sounds(exporter, ctrl_obj, ctrl_mod)
 
     def post_export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
@@ -362,6 +385,10 @@ class PlasmaGameGuiControlModifier(_GameGuiMixin, PlasmaModifierProperties):
             ctrl_obj = ctrl_mod.get_control(exporter, bo, so)
             if ctrl_obj is not None:
                 self.convert_gui_dyntext(exporter, ctrl_obj, ctrl_mod, bo, so)
+
+    @property
+    def allow_better_hit_testing(self) -> bool:
+        return any((i.allow_better_hit_testing for i in self.iterate_control_modifiers()))
 
     @property
     def has_gui_proc(self) -> bool:
@@ -531,6 +558,10 @@ class PlasmaGameGuiButtonModifier(_GameGuiMixin, PlasmaModifierProperties):
     )
 
     @property
+    def allow_better_hit_testing(self):
+        return True
+
+    @property
     def gui_sounds(self) -> Dict[str, int]:
         return {
             "mouse_down_sound": pfGUIButtonMod.kMouseDown,
@@ -657,6 +688,10 @@ class PlasmaGameGuiCheckBoxModifier(_GameGuiMixin, PlasmaModifierProperties):
     )
 
     @property
+    def allow_better_hit_testing(self):
+        return True
+
+    @property
     def gui_sounds(self) -> Dict[str, int]:
         return {
             "mouse_down_sound": pfGUICheckBoxCtrl.kMouseDown,
@@ -714,6 +749,10 @@ class PlasmaGameGuiDragBarModifier(_GameGuiMixin, PlasmaModifierProperties):
     bl_label = "GUI Drag Bar (ex)"
     bl_description = "XXX"
     bl_icon = "ARROW_LEFTRIGHT"
+
+    @property
+    def allow_better_hit_testing(self):
+        return True
 
     def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> pfGUIDragBarCtrl:
         return exporter.mgr.find_create_object(pfGUIDragBarCtrl, bl=bo, so=so)

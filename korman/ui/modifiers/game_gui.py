@@ -171,6 +171,10 @@ def gui_control(modifier, layout, context):
     col.prop(modifier, "texture")
 
     col = layout.column()
+    col.active = modifier.allow_better_hit_testing
+    col.prop(modifier, "hit_testing")
+
+    col = layout.column()
     col.active = modifier.has_gui_proc
     col.prop(modifier, "proc")
     row = col.row()
