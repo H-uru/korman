@@ -269,7 +269,8 @@ class PlasmaGameGuiControlModifier(_GameGuiMixin, PlasmaModifierProperties):
     bl_category = "GUI"
     bl_label = "GUI Control (ex)"
     bl_description = "XXX"
-    bl_object_types = {"FONT", "MESH"}
+    bl_object_types = {"EMPTY", "FONT", "MESH"}
+    bl_icon = "FULLSCREEN"
 
     tag_id = IntProperty(
         name="Tag ID",
