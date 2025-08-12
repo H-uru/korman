@@ -479,6 +479,7 @@ class PlasmaGameGuiButtonModifier(_GameGuiMixin, PlasmaModifierProperties):
     bl_category = "GUI"
     bl_label = "GUI Button (ex)"
     bl_description = "XXX"
+    bl_icon = "BUTS"
     bl_object_types = {"FONT", "MESH"}
 
     def _update_notify_type(self, context):
@@ -565,6 +566,7 @@ class PlasmaGameGuiCheckBoxModifier(_GameGuiMixin, PlasmaModifierProperties):
     bl_category = "GUI"
     bl_label = "GUI Checkbox (ex)"
     bl_description = "XXX"
+    bl_icon = "CHECKBOX_HLT"
     bl_object_types = {"MESH"}
 
     def _update_notify_type(self, context):
@@ -634,6 +636,7 @@ class PlasamGameGuiClickMapModifier(_GameGuiMixin, PlasmaModifierProperties):
     bl_category = "GUI"
     bl_label = "GUI ClickMap (ex)"
     bl_description = "XXX"
+    bl_icon = "HAND"
 
     report_while: Set[str] = EnumProperty(
         name="Report While",
@@ -767,6 +770,7 @@ class PlasmaGameGuiDialogModifier(_GameGuiMixin, PlasmaModifierProperties):
     bl_category = "GUI"
     bl_label = "GUI Dialog (ex)"
     bl_description = "XXX"
+    bl_icon = "SPLITSCREEN"
 
     camera_object: bpy.types.Object = PointerProperty(
         name="GUI Camera",
