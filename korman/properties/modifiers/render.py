@@ -645,19 +645,10 @@ class PlasmaLocalizedTextModifier(PlasmaModifierProperties, PlasmaModifierLogicW
                                       set=TranslationMixin._set_translation,
                                       options=set())
 
-    def _poll_dyna_text(self, value: bpy.types.Texture) -> bool:
-        if value.type != "IMAGE":
-            return False
-        if value.image is not None:
-            return False
-        tex_materials = frozenset(value.users_material)
-        obj_materials = frozenset(filter(None, (i.material for i in self.id_data.material_slots)))
-        return bool(tex_materials & obj_materials)
-
     texture = PointerProperty(name="Texture",
                               description="The texture to write the localized text on",
                               type=bpy.types.Texture,
-                              poll=_poll_dyna_text)
+                              poll=idprops.poll_object_dyntexts)
 
     font_face = StringProperty(name="Font Face",
                                default="Arial",

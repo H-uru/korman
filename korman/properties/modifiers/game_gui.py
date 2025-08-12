@@ -142,6 +142,16 @@ class PlasmaGameGuiControlModifier(_GameGuiMixin, PlasmaModifierProperties):
         description="",
         options=set()
     )
+    texture = PointerProperty(
+        name="Texture",
+        description="The texture to draw GUI content on",
+        type=bpy.types.Texture,
+        poll=idprops.poll_object_dyntexts
+    )
+
+    def sanity_check(self, exporter: Exporter):
+        if self.requires_dyntext and self.texture is None:
+            raise ExportError(f"'{self.id_data.name}': GUI Control requires a Texture to draw onto.")
 
     def convert_gui_control(self, exporter: Exporter, ctrl: pfGUIControlMod, bo: bpy.types.Object, so: plSceneObject):
         ctrl.tagID = self.tag_id
@@ -177,6 +187,23 @@ class PlasmaGameGuiControlModifier(_GameGuiMixin, PlasmaModifierProperties):
         if sound_indices:
             ctrl.soundIndices = [sound_indices.get(i, 0) for i in range(max(sound_indices) + 1)]
 
+    def convert_gui_dyntext(self, exporter: Exporter, ctrl: pfGUIControlMod, ctrl_mod: _GameGuiMixin, bo: bpy.types.Object, so: plSceneObject):
+        if not ctrl_mod.requires_dyntext:
+            return
+
+        layers = tuple(exporter.mesh.material.get_layers(bo=bo, tex=self.texture))
+        num_layers = len(layers)
+        if num_layers > 1:
+            exporter.report.warn(f"GUI Texture '{self.texture.name}' mapped to {len(layers)} Plasma Layers. This can only be 1.")
+        elif num_layers == 0:
+            raise ExportError(f"'{bo.name}': Unable to lookup GUI Texture!")
+
+        ctrl.dynTextLayer = layers[0]
+        ctrl.dynTextMap = layers[0].object.texture
+
+        # This is basically the blockRGB flag on the DynaTextMap
+        ctrl.setFlag(pfGUIControlMod.kXparentBgnd, self.texture.use_alpha)
+
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
         ctrl_mods = list(self.iterate_control_modifiers())
         if not ctrl_mods:
@@ -184,8 +211,15 @@ class PlasmaGameGuiControlModifier(_GameGuiMixin, PlasmaModifierProperties):
             exporter.report.warn("This modifier has no effect because no GUI control modifiers are present!")
         for ctrl_mod in ctrl_mods:
             ctrl_obj = ctrl_mod.get_control(exporter, bo, so)
-            self.convert_gui_control(exporter, ctrl_obj, bo, so)
-            self.convert_gui_sounds(exporter, ctrl_obj, ctrl_mod)
+            if ctrl_obj is not None:
+                self.convert_gui_control(exporter, ctrl_obj, bo, so)
+                self.convert_gui_sounds(exporter, ctrl_obj, ctrl_mod)
+
+    def post_export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        for ctrl_mod in self.iterate_control_modifiers():
+            ctrl_obj = ctrl_mod.get_control(exporter, bo, so)
+            if ctrl_obj is not None:
+                self.convert_gui_dyntext(exporter, ctrl_obj, ctrl_mod, bo, so)
 
     @property
     def has_gui_proc(self) -> bool:
@@ -197,6 +231,10 @@ class PlasmaGameGuiControlModifier(_GameGuiMixin, PlasmaModifierProperties):
         # actually export a GUI control itself. Instead, it holds common properties that may
         # or may not be used by other controls. This just helps fill out the other modifiers.
         return False
+
+    @property
+    def requires_dyntext(self) -> bool:
+        return any((i.requires_dyntext for i in self.iterate_control_modifiers()))
 
 
 class GameGuiAnimation(bpy.types.PropertyGroup):

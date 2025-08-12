@@ -133,6 +133,15 @@ def poll_empty_objects(self, value):
 def poll_mesh_objects(self, value):
     return value.type == "MESH"
 
+def poll_object_dyntexts(self, value):
+    if value.type != "IMAGE":
+        return False
+    if value.image is not None:
+        return False
+    tex_materials = frozenset(value.users_material)
+    obj_materials = frozenset(filter(None, (i.material for i in self.id_data.material_slots)))
+    return bool(tex_materials & obj_materials)
+
 def poll_softvolume_objects(self, value):
     return value.plasma_modifiers.softvolume.enabled
 

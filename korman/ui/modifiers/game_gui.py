@@ -143,6 +143,11 @@ def gui_control(modifier, layout, context):
     col.prop(modifier, "tag_id")
 
     col = layout.column()
+    col.active = modifier.requires_dyntext
+    col.alert = modifier.requires_dyntext and modifier.texture is None
+    col.prop(modifier, "texture")
+
+    col = layout.column()
     col.active = modifier.has_gui_proc
     col.prop(modifier, "proc")
     row = col.row()
