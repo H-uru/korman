@@ -156,6 +156,15 @@ class GuiConverter:
                     ))
                 )
                 loc, normal, index, distance = bvh.find_nearest(co)
+
+                # Sometimes, Blender gives us back a zero length normal.
+                # This (obviously) causes the scale calculation to fail.
+                # Debounce that.
+                if normal.length_squared == 0.0:
+                    normal = loc - co
+                    normal.normalize()
+                    assert normal.length_squared != 0.0
+
                 co += normal * distance * (scale - 1.0)
 
             # ...
