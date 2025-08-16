@@ -202,35 +202,27 @@ endif()
 
 if(korman_BUILD_OGGVORBIS)
     korman_add_external_project(libogg
-        GIT_REPOSITORY "https://github.com/xiph/ogg.git"
-        GIT_TAG v1.3.5
+        GIT_REPOSITORY "https://gitlab.xiph.org/xiph/ogg.git"
+        GIT_TAG v1.3.6
         CMAKE_CACHE_ARGS
             -DBUILD_SHARED_LIBS:BOOL=OFF
             -DBUILD_TESTING:BOOL=OFF
             -DINSTALL_DOCS:BOOL=OFF
     )
     korman_add_external_project(libvorbis
-        GIT_REPOSITORY "https://github.com/xiph/vorbis.git"
-        GIT_TAG v1.3.7
+        GIT_REPOSITORY "https://gitlab.xiph.org/xiph/vorbis.git"
+        GIT_TAG 43bbff0141028e58d476c1d5fd45dd5573db576d # No official release in 5 years
         CMAKE_CACHE_ARGS
             -DBUILD_SHARED_LIBS:BOOL=OFF
     )
 endif()
 
 if(korman_BUILD_STRING_THEORY)
-    # Woe betide us if comaptibility breaks...
-    if(MSVC AND MSVC_VERSION LESS 1900)
-        set(_string_theory_tag 2.4)
-    else()
-        set(_string_theory_tag 3.8)
-    endif()
-
     korman_add_external_project(string_theory
         GIT_REPOSITORY "https://github.com/zrax/string_theory.git"
-        GIT_TAG ${_string_theory_tag}
+        GIT_TAG 3.9
         CMAKE_CACHE_ARGS
             -DST_BUILD_TESTS:BOOL=OFF
-            -DST_BUILD_STATIC:BOOL=ON # string_theory < 3.0
     )
 endif()
 
