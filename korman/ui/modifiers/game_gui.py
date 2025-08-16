@@ -100,6 +100,7 @@ def gui_button(modifier, layout, context):
     row = layout.row()
     row.label("Notify On:")
     row.prop(modifier, "notify_type")
+    layout.prop(modifier, "draggable")
 
     _gui_anim("Mouse Click", modifier.mouse_click_anims, layout, context)
     _gui_anim("Mouse Over", modifier.mouse_over_anims, layout, context)
@@ -185,8 +186,14 @@ def gui_control(modifier, layout, context):
     row.active = col.active and modifier.proc == "console_command"
     row.prop(modifier, "console_command")
 
-def gui_dragbar(modifier: PlasmaGameGuiDragBarModifier, layout, context):
-    layout.label("Drag Bars have no settings.")
+def gui_draggable(modifier: PlasmaGameGuiDraggableModifier, layout, context):
+    layout.prop(modifier, "drag_target")
+
+    row = layout.row()
+    row.active = modifier.drag_target == "control"
+    row.prop(modifier, "report_dragging")
+    row.prop(modifier, "hide_cursor")
+    row.prop(modifier, "snap_back")
 
 def gui_dynamic_display(modifier: PlasmaGameGuiDynamicDisplayModifier, layout, context):
     layout.alert = modifier.texture is None

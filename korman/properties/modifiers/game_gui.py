@@ -592,6 +592,21 @@ class PlasmaGameGuiButtonModifier(_GameGuiMixin, PlasmaModifierProperties):
         options=set()
     )
 
+    def _poll_control_draggable(self, value: bpy.types.Object) -> bool:
+        if value.plasma_object.page != self.id_data.plasma_object.page:
+            return False
+        draggable_mod = value.plasma_modifiers.gui_draggable
+        if not draggable_mod.enabled:
+            return False
+        return draggable_mod.drag_target == "control"
+
+    draggable: bpy.types.Object = PointerProperty(
+        name="Draggable",
+        description="",
+        type=bpy.types.Object,
+        poll=_poll_control_draggable
+    )
+
     @property
     def allow_better_hit_testing(self):
         return True
@@ -608,6 +623,12 @@ class PlasmaGameGuiButtonModifier(_GameGuiMixin, PlasmaModifierProperties):
     def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> pfGUIButtonMod:
         return exporter.mgr.find_create_object(pfGUIButtonMod, bl=bo, so=so)
 
+    def sanity_check(self, exporter):
+        if self.draggable is not None:
+            draggable_mod = self.draggable.plasma_modifiers.gui_draggable
+            if draggable_mod.drag_target != "control":
+                raise ExportError(f"'{self.id_data.name}': Draggable must target a control!")
+
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
         ctrl = self.get_control(exporter, bo, so)
 
@@ -622,6 +643,13 @@ class PlasmaGameGuiButtonModifier(_GameGuiMixin, PlasmaModifierProperties):
 
         self.mouse_over_anims.export(exporter, bo, so, ctrl, ctrl.addMouseOverKey, "mouseOverAnimName")
         self.mouse_click_anims.export(exporter, bo, so, ctrl, ctrl.addAnimationKey, "animName")
+
+        # I'm not 100% sure what a draggable attached to a button is useful for.
+        # The Plasma code has basically no comments and doesn't seem "right" to me,
+        # but maybe it will be useful to somone.
+        if self.draggable:
+            draggable_mod = self.draggable.plasma_modifiers.gui_draggable
+            ctrl.draggable = draggable_mod.get_control(exporter, self.draggable).key
 
     @property
     def wants_interest(self):
@@ -780,25 +808,63 @@ class PlasamGameGuiClickMapModifier(_GameGuiMixin, PlasmaModifierProperties):
             ctrl.setFlag(getattr(pfGUIClickMapCtrl, report), True)
 
 
-class PlasmaGameGuiDragBarModifier(_GameGuiMixin, PlasmaModifierProperties):
-    pl_id = "gui_dragbar"
+class PlasmaGameGuiDraggableModifier(_GameGuiMixin, PlasmaModifierProperties):
+    pl_id = "gui_draggable"
     pl_depends = {"gui_control"}
     pl_page_types = {"gui"}
 
     bl_category = "GUI"
-    bl_label = "GUI Drag Bar (ex)"
+    bl_label = "GUI Dragable (ex)"
     bl_description = "XXX"
     bl_icon = "ARROW_LEFTRIGHT"
+
+    drag_target = EnumProperty(
+        name="Drag Target",
+        description="",
+        items=[
+            ("dialog", "Parent Dialog", "Drag the entire dialog"),
+            ("control", "Control", "Drag just this control"),
+        ],
+        options=set()
+    )
+
+    report_dragging = BoolProperty(
+        name="Report While Dragging",
+        description="Call the notification procedure during dragging (as opposed to only at the begin/end of dragging)",
+        options=set()
+    )
+    hide_cursor = BoolProperty(
+        name="Hide Cursor",
+        description="Hide the cursor while dragging",
+        options=set()
+    )
+    snap_back = BoolProperty(
+        name="Snap Back",
+        description="Snap the control back to its original position when the mouse goes up",
+        options=set()
+    )
 
     @property
     def allow_better_hit_testing(self):
         return True
 
-    def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> pfGUIDragBarCtrl:
-        return exporter.mgr.find_create_object(pfGUIDragBarCtrl, bl=bo, so=so)
+    def get_control(
+        self, exporter: Exporter,
+        bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None
+    ) -> Union[pfGUIDragBarCtrl, pfGUIDraggableMod]:
+        if self.drag_target == "dialog":
+            return exporter.mgr.find_create_object(pfGUIDragBarCtrl, bl=bo, so=so)
+        elif self.drag_target == "control":
+            return exporter.mgr.find_create_object(pfGUIDraggableMod, bl=bo, so=so)
+        else:
+            raise ValueError(self.drag_target)
 
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
         ctrl = self.get_control(exporter, bo, so)
+        if isinstance(ctrl, pfGUIDraggableMod):
+            ctrl.setFlag(pfGUIDraggableMod.kReportDragging, self.report_dragging)
+            ctrl.setFlag(pfGUIDraggableMod.kHideCursorWhileDragging, self.hide_cursor)
+            ctrl.setFlag(pfGUIDraggableMod.kAlwaysSnapBackToStart, self.snap_back)
 
     @property
     def requires_actor(self) -> bool:
