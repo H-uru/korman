@@ -123,13 +123,24 @@ class _GameGuiMixin:
         if our_page is None or our_page.page_type != "gui":
             raise ExportError(f"'{self.id_data.name}': {self.bl_label} Modifier must be in a GUI page!")
 
-        # Only one Game GUI Control per object. Continuously check this because objects can be
-        # generated/mutated during the pre-export phase.
-        modifiers = self.id_data.plasma_modifiers
-        controls = [i for i in self.iterate_control_subclasses() if getattr(modifiers, i.pl_id).enabled]
-        num_controls = len(controls)
-        if num_controls > 1:
-            raise ExportError(f"'{self.id_data.name}': Only 1 GUI Control modifier is allowed per object. We found {num_controls}.")
+        # Previously, only one Game GUI control per object was allowed. Now,
+        # we will allow multiple controls, but only ONE of them can be tangible.
+        # So, it's ok to have a draggable text box, or have your radio group
+        # modifier attached to the first checkbox (but you probably don't want
+        # to do that because then the tag IDs will be all yucky).
+        # Anyway, we need to check this continually throughout the export progress
+        # in case some pre_export() functions generate something illegal.
+        all_gui_mods = list(self.iterate_control_modifiers())
+        num_tangible = len([i for i in all_gui_mods if not i.intangible])
+        if num_tangible > 1:
+            control_msg = "\n".join(
+                f"'{i.bl_label}': {'Intangible' if i.intangible else 'Tangible'}" for i in all_gui_mods
+            )
+            raise ExportError(
+                f"'{self.id_data.name}': Only 1 tangible Game GUI Control modifier is allowed per object. We found:\n"
+                f"{control_msg}\n"
+                f"That's {num_tangible} tangible controls!"
+            )
 
         # Blow up on invalid sounds
         soundemit = self.id_data.plasma_modifiers.soundemit
