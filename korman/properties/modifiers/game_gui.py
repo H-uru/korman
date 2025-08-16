@@ -78,7 +78,7 @@ class _GameGuiMixin:
         """
         return {}
 
-    def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> Optional[pfGUIControlMod]:
+    def get_control(self, exporter: Exporter) -> Optional[pfGUIControlMod]:
         return None
 
     @property
@@ -265,7 +265,7 @@ class PlasmaGameGuiColorSchemeModifier(_GameGuiMixin, PlasmaModifierProperties):
         # so we need to give each control a unique color scheme object. Dialogs will copy, but
         # that's a less common case.
         for i in scheme_targets:
-            ctrl = i.get_control(exporter, i.id_data)
+            ctrl = i.get_control(exporter)
             if ctrl is not None:
                 ctrl.colorScheme = self.convert_colorscheme()
 
@@ -417,14 +417,14 @@ class PlasmaGameGuiControlModifier(_GameGuiMixin, PlasmaModifierProperties):
             exporter.report.msg(str(list(self.iterate_control_subclasses())))
             exporter.report.warn("This modifier has no effect because no GUI control modifiers are present!")
         for ctrl_mod in ctrl_mods:
-            ctrl_obj = ctrl_mod.get_control(exporter, bo, so)
+            ctrl_obj = ctrl_mod.get_control(exporter)
             if ctrl_obj is not None:
                 self.convert_gui_control(exporter, ctrl_obj, ctrl_mod, bo, so)
                 self.convert_gui_sounds(exporter, ctrl_obj, ctrl_mod)
 
     def post_export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
         for ctrl_mod in self.iterate_control_modifiers():
-            ctrl_obj = ctrl_mod.get_control(exporter, bo, so)
+            ctrl_obj = ctrl_mod.get_control(exporter)
             if ctrl_obj is not None:
                 self.convert_gui_dyntext(exporter, ctrl_obj, ctrl_mod, bo, so)
 
@@ -631,8 +631,8 @@ class PlasmaGameGuiButtonModifier(_GameGuiMixin, PlasmaModifierProperties):
             "mouse_off_sound": pfGUIButtonMod.kMouseOff,
         }
 
-    def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> pfGUIButtonMod:
-        return exporter.mgr.find_create_object(pfGUIButtonMod, bl=bo, so=so)
+    def get_control(self, exporter: Exporter) -> pfGUIButtonMod:
+        return exporter.mgr.find_create_object(pfGUIButtonMod, bl=self.id_data)
 
     def sanity_check(self, exporter):
         if self.draggable is not None:
@@ -641,7 +641,7 @@ class PlasmaGameGuiButtonModifier(_GameGuiMixin, PlasmaModifierProperties):
                 raise ExportError(f"'{self.id_data.name}': Draggable must target a control!")
 
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
-        ctrl = self.get_control(exporter, bo, so)
+        ctrl = self.get_control(exporter)
 
         if self.notify_type == {"UP"}:
             ctrl.notifyType = pfGUIButtonMod.kNotifyOnUp
@@ -660,7 +660,7 @@ class PlasmaGameGuiButtonModifier(_GameGuiMixin, PlasmaModifierProperties):
         # but maybe it will be useful to somone.
         if self.draggable:
             draggable_mod = self.draggable.plasma_modifiers.gui_draggable
-            ctrl.draggable = draggable_mod.get_control(exporter, self.draggable).key
+            ctrl.draggable = draggable_mod.get_control(exporter).key
 
     @property
     def wants_interest(self):
@@ -776,11 +776,11 @@ class PlasmaGameGuiCheckBoxModifier(_GameGuiMixin, PlasmaModifierProperties):
             "mouse_off_sound": pfGUICheckBoxCtrl.kMouseOff,
         }
 
-    def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> pfGUICheckBoxCtrl:
-        return exporter.mgr.find_create_object(pfGUICheckBoxCtrl, bl=bo, so=so)
+    def get_control(self, exporter: Exporter) -> pfGUICheckBoxCtrl:
+        return exporter.mgr.find_create_object(pfGUICheckBoxCtrl, bl=self.id_data)
 
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
-        ctrl = self.get_control(exporter, bo, so)
+        ctrl = self.get_control(exporter)
         ctrl.checked = self.checked
 
         self.anims.export(exporter, bo, so, ctrl, ctrl.addAnimKey, "animName")
@@ -810,11 +810,11 @@ class PlasamGameGuiClickMapModifier(_GameGuiMixin, PlasmaModifierProperties):
         options={"ENUM_FLAG"}
     )
 
-    def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> pfGUIClickMapCtrl:
-        return exporter.mgr.find_create_object(pfGUIClickMapCtrl, bl=bo, so=so)
+    def get_control(self, exporter: Exporter) -> pfGUIClickMapCtrl:
+        return exporter.mgr.find_create_object(pfGUIClickMapCtrl, bl=self.id_data)
 
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
-        ctrl = self.get_control(exporter, bo, so)
+        ctrl = self.get_control(exporter)
         for report in self.report_while:
             ctrl.setFlag(getattr(pfGUIClickMapCtrl, report), True)
 
@@ -861,17 +861,16 @@ class PlasmaGameGuiDraggableModifier(_GameGuiMixin, PlasmaModifierProperties):
 
     def get_control(
         self, exporter: Exporter,
-        bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None
     ) -> Union[pfGUIDragBarCtrl, pfGUIDraggableMod]:
         if self.drag_target == "dialog":
-            return exporter.mgr.find_create_object(pfGUIDragBarCtrl, bl=bo, so=so)
+            return exporter.mgr.find_create_object(pfGUIDragBarCtrl, bl=self.id_data)
         elif self.drag_target == "control":
-            return exporter.mgr.find_create_object(pfGUIDraggableMod, bl=bo, so=so)
+            return exporter.mgr.find_create_object(pfGUIDraggableMod, bl=self.id_data)
         else:
             raise ValueError(self.drag_target)
 
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
-        ctrl = self.get_control(exporter, bo, so)
+        ctrl = self.get_control(exporter)
         if isinstance(ctrl, pfGUIDraggableMod):
             ctrl.setFlag(pfGUIDraggableMod.kReportDragging, self.report_dragging)
             ctrl.setFlag(pfGUIDraggableMod.kHideCursorWhileDragging, self.hide_cursor)
@@ -907,11 +906,11 @@ class PlasmaGameGuiDynamicDisplayModifier(_GameGuiMixin, PlasmaModifierPropertie
         if self.texture is None:
             raise ExportError(f"'{self.id_data.name}': GUI Dynamic Display Modifier requires a Texture!")
 
-    def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> pfGUIDynDisplayCtrl:
-        return exporter.mgr.find_create_object(pfGUIDynDisplayCtrl, bl=bo, so=so)
+    def get_control(self, exporter: Exporter) -> pfGUIDynDisplayCtrl:
+        return exporter.mgr.find_create_object(pfGUIDynDisplayCtrl, bl=self.id_data)
 
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject) -> None:
-        ctrl = self.get_control(exporter, bo, so)
+        ctrl = self.get_control(exporter)
 
         layers = exporter.mesh.material.get_layers(bo, tex=self.texture)
         materials = exporter.mesh.material.get_materials(bo)
@@ -986,17 +985,17 @@ class PlasmaGameGuiInputBoxModifier(_GameGuiMixin, PlasmaModifierProperties):
                 )
 
     def get_control(
-        self, exporter: Exporter, bo = None, so = None
+        self, exporter: Exporter
     ) -> Union[pfGUIEditBoxMod, pfGUIMultiLineEditCtrl]:
         if self.lines == "single":
-            return exporter.mgr.find_create_object(pfGUIEditBoxMod, bl=bo, so=so)
+            return exporter.mgr.find_create_object(pfGUIEditBoxMod, bl=self.id_data)
         elif self.lines == "multi":
-            return exporter.mgr.find_create_object(pfGUIMultiLineEditCtrl, bl=bo, so=so)
+            return exporter.mgr.find_create_object(pfGUIMultiLineEditCtrl, bl=self.id_data)
         else:
             raise ValueError(self.lines)
 
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject) -> None:
-        ctrl = self.get_control(exporter, bo, so)
+        ctrl = self.get_control(exporter)
         if isinstance(ctrl, pfGUIMultiLineEditCtrl) and self.scroll_control is not None:
             ctrl.scrollCtrl = next(
                 self.scroll_control.plasma_modifiers.gui_value.iterate_value_modifiers(),
@@ -1049,11 +1048,11 @@ class PlasmaGameGuiProgressControlModifier(_GameGuiMixin, PlasmaModifierProperti
             "animate_sound": pfGUIProgressCtrl.kAnimateSound,
         }
 
-    def get_control(self, exporter: Exporter, bo = None, so = None) -> pfGUIProgressCtrl:
-        return exporter.mgr.find_create_object(pfGUIProgressCtrl, bl=bo, so=so)
+    def get_control(self, exporter: Exporter) -> pfGUIProgressCtrl:
+        return exporter.mgr.find_create_object(pfGUIProgressCtrl, bl=self.id_data)
 
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject) -> None:
-        ctrl = self.get_control(exporter, bo, so)
+        ctrl = self.get_control(exporter)
         self.anims.export(exporter, bo, so, ctrl, ctrl.addAnimKey, "animName")
         ctrl.setFlag(pfGUIProgressCtrl.kReverseValues, self.direction == "backward")
 
@@ -1074,11 +1073,11 @@ class PlasmaGameGuiRadioGroupModifier(_GameGuiMixin, PlasmaModifierProperties):
         options=set()
     )
 
-    def get_control(self, exporter: Exporter, bo = None, so = None) -> pfGUIRadioGroupCtrl:
-        return exporter.mgr.find_create_object(pfGUIRadioGroupCtrl, bl=bo, so=so)
+    def get_control(self, exporter: Exporter) -> pfGUIRadioGroupCtrl:
+        return exporter.mgr.find_create_object(pfGUIRadioGroupCtrl, bl=self.id_data)
 
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject) -> None:
-        ctrl = self.get_control(exporter, bo, so)
+        ctrl = self.get_control(exporter)
         ctrl.setFlag(pfGUIRadioGroupCtrl.kAllowNoSelection, self.allow_no_selection)
         active_cbs = (
             i for i in self.iter_checkbox_mods(bpy.context)
@@ -1086,7 +1085,7 @@ class PlasmaGameGuiRadioGroupModifier(_GameGuiMixin, PlasmaModifierProperties):
         )
         for i, cb_mod in enumerate(active_cbs):
             exporter.report.msg(f"Found checkbox '{cb_mod.id_data.name}'")
-            ctrl.addControl(cb_mod.get_control(exporter, i.id_data).key)
+            ctrl.addControl(cb_mod.get_control(exporter).key)
             if cb_mod.checked:
                 ctrl.defaultValue = i
 
@@ -1166,18 +1165,18 @@ class PlasmaGameGuiTextBoxModifier(_GameGuiMixin, TranslationMixin, PlasmaModifi
     def export_localization(self, exporter: Exporter):
         # Only MOUL, EoA, and Hex Isle have pfLocalization support in GUIs.
         # Otherwise, this translation mixin does something we don't actually want.
-        ctrl = self.get_control(exporter, self.id_data)
+        ctrl = self.get_control(exporter)
         if exporter.mgr.getVer() >= pvMoul:
             super().export_localization(exporter)
             ctrl.localizationPath = f"{exporter.age_name}.{self.localization_set}.{self.key_name}"
         else:
             ctrl.text = self.convert_string(exporter)
 
-    def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> pfGUITextBoxMod:
-        return exporter.mgr.find_create_object(pfGUITextBoxMod, bl=bo, so=so)
+    def get_control(self, exporter: Exporter) -> pfGUITextBoxMod:
+        return exporter.mgr.find_create_object(pfGUITextBoxMod, bl=self.id_data)
 
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
-        ctrl = self.get_control(exporter, bo, so)
+        ctrl = self.get_control(exporter)
 
         just_flag = self._JUSTIFICATION_LUT.get(self.justification)
         if just_flag is not None:
@@ -1248,7 +1247,7 @@ class PlasmaGameGuiValueControlModifier(_GameGuiMixin, PlasmaModifierProperties)
 
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
         for ctrl_mod in self.iterate_control_modifiers():
-            ctrl = ctrl_mod.get_control(exporter, bo, so)
+            ctrl = ctrl_mod.get_control(exporter)
             if isinstance(ctrl, pfGUIValueCtrl):
                 ctrl.min = min(self.min_value, self.max_value)
                 ctrl.max = max(self.min_value, self.max_value)
@@ -1278,9 +1277,9 @@ class PlasmaGameGuiDialogModifier(_GameGuiMixin, PlasmaModifierProperties):
         options=set()
     )
 
-    def get_control(self, exporter: Exporter, bo = None, so = None) -> pfGUIDialogMod:
+    def get_control(self, exporter: Exporter) -> pfGUIDialogMod:
         # This isn't really a control, but we may need this.
-        return exporter.mgr.find_create_object(pfGUIDialogMod, bl=bo, so=so)
+        return exporter.mgr.find_create_object(pfGUIDialogMod, bl=self.id_data)
 
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
         # Find all of the visible objects in the GUI page for use in hither/yon raycast and
@@ -1367,7 +1366,7 @@ class PlasmaGameGuiDialogModifier(_GameGuiMixin, PlasmaModifierProperties):
             if obj.plasma_modifiers.gui_control.enabled
         )
         for control_modifier in control_modifiers:
-            control = control_modifier.get_control(exporter, control_modifier.id_data)
+            control = control_modifier.get_control(exporter)
             ctrl_key = control.key
             exporter.report.msg(f"GUIDialog '{bo.name}': [{control.ClassName()}] '{ctrl_key.name}'")
             dialog.addControl(ctrl_key)
