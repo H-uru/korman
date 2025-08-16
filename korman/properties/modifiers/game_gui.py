@@ -149,6 +149,10 @@ class _GameGuiMixin:
     def wants_interest(self) -> bool:
         return False
 
+    @property
+    def wants_special_keys(self) -> bool:
+        return False
+
 
 class PlasmaGameGuiColorSchemeModifier(_GameGuiMixin, PlasmaModifierProperties):
     pl_id = "gui_colorscheme"
@@ -354,6 +358,7 @@ class PlasmaGameGuiControlModifier(_GameGuiMixin, PlasmaModifierProperties):
             )
 
         ctrl.setFlag(pfGUIControlMod.kIntangible, ctrl_mod.intangible)
+        ctrl.setFlag(pfGUIControlMod.kTakesSpecialKeys, ctrl_mod.wants_special_keys)
         ctrl.setFlag(pfGUIControlMod.kWantsInterest, ctrl_mod.wants_interest)
 
     def convert_gui_sounds(self, exporter: Exporter, ctrl: pfGUIControlMod, ctrl_mod: _GameGuiMixin):
@@ -858,6 +863,82 @@ class PlasmaGameGuiDynamicDisplayModifier(_GameGuiMixin, PlasmaModifierPropertie
         return True
 
 
+class PlasmaGameGuiInputBoxModifier(_GameGuiMixin, PlasmaModifierProperties):
+    pl_id = "gui_input"
+    pl_depends = {"gui_control"}
+    pl_page_types = {"gui"}
+
+    bl_category = "GUI"
+    bl_label = "GUI Input Box (ex)"
+    bl_description = "XXX"
+    bl_icon = "SYNTAX_ON"
+    bl_object_types = {"MESH"}
+
+    lines = EnumProperty(
+        name="Box Type",
+        description="",
+        items=[
+            ("single", "Single Line", "A single line edit box"),
+            ("multi", "Multi Line", "A multiple line text box"),
+        ],
+        options=set()
+    )
+
+    def _poll_scroll_ctrl(self, value: bpy.types.Object) -> bool:
+        if value.plasma_object.page != self.id_data.plasma_object.page:
+            return False
+        return value.plasma_modifiers.gui_value.enabled
+
+    scroll_control = PointerProperty(
+        name="Scroll Control",
+        description="",
+        poll=_poll_scroll_ctrl,
+        type=bpy.types.Object
+    )
+
+    def sanity_check(self, exporter: Exporter):
+        if self.scroll_control is not None:
+            value_controls = list(
+                self.scroll_control.plasma_modifiers.gui_value.iterate_value_modifiers()
+            )
+            num_value_controls = len(value_controls)
+            if num_value_controls != 1:
+                raise ExportError(
+                    f"'{self.id_data.name}': Scroll control '{self.id_data.name}' is invalid. "
+                    f"Expected exactly 1 value control, found {num_value_controls}."
+                )
+
+    def get_control(
+        self, exporter: Exporter, bo = None, so = None
+    ) -> Union[pfGUIEditBoxMod, pfGUIMultiLineEditCtrl]:
+        if self.lines == "single":
+            return exporter.mgr.find_create_object(pfGUIEditBoxMod, bl=bo, so=so)
+        elif self.lines == "multi":
+            return exporter.mgr.find_create_object(pfGUIMultiLineEditCtrl, bl=bo, so=so)
+        else:
+            raise ValueError(self.lines)
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject) -> None:
+        ctrl = self.get_control(exporter, bo, so)
+        if isinstance(ctrl, pfGUIMultiLineEditCtrl) and self.scroll_control is not None:
+            ctrl.scrollCtrl = next(
+                self.scroll_control.plasma_modifiers.gui_value.iterate_value_modifiers(),
+                None
+            )
+
+    @property
+    def requires_dyntext(self):
+        return True
+
+    @property
+    def wants_interest(self):
+        return True
+
+    @property
+    def wants_special_keys(self):
+        return True
+
+
 class PlasmaGameGuiProgressControlModifier(_GameGuiMixin, PlasmaModifierProperties):
     pl_id = "gui_progress"
     pl_depends = {"gui_control", "gui_value"}
@@ -1082,6 +1163,11 @@ class PlasmaGameGuiValueControlModifier(_GameGuiMixin, PlasmaModifierProperties)
     def is_game_gui_control(cls) -> bool:
         # This is a base class
         return False
+
+    def iterate_value_modifiers(self) -> Iterator[_GameGuiMixin]:
+        for i in self.iterate_control_modifiers():
+            if self.pl_id in getattr(i, "pl_depends", set()):
+                yield i
 
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
         for ctrl_mod in self.iterate_control_modifiers():

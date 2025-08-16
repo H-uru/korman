@@ -192,6 +192,13 @@ def gui_dynamic_display(modifier: PlasmaGameGuiDynamicDisplayModifier, layout, c
     layout.alert = modifier.texture is None
     layout.prop(modifier, "texture")
 
+def gui_input(modifier: PlasmaGameGuiInputBoxModifier, layout, context):
+    layout.prop(modifier, "lines")
+
+    row = layout.row()
+    row.active = modifier.lines == "multi"
+    row.prop(modifier, "scroll_control", icon="LINENUMBERS_ON")
+
 def gui_progress(modifier: PlasmaGameGuiProgressControlModifier, layout, context):
     layout.prop(modifier, "direction")
     _gui_anim("Animation", modifier.anims, layout, context)
