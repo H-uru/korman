@@ -38,7 +38,7 @@ class PlasmaGameGuiCameraOperator(CameraOperator, bpy.types.Operator):
         name="Field of View",
         description="Camera Field of View angle",
         subtype="ANGLE",
-        default=math.radians(90.0),
+        default=math.radians(45.0),
         min=0.0,
         max=math.radians(360.0),
         precision=1,
