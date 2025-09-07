@@ -160,6 +160,24 @@ class PlasmaSelectPageObjectsOperator(PageSearchOperator, bpy.types.Operator):
         return {"FINISHED"}
 
 
+class PlasmaSelectRadioGroupCheckboxesOperator(bpy.types.Operator):
+    bl_idname = "object.plasma_select_radio_group"
+    bl_label = "Select Radio Group"
+    bl_description = "Selects all checkboxes in a radio group"
+
+    def execute(self, context):
+        active_object = context.active_object
+        for i in context.scene.objects:
+            cb_mod = i.plasma_modifiers.gui_checkbox
+            cb_rg = cb_mod.radio_group
+            i.select = (
+                (cb_mod.enabled and cb_rg is not None and cb_rg.name == active_object.name)
+                or
+                (i.name == active_object.name)
+            )
+        return {"FINISHED"}
+
+
 class PlasmaToggleAllPlasmaObjectsOperator(ToolboxOperator, bpy.types.Operator):
     bl_idname = "object.plasma_toggle_all_objects"
     bl_label = "Toggle All Plasma Objects"

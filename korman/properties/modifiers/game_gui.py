@@ -26,26 +26,68 @@ from PyHSPlasma import *
 
 from ...exporter import ExportError
 from .base import PlasmaModifierProperties
+from .gui import (
+    _DEFAULT_LANGUAGE_NAME, languages,
+    TranslationItem, TranslationMixin
+)
 from ... import idprops
 
 if TYPE_CHECKING:
     from ...exporter import Exporter
     from ..prop_world import PlasmaAge, PlasmaPage
 
+
+class GameGuiTranslationItem(TranslationItem, bpy.types.PropertyGroup):
+    language = EnumProperty(
+        name="Language",
+        description="Language of this translation",
+        items=languages,
+        default=_DEFAULT_LANGUAGE_NAME,
+        options=set()
+    )
+    value = StringProperty(
+        name="Text",
+        description="",
+        options=set()
+    )
+
+    @property
+    def text(self) -> str:
+        return self.value
+
+
 class _GameGuiMixin:
     @property
-    def gui_sounds(self) -> Iterable[Tuple[str, int]]:
-        """Overload to automatically export GUI sounds on the control. This should return an iterable
-           of tuple attribute name and sound index.
-        """
-        return []
+    def allow_better_hit_testing(self) -> bool:
+        return False
 
-    def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> Optional[pfGUIControlMod]:
+    @property
+    def allow_text_scaling(self) -> bool:
+        return self.requires_dyntext
+
+    @property
+    def copy_material(self) -> bool:
+        # If this control uses a dynamic text map, then its contents are unique.
+        # Therefore, we need to copy the material.
+        return self.requires_dyntext
+
+    @property
+    def gui_sounds(self) -> Dict[str, int]:
+        """Overload to automatically export GUI sounds on the control.
+           This should return a dict of string attribute names to indices.
+        """
+        return {}
+
+    def get_control(self, exporter: Exporter) -> Optional[pfGUIControlMod]:
         return None
 
     @property
     def has_gui_proc(self) -> bool:
         return True
+
+    @property
+    def intangible(self) -> bool:
+        return False
 
     def iterate_control_modifiers(self) -> Iterator[_GameGuiMixin]:
         pl_mods = self.id_data.plasma_modifiers
@@ -81,17 +123,28 @@ class _GameGuiMixin:
         if our_page is None or our_page.page_type != "gui":
             raise ExportError(f"'{self.id_data.name}': {self.bl_label} Modifier must be in a GUI page!")
 
-        # Only one Game GUI Control per object. Continuously check this because objects can be
-        # generated/mutated during the pre-export phase.
-        modifiers = self.id_data.plasma_modifiers
-        controls = [i for i in self.iterate_control_subclasses() if getattr(modifiers, i.pl_id).enabled]
-        num_controls = len(controls)
-        if num_controls > 1:
-            raise ExportError(f"'{self.id_data.name}': Only 1 GUI Control modifier is allowed per object. We found {num_controls}.")
+        # Previously, only one Game GUI control per object was allowed. Now,
+        # we will allow multiple controls, but only ONE of them can be tangible.
+        # So, it's ok to have a draggable text box, or have your radio group
+        # modifier attached to the first checkbox (but you probably don't want
+        # to do that because then the tag IDs will be all yucky).
+        # Anyway, we need to check this continually throughout the export progress
+        # in case some pre_export() functions generate something illegal.
+        all_gui_mods = list(self.iterate_control_modifiers())
+        num_tangible = len([i for i in all_gui_mods if not i.intangible])
+        if num_tangible > 1:
+            control_msg = "\n".join(
+                f"'{i.bl_label}': {'Intangible' if i.intangible else 'Tangible'}" for i in all_gui_mods
+            )
+            raise ExportError(
+                f"'{self.id_data.name}': Only 1 tangible Game GUI Control modifier is allowed per object. We found:\n"
+                f"{control_msg}\n"
+                f"That's {num_tangible} tangible controls!"
+            )
 
         # Blow up on invalid sounds
         soundemit = self.id_data.plasma_modifiers.soundemit
-        for attr_name, _ in self.gui_sounds:
+        for attr_name in self.gui_sounds:
             sound_name = getattr(self, attr_name)
             if not sound_name:
                 continue
@@ -99,15 +152,140 @@ class _GameGuiMixin:
             if sound is None:
                 raise ExportError(f"'{self.id_data.name}': Invalid '{attr_name}' GUI Sound '{sound_name}'")
 
+    @property
+    def wants_colorscheme(self) -> bool:
+        return self.requires_dyntext
 
-class PlasmaGameGuiControlModifier(PlasmaModifierProperties, _GameGuiMixin):
+    @property
+    def wants_interest(self) -> bool:
+        return False
+
+    @property
+    def wants_special_keys(self) -> bool:
+        return False
+
+
+class PlasmaGameGuiColorSchemeModifier(_GameGuiMixin, PlasmaModifierProperties):
+    pl_id = "gui_colorscheme"
+    pl_page_types = {"gui"}
+
+    bl_category = "GUI"
+    bl_label = "Color Scheme (ex)"
+    bl_description = "XXX"
+    bl_icon = "COLOR"
+
+    foreground_color = FloatVectorProperty(
+        name="Foreground",
+        description="",
+        default=(1.0, 1.0, 1.0, 1.0),
+        min=0.0, max=1.0,
+        subtype="COLOR",
+        size=4,
+        options=set()
+    )
+    background_color = FloatVectorProperty(
+        name="Background",
+        description="",
+        default=(0.0, 0.0, 0.0, 0.0),
+        min=0.0, max=1.0,
+        subtype="COLOR",
+        size=4,
+        options=set()
+    )
+    selection_foreground_color = FloatVectorProperty(
+        name="Selection Foreground",
+        description="",
+        default=(1.0, 1.0, 1.0, 1.0),
+        min=0.0, max=1.0,
+        subtype="COLOR",
+        size=4,
+        options=set()
+    )
+    selection_background_color = FloatVectorProperty(
+        name="Selection Background",
+        description="",
+        default=(0.0, 0.0, 0.0, 0.0),
+        min=0.0, max=1.0,
+        subtype="COLOR",
+        size=4,
+        options=set()
+    )
+
+    font_face: str = StringProperty(
+        name="Font Face",
+        description="",
+        default="Arial",
+        options=set()
+    )
+    font_size: int = IntProperty(
+        name="Size",
+        description="",
+        default=12,
+        subtype="UNSIGNED",
+        soft_min=8,
+        min=1,
+        step=2,
+        options=set()
+    )
+    font_style = EnumProperty(
+        name="Style",
+        description="",
+        items=[
+            ("kFontBold", "Bold", ""),
+            ("kFontItalic", "Italic", ""),
+            ("kFontShadowed", "Shadowed", ""),
+        ],
+        options={"ENUM_FLAG"}
+    )
+
+    def convert_colorscheme(self) -> pfGUIColorScheme:
+        scheme = pfGUIColorScheme()
+        scheme.foreColor = hsColorRGBA(*self.foreground_color)
+        scheme.backColor = hsColorRGBA(*self.background_color)
+        scheme.selForeColor = hsColorRGBA(*self.selection_foreground_color)
+        scheme.selBackColor = hsColorRGBA(*self.selection_background_color)
+        scheme.fontFace = self.font_face
+        scheme.fontSize = self.font_size
+        for flag in self.font_style:
+            scheme.fontFlags |= getattr(pfGUIColorScheme, flag)
+        return scheme
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        scheme_targets: Iterable[_GameGuiMixin] = (
+            getattr(self.id_data.plasma_modifiers, i.pl_id)
+            for i in _GameGuiMixin.__subclasses__()
+        )
+        scheme_targets: List[_GameGuiMixin] = [i for i in scheme_targets if i.wants_colorscheme]
+
+        if not scheme_targets:
+            exporter.report.warn("This modifier has no effect because no GUI modifiers want a color scheme!")
+            return
+
+        # Internally, libHSPlasma will steal the color scheme that we give to pfGUIControlMods,
+        # so we need to give each control a unique color scheme object. Dialogs will copy, but
+        # that's a less common case.
+        for i in scheme_targets:
+            ctrl = i.get_control(exporter)
+            if ctrl is not None:
+                ctrl.colorScheme = self.convert_colorscheme()
+
+    @classmethod
+    def is_game_gui_control(cls):
+        # This is just an optional field on the GUI control itself.
+        # It's also on dialogs themselves, so we separate it from
+        # the main control.
+        return False
+
+
+class PlasmaGameGuiControlModifier(_GameGuiMixin, PlasmaModifierProperties):
     pl_id = "gui_control"
     pl_page_types = {"gui"}
 
     bl_category = "GUI"
     bl_label = "GUI Control (ex)"
     bl_description = "XXX"
-    bl_object_types = {"FONT", "MESH"}
+    bl_object_types = {"EMPTY", "FONT", "MESH"}
+    bl_icon = "FULLSCREEN"
 
     tag_id = IntProperty(
         name="Tag ID",
@@ -120,7 +298,7 @@ class PlasmaGameGuiControlModifier(PlasmaModifierProperties, _GameGuiMixin):
         description="",
         default=True,
         options=set()
-        )
+    )
     proc = EnumProperty(
         name="Notification Procedure",
         description="",
@@ -136,8 +314,36 @@ class PlasmaGameGuiControlModifier(PlasmaModifierProperties, _GameGuiMixin):
         description="",
         options=set()
     )
+    texture = PointerProperty(
+        name="Texture",
+        description="The texture to draw GUI content on",
+        type=bpy.types.Texture,
+        poll=idprops.poll_object_dyntexts
+    )
+    hit_testing = EnumProperty(
+        name="Hit Testing",
+        description="",
+        items=[
+            ("bounding_box", "Bounding Box", ""),
+            ("hull", "2D Convex Hull", ""),
+        ],
+        options=set()
+    )
+    scale_text: bool = BoolProperty(
+        name="Scale Text",
+        description="Scale text up as game resolution increases",
+        options=set()
+    )
 
-    def convert_gui_control(self, exporter: Exporter, ctrl: pfGUIControlMod, bo: bpy.types.Object, so: plSceneObject):
+    def sanity_check(self, exporter: Exporter):
+        if self.requires_dyntext and self.texture is None:
+            raise ExportError(f"'{self.id_data.name}': GUI Control requires a Texture to draw onto.")
+
+    def convert_gui_control(
+        self, exporter: Exporter,
+        ctrl: pfGUIControlMod, ctrl_mod: _GameGuiMixin,
+        bo: bpy.types.Object, so: plSceneObject
+    ) -> None:
         ctrl.tagID = self.tag_id
         ctrl.visible = self.visible
         if self.proc == "default":
@@ -148,6 +354,23 @@ class PlasmaGameGuiControlModifier(PlasmaModifierProperties, _GameGuiMixin):
             handler = pfGUIConsoleCmdProc()
             handler.command = self.console_command
             ctrl.handler = handler
+        else:
+            raise ValueError(self.proc)
+
+        if ctrl_mod.allow_better_hit_testing:
+            ctrl.setFlag(
+                pfGUIControlMod.kBetterHitTesting,
+                self.hit_testing == "hull"
+            )
+        if ctrl_mod.allow_text_scaling:
+            ctrl.setFlag(
+                pfGUIControlMod.kScaleTextWithResolution,
+                self.scale_text
+            )
+
+        ctrl.setFlag(pfGUIControlMod.kIntangible, ctrl_mod.intangible)
+        ctrl.setFlag(pfGUIControlMod.kTakesSpecialKeys, ctrl_mod.wants_special_keys)
+        ctrl.setFlag(pfGUIControlMod.kWantsInterest, ctrl_mod.wants_interest)
 
     def convert_gui_sounds(self, exporter: Exporter, ctrl: pfGUIControlMod, ctrl_mod: _GameGuiMixin):
         soundemit = ctrl_mod.id_data.plasma_modifiers.soundemit
@@ -158,7 +381,7 @@ class PlasmaGameGuiControlModifier(PlasmaModifierProperties, _GameGuiMixin):
         # NOTE that zero is a special value here meaning no sound, so we need to offset the sounds
         # that we get from the emitter modifier by +1.
         sound_indices = {}
-        for attr_name, gui_sound_idx in ctrl_mod.gui_sounds:
+        for attr_name, gui_sound_idx in ctrl_mod.gui_sounds.items():
             sound_name = getattr(ctrl_mod, attr_name)
             if not sound_name:
                 continue
@@ -171,15 +394,47 @@ class PlasmaGameGuiControlModifier(PlasmaModifierProperties, _GameGuiMixin):
         if sound_indices:
             ctrl.soundIndices = [sound_indices.get(i, 0) for i in range(max(sound_indices) + 1)]
 
+    def convert_gui_dyntext(self, exporter: Exporter, ctrl: pfGUIControlMod, ctrl_mod: _GameGuiMixin, bo: bpy.types.Object, so: plSceneObject):
+        if not ctrl_mod.requires_dyntext:
+            return
+
+        layers = tuple(exporter.mesh.material.get_layers(bo=bo, tex=self.texture))
+        num_layers = len(layers)
+        if num_layers > 1:
+            exporter.report.warn(f"GUI Texture '{self.texture.name}' mapped to {len(layers)} Plasma Layers. This can only be 1.")
+        elif num_layers == 0:
+            raise ExportError(f"'{bo.name}': Unable to lookup GUI Texture!")
+
+        ctrl.dynTextLayer = layers[0]
+        ctrl.dynTextMap = layers[0].object.texture
+
+        # This is basically the blockRGB flag on the DynaTextMap
+        ctrl.setFlag(pfGUIControlMod.kXparentBgnd, self.texture.use_alpha)
+
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
         ctrl_mods = list(self.iterate_control_modifiers())
         if not ctrl_mods:
             exporter.report.msg(str(list(self.iterate_control_subclasses())))
             exporter.report.warn("This modifier has no effect because no GUI control modifiers are present!")
         for ctrl_mod in ctrl_mods:
-            ctrl_obj = ctrl_mod.get_control(exporter, bo, so)
-            self.convert_gui_control(exporter, ctrl_obj, bo, so)
-            self.convert_gui_sounds(exporter, ctrl_obj, ctrl_mod)
+            ctrl_obj = ctrl_mod.get_control(exporter)
+            if ctrl_obj is not None:
+                self.convert_gui_control(exporter, ctrl_obj, ctrl_mod, bo, so)
+                self.convert_gui_sounds(exporter, ctrl_obj, ctrl_mod)
+
+    def post_export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        for ctrl_mod in self.iterate_control_modifiers():
+            ctrl_obj = ctrl_mod.get_control(exporter)
+            if ctrl_obj is not None:
+                self.convert_gui_dyntext(exporter, ctrl_obj, ctrl_mod, bo, so)
+
+    @property
+    def allow_better_hit_testing(self) -> bool:
+        return any((i.allow_better_hit_testing for i in self.iterate_control_modifiers()))
+
+    @property
+    def allow_text_scaling(self) -> bool:
+        return any((i.allow_text_scaling for i in self.iterate_control_modifiers()))
 
     @property
     def has_gui_proc(self) -> bool:
@@ -191,6 +446,10 @@ class PlasmaGameGuiControlModifier(PlasmaModifierProperties, _GameGuiMixin):
         # actually export a GUI control itself. Instead, it holds common properties that may
         # or may not be used by other controls. This just helps fill out the other modifiers.
         return False
+
+    @property
+    def requires_dyntext(self) -> bool:
+        return any((i.requires_dyntext for i in self.iterate_control_modifiers()))
 
 
 class GameGuiAnimation(bpy.types.PropertyGroup):
@@ -287,7 +546,7 @@ class GameGuiAnimationGroup(bpy.types.PropertyGroup):
                 add_func(i)
 
 
-class PlasmaGameGuiButtonModifier(PlasmaModifierProperties, _GameGuiMixin):
+class PlasmaGameGuiButtonModifier(_GameGuiMixin, PlasmaModifierProperties):
     pl_id = "gui_button"
     pl_depends = {"gui_control"}
     pl_page_types = {"gui"}
@@ -295,6 +554,7 @@ class PlasmaGameGuiButtonModifier(PlasmaModifierProperties, _GameGuiMixin):
     bl_category = "GUI"
     bl_label = "GUI Button (ex)"
     bl_description = "XXX"
+    bl_icon = "BUTS"
     bl_object_types = {"FONT", "MESH"}
 
     def _update_notify_type(self, context):
@@ -343,21 +603,45 @@ class PlasmaGameGuiButtonModifier(PlasmaModifierProperties, _GameGuiMixin):
         options=set()
     )
 
-    @property
-    def gui_sounds(self):
-        return (
-            ("mouse_down_sound", pfGUIButtonMod.kMouseDown),
-            ("mouse_up_sound", pfGUIButtonMod.kMouseUp),
-            ("mouse_over_sound", pfGUIButtonMod.kMouseOver),
-            ("mouse_off_sound", pfGUIButtonMod.kMouseOff),
-        )
+    def _poll_control_draggable(self, value: bpy.types.Object) -> bool:
+        if value.plasma_object.page != self.id_data.plasma_object.page:
+            return False
+        draggable_mod = value.plasma_modifiers.gui_draggable
+        if not draggable_mod.enabled:
+            return False
+        return draggable_mod.drag_target == "control"
 
-    def get_control(self, exporter: Exporter, bo: Optional[bpy.types.Object] = None, so: Optional[plSceneObject] = None) -> pfGUIButtonMod:
-        return exporter.mgr.find_create_object(pfGUIButtonMod, bl=bo, so=so)
+    draggable: bpy.types.Object = PointerProperty(
+        name="Draggable",
+        description="",
+        type=bpy.types.Object,
+        poll=_poll_control_draggable
+    )
+
+    @property
+    def allow_better_hit_testing(self):
+        return True
+
+    @property
+    def gui_sounds(self) -> Dict[str, int]:
+        return {
+            "mouse_down_sound": pfGUIButtonMod.kMouseDown,
+            "mouse_up_sound": pfGUIButtonMod.kMouseUp,
+            "mouse_over_sound": pfGUIButtonMod.kMouseOver,
+            "mouse_off_sound": pfGUIButtonMod.kMouseOff,
+        }
+
+    def get_control(self, exporter: Exporter) -> pfGUIButtonMod:
+        return exporter.mgr.find_create_object(pfGUIButtonMod, bl=self.id_data)
+
+    def sanity_check(self, exporter):
+        if self.draggable is not None:
+            draggable_mod = self.draggable.plasma_modifiers.gui_draggable
+            if draggable_mod.drag_target != "control":
+                raise ExportError(f"'{self.id_data.name}': Draggable must target a control!")
 
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
-        ctrl = self.get_control(exporter, bo, so)
-        ctrl.setFlag(pfGUIControlMod.kWantsInterest, True)
+        ctrl = self.get_control(exporter)
 
         if self.notify_type == {"UP"}:
             ctrl.notifyType = pfGUIButtonMod.kNotifyOnUp
@@ -371,14 +655,613 @@ class PlasmaGameGuiButtonModifier(PlasmaModifierProperties, _GameGuiMixin):
         self.mouse_over_anims.export(exporter, bo, so, ctrl, ctrl.addMouseOverKey, "mouseOverAnimName")
         self.mouse_click_anims.export(exporter, bo, so, ctrl, ctrl.addAnimationKey, "animName")
 
+        # I'm not 100% sure what a draggable attached to a button is useful for.
+        # The Plasma code has basically no comments and doesn't seem "right" to me,
+        # but maybe it will be useful to somone.
+        if self.draggable:
+            draggable_mod = self.draggable.plasma_modifiers.gui_draggable
+            ctrl.draggable = draggable_mod.get_control(exporter).key
 
-class PlasmaGameGuiDialogModifier(PlasmaModifierProperties, _GameGuiMixin):
+    @property
+    def wants_interest(self):
+        return True
+
+
+class PlasmaGameGuiCheckBoxModifier(_GameGuiMixin, PlasmaModifierProperties):
+    pl_id = "gui_checkbox"
+    pl_depends = {"gui_control"}
+    pl_page_types = {"gui"}
+
+    bl_category = "GUI"
+    bl_label = "GUI Checkbox (ex)"
+    bl_description = "XXX"
+    bl_icon = "CHECKBOX_HLT"
+    bl_object_types = {"MESH"}
+
+    def _update_notify_type(self, context):
+        # It doesn't make sense to have no notify type at all selected, so
+        # default to at least one option.
+        if not self.notify_type:
+            self.notify_type = {"DOWN"}
+
+    anims: GameGuiAnimationGroup = PointerProperty(type=GameGuiAnimationGroup)
+    show_expanded_sounds: bool = BoolProperty(options={"HIDDEN"})
+
+    checked_value: bool = BoolProperty(options={"HIDDEN"})
+
+    mouse_down_sound: str = StringProperty(
+        name="Mouse Down SFX",
+        description="Sound played when the mouse button is down",
+        options=set()
+    )
+
+    mouse_up_sound: str = StringProperty(
+        name="Mouse Up SFX",
+        description="Sound played when the mouse button is released",
+        options=set()
+    )
+
+    mouse_over_sound: str = StringProperty(
+        name="Mouse Over SFX",
+        description="Sound played when the mouse moves over the GUI button",
+        options=set()
+    )
+
+    mouse_off_sound: str = StringProperty(
+        name="Mouse Off SFX",
+        description="Sound played when the mouse moves off of the GUI button",
+        options=set()
+    )
+
+    def _poll_radio_group(self, object: bpy.types.Object):
+        if object.plasma_object.page == self.id_data.plasma_object.page:
+            if object.plasma_modifiers.gui_radio_group.enabled:
+                return True
+        return False
+
+    def _iter_other_checkboxes(self, context: bpy.types.Context) -> Iterator[Self]:
+        if self.radio_group is None:
+            return
+        rg_mod = self.radio_group.plasma_modifiers.gui_radio_group
+        for i in rg_mod.iter_checkbox_mods(context):
+            if i.id_data.name != self.id_data.name:
+                yield i
+
+    def _get_checked(self) -> bool:
+        # Short circuit if we don't think we're checked
+        if not self.checked_value:
+            return False
+
+        if self.radio_group is not None:
+            others = self._iter_other_checkboxes(bpy.context)
+            if any(i.checked_value for i in others):
+                return False
+
+        return self.checked_value
+
+    def _set_checked(self, value: bool) -> None:
+        if not value:
+            self.checked_value = False
+            return
+
+        for i in self._iter_other_checkboxes(bpy.context):
+            i.checked_value = False
+        self.checked_value = True
+
+    checked: bool = BoolProperty(
+        name="Checked",
+        description="Whether or not the checkbox is checked by default",
+        get=_get_checked,
+        set=_set_checked,
+        options=set()
+    )
+
+    radio_group = PointerProperty(
+        name="Radio Group",
+        description="",
+        type=bpy.types.Object,
+        poll=_poll_radio_group
+    )
+
+    @property
+    def allow_better_hit_testing(self):
+        return True
+
+    @property
+    def gui_sounds(self) -> Dict[str, int]:
+        return {
+            "mouse_down_sound": pfGUICheckBoxCtrl.kMouseDown,
+            "mouse_up_sound": pfGUICheckBoxCtrl.kMouseUp,
+            "mouse_over_sound": pfGUICheckBoxCtrl.kMouseOver,
+            "mouse_off_sound": pfGUICheckBoxCtrl.kMouseOff,
+        }
+
+    def get_control(self, exporter: Exporter) -> pfGUICheckBoxCtrl:
+        return exporter.mgr.find_create_object(pfGUICheckBoxCtrl, bl=self.id_data)
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        ctrl = self.get_control(exporter)
+        ctrl.checked = self.checked
+
+        self.anims.export(exporter, bo, so, ctrl, ctrl.addAnimKey, "animName")
+
+    @property
+    def wants_interest(self):
+        return True
+
+
+class PlasamGameGuiClickMapModifier(_GameGuiMixin, PlasmaModifierProperties):
+    pl_id = "gui_clickmap"
+    pl_depends = {"gui_control"}
+    pl_page_types = {"gui"}
+
+    bl_category = "GUI"
+    bl_label = "GUI ClickMap (ex)"
+    bl_description = "XXX"
+    bl_icon = "HAND"
+
+    report_while: Set[str] = EnumProperty(
+        name="Report While",
+        description="",
+        items=[
+            ("kMouseDragged", "Dragging", ""),
+            ("kMouseHovered", "Hovering", ""),
+        ],
+        options={"ENUM_FLAG"}
+    )
+
+    def get_control(self, exporter: Exporter) -> pfGUIClickMapCtrl:
+        return exporter.mgr.find_create_object(pfGUIClickMapCtrl, bl=self.id_data)
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        ctrl = self.get_control(exporter)
+        for report in self.report_while:
+            ctrl.setFlag(getattr(pfGUIClickMapCtrl, report), True)
+
+
+class PlasmaGameGuiDraggableModifier(_GameGuiMixin, PlasmaModifierProperties):
+    pl_id = "gui_draggable"
+    pl_depends = {"gui_control"}
+    pl_page_types = {"gui"}
+
+    bl_category = "GUI"
+    bl_label = "GUI Dragable (ex)"
+    bl_description = "XXX"
+    bl_icon = "ARROW_LEFTRIGHT"
+
+    drag_target = EnumProperty(
+        name="Drag Target",
+        description="",
+        items=[
+            ("dialog", "Parent Dialog", "Drag the entire dialog"),
+            ("control", "Control", "Drag just this control"),
+        ],
+        options=set()
+    )
+
+    report_dragging = BoolProperty(
+        name="Report While Dragging",
+        description="Call the notification procedure during dragging (as opposed to only at the begin/end of dragging)",
+        options=set()
+    )
+    hide_cursor = BoolProperty(
+        name="Hide Cursor",
+        description="Hide the cursor while dragging",
+        options=set()
+    )
+    snap_back = BoolProperty(
+        name="Snap Back",
+        description="Snap the control back to its original position when the mouse goes up",
+        options=set()
+    )
+
+    @property
+    def allow_better_hit_testing(self):
+        return True
+
+    def get_control(
+        self, exporter: Exporter,
+    ) -> Union[pfGUIDragBarCtrl, pfGUIDraggableMod]:
+        if self.drag_target == "dialog":
+            return exporter.mgr.find_create_object(pfGUIDragBarCtrl, bl=self.id_data)
+        elif self.drag_target == "control":
+            return exporter.mgr.find_create_object(pfGUIDraggableMod, bl=self.id_data)
+        else:
+            raise ValueError(self.drag_target)
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        ctrl = self.get_control(exporter)
+        if isinstance(ctrl, pfGUIDraggableMod):
+            ctrl.setFlag(pfGUIDraggableMod.kReportDragging, self.report_dragging)
+            ctrl.setFlag(pfGUIDraggableMod.kHideCursorWhileDragging, self.hide_cursor)
+            ctrl.setFlag(pfGUIDraggableMod.kAlwaysSnapBackToStart, self.snap_back)
+
+    @property
+    def requires_actor(self) -> bool:
+        return True
+
+    @property
+    def wants_interest(self):
+        return True
+
+
+class PlasmaGameGuiDynamicDisplayModifier(_GameGuiMixin, PlasmaModifierProperties):
+    pl_id = "gui_dynamic_display"
+    pl_depends = {"gui_control"}
+    pl_page_types = {"gui"}
+
+    bl_category = "GUI"
+    bl_label = "GUI Dynamic Display (ex)"
+    bl_description = "XXX"
+    bl_icon = "TPAINT_HLT"
+
+    texture = PointerProperty(
+        name="Texture",
+        description="Texture this GUI control can modify",
+        type=bpy.types.Texture,
+        poll=idprops.poll_object_image_textures
+    )
+
+    def sanity_check(self, exporter):
+        if self.texture is None:
+            raise ExportError(f"'{self.id_data.name}': GUI Dynamic Display Modifier requires a Texture!")
+
+    def get_control(self, exporter: Exporter) -> pfGUIDynDisplayCtrl:
+        return exporter.mgr.find_create_object(pfGUIDynDisplayCtrl, bl=self.id_data)
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject) -> None:
+        ctrl = self.get_control(exporter)
+
+        layers = exporter.mesh.material.get_layers(bo, tex=self.texture)
+        materials = exporter.mesh.material.get_materials(bo)
+        for layer in layers:
+            ctrl.addLayer(layer)
+            tex_key = layer.object.texture
+
+            # It is completely possible and legal to have a plMipmap. That
+            # happens on journal covers. We're provided a default cover
+            # texture that could be swapped out.
+            if tex_key is not None and tex_key.type == plFactory.kDynamicTextMap:
+                ctrl.addTextMap(tex_key)
+
+            # This is a little lazy, but GUIs are so uncommon that we
+            # don't need to sweat efficiency.
+            for material in materials:
+                bottom_iter = (i.object.bottomOfStack for i in material.object.layers)
+                if layer.object.bottomOfStack in bottom_iter:
+                    # PlasmaMax unconditionally adds materials, but that seems
+                    # a little wasteful.
+                    if material not in ctrl.materials:
+                        ctrl.addMaterial(material)
+
+    @property
+    def intangible(self):
+        return True
+
+
+class PlasmaGameGuiInputBoxModifier(_GameGuiMixin, PlasmaModifierProperties):
+    pl_id = "gui_input"
+    pl_depends = {"gui_control"}
+    pl_page_types = {"gui"}
+
+    bl_category = "GUI"
+    bl_label = "GUI Input Box (ex)"
+    bl_description = "XXX"
+    bl_icon = "SYNTAX_ON"
+    bl_object_types = {"MESH"}
+
+    lines = EnumProperty(
+        name="Box Type",
+        description="",
+        items=[
+            ("single", "Single Line", "A single line edit box"),
+            ("multi", "Multi Line", "A multiple line text box"),
+        ],
+        options=set()
+    )
+
+    def _poll_scroll_ctrl(self, value: bpy.types.Object) -> bool:
+        if value.plasma_object.page != self.id_data.plasma_object.page:
+            return False
+        return value.plasma_modifiers.gui_value.enabled
+
+    scroll_control = PointerProperty(
+        name="Scroll Control",
+        description="",
+        poll=_poll_scroll_ctrl,
+        type=bpy.types.Object
+    )
+
+    def sanity_check(self, exporter: Exporter):
+        if self.scroll_control is not None:
+            value_controls = list(
+                self.scroll_control.plasma_modifiers.gui_value.iterate_value_modifiers()
+            )
+            num_value_controls = len(value_controls)
+            if num_value_controls != 1:
+                raise ExportError(
+                    f"'{self.id_data.name}': Scroll control '{self.id_data.name}' is invalid. "
+                    f"Expected exactly 1 value control, found {num_value_controls}."
+                )
+
+    def get_control(
+        self, exporter: Exporter
+    ) -> Union[pfGUIEditBoxMod, pfGUIMultiLineEditCtrl]:
+        if self.lines == "single":
+            return exporter.mgr.find_create_object(pfGUIEditBoxMod, bl=self.id_data)
+        elif self.lines == "multi":
+            return exporter.mgr.find_create_object(pfGUIMultiLineEditCtrl, bl=self.id_data)
+        else:
+            raise ValueError(self.lines)
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject) -> None:
+        ctrl = self.get_control(exporter)
+        if isinstance(ctrl, pfGUIMultiLineEditCtrl) and self.scroll_control is not None:
+            ctrl.scrollCtrl = next(
+                self.scroll_control.plasma_modifiers.gui_value.iterate_value_modifiers(),
+                None
+            )
+
+    @property
+    def requires_dyntext(self):
+        return True
+
+    @property
+    def wants_interest(self):
+        return True
+
+    @property
+    def wants_special_keys(self):
+        return True
+
+
+class PlasmaGameGuiProgressControlModifier(_GameGuiMixin, PlasmaModifierProperties):
+    pl_id = "gui_progress"
+    pl_depends = {"gui_control", "gui_value"}
+    pl_page_types = {"gui"}
+
+    bl_category = "GUI"
+    bl_label = "GUI Progress Control (ex)"
+    bl_description = "XXX"
+    bl_icon = "SETTINGS"
+
+    anims: GameGuiAnimationGroup = PointerProperty(type=GameGuiAnimationGroup)
+    show_expanded_sounds: bool = BoolProperty(options={"HIDDEN"})
+    animate_sound: str = StringProperty(
+        name="Animate Sound",
+        description="Sound played as the progress control animates",
+        options=set()
+    )
+    direction: str = EnumProperty(
+        name="Direction",
+        description="Which direction the animation should play",
+        items=[
+            ("foreward", "Foreward", "Play animation such that 100% progress is the end"),
+            ("backward", "Backward", "Play the animation such that 100% progress is the beginning"),
+        ],
+        options=set()
+    )
+
+    @property
+    def gui_sounds(self) -> Dict[str, int]:
+        return {
+            "animate_sound": pfGUIProgressCtrl.kAnimateSound,
+        }
+
+    def get_control(self, exporter: Exporter) -> pfGUIProgressCtrl:
+        return exporter.mgr.find_create_object(pfGUIProgressCtrl, bl=self.id_data)
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject) -> None:
+        ctrl = self.get_control(exporter)
+        self.anims.export(exporter, bo, so, ctrl, ctrl.addAnimKey, "animName")
+        ctrl.setFlag(pfGUIProgressCtrl.kReverseValues, self.direction == "backward")
+
+
+class PlasmaGameGuiRadioGroupModifier(_GameGuiMixin, PlasmaModifierProperties):
+    pl_id = "gui_radio_group"
+    pl_depends = {"gui_control"}
+    pl_page_types = {"gui"}
+
+    bl_category = "GUI"
+    bl_label = "GUI Radio Group (ex)"
+    bl_description = "XXX"
+    bl_icon = "RADIOBUT_ON"
+
+    allow_no_selection = BoolProperty(
+        name="Allow No Selection",
+        description="Allows no check boxes to be checked",
+        options=set()
+    )
+
+    def get_control(self, exporter: Exporter) -> pfGUIRadioGroupCtrl:
+        return exporter.mgr.find_create_object(pfGUIRadioGroupCtrl, bl=self.id_data)
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject) -> None:
+        ctrl = self.get_control(exporter)
+        ctrl.setFlag(pfGUIRadioGroupCtrl.kAllowNoSelection, self.allow_no_selection)
+        active_cbs = (
+            i for i in self.iter_checkbox_mods(bpy.context)
+            if i.id_data.plasma_object.enabled
+        )
+        for i, cb_mod in enumerate(active_cbs):
+            exporter.report.msg(f"Found checkbox '{cb_mod.id_data.name}'")
+            ctrl.addControl(cb_mod.get_control(exporter).key)
+            if cb_mod.checked:
+                ctrl.defaultValue = i
+
+    @property
+    def intangible(self):
+        return True
+
+    def iter_checkbox_mods(self, context: bpy.types.Context) -> Iterator[PlasmaGameGuiCheckBoxModifier]:
+        # This is really not the fastest way to do this. The fastest way would be for us
+        # to maintain a list of the checkbox children here. But that means the user could
+        # try to add a single checkbox to multiple radio groups. That seems silly, but it
+        # feels like a problem waiting to happen. So, instead, we'll set the radio group
+        # on the checkboxes themselves to prevent that tomfoolery. It does mean the export
+        # will be slightly slower because we have to iterate all of the objects in the scene
+        # to find checkboxes, but it should be negligible.
+        for i in context.scene.objects:
+            checkbox_mod: PlasmaGameGuiCheckBoxModifier = i.plasma_modifiers.gui_checkbox
+            if not checkbox_mod.enabled:
+                continue
+
+            rg = checkbox_mod.radio_group
+            if rg is not None and rg.name == self.id_data.name:
+                yield checkbox_mod
+
+
+class PlasmaGameGuiTextBoxModifier(_GameGuiMixin, TranslationMixin, PlasmaModifierProperties):
+    pl_id = "gui_textbox"
+    pl_depends = {"gui_control"}
+    pl_page_types = {"gui"}
+
+    bl_category = "GUI"
+    bl_label = "GUI Text Box (ex)"
+    bl_description = "XXX"
+    bl_icon = "SYNTAX_OFF"
+    bl_object_types = {"MESH"}
+
+    _JUSTIFICATION_LUT = {
+        "center": pfGUITextBoxMod.kCenterJustify,
+        "right": pfGUITextBoxMod.kRightJustify,
+    }
+
+    justification: str = EnumProperty(
+        name="Justification",
+        description="",
+        items=[
+            ("left", "Left", ""),
+            ("center", "Center", ""),
+            ("right", "Right", ""),
+        ],
+        options=set()
+    )
+
+    text_translations = CollectionProperty(
+        name="Translations",
+        type=GameGuiTranslationItem,
+        options=set()
+    )
+    active_translation_index = IntProperty(options={"HIDDEN"})
+    active_translation = EnumProperty(
+        name="Language",
+        description="Language of this translation",
+        items=languages,
+        get=TranslationMixin._get_translation,
+        set=TranslationMixin._set_translation,
+        options=set()
+    )
+
+    def convert_string(self, exporter: Exporter) -> str:
+        with exporter.report.indent():
+            exporter.report.msg("Converting legacy GUI localization...")
+            value = exporter.locman.get_localized_string(
+                { i.language: i.text for i in self.translations if i.text }
+            )
+            exporter.report.msg(value)
+            return value
+
+    def export_localization(self, exporter: Exporter):
+        # Only MOUL, EoA, and Hex Isle have pfLocalization support in GUIs.
+        # Otherwise, this translation mixin does something we don't actually want.
+        ctrl = self.get_control(exporter)
+        if exporter.mgr.getVer() >= pvMoul:
+            super().export_localization(exporter)
+            ctrl.localizationPath = f"{exporter.age_name}.{self.localization_set}.{self.key_name}"
+        else:
+            ctrl.text = self.convert_string(exporter)
+
+    def get_control(self, exporter: Exporter) -> pfGUITextBoxMod:
+        return exporter.mgr.find_create_object(pfGUITextBoxMod, bl=self.id_data)
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        ctrl = self.get_control(exporter)
+
+        just_flag = self._JUSTIFICATION_LUT.get(self.justification)
+        if just_flag is not None:
+            ctrl.setFlag(just_flag, True)
+
+    @property
+    def intangible(self):
+        return True
+
+    @property
+    def localization_set(self) -> str:
+        return "GUI"
+
+    @property
+    def translations(self) -> Iterable[GameGuiTranslationItem]:
+        return self.text_translations
+
+    @property
+    def requires_dyntext(self):
+        return True
+
+
+class PlasmaGameGuiValueControlModifier(_GameGuiMixin, PlasmaModifierProperties):
+    pl_id = "gui_value"
+    pl_depends = {"gui_control"}
+    pl_page_types = {"gui"}
+
+    bl_category = "GUI"
+    bl_label = "GUI Value Control (ex)"
+    bl_description = "XXX"
+    bl_icon = "LINENUMBERS_ON"
+
+    min_value = FloatProperty(
+        name="Min",
+        description="Minimum Value",
+        options=set()
+    )
+
+    max_value = FloatProperty(
+        name="Max",
+        description="Maximum Value",
+        default=10.0,
+        min=-10000.0,
+        max=10000.0,
+        options=set()
+    )
+
+    step = FloatProperty(
+        name="Step",
+        description="",
+        default=1.0,
+        options=set()
+    )
+
+    @property
+    def has_gui_proc(self) -> bool:
+        return False
+
+    @classmethod
+    def is_game_gui_control(cls) -> bool:
+        # This is a base class
+        return False
+
+    def iterate_value_modifiers(self) -> Iterator[_GameGuiMixin]:
+        for i in self.iterate_control_modifiers():
+            if self.pl_id in getattr(i, "pl_depends", set()):
+                yield i
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        for ctrl_mod in self.iterate_control_modifiers():
+            ctrl = ctrl_mod.get_control(exporter)
+            if isinstance(ctrl, pfGUIValueCtrl):
+                ctrl.min = min(self.min_value, self.max_value)
+                ctrl.max = max(self.min_value, self.max_value)
+                ctrl.step = self.step
+
+
+class PlasmaGameGuiDialogModifier(_GameGuiMixin, PlasmaModifierProperties):
     pl_id = "gui_dialog"
     pl_page_types = {"gui"}
 
     bl_category = "GUI"
     bl_label = "GUI Dialog (ex)"
     bl_description = "XXX"
+    bl_icon = "SPLITSCREEN"
 
     camera_object: bpy.types.Object = PointerProperty(
         name="GUI Camera",
@@ -393,6 +1276,10 @@ class PlasmaGameGuiDialogModifier(PlasmaModifierProperties, _GameGuiMixin):
         default=True,
         options=set()
     )
+
+    def get_control(self, exporter: Exporter) -> pfGUIDialogMod:
+        # This isn't really a control, but we may need this.
+        return exporter.mgr.find_create_object(pfGUIDialogMod, bl=self.id_data)
 
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
         # Find all of the visible objects in the GUI page for use in hither/yon raycast and
@@ -479,7 +1366,11 @@ class PlasmaGameGuiDialogModifier(PlasmaModifierProperties, _GameGuiMixin):
             if obj.plasma_modifiers.gui_control.enabled
         )
         for control_modifier in control_modifiers:
-            control = control_modifier.get_control(exporter, control_modifier.id_data)
+            control = control_modifier.get_control(exporter)
             ctrl_key = control.key
             exporter.report.msg(f"GUIDialog '{bo.name}': [{control.ClassName()}] '{ctrl_key.name}'")
             dialog.addControl(ctrl_key)
+
+    @property
+    def wants_colorscheme(self) -> bool:
+        return True

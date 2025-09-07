@@ -21,7 +21,7 @@ import bpy.types
 from .. import ui_list
 
 if TYPE_CHECKING:
-    from ...properties.modifiers.game_gui import GameGuiAnimation, GameGuiAnimationGroup
+    from ...properties.modifiers.game_gui import *
 
 class GuiAnimListUI(bpy.types.UIList):
     def _iter_target_names(self, item: GameGuiAnimation):
@@ -71,28 +71,92 @@ def _gui_anim(name: str, group: GameGuiAnimationGroup, layout, context):
             col.prop(anim, "target_material")
             col.prop(anim, "target_texture")
 
+def _gui_sounds(modifier, layout, context, sounds: Dict[str, str]):
+    box = layout.box()
+    row = box.row(align=True)
+    if hasattr(modifier, "show_expanded_sounds"):
+        exicon = "TRIA_DOWN" if modifier.show_expanded_sounds else "TRIA_RIGHT"
+        row.prop(modifier, "show_expanded_sounds", text="", icon=exicon, emboss=False)
+
+    row.label("Sound Effects")
+    if not getattr(modifier, "show_expanded_sounds", True):
+        return
+
+    soundemit = modifier.id_data.plasma_modifiers.soundemit
+    col = box.column()
+    col.active = soundemit.enabled
+    for sound_attr, label_text in sounds.items():
+        sound_name = getattr(modifier, sound_attr)
+        if sound_name:
+            sound = next((i for i in soundemit.sounds if i.name == sound_name), None)
+            alert = sound is None
+        else:
+            alert = False
+
+        col.alert = alert
+        col.prop_search(modifier, sound_attr, soundemit, "sounds", text=label_text, icon="ERROR" if alert else "SPEAKER")
 
 def gui_button(modifier, layout, context):
     row = layout.row()
     row.label("Notify On:")
     row.prop(modifier, "notify_type")
+    layout.prop(modifier, "draggable")
 
     _gui_anim("Mouse Click", modifier.mouse_click_anims, layout, context)
     _gui_anim("Mouse Over", modifier.mouse_over_anims, layout, context)
 
-    box = layout.box()
-    row = box.row(align=True)
-    exicon = "TRIA_DOWN" if modifier.show_expanded_sounds else "TRIA_RIGHT"
-    row.prop(modifier, "show_expanded_sounds", text="", icon=exicon, emboss=False)
-    row.label("Sound Effects")
-    if modifier.show_expanded_sounds:
-        col = box.column()
-        soundemit = modifier.id_data.plasma_modifiers.soundemit
-        col.active = soundemit.enabled
-        col.prop_search(modifier, "mouse_down_sound", soundemit, "sounds", text="Mouse Down", icon="SPEAKER")
-        col.prop_search(modifier, "mouse_up_sound", soundemit, "sounds", text="Mouse Up", icon="SPEAKER")
-        col.prop_search(modifier, "mouse_over_sound", soundemit, "sounds", text="Mouse Over", icon="SPEAKER")
-        col.prop_search(modifier, "mouse_off_sound", soundemit, "sounds", text="Mouse Off", icon="SPEAKER")
+    _gui_sounds(
+        modifier, layout, context,
+        {
+            "mouse_down_sound": "Mouse Down",
+            "mouse_up_sound": "Mouse Up",
+            "mouse_over_sound": "Mouse Over",
+            "mouse_off_sound": "Mouse Off",
+        }
+    )
+
+def gui_checkbox(modifier: PlasmaGameGuiCheckBoxModifier, layout, context):
+    layout.prop(modifier, "radio_group", icon="RADIOBUT_ON")
+    layout.prop(modifier, "checked")
+
+    _gui_anim("Check", modifier.anims, layout, context)
+
+    _gui_sounds(
+        modifier, layout, context,
+        {
+            "mouse_down_sound": "Mouse Down",
+            "mouse_up_sound": "Mouse Up",
+            "mouse_over_sound": "Mouse Over",
+            "mouse_off_sound": "Mouse Off",
+        }
+    )
+
+def gui_clickmap(modifier: PlasamGameGuiClickMapModifier, layout, context):
+    sub = layout.row()
+    sub.label("Report When:")
+    sub.prop(modifier, "report_while")
+
+def gui_colorscheme(
+    modifier: PlasmaGameGuiColorSchemeModifier,
+    layout: bpy.types.UILayout,
+    context: bpy.types.Context
+) -> None:
+    split = layout.split()
+
+    col = split.column()
+    col.prop(modifier, "foreground_color")
+    col.prop(modifier, "background_color")
+
+    col = split.column()
+    col.prop(modifier, "selection_foreground_color")
+    col.prop(modifier, "selection_background_color")
+
+    layout.separator()
+    layout.prop(modifier, "font_face")
+
+    row = layout.row()
+    row.prop_menu_enum(modifier, "font_style")
+    row.prop(modifier, "font_size")
 
 def gui_control(modifier, layout, context):
     split = layout.split()
@@ -100,7 +164,20 @@ def gui_control(modifier, layout, context):
     col.prop(modifier, "visible")
 
     col = split.column()
+    col.active = modifier.allow_text_scaling
+    col.prop(modifier, "scale_text")
+
+    col = split.column()
     col.prop(modifier, "tag_id")
+
+    col = layout.column()
+    col.active = modifier.requires_dyntext
+    col.alert = modifier.requires_dyntext and modifier.texture is None
+    col.prop(modifier, "texture")
+
+    col = layout.column()
+    col.active = modifier.allow_better_hit_testing
+    col.prop(modifier, "hit_testing")
 
     col = layout.column()
     col.active = modifier.has_gui_proc
@@ -108,6 +185,60 @@ def gui_control(modifier, layout, context):
     row = col.row()
     row.active = col.active and modifier.proc == "console_command"
     row.prop(modifier, "console_command")
+
+def gui_draggable(modifier: PlasmaGameGuiDraggableModifier, layout, context):
+    layout.prop(modifier, "drag_target")
+
+    row = layout.row()
+    row.active = modifier.drag_target == "control"
+    row.prop(modifier, "report_dragging")
+    row.prop(modifier, "hide_cursor")
+    row.prop(modifier, "snap_back")
+
+def gui_dynamic_display(modifier: PlasmaGameGuiDynamicDisplayModifier, layout, context):
+    layout.alert = modifier.texture is None
+    layout.prop(modifier, "texture")
+
+def gui_input(modifier: PlasmaGameGuiInputBoxModifier, layout, context):
+    layout.prop(modifier, "lines")
+
+    row = layout.row()
+    row.active = modifier.lines == "multi"
+    row.prop(modifier, "scroll_control", icon="LINENUMBERS_ON")
+
+def gui_progress(modifier: PlasmaGameGuiProgressControlModifier, layout, context):
+    layout.prop(modifier, "direction")
+    _gui_anim("Animation", modifier.anims, layout, context)
+    _gui_sounds(
+        modifier, layout, context,
+        {
+            "animate_sound": "Animation",
+        }
+    )
+
+def gui_radio_group(modifier: PlasmaGameGuiRadioGroupModifier, layout, context):
+    layout.operator("object.plasma_select_radio_group", icon="RESTRICT_SELECT_OFF")
+    layout.prop(modifier, "allow_no_selection")
+
+def gui_textbox(modifier: PlasmaGameGuiTextBoxModifier, layout, context):
+    layout.prop(modifier, "justification")
+
+    sub = layout.column()
+    sub.prop(modifier, "active_translation")
+    try:
+        translation = modifier.text_translations[modifier.active_translation_index]
+    except Exception as e:
+        sub.label(text="Error (see console)", icon="ERROR")
+        print(e)
+    else:
+        sub.prop(translation, "value")
+
+def gui_value(modifier: PlasmaGameGuiValueControlModifier, layout, context):
+    row = layout.row(align=True)
+    row.alert = modifier.min_value >= modifier.max_value
+    row.prop(modifier, "min_value")
+    row.prop(modifier, "step")
+    row.prop(modifier, "max_value")
 
 def gui_dialog(modifier, layout, context):
     row = layout.row(align=True)
