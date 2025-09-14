@@ -164,12 +164,12 @@ class AnimationConverter:
             self._exporter().report.warn("Cannot animate Lamp color because neither Diffuse nor Specular are enabled")
             return None
 
-        # OK Specular is easy. We just toss out the color as a point3.
+        # Specular must be converted to sRGB space (gamma correction).
         def convert_specular_animation(color):
             if lamp.use_negative:
-                return map(lambda x: x * -1.0, color)
+                return map(lambda x: -pow(x, 1 / 2.2), color)
             else:
-                return color
+                return map(lambda x: pow(x, 1 / 2.2), color)
         color_keyframes, color_bez = self._process_keyframes(color_curves, 3, lamp.color,
                                                              convert=convert_specular_animation,
                                                              start=start, end=end)
@@ -183,10 +183,11 @@ class AnimationConverter:
 
         # Hey, look, it's a third way to process FCurves. YAY!
         def convert_diffuse_animation(color, energy):
+            # Remember to convert the color to sRGB.
             if lamp.use_negative:
-                proc = lambda x: x * -1.0 * energy[0]
+                proc = lambda x: -pow(x * energy[0], 1 / 2.2)
             else:
-                proc = lambda x: x * energy[0]
+                proc = lambda x: pow(x * energy[0], 1 / 2.2)
             return map(proc, color)
         diffuse_channels = dict(color=3, energy=1)
         diffuse_defaults = dict(color=lamp.color, energy=lamp.energy)

@@ -122,13 +122,14 @@ class LightConverter:
 
         # Light color nonsense
         # Please note that these calculations are duplicated in the AnimationConverter
+        # Also, Blender lighting is done in linear space, whereas Plasma still uses gamma space, so convert the color to sRGB.
         energy = bl_light.energy
         if bl_light.use_negative:
-            diff_color = [(0.0 - i) * energy for i in bl_light.color]
-            spec_color = [(0.0 - i) for i in bl_light.color]
+            diff_color = [(0.0 - pow(i * energy, 1 / 2.2)) for i in bl_light.color]
+            spec_color = [(0.0 - pow(i, 1 / 2.2)) for i in bl_light.color]
         else:
-            diff_color = [i * energy for i in bl_light.color]
-            spec_color = [i for i in bl_light.color]
+            diff_color = [pow(i * energy, 1 / 2.2) for i in bl_light.color]
+            spec_color = [pow(i, 1 / 2.2) for i in bl_light.color]
 
         diff_str = "({:.4f}, {:.4f}, {:.4f})".format(*diff_color)
         diff_color.append(energy)
