@@ -473,3 +473,38 @@ class PlasmaWaveTexState(PlasmaWaveState, PlasmaModifierProperties):
     def export(self, exporter, bo, so):
         waveset = exporter.mgr.find_create_object(plWaveSet7, name=bo.name, so=so)
         self.convert_wavestate(waveset.state.texState)
+
+
+class PlasmaBuoyObject(bpy.types.PropertyGroup):
+    buoy_object = PointerProperty(name="Buoy Object",
+                                  description="Object that float on water",
+                                  options=set(),
+                                  type=bpy.types.Object,
+                                  poll=idprops.poll_dynamic_objects)
+
+
+class PlasmaWaterBuoyModifier(PlasmaModifierProperties):
+    pl_depends = {"water_basic"}
+    pl_id = "water_buoy"
+
+    bl_category = "Water"
+    bl_label = "Water Buoys"
+    bl_description = ""
+
+    buoys = CollectionProperty(type=PlasmaBuoyObject)
+    active_buoy_index = IntProperty(options={"HIDDEN"})
+
+    def export(self, exporter, bo, so):
+        if exporter.mgr.getVer() != pvMoul:
+            exporter.report.warning("Not supported on this version of Plasma", indent=3)
+            return
+        else:
+            exporter.report.port("This will only function on MOUL", indent=3)
+
+        waveset = exporter.mgr.find_create_object(plWaveSet7, name=bo.name, so=so)
+        waveset.setFlag(plWaveSet7.kHasBuoys, True)
+
+        for i in self.buoys:
+            if i.buoy_object is None:
+                raise ExportError("'{}': Buoy Object for '{}' is invalid", self.key_name, i.buoy_object.name)
+            waveset.addBuoy(exporter.mgr.find_create_key(plSceneObject, bl=i.buoy_object))
