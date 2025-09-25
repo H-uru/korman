@@ -1441,7 +1441,7 @@ class MaterialConverter:
         state = layer.state
 
         is_waveset = bo.plasma_modifiers.water_basic.enabled
-        if bo.data.show_double_sided:
+        if bm.plasma_material.double_sided:
             if is_waveset:
                 self._report.warn("FORCING single sided--this is a waveset (are you insane?)")
             else:
