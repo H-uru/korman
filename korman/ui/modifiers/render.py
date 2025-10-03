@@ -168,6 +168,27 @@ def fademod(modifier, layout, context):
         # Warn the user that the values are not recommended.
         layout.label("Distance values must be equal or increasing!", icon="ERROR")
 
+def fogenv(modifier, layout, context):
+    row = layout.row()
+    row.label("Environment")
+    row.template_ID(modifier, "environment", new="world.new")
+
+    if modifier.environment:
+        fni = modifier.environment.plasma_fni
+        box = layout.box()
+
+        split = box.split()
+        col = split.column()
+        col.prop(fni, "fog_color", text="")
+
+        col = split.column()
+        col.prop(fni, "fog_method", text="")
+        if fni.fog_method == "linear":
+            col.prop(fni, "fog_start")
+        if fni.fog_method != "none":
+            col.prop(fni, "fog_end")
+            col.prop(fni, "fog_density")
+
 def followmod(modifier, layout, context):
     layout.row().prop(modifier, "follow_mode", expand=True)
     layout.prop(modifier, "leader_type")
