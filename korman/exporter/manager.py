@@ -303,7 +303,7 @@ class ExportManager:
                 error = explosions.UndefinedPageError()
                 error.add(page_name, requestor_name)
                 error.raise_if_error()
-            location = self.create_page(age_name, page_name, page_info.id)
+            location = self.create_page(age_name, page_name, page_info.seq_suffix)
         else:
             # This is a default page that wasn't exported... for some reason...
             self._exporter().report.warn(
