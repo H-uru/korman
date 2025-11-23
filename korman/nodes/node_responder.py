@@ -130,6 +130,9 @@ class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
                     node.convert_state(exporter, so, state, i, self)
                     i += 1
 
+                if not self.states:
+                    self.parent.raise_error("No states converted by Responder node")
+
                 resp = self.responder
                 resp.clearStates()
                 for node, state in self.states:
