@@ -211,7 +211,7 @@ if(korman_BUILD_OGGVORBIS)
     )
     korman_add_external_project(libvorbis
         GIT_REPOSITORY "https://gitlab.xiph.org/xiph/vorbis.git"
-        GIT_TAG 43bbff0141028e58d476c1d5fd45dd5573db576d # No official release in 5 years
+        GIT_TAG 2d79800b6751dddd4b8b4ad50832faa5ae2a00d9 # No official release in 5 years
         CMAKE_CACHE_ARGS
             -DBUILD_SHARED_LIBS:BOOL=OFF
     )
