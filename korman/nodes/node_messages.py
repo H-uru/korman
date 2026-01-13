@@ -807,8 +807,9 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
         soundemit = self.emitter_object.plasma_modifiers.soundemit
 
         # Always test the specified audible for validity
-        if self.sound_name and soundemit.sounds.get(self.sound_name, None) is None:
-            self.raise_error("Invalid Sound '{}' requested from Sound Emitter '{}'".format(self.sound_name, self.emitter_object.name))
+        sound = soundemit.sounds.get(self.sound_name, None)
+        if sound is None:
+            self.raise_error(f"Invalid Sound '{self.sound_name}' requested from Sound Emitter '{self.emitter_object.name}'")
 
         # Remember that 3D stereo sounds are exported as two emitters...
         # But, if we only have one sound attached, who cares, we can just address the message to all
@@ -826,6 +827,10 @@ class PlasmaSoundMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNo
             msg.index = -1
         for i in sound_keys:
             msg.addReceiver(i[0])
+
+        # If the sound is marked "local only," then we need to flag it on the message. This will
+        # prevent Responders from sending this message due to remote triggers.
+        msg.setCmd(plSoundMsg.kIsLocalOnly, sound.local_only)
 
         # NOTE: There are a number of commands in Plasma's enumeration that do nothing.
         #       This is what I determine to be the most useful and functional subset...
