@@ -28,6 +28,13 @@ if TYPE_CHECKING:
     from ..exporter import Exporter
 
 class PlasmaNodeBase:
+    def _add_py_parameter(self, pfm: plPythonFileMod, id: int, param_type: int, value) -> None:
+        param = plPythonParameter()
+        param.id = id
+        param.valueType = param_type
+        param.value = value
+        pfm.addParameter(param)
+
     def generate_notify_msg(self, exporter: Exporter, so: plSceneObject, socket_id: str, idname: Optional[str] = None) -> plNotifyMsg:
         notify = plNotifyMsg()
         notify.BCastFlags = (plMessage.kNetPropagate | plMessage.kLocalPropagate)
