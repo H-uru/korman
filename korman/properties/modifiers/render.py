@@ -958,3 +958,59 @@ class PlasmaVisibilitySet(PlasmaModifierProperties):
             if not region.control_region:
                 raise ExportError("{}: Not all Visibility Controls are set up properly in Visibility Set".format(bo.name))
             addRegion(exporter.mgr.find_create_key(plVisRegion, bl=region.control_region))
+
+class PlasmaQualityLevels(bpy.types.PropertyGroup):
+    low = BoolProperty(name="Low Quality",
+                       description="Object renders at low quality graphics level",
+                       default=False,
+                       options=set())
+
+    mid = BoolProperty(name="Medium Quality",
+                       description="Object renders at medium quality graphics level",
+                       default=False,
+                       options=set())
+
+    high = BoolProperty(name="High Quality",
+                        description="Object renders at high quality graphics level",
+                        default=False,
+                        options=set())
+
+    ultra = BoolProperty(name="Ultra Quality",
+                         description="Object renders at ultra quality graphics level",
+                         default=False,
+                         options=set())
+
+    @property
+    def mask_value(self):
+        q = 0
+
+        if self.low:
+            q |= (1 << 0)
+
+        if self.mid:
+            q |= (1 << 1)
+
+        if self.high:
+            q |= (1 << 2)
+
+        if self.ultra:
+            q |= (1 << 3)
+
+        return q
+
+
+class PlasmaQualityMod(PlasmaModifierProperties):
+    pl_id = "qualitymod"
+
+    bl_category = "Render"
+    bl_label = "Quality Levels"
+    bl_description = "Defines the quality levels at which this object is visible"
+
+    cap_minimal = PointerProperty(type=PlasmaQualityLevels)
+    cap_shaders = PointerProperty(type=PlasmaQualityLevels)
+
+    def export(self, exporter, bo, so):
+        low = 0xf0 | self.cap_minimal.mask_value
+        high = 0xf0 | self.cap_shaders.mask_value
+
+        so.key.mask = (high << 8) | (low)
