@@ -13,25 +13,30 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
-from .ui_anim import *
-from .ui_camera import *
-from .ui_image import *
-from .ui_lamp import *
-from .ui_list import *
-from .ui_material import *
-from .ui_menus import *
-from .ui_modifiers import *
-from .ui_object import *
-from .ui_render_layer import *
-from .ui_scene import *
-from .ui_text import *
-from .ui_texture import *
-from .ui_toolbox import *
-from .ui_world import *
+import bpy
+
+from . import ui_list
+
+class MaterialButtonsPanel:
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "material"
+
+    @classmethod
+    def poll(cls, context):
+        return context.material and context.scene.render.engine == "PLASMA_GAME"
 
 
-def register():
-    ui_menus.register()
+class PlasmaMaterialPanel(MaterialButtonsPanel, bpy.types.Panel):
+    bl_label = "Plasma Material Options"
+	
+    def draw(self, context):
+        mat = context.material
+        mat_props = mat.plasma_material
+        layout = self.layout
 
-def unregister():
-    ui_menus.unregister()
+        split = layout.split()
+        col = split.column()
+        sub = col.column()
+        col.prop(mat_props, "double_sided")
+
