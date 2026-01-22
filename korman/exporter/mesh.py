@@ -342,6 +342,11 @@ class MeshConverter(_MeshManager):
         if not bm.use_shadows:
             geospan.props |= plGeometrySpan.kPropNoShadow
 
+        # Attach a FogEnvironment if it's non-default
+        fogenv = mods.fogenv.environment
+        if fogenv and fogenv != bpy.context.scene.world:
+            geospan.fogEnvironment = self._mgr.find_create_key(plFogEnvironment, bl=bo, name=fogenv.name)
+
         # Harvest lights
         permaLights, permaProjs = self._exporter().light.find_material_light_keys(bo, bm)
         for i in permaLights:
