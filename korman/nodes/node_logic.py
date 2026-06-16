@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import bpy
 from bpy.props import *
+import itertools
 from typing import *
 from PyHSPlasma import *
 
@@ -307,6 +308,83 @@ class PlasmaExcludeSafePointSocket(idprops.IDPropObjectMixin, PlasmaNodeSocketBa
 
 class PlasmaExcludeMessageSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
     bl_color = (0.467, 0.576, 0.424, 1.0)
+
+
+class PlasmaSDLBoolTriggerNode(PlasmaNodeBase, bpy.types.Node):
+    bl_category = "LOGIC"
+    bl_idname = "PlasmaSDLBoolTriggerNode"
+    bl_label = "SDL Boolean Trigger"
+    bl_width_default = 170
+
+    input_sockets: dict[str, dict[str, Any]] = {
+        "variable": {
+            "text": "Triggered by SDL",
+            "type": "PlasmaSDLTriggererSocket",
+        },
+        "dependent": {
+            "text": "Dependends on SDL",
+            "type": "PlasmaSDLTriggererSocket",
+        }
+    }
+
+    output_sockets: dict[str, dict[str, Any]] = {
+        "satisfies_true": {
+            "text": "Trigger on True",
+            "type": "PlasmaConditionSocket",
+            "valid_link_nodes": {"PlasmaResponderNode"},
+        },
+        "satisfies_false": {
+            "text": "Trigger on False",
+            "type": "PlasmaConditionSocket",
+            "valid_link_nodes": {"PlasmaResponderNode"},
+        }
+    }
+
+    ffwd_init = BoolProperty(
+        name="F-Fwd on Init",
+        description="Fast-forward the matching Responder when the Age loads",
+        default=True,
+        options=set()
+    )
+    ffwd_vm = BoolProperty(
+        name="F-Fwd on VM",
+        description="Fast-forward the matching Responder when the SDL variable is changed in the Vault Manager",
+        default=True,
+        options=set()
+    )
+
+    def draw_buttons(self, context, layout: bpy.types.UILayout):
+        layout.prop(self, "ffwd_init")
+        layout.prop(self, "ffwd_vm")
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        trigger_var = self.find_input("variable")
+        dependent_var = self.find_input("dependent")
+        if trigger_var is None:
+            self.raise_error("Must be linked to an SDL variable")
+
+        # We're going to pick between xAgeSDLBoolRespond and xAgeSDLBoolAndRespond. The attributes
+        # are the same except the latter has an extra dependent variable as attribute 2. To avoid
+        # having to recode everything for the different IDs, we'll just use a counter.
+        attr_id_iter = itertools.count(1)
+        pfm = self._find_create_object(plPythonFileMod, exporter, so=so)
+        self._add_py_parameter(pfm, next(attr_id_iter), plPythonParameter.kString, trigger_var.variable_name)
+        if dependent_var is not None:
+            self._add_py_parameter(pfm, next(attr_id_iter), plPythonParameter.kString, dependent_var.variable_name)
+
+        # Important: attr_id_iter should be the second argument to zip() so that no elements are
+        # consumed from the counter when the responder name tuple is exhausted.
+        for resp_name, attr_id in zip(("satisfies_true", "satisfies_false"), attr_id_iter):
+            for resp_node in self.find_outputs(resp_name):
+                self._add_py_parameter(pfm, attr_id, plPythonParameter.kResponder, resp_node.get_key(exporter, so))
+
+        self._add_py_parameter(pfm, next(attr_id_iter), plPythonParameter.kBoolean, self.ffwd_vm)
+        self._add_py_parameter(pfm, next(attr_id_iter), plPythonParameter.kBoolean, self.ffwd_init)
+        pfm.filename = "xAgeSDLBoolAndRespond" if dependent_var is not None else "xAgeSDLBoolRespond"
+
+    @property
+    def export_once(self):
+        return True
 
 
 class PlasmaSDLSocketBase:
