@@ -310,6 +310,74 @@ class PlasmaExcludeMessageSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
     bl_color = (0.467, 0.576, 0.424, 1.0)
 
 
+class PlasmaSDLBoolGateNode(PlasmaNodeBase, bpy.types.Node):
+    bl_category = "LOGIC"
+    bl_idname = "PlasmaSDLBoolGateNode"
+    bl_label = "SDL Boolean Gate"
+
+    input_sockets: dict[str, dict[str, Any]] = {
+        "input_variable": {
+            "text": "Input SDL",
+            "type": "PlasmaSDLTriggererSocket",
+            "spawn_empty": True,
+        },
+    }
+
+    output_sockets: dict[str, dict[str, Any]] = {
+        "output_variable": {
+            "text": "Output SDL",
+            "type": "PlasmaSDLTriggereeSocket",
+            "link_limit": 1,
+        }
+    }
+
+    operation = EnumProperty(
+        name="Operation",
+        description="Boolean operation to apply to the input SDL variables",
+        items=[
+            ("AND", "AND", "Perform a logical AND"),
+            ("OR", "OR", "Perform a logical OR"),
+            ("NAND", "NAND", "Perform a logical NOT AND"),
+            ("XOR", "XOR", "Perform a logical eXclusive OR"),
+        ],
+        default="AND",
+        options=set()
+    )
+
+    def draw_buttons(self, context, layout: bpy.types.UILayout):
+        layout.props_enum(self, "operation")
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        input_sdl_variables = frozenset((i.variable_name for i in self.find_inputs("input_variable")))
+        output_sdl_node = self.find_output("output_variable")
+        if len(input_sdl_variables) < 2:
+            self.raise_error("At least two unique input SDL variables must be connected")
+        if output_sdl_node is None:
+            self.raise_error("Output SDL variable must be connected")
+
+        # The only SDL boolean gate script that exists out of the box is xAgeSDLBoolAndSet. This
+        # script takes two SDL variables, performs a logical AND, and stores the result in a third
+        # variable. I wrote xAgeSDLBoolAndSetV2 or take an arbitrary number of variables, AND them,
+        # and store the result. Since I was working, I also took the liberty of writing xAgeSDLBoolOrSet,
+        # which should be self explanatory. Because we have quite a few nonstandard scripts, let's
+        # special case AND with two variables for the standard script.
+        pfm = self._find_create_object(plPythonFileMod, exporter, so=so)
+        if self.operation == "AND" and len(input_sdl_variables) == 2:
+            pfm.filename = "xAgeSDLBoolAndSet"
+            sdl_node_iter = itertools.chain(input_sdl_variables, (output_sdl_node.variable_name,))
+            for attr_id, sdl_var in enumerate(sdl_node_iter, start=1):
+                self._add_py_parameter(pfm, attr_id, plPythonParameter.kString, sdl_var)
+        else:
+            pfm.filename = "xAgeSDLBoolGateSet"
+            self._add_py_parameter(pfm, 1, plPythonParameter.kString, ",".join(input_sdl_variables))
+            self._add_py_parameter(pfm, 2, plPythonParameter.kString, output_sdl_node.variable_name)
+            self._add_py_parameter(pfm, 3, plPythonParameter.kString, self.operation)
+
+    @property
+    def export_once(self) -> bool:
+        return True
+
+
 class PlasmaSDLBoolTriggerNode(PlasmaNodeBase, bpy.types.Node):
     bl_category = "LOGIC"
     bl_idname = "PlasmaSDLBoolTriggerNode"
