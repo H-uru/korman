@@ -319,6 +319,7 @@ class PlasmaSDLBoolGateNode(PlasmaNodeBase, bpy.types.Node):
         "input_variable": {
             "text": "Input SDL",
             "type": "PlasmaSDLTriggererSocket",
+            "min_sockets": 2,
             "spawn_empty": True,
         },
     }
