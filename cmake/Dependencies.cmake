@@ -189,7 +189,7 @@ endfunction()
 if(korman_BUILD_JPEG)
     korman_add_external_project(libjpeg-turbo
         GIT_REPOSITORY "https://github.com/libjpeg-turbo/libjpeg-turbo.git"
-        GIT_TAG 3.1.0
+        GIT_TAG 3.1.4.1
         CMAKE_CACHE_ARGS
             -DBUILD_SHARED_LIBS:BOOL=OFF
             -DENABLE_SHARED:BOOL=FALSE
@@ -202,7 +202,7 @@ endif()
 
 if(korman_BUILD_OGGVORBIS)
     korman_add_external_project(libogg
-        GIT_REPOSITORY "https://gitlab.xiph.org/xiph/ogg.git"
+        GIT_REPOSITORY "https://github.com/xiph/ogg.git"
         GIT_TAG v1.3.6
         CMAKE_CACHE_ARGS
             -DBUILD_SHARED_LIBS:BOOL=OFF
@@ -210,8 +210,8 @@ if(korman_BUILD_OGGVORBIS)
             -DINSTALL_DOCS:BOOL=OFF
     )
     korman_add_external_project(libvorbis
-        GIT_REPOSITORY "https://gitlab.xiph.org/xiph/vorbis.git"
-        GIT_TAG 2d79800b6751dddd4b8b4ad50832faa5ae2a00d9 # No official release in 5 years
+        GIT_REPOSITORY "https://github.com/xiph/vorbis.git"
+        GIT_TAG e3c9861ff096d52378e131ff8c334552e09cdffa # No official release in 5 years
         CMAKE_CACHE_ARGS
             -DBUILD_SHARED_LIBS:BOOL=OFF
     )
@@ -239,7 +239,7 @@ if(korman_BUILD_ZLIB)
     endif()
     korman_add_external_project(zlib
         GIT_REPOSITORY "https://github.com/zlib-ng/zlib-ng.git"
-        GIT_TAG 2.2.4
+        GIT_TAG 2.3.3
         CMAKE_CACHE_ARGS
             -DBUILD_SHARED_LIBS:BOOL=OFF
             -DZLIB_COMPAT:BOOL=ON
@@ -250,9 +250,9 @@ endif()
 
 if(korman_BUILD_PNG)
     korman_add_external_project(libpng
-        URL "https://sourceforge.net/projects/libpng/files/libpng16/1.6.45/libpng-1.6.45.tar.gz/download"
+        URL "https://sourceforge.net/projects/libpng/files/libpng16/1.6.58/libpng-1.6.58.tar.gz/download"
         DOWNLOAD_NAME "libpng-1.6.45.tar.gz"
-        URL_HASH "SHA256=7dee9e1ca8152bf52f919456f4190330aee48209887f2ec0b3d9f0ad571df11b"
+        URL_HASH "SHA256=8c9b05b675ca7301a458df2c2e46f26e1d41ff36b8863f8c33530bc58c2e6225"
         CMAKE_CACHE_ARGS
             -DBUILD_SHARED_LIBS:BOOL=OFF
             -DPNG_EXECUTABLES:BOOL=OFF
@@ -265,7 +265,7 @@ if(korman_BUILD_HSPLASMA)
     korman_add_external_project(HSPlasma
         GIT_REPOSITORY "https://github.com/H-uru/libhsplasma.git"
         # Be sure to increase this as the feature set used by Korman increases
-        GIT_TAG 0cb4c8ae05036ea47247a893e447a06f4707e76f
+        GIT_TAG f6abd295ae1a94346c3671efedd0004b59311ab7
         # We can only do shallow checkouts if the above is a branch or tag.
         GIT_SHALLOW FALSE
         CMAKE_CACHE_ARGS
