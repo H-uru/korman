@@ -17,12 +17,183 @@ from __future__ import annotations
 
 import bpy
 from bpy.props import *
+import itertools
 from typing import *
 from PyHSPlasma import *
 
 from .. import enum_props
+from ..exporter import Exporter
 from .node_core import *
 from .. import idprops
+
+class PlasmaChangeSDLNode(PlasmaNodeBase, bpy.types.Node):
+    bl_category = "LOGIC"
+    bl_idname = "PlasmaChangeSDLNode"
+    bl_label = "Change SDL"
+    bl_width_default = 200
+
+    input_sockets: dict[str, dict[str, Any]] = {
+        "condition": {
+            "text": "Condition",
+            "type": "PlasmaConditionSocket",
+            "spawn_empty": True,
+        },
+    }
+
+    output_sockets: dict[str, dict[str, Any]] = {
+        "variable": {
+            "text": "SDL",
+            "type": "PlasmaSDLTriggereeSocket",
+        }
+    }
+
+    action = EnumProperty(
+        name="Action",
+        items=[
+            ("TOGGLE", "Toggle Boolean", "Toggle a boolean SDL variable"),
+            ("SET_BOOL", "Set Boolean", "Set the boolean value of an SDL Variable"),
+            ("SET_INT", "Set Integer", "Set the integer value of an SDL Variable"),
+            ("INC_INT", "Increment Integer", "Increment the integer value of an SDL Variable"),
+            ("DEC_INT", "Decrement Integer", "Decrement the integer value of an SDL Variable"),
+        ],
+        options=set()
+    )
+
+    value_int = IntProperty(
+        name="Value",
+        options=set()
+    )
+
+    def _get_bool(self) -> bool:
+        return self.value_int != 0
+    def _set_bool(self, value: bool) -> None:
+        if self.value_int == 0 and value:
+            self.value_int = 1
+        if self.value_int != 0 and not value:
+            self.value_int = 0
+
+    value_bool = BoolProperty(
+        name="Value",
+        description="If checked, the value of the SDL Variable is true",
+        get=_get_bool,
+        set=_set_bool,
+        options=set()
+    )
+
+    count_behavior = EnumProperty(
+        name="Behavior",
+        description="",
+        items=[
+            ("UNBOUNDED", "[None]", "Don't use bounds for the SDL value"),
+            ("CLAMP", "Clamp", "Clamp the SDL value to the range provided"),
+            ("LOOP", "Loop", "Loop the SDL value within the range provided"),
+        ]
+    )
+
+    min_value = IntProperty(
+        name="Min",
+        description="Minimum value of the SDL variable",
+        default=0,
+        options=set()
+    )
+    max_value = IntProperty(
+        name="Max",
+        description="Maximum value of the SDL variable",
+        default=10,
+        options=set()
+    )
+
+    tag_string = StringProperty(
+        name="Extra Info",
+        description="Tag string sent along as extra info for the SDL variable change",
+        options=set()
+    )
+
+    def draw_buttons(self, context, layout):
+        layout.prop(self, "action")
+        if self.action == "SET_BOOL":
+            layout.prop(self, "value_bool")
+        elif self.action == "SET_INT":
+            layout.prop(self, "value_int")
+        elif self.action in {"INC_INT", "DEC_INT"}:
+            layout.prop(self, "count_behavior")
+            if self.count_behavior != "UNBOUNDED":
+                row = layout.row(align=True)
+                row.alert = self.min_value >= self.max_value
+                row.prop(self, "min_value")
+                row.prop(self, "max_value")
+        elif self.action == "TOGGLE":
+            pass
+        else:
+            raise ValueError(self.action)
+
+        layout.prop(self, "tag_string")
+
+    def get_key(self, exporter: Exporter, so: plSceneObject) -> plKey[plPythonFileMod]:
+        return self._find_create_key(plPythonFileMod, exporter, so=so)
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        variable_node = self.find_output("variable")
+        if variable_node is None:
+            self.raise_error("Must be connected to an SDL Variable")
+
+        # While we could technically use a thunk to simplify this, unfortunately, plAACO won't
+        # pass through the details about which avatar did the deed. xAgeSDLBoolToggle uses the
+        # anti-pattern `if PtFindAvatar(events) == PtGetLocalAvatar()` to detect if a notification
+        # is local. So, we'll connect the PFM directly to the host LogicMod.
+        logic_keys = [i.get_key(exporter, so) for i in self.find_inputs("condition")]
+        logic_keys_iter = (i for i in logic_keys if i is not None)
+        if not any(logic_keys):
+            self.raise_error("Must be connected to valid conditions!")
+
+        pfm = self._find_create_object(plPythonFileMod, exporter, so=so)
+        if self.action == "TOGGLE":
+            pfm.filename = "xAgeSDLBoolToggle"
+            for i in logic_keys_iter:
+                self._add_py_parameter(pfm, 1, plPythonParameter.kActivator, i)
+            self._add_py_parameter(pfm, 2, plPythonParameter.kString, variable_node.variable_name)
+            if self.tag_string:
+                self._add_py_parameter(pfm, 5, plPythonParameter.kString, self.tag_string)
+        elif self.action == "SET_BOOL":
+            pfm.filename = "xAgeSDLBoolSet"
+            for i in logic_keys_iter:
+                self._add_py_parameter(pfm, 1, plPythonParameter.kActivator, i)
+            self._add_py_parameter(pfm, 2, plPythonParameter.kString, variable_node.variable_name)
+            self._add_py_parameter(pfm, 7, plPythonParameter.kInt, self.value_int)
+            if self.tag_string:
+                self._add_py_parameter(pfm, 8, plPythonParameter.kString, self.tag_string)
+        elif self.action in {"INC_INT", "DEC_INT", "SET_INT"}:
+            pfm.filename = "xAgeSDLIntChange"
+            for i in logic_keys_iter:
+                self._add_py_parameter(pfm, 1, plPythonParameter.kActivator, i)
+            self._add_py_parameter(pfm, 2, plPythonParameter.kString, variable_node.variable_name)
+            self._add_py_parameter(pfm, 3, plPythonParameter.kBoolean, self.action == "INC_INT")
+            self._add_py_parameter(pfm, 4, plPythonParameter.kBoolean, self.action == "DEC_INT")
+            if self.action != "SET_INT":
+                # The xAgeSDLIntChange script doesn't really have an "unbounded" mode. But,
+                # we can fake it by passing in the min/max values of the underlying signed
+                # 32-bit integer store.
+                if self.count_behavior == "UNBOUNDED":
+                    min_value, max_value = 0x80000000, 0x7FFFFFFF
+                else:
+                    min_value = min(self.min_value, self.max_value)
+                    max_value = max(self.min_value, self.max_value)
+                if min_value == max_value:
+                    self.raise_error("Minimum and maximum values must not be the same!")
+                self._add_py_parameter(pfm, 5, plPythonParameter.kInt, min_value)
+                self._add_py_parameter(pfm, 6, plPythonParameter.kInt, max_value)
+                self._add_py_parameter(pfm, 7, plPythonParameter.kBoolean, self.count_behavior == "LOOP")
+            if self.tag_string:
+                self._add_py_parameter(pfm, 8, plPythonParameter.kString, self.tag_string)
+            if self.action == "SET_INT":
+                self._add_py_parameter(pfm, 9, plPythonParameter.kInt, self.value_int)
+        else:
+            raise ValueError(self.action)
+
+    @property
+    def export_once(self):
+        return True
+
 
 class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.types.Node):
     bl_category = "LOGIC"
@@ -137,3 +308,188 @@ class PlasmaExcludeSafePointSocket(idprops.IDPropObjectMixin, PlasmaNodeSocketBa
 
 class PlasmaExcludeMessageSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
     bl_color = (0.467, 0.576, 0.424, 1.0)
+
+
+class PlasmaSDLBoolGateNode(PlasmaNodeBase, bpy.types.Node):
+    bl_category = "LOGIC"
+    bl_idname = "PlasmaSDLBoolGateNode"
+    bl_label = "SDL Boolean Gate"
+
+    input_sockets: dict[str, dict[str, Any]] = {
+        "input_variable": {
+            "text": "Input SDL",
+            "type": "PlasmaSDLTriggererSocket",
+            "min_sockets": 2,
+            "spawn_empty": True,
+        },
+    }
+
+    output_sockets: dict[str, dict[str, Any]] = {
+        "output_variable": {
+            "text": "Output SDL",
+            "type": "PlasmaSDLTriggereeSocket",
+            "link_limit": 1,
+        }
+    }
+
+    operation = EnumProperty(
+        name="Operation",
+        description="Boolean operation to apply to the input SDL variables",
+        items=[
+            ("AND", "AND", "Perform a logical AND"),
+            ("OR", "OR", "Perform a logical OR"),
+            ("NAND", "NAND", "Perform a logical NOT AND"),
+            ("XOR", "XOR", "Perform a logical eXclusive OR"),
+        ],
+        default="AND",
+        options=set()
+    )
+
+    def draw_buttons(self, context, layout: bpy.types.UILayout):
+        layout.props_enum(self, "operation")
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        input_sdl_variables = frozenset((i.variable_name for i in self.find_inputs("input_variable")))
+        output_sdl_node = self.find_output("output_variable")
+        if len(input_sdl_variables) < 2:
+            self.raise_error("At least two unique input SDL variables must be connected")
+        if output_sdl_node is None:
+            self.raise_error("Output SDL variable must be connected")
+
+        # The only SDL boolean gate script that exists out of the box is xAgeSDLBoolAndSet. This
+        # script takes two SDL variables, performs a logical AND, and stores the result in a third
+        # variable. I wrote xAgeSDLBoolAndSetV2 or take an arbitrary number of variables, AND them,
+        # and store the result. Since I was working, I also took the liberty of writing xAgeSDLBoolOrSet,
+        # which should be self explanatory. Because we have quite a few nonstandard scripts, let's
+        # special case AND with two variables for the standard script.
+        pfm = self._find_create_object(plPythonFileMod, exporter, so=so)
+        if self.operation == "AND" and len(input_sdl_variables) == 2:
+            pfm.filename = "xAgeSDLBoolAndSet"
+            sdl_node_iter = itertools.chain(input_sdl_variables, (output_sdl_node.variable_name,))
+            for attr_id, sdl_var in enumerate(sdl_node_iter, start=1):
+                self._add_py_parameter(pfm, attr_id, plPythonParameter.kString, sdl_var)
+        else:
+            pfm.filename = "xAgeSDLBoolGateSet"
+            self._add_py_parameter(pfm, 1, plPythonParameter.kString, ",".join(input_sdl_variables))
+            self._add_py_parameter(pfm, 2, plPythonParameter.kString, output_sdl_node.variable_name)
+            self._add_py_parameter(pfm, 3, plPythonParameter.kString, self.operation)
+
+    @property
+    def export_once(self) -> bool:
+        return True
+
+
+class PlasmaSDLBoolTriggerNode(PlasmaNodeBase, bpy.types.Node):
+    bl_category = "LOGIC"
+    bl_idname = "PlasmaSDLBoolTriggerNode"
+    bl_label = "SDL Boolean Trigger"
+    bl_width_default = 170
+
+    input_sockets: dict[str, dict[str, Any]] = {
+        "variable": {
+            "text": "Triggered by SDL",
+            "type": "PlasmaSDLTriggererSocket",
+        },
+        "dependent": {
+            "text": "Dependends on SDL",
+            "type": "PlasmaSDLTriggererSocket",
+        }
+    }
+
+    output_sockets: dict[str, dict[str, Any]] = {
+        "satisfies_true": {
+            "text": "Trigger on True",
+            "type": "PlasmaConditionSocket",
+            "valid_link_nodes": {"PlasmaResponderNode"},
+        },
+        "satisfies_false": {
+            "text": "Trigger on False",
+            "type": "PlasmaConditionSocket",
+            "valid_link_nodes": {"PlasmaResponderNode"},
+        }
+    }
+
+    ffwd_init = BoolProperty(
+        name="F-Fwd on Init",
+        description="Fast-forward the matching Responder when the Age loads",
+        default=True,
+        options=set()
+    )
+    ffwd_vm = BoolProperty(
+        name="F-Fwd on VM",
+        description="Fast-forward the matching Responder when the SDL variable is changed in the Vault Manager",
+        default=True,
+        options=set()
+    )
+
+    def draw_buttons(self, context, layout: bpy.types.UILayout):
+        layout.prop(self, "ffwd_init")
+        layout.prop(self, "ffwd_vm")
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        trigger_var = self.find_input("variable")
+        dependent_var = self.find_input("dependent")
+        if trigger_var is None:
+            self.raise_error("Must be linked to an SDL variable")
+
+        # We're going to pick between xAgeSDLBoolRespond and xAgeSDLBoolAndRespond. The attributes
+        # are the same except the latter has an extra dependent variable as attribute 2. To avoid
+        # having to recode everything for the different IDs, we'll just use a counter.
+        attr_id_iter = itertools.count(1)
+        pfm = self._find_create_object(plPythonFileMod, exporter, so=so)
+        self._add_py_parameter(pfm, next(attr_id_iter), plPythonParameter.kString, trigger_var.variable_name)
+        if dependent_var is not None:
+            self._add_py_parameter(pfm, next(attr_id_iter), plPythonParameter.kString, dependent_var.variable_name)
+
+        # Important: attr_id_iter should be the second argument to zip() so that no elements are
+        # consumed from the counter when the responder name tuple is exhausted.
+        for resp_name, attr_id in zip(("satisfies_true", "satisfies_false"), attr_id_iter):
+            for resp_node in self.find_outputs(resp_name):
+                self._add_py_parameter(pfm, attr_id, plPythonParameter.kResponder, resp_node.get_key(exporter, so))
+
+        self._add_py_parameter(pfm, next(attr_id_iter), plPythonParameter.kBoolean, self.ffwd_vm)
+        self._add_py_parameter(pfm, next(attr_id_iter), plPythonParameter.kBoolean, self.ffwd_init)
+        pfm.filename = "xAgeSDLBoolAndRespond" if dependent_var is not None else "xAgeSDLBoolRespond"
+
+    @property
+    def export_once(self):
+        return True
+
+
+class PlasmaSDLSocketBase:
+    bl_color = (0.18, 0.55, 0.34, 1.0)
+
+
+class PlasmaSDLTriggererSocket(PlasmaSDLSocketBase, PlasmaNodeSocketBase, bpy.types.NodeSocket): pass
+class PlasmaSDLTriggereeSocket(PlasmaSDLSocketBase, PlasmaNodeSocketBase, bpy.types.NodeSocket): pass
+
+
+class PlasmaSDLVariableNode(PlasmaNodeBase, bpy.types.Node):
+    bl_category = "LOGIC"
+    bl_idname = "PlasmaSDLVariableNode"
+    bl_label = "SDL Variable"
+    bl_width_default = 200
+
+    input_sockets: dict[str, dict[str, Any]] = {
+        "condition": {
+            "text": "Changed By",
+            "type": "PlasmaSDLTriggereeSocket",
+        }
+    }
+
+    output_sockets: dict[str, dict[str, Any]] = {
+        "satisfies": {
+            "text": "Triggers",
+            "type": "PlasmaSDLTriggererSocket",
+        }
+    }
+
+    variable_name = StringProperty(
+        name="Variable",
+        description="Name of an SDL Variable",
+        options=set()
+    )
+
+    def draw_buttons(self, context, layout: bpy.types.UILayout):
+        layout.alert = not self.variable_name.strip()
+        layout.prop(self, "variable_name")

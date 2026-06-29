@@ -28,6 +28,13 @@ if TYPE_CHECKING:
     from ..exporter import Exporter
 
 class PlasmaNodeBase:
+    def _add_py_parameter(self, pfm: plPythonFileMod, id: int, param_type: int, value) -> None:
+        param = plPythonParameter()
+        param.id = id
+        param.valueType = param_type
+        param.value = value
+        pfm.addParameter(param)
+
     def generate_notify_msg(self, exporter: Exporter, so: plSceneObject, socket_id: str, idname: Optional[str] = None) -> plNotifyMsg:
         notify = plNotifyMsg()
         notify.BCastFlags = (plMessage.kNetPropagate | plMessage.kLocalPropagate)
@@ -339,21 +346,38 @@ class PlasmaNodeBase:
         # Create any missing sockets and spawn any required empties.
         for alias, options in defs.items():
             working_sockets = [(i, socket) for i, socket in enumerate(sockets) if socket.alias == alias]
+            num_sockets = options.get("min_sockets", 1)
+            num_used = sum((1 for i, socket in working_sockets if socket.is_linked))
             if not working_sockets:
-                self._spawn_socket(alias, options, sockets)
-            elif options.get("spawn_empty", False):
-                last_socket_id = next(reversed(working_sockets))[0]
-                for working_id, working_socket in working_sockets:
-                    if working_id == last_socket_id and working_socket.is_linked:
-                        new_socket_id = len(sockets)
-                        new_socket = self._spawn_socket(alias, options, sockets)
-                        desired_id = last_socket_id + 1
-                        if new_socket_id != desired_id:
-                            sockets.move(new_socket_id, desired_id)
-                    elif working_id < last_socket_id and not working_socket.is_linked:
+                for _ in range(num_sockets):
+                    self._spawn_socket(alias, options, sockets)
+            else:
+                last_socket_id = working_sockets[-1][0]
+                if options.get("spawn_empty", False):
+                    num_sockets = max(num_sockets, num_used + 1)
+
+                # Gather the sockets we have that are disconnected and preferentially remove the
+                # ones from the front of the list until we reach the minimum number of required
+                # sockets.
+                sockets_to_kill = len(working_sockets) - num_sockets
+                if sockets_to_kill > 0:
+                    dead_sockets = [
+                        i for i, (working_id, working_socket) in enumerate(working_sockets)
+                        if not working_socket.is_linked
+                    ]
+                    for i in reversed(dead_sockets[:sockets_to_kill]):
                         # Indices do not update until after the update() function finishes, so
                         # no need to decrement last_socket_id
-                        sockets.remove(working_socket)
+                        sockets.remove(working_sockets.pop(i)[1])
+
+                # Ensure that we have the minimum number of sockets spawned. This code will
+                # generally not execute.
+                for i in range(len(working_sockets), num_sockets):
+                    new_socket_id = len(sockets)
+                    new_socket = self._spawn_socket(alias, options, sockets)
+                    desired_id = last_socket_id + 1
+                    if new_socket_id != desired_id:
+                        sockets.move(new_socket_id, desired_id)
 
     def _update_extant_sockets(self, defs, sockets):
         # Manually enumerate the sockets that are present for their presence and for the
