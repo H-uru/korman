@@ -283,6 +283,14 @@ class PhysicsConverter:
 
         self._apply_props(simIface, physical, kwargs)
 
+        # Sanity: A UI item can't be a UI blocker. That would cause it to block itself!
+        exclusive_mask = (plSimDefs.kLOSDBUIBlockers | plSimDefs.kLOSDBUIItems)
+        if physical.LOSDBs & exclusive_mask == exclusive_mask:
+            self._report.warn(
+                f"{bo.name}: Block clickables setting would mask this clickable, disabling"
+            )
+            physical.LOSDBs &= ~plSimDefs.kLOSDBUIBlockers
+
     def _export_box(self, bo, physical, local_space, mat):
         """Exports box bounds based on the object"""
         physical.boundsType = plSimDefs.kBoxBounds
