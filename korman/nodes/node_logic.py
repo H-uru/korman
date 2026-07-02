@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import bpy
 from bpy.props import *
+from collections import Counter
 import itertools
 from typing import *
 from PyHSPlasma import *
@@ -25,6 +26,7 @@ from .. import enum_props
 from ..exporter import Exporter
 from .node_core import *
 from .. import idprops
+from ..ui.ui_list import draw_node_list
 
 class PlasmaChangeSDLNode(PlasmaNodeBase, bpy.types.Node):
     bl_category = "LOGIC"
@@ -462,6 +464,103 @@ class PlasmaSDLSocketBase:
 
 class PlasmaSDLTriggererSocket(PlasmaSDLSocketBase, PlasmaNodeSocketBase, bpy.types.NodeSocket): pass
 class PlasmaSDLTriggereeSocket(PlasmaSDLSocketBase, PlasmaNodeSocketBase, bpy.types.NodeSocket): pass
+
+
+class SDLValueMap(bpy.types.PropertyGroup):
+    input_value = IntProperty(
+        name="Original State",
+        description="Original SDL Value that we're going to convert from",
+        options=set()
+    )
+
+    output_value = IntProperty(
+        name="New State",
+        description="Output SDL Value that we will convert to",
+        options=set()
+    )
+
+
+class PlasmaSDLValueMapNode(PlasmaNodeBase, bpy.types.Node):
+    bl_category = "LOGIC"
+    bl_idname = "PlasmaSDLValueMapNode"
+    bl_label = "SDL Value Map"
+    bl_width_default = 250
+
+    input_sockets: dict[str, dict[str, Any]] = {
+        "input_variable": {
+            "text": "Input SDL",
+            "type": "PlasmaSDLTriggererSocket",
+        },
+    }
+
+    output_sockets: dict[str, dict[str, Any]] = {
+        "output_variable": {
+            "text": "Output SDL",
+            "type": "PlasmaSDLTriggereeSocket",
+            "link_limit": 1,
+        }
+    }
+
+    tag_string = StringProperty(
+        name="Extra Info",
+        description="Tag string sent along as extra info for the SDL variable change",
+        options=set()
+    )
+
+    value_map = CollectionProperty(type=SDLValueMap)
+
+    def draw_buttons(self, context, layout: bpy.types.UILayout):
+        draw_node_list(
+            self,
+            layout,
+            "value_map",
+            self._draw_value,
+            header="Map SDL Values",
+            footer="Add New Mapping"
+        )
+        layout.prop(self, "tag_string")
+
+    def _draw_value(self, value: SDLValueMap, layout: bpy.types.UILayout):
+        other_input_values = frozenset((i.input_value for i in self.value_map if i != value))
+        layout.alert = value.input_value in other_input_values
+        layout.prop(value, "input_value", text="From")
+        layout.alert = False
+        layout.prop(value, "output_value", text="To")
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        input_variable = self.find_input("input_variable")
+        if input_variable is None:
+            self.raise_error("Must be linked to an input SDL variable")
+
+        output_variable = self.find_output("output_variable")
+        if output_variable is None:
+            self.raise_error("Must be linked to an output SDL variable")
+
+        # Ensure no states are duplicated. That would be bad.
+        counter = Counter((i for i, _ in self._iter_items()))
+        dupes = [str(state) for state, count in counter.items() if count > 1]
+        if dupes:
+            self.raise_error(
+                f"The following states are duplicated: '{f', '.join((str(i) for i in dupes))}'"
+            )
+
+        pfm = self._find_create_object(plPythonFileMod, exporter, so=so)
+        pfm.filename = "xAgeSDLVarSet"
+        self._add_py_parameter(pfm, 1, plPythonParameter.kString, input_variable.variable_name)
+        self._add_py_parameter(pfm, 2, plPythonParameter.kString, output_variable.variable_name)
+        self._add_py_parameter(
+            pfm, 3, plPythonParameter.kString,
+            "".join((f"({i},{j})" for i, j in self._iter_items()))
+        )
+        self._add_py_parameter(pfm, 4, plPythonParameter.kString, self.tag_string)
+
+    @property
+    def export_once(self):
+        return True
+
+    def _iter_items(self) -> Iterator[Tuple[int, int]]:
+        for i in self.value_map:
+            yield (i.input_value, i.output_value)
 
 
 class PlasmaSDLVariableNode(PlasmaNodeBase, bpy.types.Node):
