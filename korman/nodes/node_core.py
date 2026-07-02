@@ -422,6 +422,9 @@ class PlasmaNodeBase:
             # Make sure the link is good
             allowed_sockets = options.get("valid_link_sockets", None)
             allowed_nodes = options.get("valid_link_nodes", None)
+            validate_func = options.get("validate_func", None)
+            if validate_func is not None:
+                validate_func = getattr(node, validate_func)
 
             # The socket may decide it doesn't want anyone linked to it.
             can_link_attr = options.get("can_link", None)
@@ -440,7 +443,7 @@ class PlasmaNodeBase:
             # Helpful default... If neither are set, require the link to be to the same socket type
             if allowed_nodes is None and allowed_sockets is None:
                 allowed_sockets = frozenset((options["type"],))
-            if allowed_sockets or allowed_nodes:
+            if any((allowed_sockets, allowed_nodes, validate_func)):
                 for link in socket.links:
                     if allowed_nodes:
                         to_from_node = link.to_node if socket.is_output else link.from_node
@@ -457,6 +460,15 @@ class PlasmaNodeBase:
                         if to_from_socket is None or to_from_socket.bl_idname not in allowed_sockets:
                             try:
                                 self._tattle(socket, link, "(bad socket)")
+                                self.id_data.links.remove(link)
+                            except RuntimeError:
+                                # was already removed by someone else
+                                pass
+                            continue
+                    if validate_func is not None:
+                        if not validate_func(socket, link):
+                            try:
+                                self._tattle(socket, link, "(validation func failed)")
                                 self.id_data.links.remove(link)
                             except RuntimeError:
                                 # was already removed by someone else
