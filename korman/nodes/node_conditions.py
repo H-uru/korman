@@ -25,6 +25,7 @@ from .. import enum_props
 from .node_core import *
 from .node_deprecated import PlasmaVersionedNode
 from .. import idprops
+from ..ui.ui_list import draw_node_list
 
 class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaVersionedNode, bpy.types.Node):
     bl_category = "CONDITIONS"
@@ -68,6 +69,7 @@ class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaVersionedNode, bpy.ty
             "text": "Satisfies",
             "type": "PlasmaConditionSocket",
             "valid_link_sockets": {"PlasmaConditionSocket", "PlasmaPythonFileNodeSocket"},
+            "validate_func": "validate_satisfy_link",
         },
     }
 
@@ -176,6 +178,18 @@ class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaVersionedNode, bpy.ty
             # Version 2 was created in Korman 0.17, no changes required.
             self.version = 3
 
+    def validate_satisfy_link(self, socket: bpy.types.NodeSocket, link: bpy.types.NodeLink) -> bool:
+        # If any of the links are a clickable SDL node, then we can only allow that SINGLE node
+        # to be linked.
+        sdl_link_iter = (
+            i for i in socket.links
+            if i.to_node.bl_idname == "PlasmaClickableSDLNode"
+        )
+        first_sdl_link = next(sdl_link_iter, None)
+        if first_sdl_link is not None and first_sdl_link != link:
+            return False
+        return True
+
 
 class PlasmaClickableRegionNode(idprops.IDPropObjectMixin, PlasmaVersionedNode, bpy.types.Node):
     bl_category = "CONDITIONS"
@@ -253,6 +267,119 @@ class PlasmaClickableRegionNode(idprops.IDPropObjectMixin, PlasmaVersionedNode, 
         if self.version == 1:
             enum_props.upgrade_bounds(self, "bounds")
             self.version = 2
+
+
+class ClickableSDLValue(bpy.types.PropertyGroup):
+    value = IntProperty(
+        name="SDL Value",
+        description="Enable the clickable when the SDL Variable is set to this",
+        default=1,
+        options=set()
+    )
+
+
+class PlasmaClickableSDLNode(PlasmaNodeBase, bpy.types.Node):
+    bl_category = "CONDITIONS"
+    bl_idname = "PlasmaClickableSDLNode"
+    bl_label = "SDL Clickable"
+    bl_width_default = 170
+
+    # These can satisfy Python activator attributes just like the clickable node.
+    pl_attrib = {"ptAttribActivator", "ptAttribActivatorList", "ptAttribNamedActivator"}
+
+    input_sockets: dict[str, dict[str, Any]] = {
+        "condition": {
+            "text": "Clickable Condition",
+            "type": "PlasmaConditionSocket",
+            # This could theoretically work on any activator that respects plEnableMsg being sent
+            # to its SceneObject. At this time, though, it might be best to limit it to clickables
+            # to prevent surprises.
+            "valid_link_nodes": {"PlasmaClickableNode"},
+        },
+        "variable": {
+            "text": "Dependends on SDL",
+            "type": "PlasmaSDLTriggererSocket",
+        },
+    }
+
+    output_sockets: dict[str, dict[str, Any]] = {
+        "satisfies": {
+            "text": "Satisfies",
+            "type": "PlasmaConditionSocket",
+            "valid_link_sockets": {"PlasmaConditionSocket", "PlasmaPythonFileNodeSocket"},
+        }
+    }
+
+    states = CollectionProperty(type=ClickableSDLValue)
+
+    def init(self, context):
+        self.states.add()
+
+    def draw_buttons(self, context, layout: bpy.types.UILayout):
+        draw_node_list(
+            self,
+            layout,
+            "states",
+            self._draw_state,
+            header="Enable Clickable On",
+            footer="Add New State"
+        )
+
+    def _draw_state(self, state, layout: bpy.types.UILayout):
+        layout.alert = any((state.value == i.value for i in self.states if i != state))
+        layout.prop(state, "value")
+
+    def get_key(self, exporter, so):
+        clickable_node = self.find_input("condition")
+        if clickable_node is None:
+            self.raise_error("Must be linked to a clickable!")
+        return clickable_node.get_key(exporter, so)
+
+    def get_notify_key(self, exporter, so):
+        return [i.get_key(exporter, so) for i in self.find_outputs("satisfies")]
+
+    def export(self, exporter, bo, so):
+        clickable_node = self.find_input("condition")
+        if clickable_node is None:
+            self.raise_error("Condition must be linked!")
+
+        # If the artist has removed all of the state values from the node, don't export anything.
+        # This will (hopefully) be the least surprising option in this case. Remember: Blender
+        # property collections don't handle implicit truthiness correctly.
+        if not bool(self.states):
+            exporter.report.warn("No 'enabled' states specified for clickable, assuming always enabled")
+            return
+
+        _, clickable_so = clickable_node._get_objects(exporter, so)
+        pfm = self._find_create_object(plPythonFileMod, exporter, so=clickable_so)
+        exported = bool(pfm.filename)
+        logic_key = clickable_node.get_key(exporter, clickable_so)
+
+        # If we've already been exported, we just need to add the logic key, if it's not already
+        # present in the PFM's list of activators.
+        if exported:
+            extant_keys = frozenset((i.value for i in pfm.parameters if i.id == 2))
+            if logic_key not in extant_keys:
+                self._add_py_parameter(pfm, 2, plPythonParameter.kActivator, logic_key)
+        else:
+            variable_node = self.find_input("variable")
+            if variable_node is None:
+                self.raise_error("SDL Variable must be linked!")
+
+            pfm.filename = "xAgeSDLIntActEnabler"
+            self._add_py_parameter(pfm, 1, plPythonParameter.kString, variable_node.variable_name)
+            self._add_py_parameter(
+                pfm, 3, plPythonParameter.kString, ",".join(frozenset((str(i.value) for i in self.states)))
+            )
+            # Yep, out of order, but I want to keep all of the activators at the end of the list.
+            self._add_py_parameter(pfm, 2, plPythonParameter.kActivator, logic_key)
+
+    @property
+    def export_once(self):
+        clickable_node = self.find_input("condition")
+        if clickable_node is not None:
+            return clickable_node.export_once
+        return True
 
 
 class PlasmaClickableRegionSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
