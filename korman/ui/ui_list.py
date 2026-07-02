@@ -79,7 +79,7 @@ def draw_list(layout, listtype, context_attr, prop_base, collection_name, index_
        - index_name: name of the active element index property
        - name_prefix: (optional) prefix to apply to display name of new elements
        - name_prop: (optional) property for each element's display name
-       *** any other arguments are passed as keyword arguments to the template_list call 
+       *** any other arguments are passed as keyword arguments to the template_list call
     """
     prop_path = prop_base.path_from_id()
     name_prefix = kwargs.pop("name_prefix", "")
@@ -104,3 +104,35 @@ def draw_list(layout, listtype, context_attr, prop_base, collection_name, index_
 
 def draw_modifier_list(layout, listtype, prop_base, collection_name, index_name, **kwargs):
     draw_list(layout, listtype, "object", prop_base, collection_name, index_name, **kwargs)
+
+def draw_node_list(
+    node: bpy.types.Node,
+    layout: bpy.types.UILayout,
+    collection_name: str,
+    draw_func: Callable[[Any, bpy.types.UILayout], None],
+    *,
+    header: str = "",
+    footer: str = "",
+) -> None:
+    """
+    Draws a simplified list for nodes. Nodes are much more compact in UI space than modifiers are,
+    so this won't use the traditional UIList. However, we will still use the helper operators we
+    all know and love.
+    """
+    if header:
+        layout.label(f"{header}:")
+
+    layout = layout.column(align=True)
+    for i, item in enumerate(getattr(node, collection_name)):
+        row = layout.row(align=True)
+        draw_func(item, row.row(align=True))
+        op = row.operator("ui.plasma_collection_remove", text="", icon="ZOOMOUT")
+        op.context = "space_data.node_tree"
+        op.group_path = node.path_from_id()
+        op.collection_prop = collection_name
+        op.manual_index = i
+
+    op = layout.operator("ui.plasma_collection_add", text=footer, icon="ZOOMIN")
+    op.context = "space_data.node_tree"
+    op.group_path = node.path_from_id()
+    op.collection_prop = collection_name
