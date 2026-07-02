@@ -35,22 +35,40 @@ class PlasmaNodeBase:
         param.value = value
         pfm.addParameter(param)
 
+    def iter_notify_keys(
+        self,
+        exporter: Exporter,
+        so: plSceneObject,
+        socket_id: str,
+        idname: Optional[str] = None
+    ) -> Iterator[plKey]:
+        for i in self.find_outputs(socket_id, idname):
+            key = i.get_notify_key(exporter, so)
+            if key is None:
+                exporter.report.warn(
+                    f"'{i.bl_idname}' Node '{i.name}' doesn't expose a key."
+                    f"It won't be triggered by '{self.name}'!"
+                )
+            elif isinstance(key, plKey):
+                yield key
+            else:
+                for i in key:
+                    yield i
+
     def generate_notify_msg(self, exporter: Exporter, so: plSceneObject, socket_id: str, idname: Optional[str] = None) -> plNotifyMsg:
         notify = plNotifyMsg()
         notify.BCastFlags = (plMessage.kNetPropagate | plMessage.kLocalPropagate)
-        for i in self.find_outputs(socket_id, idname):
-            key = i.get_key(exporter, so)
-            if key is None:
-                exporter.report.warn(f"'{i.bl_idname}' Node '{i.name}' doesn't expose a key. It won't be triggered by '{self.name}'!")
-            elif isinstance(key, tuple):
-                for i in key:
-                    notify.addReceiver(key)
-            else:
-                notify.addReceiver(key)
+        for i in self.iter_notify_keys(exporter, so, socket_id, idname):
+            notify.addReceiver(i)
         return notify
 
-    def get_key(self, exporter: Exporter, so: plSceneObject) -> Optional[plKey]:
+    def get_key(self, exporter: Exporter, so: plSceneObject) -> Union[None, plKey, Iterable[plKey]]:
         return None
+
+    def get_notify_key(self, exporter: Exporter, so: plSceneObject) -> Union[None, plKey, Iterable[plKey]]:
+        # This is an optional safety valve to allow a node to send notifies to something other than
+        # itself, allowing clever proxying to other objects.
+        return self.get_key(exporter, so)
 
     def get_key_name(self, single, suffix=None, bl=None, so=None):
         assert bl or so
