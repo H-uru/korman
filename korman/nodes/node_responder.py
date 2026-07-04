@@ -64,14 +64,61 @@ class _ResponderStateMgr:
         self.states.append(_ResponderState(node, plResponderModifier_State()))
 
 
-class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
+class PlasmaResponderNodeBase(PlasmaNodeBase):
+    # These are the Python attributes we can fill in
+    pl_attrib = {"ptAttribResponder", "ptAttribResponderList", "ptAttribNamedResponder"}
+
+    def create_responder(
+        self,
+        exporter: Exporter,
+        bo: bpy.types.Object,
+        so: plSceneObject
+    ) -> plResponderModifier:
+        responder = self.get_key(exporter, so).object
+
+        # Ensure there is not already a Responder that matches this name in the PRP
+        # if we are a named responder. This will be a very rare error - the responder must
+        # be linked to a ptAttribNamedResponder for this to trigger.
+        if self.is_named_responder and responder.states:
+            self.raise_error(f"A Responder named '{self.name}' has already been exported to this page.")
+        if not bo.plasma_net.manual_sdl:
+            responder.setExclude("Responder")
+
+        return responder
+
+    def get_key(self, exporter, so) -> plKey[plResponderModifier]:
+        return self._find_create_key(plResponderModifier, exporter, so=so)
+
+    def get_key_name(self, single, suffix=None, bl=None, so=None) -> str:
+        # If we're connected to a ptAttribNamedResponder, then we need to use our exact
+        # name in the node tree. This introduces potential collisions, so named responders
+        # are opt-in behavior.
+        if self.is_named_responder:
+            return self.name
+        else:
+            return super().get_key_name(single, suffix, bl, so)
+
+    @property
+    def export_once(self):
+        # What exactly is a reused responder? All the messages are directed, after all...
+        return True
+
+    @property
+    def is_named_responder(self) -> bool:
+        # Check to see if any of the Python attributes that we're linked to are ptAttribNamedResponder.
+        # We'll need to navigate from our keyref output socket (PFM socket) to the PFM attribute
+        # socket and test the `attribute_type` for all links.
+        return any(
+            (i.to_socket.attribute_type == "ptAttribNamedResponder"
+             for i in self.find_output_socket("keyref").links)
+        )
+
+
+class PlasmaResponderNode(PlasmaVersionedNode, PlasmaResponderNodeBase, bpy.types.Node):
     bl_category = "LOGIC"
     bl_idname = "PlasmaResponderNode"
     bl_label = "Responder"
     bl_width_default = 145
-
-    # These are the Python attributes we can fill in
-    pl_attrib = {"ptAttribResponder", "ptAttribResponderList", "ptAttribNamedResponder"}
 
     detect_trigger = BoolProperty(name="Detect Trigger",
                                   description="When notified, trigger the Responder",
@@ -123,29 +170,8 @@ class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
         layout.prop(self, "detect_untrigger")
         layout.prop(self, "no_ff_sounds")
 
-    def get_key(self, exporter, so) -> plKey[plResponderModifier]:
-        return self._find_create_key(plResponderModifier, exporter, so=so)
-
-    def get_key_name(self, single, suffix=None, bl=None, so=None) -> str:
-        # If we're connected to a ptAttribNamedResponder, then we need to use our exact
-        # name in the node tree. This introduces potential collisions, so named responders
-        # are opt-in behavior.
-        if self.is_named_responder:
-            return self.name
-        else:
-            return super().get_key_name(single, suffix, bl, so)
-
     def export(self, exporter, bo, so):
-        # Ensure there is not already a Responder that matches this name in the PRP
-        # if we are a named responder. This will be a very rare error - the responder must
-        # be linked to a ptAttribNamedResponder for this to trigger.
-        if self.is_named_responder and self._find_key(plResponderModifier, exporter, so=so):
-            self.raise_error(f"A Responder named '{self.name}' has already been exported to this page.")
-
-        responder = self.get_key(exporter, so).object
-        if not bo.plasma_net.manual_sdl:
-            responder.setExclude("Responder")
-
+        responder = self.create_responder(exporter, bo, so)
         if self.detect_trigger:
             responder.flags |= plResponderModifier.kDetectTrigger
         if self.detect_untrigger:
@@ -159,21 +185,6 @@ class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
         for stateNode in self.find_outputs("state_refs", "PlasmaResponderStateNode"):
             stateMgr.register_state(stateNode)
         stateMgr.convert_states(exporter, so)
-
-    @property
-    def export_once(self):
-        # What exactly is a reused responder? All the messages are directed, after all...
-        return True
-
-    @property
-    def is_named_responder(self) -> bool:
-        # Check to see if any of the Python attributes that we're linked to are ptAttribNamedResponder.
-        # We'll need to navigate from our keyref output socket (PFM socket) to the PFM attribute
-        # socket and test the `attribute_type` for all links.
-        return any(
-            (i.to_socket.attribute_type == "ptAttribNamedResponder"
-             for i in self.find_output_socket("keyref").links)
-        )
 
     @property
     def latest_version(self):
