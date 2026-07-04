@@ -458,6 +458,135 @@ class PlasmaSDLBoolTriggerNode(PlasmaNodeBase, bpy.types.Node):
         return True
 
 
+class SDLRespMap(bpy.types.PropertyGroup):
+    value = IntProperty(
+        name="SDL Value",
+        description="SDL value that we should use to trigger the Responder",
+        options=set()
+    )
+
+    state = IntProperty(
+        name="Responder State",
+        description="State ID we should trigger on the Responder",
+        min=0,
+        options=set(),
+        subtype="UNSIGNED"
+    )
+
+
+class PlasmaSDLIntTrigger(PlasmaNodeBase, bpy.types.Node):
+    bl_category = "LOGIC"
+    bl_idname = "PlasmaSDLIntTriggerNode"
+    bl_label = "SDL Integer Trigger"
+    bl_width_default = 200
+
+    input_sockets: dict[str, dict[str, Any]] = {
+        "variable": {
+            "text": "Triggered by SDL",
+            "type": "PlasmaSDLTriggererSocket",
+        },
+    }
+
+    output_sockets: dict[str, dict[str, Any]] = {
+        "satisfies": {
+            "text": "Trigger on Match",
+            "type": "PlasmaConditionSocket",
+            "link_limit": 1,
+            # Because this node expects to use responder states, basic responders have no place
+            # being linked here. Sorry.
+            "valid_link_nodes": {"PlasmaResponderNode"},
+        },
+    }
+
+    behavior = EnumProperty(
+        name="Trigger",
+        description="Define the strategy for triggering the attached Responder's states",
+        items=[
+            ("FIRE_STATE", "Matching", "Trigger the state ID matching the SDL Variable's value as shown in Korman"),
+            ("MAP_STATE", "Mapped", "Use a manual SDL value to Responder State mapping"),
+        ],
+        options=set()
+    )
+    state_map = CollectionProperty(type=SDLRespMap)
+    ffwd_init = BoolProperty(
+        name="F-Fwd on Init",
+        description="Fast-forward the matching Responder when the Age loads",
+        default=True,
+        options=set()
+    )
+    ffwd_vm = BoolProperty(
+        name="F-Fwd on VM",
+        description="Fast-forward the matching Responder when the SDL variable is changed in the Vault Manager",
+        default=True,
+        options=set()
+    )
+
+    def count_num_resp_states(self, resp_node: Optional[PlasmaNodeBase]) -> int:
+        if resp_node is None:
+            return 0
+        return sum((1 for _ in resp_node.find_outputs("state_refs")))
+
+    def draw_buttons(self, context, layout: bpy.types.UILayout):
+        layout.prop(self, "behavior")
+        if self.behavior == "MAP_STATE":
+            draw_node_list(
+                self,
+                layout,
+                "state_map",
+                self._draw_value,
+                footer="Add SDL State"
+            )
+        layout.prop(self, "ffwd_init")
+        layout.prop(self, "ffwd_vm")
+
+    def _draw_value(self, item: SDLRespMap, layout: bpy.types.UILayout):
+        other_input_values = frozenset((i.value for i in self.state_map if i != item))
+        num_states = self.count_num_resp_states(self.find_output("satisfies"))
+        layout.alert = item.value in other_input_values
+        layout.prop(item, "value", text="SDL")
+        layout.alert = item.state >= num_states
+        layout.prop(item, "state", text="ID")
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        input_variable = self.find_input("variable")
+        if input_variable is None:
+            self.raise_error("Must be linked to an input SDL variable")
+
+        resp_node = self.find_output("satisfies")
+        if resp_node is None:
+            self.raise_error("Must be linked to a Responder node")
+
+        pfm = self._find_create_object(plPythonFileMod, exporter, so=so)
+        pfm.filename = "xAgeSDLIntStateListResp"
+        self._add_py_parameter(pfm, 1, plPythonParameter.kString, input_variable.variable_name)
+        self._add_py_parameter(pfm, 2, plPythonParameter.kResponder, resp_node.get_key(exporter, so))
+        self._add_py_parameter(
+            pfm, 3, plPythonParameter.kString,
+            "".join((f"({i},{j})" for i, j in self._iter_items(resp_node)))
+        )
+        self._add_py_parameter(pfm, 4, plPythonParameter.kBoolean, self.ffwd_init)
+        self._add_py_parameter(pfm, 5, plPythonParameter.kBoolean, self.ffwd_vm)
+
+    def _iter_items(self, resp_node: PlasmaNodeBase) -> Iterator[Tuple[int, int]]:
+        num_states = self.count_num_resp_states(resp_node)
+        if self.behavior == "FIRE_STATE":
+            for i in range(num_states):
+                yield i, i
+        elif self.behavior == "MAP_STATE":
+            counter = Counter((str(i.value) for i in self.state_map))
+            dupe_values = [str(i) for i, j in counter.items() if j > 1]
+            if dupe_values:
+                self.raise_error(f"The following SDL Values are duplicated: '{f', '.join(dupe_values)}'")
+            oob_states = frozenset((str(i.state) for i in self.state_map if i.state >= num_states))
+            if oob_states:
+                self.raise_error(f"The following Responder states do not exist: '{f', '.join(oob_states)}'")
+
+            for i in self.state_map:
+                yield i.value, i.state
+        else:
+            raise ValueError(self.behavior)
+
+
 class PlasmaSDLSocketBase:
     bl_color = (0.18, 0.55, 0.34, 1.0)
 
