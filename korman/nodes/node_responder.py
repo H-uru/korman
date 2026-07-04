@@ -25,6 +25,41 @@ import uuid
 from .node_core import *
 from .node_deprecated import PlasmaVersionedNode
 
+class _ResponderStateMgr:
+    def __init__(self, respNode: PlasmaNodeBase, respMod: plResponderModifier):
+        self.states = []
+        self.parent = respNode
+        self.responder = respMod
+        self.has_pfm = respNode.find_output("keyref") is not None
+
+    def convert_states(self, exporter, so):
+        # This could implicitly export more states...
+        i = 0
+        while i < len(self.states):
+            node, state = self.states[i]
+            node.convert_state(exporter, so, state, i, self)
+            i += 1
+
+        if not self.states:
+            self.parent.raise_error("No states converted by Responder node")
+
+        resp = self.responder
+        resp.clearStates()
+        for node, state in self.states:
+            resp.addState(state)
+
+    def get_state(self, node):
+        for idx, (theNode, theState) in enumerate(self.states):
+            if theNode == node:
+                return (idx, theState)
+        state = plResponderModifier_State()
+        self.states.append((node, state))
+        return (len(self.states) - 1, state)
+
+    def register_state(self, node):
+        self.states.append((node, plResponderModifier_State()))
+
+
 class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
     bl_category = "LOGIC"
     bl_idname = "PlasmaResponderNode"
@@ -115,42 +150,8 @@ class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
             responder.flags |= plResponderModifier.kSkipFFSound
         responder.curState = self.default_state
 
-        class ResponderStateMgr:
-            def __init__(self, respNode, respMod):
-                self.states = []
-                self.parent = respNode
-                self.responder = respMod
-                self.has_pfm = respNode.find_output("keyref") is not None
-
-            def convert_states(self, exporter, so):
-                # This could implicitly export more states...
-                i = 0
-                while i < len(self.states):
-                    node, state = self.states[i]
-                    node.convert_state(exporter, so, state, i, self)
-                    i += 1
-
-                if not self.states:
-                    self.parent.raise_error("No states converted by Responder node")
-
-                resp = self.responder
-                resp.clearStates()
-                for node, state in self.states:
-                    resp.addState(state)
-
-            def get_state(self, node):
-                for idx, (theNode, theState) in enumerate(self.states):
-                    if theNode == node:
-                        return (idx, theState)
-                state = plResponderModifier_State()
-                self.states.append((node, state))
-                return (len(self.states) - 1, state)
-
-            def register_state(self, node):
-                self.states.append((node, plResponderModifier_State()))
-
         # Convert the Responder states
-        stateMgr = ResponderStateMgr(self, responder)
+        stateMgr = _ResponderStateMgr(self, responder)
         for stateNode in self.find_outputs("state_refs", "PlasmaResponderStateNode"):
             stateMgr.register_state(stateNode)
         stateMgr.convert_states(exporter, so)
