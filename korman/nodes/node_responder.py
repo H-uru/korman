@@ -20,19 +20,23 @@ from bpy.props import *
 from typing import *
 import inspect
 from PyHSPlasma import *
-import uuid
 
 from .node_core import *
 from .node_deprecated import PlasmaVersionedNode
 
+class _ResponderState(NamedTuple):
+    node: PlasmaResponderStateNode
+    state: plResponderModifier_State
+
+
 class _ResponderStateMgr:
     def __init__(self, respNode: PlasmaNodeBase, respMod: plResponderModifier):
-        self.states = []
+        self.states: List[_ResponderState] = []
         self.parent = respNode
         self.responder = respMod
         self.has_pfm = respNode.find_output("keyref") is not None
 
-    def convert_states(self, exporter, so):
+    def convert_states(self, exporter: Exporter, so: plSceneObject):
         # This could implicitly export more states...
         i = 0
         while i < len(self.states):
@@ -48,16 +52,16 @@ class _ResponderStateMgr:
         for node, state in self.states:
             resp.addState(state)
 
-    def get_state(self, node):
+    def get_state(self, node) -> Tuple[int, plResponderModifier_State]:
         for idx, (theNode, theState) in enumerate(self.states):
             if theNode == node:
                 return (idx, theState)
         state = plResponderModifier_State()
-        self.states.append((node, state))
+        self.states.append(_ResponderState(node, state))
         return (len(self.states) - 1, state)
 
     def register_state(self, node):
-        self.states.append((node, plResponderModifier_State()))
+        self.states.append(_ResponderState(node, plResponderModifier_State()))
 
 
 class PlasmaResponderNode(PlasmaVersionedNode, bpy.types.Node):
@@ -270,7 +274,14 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
         layout.active = self.find_input("resp") is not None
         layout.prop(self, "default_state")
 
-    def convert_state(self, exporter, so, state, idx, stateMgr):
+    def convert_state(
+        self,
+        exporter: Exporter,
+        so: plSceneObject,
+        state: plResponderModifier_State,
+        idx: int,
+        stateMgr: _ResponderStateMgr
+    ):
         # Where do we go from heah?
         toStateNode = self.find_output("gotostate", "PlasmaResponderStateNode")
         if toStateNode is None:
