@@ -15,7 +15,9 @@
 
 import bmesh
 import bpy
+
 from contextlib import contextmanager
+import functools
 import math
 from typing import *
 from uuid import uuid4
@@ -59,6 +61,15 @@ class GoodNeighbor:
         for (cls, attr), value in self._tracking.items():
             setattr(cls, attr, value)
 
+def run_once(f):
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        if not wrapper.has_run:
+            wrapper.has_run = True
+            return f(*args, **kwargs)
+
+    wrapper.has_run = False
+    return wrapper
 
 @contextmanager
 def TemporaryCollectionItem(collection):

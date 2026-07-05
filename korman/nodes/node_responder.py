@@ -21,7 +21,7 @@ from typing import *
 import inspect
 from PyHSPlasma import *
 
-from ..helpers import TemporaryObject
+from ..helpers import run_once, TemporaryObject
 from .node_core import *
 from .node_deprecated import PlasmaVersionedNode
 
@@ -35,7 +35,6 @@ class _ResponderStateMgr:
         self.states: List[_ResponderState] = []
         self.parent = respNode
         self.responder = respMod
-        self.has_pfm = respNode.find_output("keyref") is not None
 
     def convert_states(self, exporter: Exporter, so: plSceneObject):
         # This could implicitly export more states...
@@ -275,7 +274,7 @@ class PlasmaResponderNode(PlasmaVersionedNode, PlasmaResponderNodeBase, bpy.type
             self.version = 2
 
 
-class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
+class PlasmaResponderStateNode(PlasmaVersionedNode, bpy.types.Node):
     bl_category = "LOGIC"
     bl_idname = "PlasmaResponderStateNode"
     bl_label = "Responder State"
@@ -306,6 +305,21 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
                                  get=_get_default_state,
                                  set=_set_default_state,
                                  options=set())
+
+    export_auto_notify_value = BoolProperty(options={"HIDDEN"})
+    def _get_auto_notify(self):
+        if not self.allow_auto_notify:
+            return False
+        return self.export_auto_notify_value
+    def _set_auto_notify(self, value: bool) -> None:
+        self.export_auto_notify_value = value
+    export_auto_notify = BoolProperty(
+        name="Auto Notify",
+        description="When this state completes, automatically send a notification to whoever triggered the Responder",
+        get=_get_auto_notify,
+        set=_set_auto_notify,
+        options=set()
+    )
 
     input_sockets: dict[str, Any] = {
         "condition": {
@@ -341,9 +355,24 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
         },
     }
 
+    @property
+    def allow_auto_notify(self):
+        resp_node = self.find_input("resp")
+        if resp_node is None:
+            return False
+        if resp_node.find_output("keyref") is None:
+            return False
+        if self.has_notify:
+            return False
+        return True
+
     def draw_buttons(self, context, layout):
-        layout.active = self.find_input("resp") is not None
-        layout.prop(self, "default_state")
+        row = layout.row()
+        row.active = self.find_input("resp") is not None
+        row.prop(self, "default_state")
+        row = layout.row()
+        row.active = self.allow_auto_notify
+        row.prop(self, "export_auto_notify")
 
     def convert_state(
         self,
@@ -362,11 +391,18 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
             state.switchToState = toIdx
 
         class CommandMgr:
-            def __init__(self, respMod):
+            def __init__(self, respMod: plResponderModifier, state: plResponderModifier_State):
                 self.commands = []
                 self.responder = respMod
+                self._state = state
                 self.waits = {}
                 self.waitable_nodes = []
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, type, value, traceback):
+                self.save()
 
             def add_command(self, node, waitOn):
                 cmd = type("ResponderCommand", (), {"msg": None, "waitOn": waitOn})
@@ -394,41 +430,49 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
                     node.convert_callback_message(exporter, so, cmd[1].msg, self.responder.key, wait)
                 return wait
 
-            def save(self, state):
+            @run_once
+            def save(self):
                 for node, cmd in self.commands:
                     # Amusing, PyHSPlasma doesn't actually want a plResponderModifier_Cmd
                     # Meh, I'll let this one slide.
-                    state.addCommand(cmd.msg, cmd.waitOn)
-                state.numCallbacks = len(self.waits)
-                state.waitToCmd = self.waits
+                    self._state.addCommand(cmd.msg, cmd.waitOn)
+                self._state.numCallbacks = len(self.waits)
+                self._state.waitToCmd = self.waits
 
         # Convert the commands
-        commands = CommandMgr(stateMgr.responder)
-        for i in self._get_child_messages():
-            # slight optimization--commands attached to states can't wait on other commands
-            # namely because it's impossible to wait on a command that doesn't exist...
-            self._generate_command(exporter, so, stateMgr.responder, commands, i)
+        with CommandMgr(stateMgr.responder, state) as commands:
+            for i in self._get_child_messages():
+                # slight optimization--commands attached to states can't wait on other commands
+                # namely because it's impossible to wait on a command that doesn't exist...
+                self._generate_command(exporter, so, stateMgr.responder, commands, i)
 
-        # The last waitable message node may or may not have child nodes attached to it.
-        # Imaging a responder that sends only one animation command message, for example.
-        # That means a wait will not be set up for that command due to no child linkage.
-        # However, the PFM notification below expects a wait for stuff like that.
-        if stateMgr.has_pfm:
-            lastWait = commands.ensure_last_wait(exporter, so)
+            # Korman would originally notify any attached PFM by default at the end of the Responder
+            # state. In PlasmaMax, the "Notify Triggerer" is a manual option, and most Responders
+            # actually don't do this. So, in the interest of removing cruft and better exposing
+            # our behavior, only do this if the old behavior is explicitly requested.
+            if self.export_auto_notify:
+                # The last waitable message node may or may not have child nodes attached to it.
+                # Imaging a responder that sends only one animation command message, for example.
+                # That means a wait will not be set up for that command due to no child linkage.
+                # However, the PFM notification below expects a wait for stuff like that.
+                lastWait = commands.ensure_last_wait(exporter, so)
 
-        # This commits the responder commands to the responder. Needs to happen before we
-        # add the PFM notification directly to the responder.
-        commands.save(state)
+                # This commits the responder commands to the responder. Needs to happen before we
+                # add the PFM notification directly to the responder. This would normally happen
+                # when the context manager exits, but we're going to force it to happen now,
+                # and only now.
+                commands.save()
 
-        # If the responder is linked to a PythonFile node, we need to automatically generate
-        # the callback message command node...
-        if stateMgr.has_pfm:
-            pfmNotify = plNotifyMsg()
-            pfmNotify.BCastFlags |= plMessage.kLocalPropagate
-            pfmNotify.sender = stateMgr.responder.key
-            pfmNotify.state = 1.0
-            pfmNotify.addEvent(proCallbackEventData())
-            state.addCommand(pfmNotify, lastWait)
+                # Manually insert the callback event notify message command. It would have been nice
+                # to spawn the node to allow code deduplication, but the structure of the old code
+                # means this pattern is nicer.
+                cbEvent = proCallbackEventData()
+                cbEvent.callbackEventType = 1
+                pfmNotify = plNotifyMsg()
+                pfmNotify.sender = stateMgr.responder.key
+                pfmNotify.state = 1.0
+                pfmNotify.addEvent(cbEvent)
+                state.addCommand(pfmNotify, lastWait)
 
     def _generate_command(self, exporter, so, responder, commandMgr, msgNode, waitOn=-1):
         def prepare_message(exporter, so, responder, commandMgr, waitOn, msg):
@@ -470,6 +514,30 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
         if node is None:
             node = self
         return sorted(node.find_outputs("msgs"), key=lambda x: bool(x.has_callbacks and x.has_linked_callbacks))
+
+    @property
+    def has_notify(self):
+        def check_for_notify(node):
+            for i in node.find_outputs("msgs"):
+                yield i.is_notify
+                yield from check_for_notify(i)
+        return any(check_for_notify(self))
+
+    @property
+    def latest_version(self):
+        return 2
+
+    def upgrade(self):
+        # In Version 2 of the node, the automatic notification of attached PFMs has been turned off
+        # by default. To ensure esoteric node trees don't suddenly break, any nodes that have
+        # attached PFMs will default to this functionality being ON after upgrading. New nodes
+        # will default to OFF.
+        if self.version == 1:
+            # Just directly set the value if auto notification is allowed. Otherwise, leave it
+            # at the default value.
+            if self.allow_auto_notify:
+                self.export_auto_notify_value = True
+            self.version = 2
 
 
 class PlasmaRespStateSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):

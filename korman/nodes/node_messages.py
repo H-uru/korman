@@ -53,6 +53,11 @@ class PlasmaMessageNode(PlasmaNodeBase):
         """This message does not have callbacks that can be waited on by a Responder"""
         return False
 
+    @property
+    def is_notify(self) -> bool:
+        """Does this message notify the triggerer?"""
+        return False
+
 
 class PlasmaMessageWithCallbacksNode(PlasmaMessageNode):
     output_sockets: dict[str, dict[str, str]] = {
@@ -582,6 +587,34 @@ class PlasmaLinkToAgeMsg(PlasmaMessageNode, bpy.types.Node):
 
         layout.prop(self, "spawn_title")
         layout.prop(self, "spawn_point")
+
+
+class PlasmaNotifyTriggererMsg(PlasmaMessageNode, bpy.types.Node):
+    bl_category = "MSG"
+    bl_idname = "PlasmaNotifyTriggererMsg"
+    bl_label = "Notify Triggerer"
+
+    event_id = IntProperty(
+        name="Event ID",
+        description="Notification Event ID to send to the triggerer",
+        default=1,
+        options=set()
+    )
+
+    def convert_message(self, exporter: Exporter, so: plSceneObject) -> plMessage:
+        event = proCallbackEventData()
+        event.callbackEventType = self.event_id
+        msg = plNotifyMsg()
+        msg.state = 1.0
+        msg.addEvent(event)
+        return msg
+
+    def draw_buttons(self, context, layout):
+        layout.prop(self, "event_id")
+
+    @property
+    def is_notify(self) -> bool:
+        return True
 
 
 class PlasmaOneShotMsgNode(idprops.IDPropObjectMixin, PlasmaMessageWithCallbacksNode, bpy.types.Node):
