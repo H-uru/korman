@@ -21,6 +21,7 @@ from typing import *
 import inspect
 from PyHSPlasma import *
 
+from ..helpers import TemporaryObject
 from .node_core import *
 from .node_deprecated import PlasmaVersionedNode
 
@@ -112,6 +113,66 @@ class PlasmaResponderNodeBase(PlasmaNodeBase):
             (i.to_socket.attribute_type == "ptAttribNamedResponder"
              for i in self.find_output_socket("keyref").links)
         )
+
+
+class PlasmaBasicResponderNode(PlasmaVersionedNode, PlasmaResponderNodeBase, bpy.types.Node):
+    bl_category = "LOGIC"
+    bl_idname = "PlasmaBasicResponderNode"
+    bl_label = "Basic Responder"
+
+    input_sockets: dict[str, dict[str, Any]] = {
+        "condition": {
+            "text": "Condition",
+            "type": "PlasmaConditionSocket",
+            "spawn_empty": True,
+        },
+    }
+
+    output_sockets: dict[str, dict[str, Any]] = {
+        "keyref": {
+            "text": "References",
+            "type": "PlasmaPythonReferenceNodeSocket",
+            "valid_link_nodes": {"PlasmaPythonFileNode"},
+        },
+        "msgs": {
+            "text": "Send Message",
+            "type": "PlasmaMessageSocket",
+            "valid_link_sockets": "PlasmaMessageSocket",
+        },
+        # This socket only exists to make the code safe. It will never be seen by the user.
+        "state_refs": {
+            "text": "State",
+            "type": "PlasmaRespStateRefSocket",
+            "valid_link_nodes": "PlasmaResponderStateNode",
+            "valid_link_sockets": "PlasmaRespStateRefSocket",
+            "hidden": True,
+            "link_limit": 1,
+        },
+    }
+
+    def export(self, exporter, bo, so):
+        # This node exists to simplify the creation of Responders even further. The old Responder
+        # node is very close to what Plasma does under the hood and what PlasmaMax exposes. I
+        # removed the "command" node in version 2 of that node, but, really, most responders just
+        # need to send some messages when they are triggered with a notify of state==1.0. That's
+        # what our goal is. Not worrying about Responder states, switch to, when to fire, etc.
+        responder = self.create_responder(exporter, bo, so)
+        responder.flags |= plResponderModifier.kDetectTrigger
+
+        # This is a bit of a hack, but it allows us to reuse the existing well-tested Responder
+        # export code and not have to write a new code path. We're going to sneakily create a
+        # Responder State node for our only state and link our messages to it. Then link the state
+        # node to ourselves, just in case the export code ever cares. Then, we can just fire the
+        # old export code.
+        nodes = self.id_data.nodes
+        with TemporaryObject(nodes.new("PlasmaResponderStateNode"), nodes.remove) as state_node:
+            self.link_output(state_node, "state_refs", "resp")
+            for i in self.find_outputs("msgs"):
+                state_node.link_output(i, "msgs", "sender")
+
+            stateMgr = _ResponderStateMgr(self, responder)
+            stateMgr.register_state(state_node)
+            stateMgr.convert_states(exporter, so)
 
 
 class PlasmaResponderNode(PlasmaVersionedNode, PlasmaResponderNodeBase, bpy.types.Node):
@@ -255,7 +316,6 @@ class PlasmaResponderStateNode(PlasmaNodeBase, bpy.types.Node):
         "resp": {
             "text": "Responder",
             "type": "PlasmaRespStateRefSocket",
-            "valid_link_nodes": "PlasmaResponderNode",
             "valid_link_sockets": "PlasmaRespStateRefSocket",
         },
     }
