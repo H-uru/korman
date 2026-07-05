@@ -498,14 +498,17 @@ class PlasmaResponderStateNode(PlasmaVersionedNode, bpy.types.Node):
         if msgNode.has_callbacks:
             commandMgr.add_waitable_node(msgNode)
             if msgNode.has_linked_callbacks:
-                childWaitOn = commandMgr.add_wait(idx)
-                msgNode.convert_callback_message(exporter, so, msg, responder.key, childWaitOn)
-        else:
-            childWaitOn = waitOn
+                # Only one "branch" of a Responder is allowed to have callbacks. That is to say
+                # that if we have a message that sends two other messages on completion, only one
+                # of those two messages can have messages sent after it completes. Plasma doesn't
+                # have a concept of sending a batch of messages and waiting on them. It's a serial
+                # send-wait, send-wait. So, overriding the waitOn we were initially given is fine.
+                waitOn = commandMgr.add_wait(idx)
+                msgNode.convert_callback_message(exporter, so, msg, responder.key, waitOn)
 
         # Export any linked callback messages
         for i in self._get_child_messages(msgNode):
-            self._generate_command(exporter, so, responder, commandMgr, i, childWaitOn)
+            self._generate_command(exporter, so, responder, commandMgr, i, waitOn)
 
     def _get_child_messages(self, node=None):
         """Returns a list of the message nodes sent by `node`. The list is sorted such that any
