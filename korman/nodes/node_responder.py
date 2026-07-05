@@ -129,7 +129,7 @@ class PlasmaBasicResponderNode(PlasmaVersionedNode, PlasmaResponderNodeBase, bpy
 
     output_sockets: dict[str, dict[str, Any]] = {
         "keyref": {
-            "text": "References",
+            "text": "Host Script",
             "type": "PlasmaPythonReferenceNodeSocket",
             "valid_link_nodes": {"PlasmaPythonFileNode"},
         },
@@ -180,17 +180,27 @@ class PlasmaResponderNode(PlasmaVersionedNode, PlasmaResponderNodeBase, bpy.type
     bl_label = "Responder"
     bl_width_default = 145
 
-    detect_trigger = BoolProperty(name="Detect Trigger",
-                                  description="When notified, trigger the Responder",
-                                  default=True)
-    detect_untrigger = BoolProperty(name="Detect UnTrigger",
-                                    description="When notified, untrigger the Responder",
-                                    default=False)
-    no_ff_sounds = BoolProperty(name="Don't F-Fwd Sounds",
-                                description="When fast-forwarding, play sound effects",
-                                default=False)
-    default_state = IntProperty(name="Default State Index",
-                                options=set())
+    detect_trigger = BoolProperty(
+        name="Detect Trigger",
+        description="When a trigger notification (state == 1.0) is received, run the Responder",
+        default=True,
+        options=set()
+        )
+    detect_untrigger = BoolProperty(
+        name="Detect UnTrigger",
+        description="When an untrigger notification (state == 0.0) is received, run the Responder",
+        options=set()
+    )
+    no_ff_sounds = BoolProperty(
+        name="Don't F-Fwd Sounds",
+        description="When fast-forwarding, play sound effects",
+        default=False,
+        options=set()
+    )
+    default_state = IntProperty(
+        name="Default State Index",
+        options=set()
+    )
 
     input_sockets: dict[str, dict[str, Any]] = {
         "condition": {
@@ -202,7 +212,7 @@ class PlasmaResponderNode(PlasmaVersionedNode, PlasmaResponderNodeBase, bpy.type
 
     output_sockets: dict[str, dict[str, Any]] = {
         "keyref": {
-            "text": "References",
+            "text": "Host Script",
             "type": "PlasmaPythonReferenceNodeSocket",
             "valid_link_nodes": {"PlasmaPythonFileNode"},
         },
