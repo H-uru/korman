@@ -45,13 +45,15 @@ class PlasmaObjectPanel(ObjectButtonsPanel, bpy.types.Panel):
     bl_label = "Plasma Object"
 
     def draw_header(self, context):
-        self.layout.prop(context.object.plasma_object, "enabled", text="")
+        layout = self.layout
+        layout.active = context.object.plasma_object.is_tree_enabled
+        layout.prop(context.object.plasma_object, "enabled", text="")
 
     def draw(self, context):
         layout = self.layout
         pl_obj = context.object.plasma_object
         pl_age = context.scene.world.plasma_age
-        layout.active = pl_obj.enabled
+        tree_enabled = pl_obj.is_tree_enabled
 
         # It is an error to put objects in the wrong types of pages/
         active_page = next((i for i in pl_age.pages if i.name == pl_obj.page), None)
@@ -59,11 +61,14 @@ class PlasmaObjectPanel(ObjectButtonsPanel, bpy.types.Panel):
 
         # Which page does this object go in?
         # If left blank, the exporter puts it in page 0 -- "Default"
+        layout.active = tree_enabled
         layout.alert = is_external_page
         layout.prop_search(pl_obj, "page", pl_age, "pages", icon="BOOKMARKS")
         layout.alert = False
         if is_external_page:
             layout.label("Objects cannot be exported to External pages.", icon="ERROR")
+        if not tree_enabled:
+            layout.label("Parent object is disabled.", icon="ERROR")
 
 
 class PlasmaNetPanel(ObjectButtonsPanel, bpy.types.Panel):
