@@ -939,11 +939,7 @@ class PlasmaVisibilitySet(PlasmaModifierProperties):
                                  type=VisRegion)
     active_region_index = IntProperty(options={"HIDDEN"})
 
-    def export(self, exporter, bo, so):
-        if not self.regions:
-            # TODO: Log message about how this modifier is totally worthless
-            return
-
+    def post_export(self, exporter, bo, so):
         # Currently, this modifier is valid for meshes and lamps
         if bo.type == "MESH":
             diface = exporter.mgr.find_create_object(plDrawInterface, bl=bo, so=so)
@@ -951,10 +947,25 @@ class PlasmaVisibilitySet(PlasmaModifierProperties):
         elif bo.type == "LAMP":
             light = exporter.light.get_light_key(bo, bo.data, so)
             addRegion = light.object.addVisRegion
+        else:
+            raise NotImplementedError
 
         for region in self.regions:
             if not region.enabled:
                 continue
             if not region.control_region:
                 raise ExportError("{}: Not all Visibility Controls are set up properly in Visibility Set".format(bo.name))
-            addRegion(exporter.mgr.find_create_key(plVisRegion, bl=region.control_region))
+
+            # If the visibility set is in a page that was disabled, then the VisRegion object
+            # won't exist. If we forcibly create it, then that page would be forcibly created.
+            # In most cases, we want that behavior, but I think the mentality of this modifier
+            # is "add this object to the VisRegion" - if it doesn't exist, why should we create
+            # it?
+            visrgn_key = exporter.mgr.find_key(plVisRegion, bl=region.control_region)
+            if visrgn_key is not None:
+                addRegion(visrgn_key)
+            else:
+                exporter.report.warn(
+                    f"Control region '{region.control_region.name}' was not exported, not adding "
+                    f"'{bo.name}' to it"
+                )
