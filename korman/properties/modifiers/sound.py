@@ -31,6 +31,9 @@ from ...exporter import ExportError
 from ...helpers import copy_action, copy_object, GoodNeighbor, TemporaryCollectionItem
 from ... import idprops
 
+if TYPE_CHECKING:
+    from ...exporter import Exporter
+
 _randomsound_modes = {
     "normal": plRandomSoundMod.kNormal,
     "norepeat": plRandomSoundMod.kNoRepeats,
@@ -613,10 +616,10 @@ class PlasmaSoundEmitter(PlasmaModifierProperties):
             yield emitter_obj
             setattr(self, attr, emitter_obj)
 
-    def _find_animation_groups(self, bo: bpy.types.Object):
+    def _find_animation_groups(self, exporter: Exporter, bo: bpy.types.Object):
         is_anim_group = lambda x: (
             x is not bo and
-            x.plasma_object.enabled and
+            exporter.is_enabled(x) and
             x.plasma_modifiers.animation_group.enabled
         )
         for i in filter(is_anim_group, bpy.data.objects):
@@ -649,7 +652,7 @@ class PlasmaSoundEmitter(PlasmaModifierProperties):
             # that those animations are targetted by anyone trying to control us. That's an
             # animation group modifier (plMsgForwarder) for anyone playing along at home.
             if self.stereize_left.plasma_object.has_animation_data or self.stereize_right.plasma_object.has_animation_data:
-                my_anim_groups = list(self._find_animation_groups(bo))
+                my_anim_groups = list(self._find_animation_groups(exporter, bo))
 
                 # If no one contains this sound emitter, then we need to be an animation group.
                 if not my_anim_groups:

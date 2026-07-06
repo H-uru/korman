@@ -267,7 +267,7 @@ class LightConverter:
                     if obj.type != "LAMP":
                         # moronic...
                         continue
-                    elif not obj.plasma_object.enabled:
+                    elif not obj.plasma_object.is_tree_enabled:
                         # who cares?
                         continue
                     lamp = obj.data

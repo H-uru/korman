@@ -467,6 +467,15 @@ class Exporter:
                     return True
         return False
 
+    def is_enabled(self, bl: bpy.types.Object) -> bool:
+        """
+        Just because an object's Plasma Object checkbox is marked enabled doesn't mean it will
+        be exported. This method returns a guaranteed YES when an object will be exported.
+        """
+        # This is maybe not the most performant way to do this check, but it will give us the
+        # right answer. It's done infrequently enough that it shouldn't be a big deal.
+        return bl in self._objects
+
     def _post_process_scene_objects(self):
         self.report.progress_advance()
         self.report.progress_range = len(self._objects)

@@ -99,7 +99,7 @@ class CameraConverter:
             if manual_trans.camera:
                 # Don't even bother if a disabled camera is referenced. If we export camera modifier
                 # for a disabled camera, then it won't get a brain, and the client will crash.
-                if not manual_trans.camera.plasma_object.enabled:
+                if not self._exporter().is_enabled(manual_trans.camera):
                     continue
                 cam_trans.transTo = self._mgr.find_create_key(plCameraModifier, bl=manual_trans.camera)
             cam_trans.ignore = manual_trans.mode == "ignore"
