@@ -176,6 +176,7 @@ class Exporter:
         self.report.progress_advance()
         self.report.progress_range = len(scene.objects)
         inc_progress = self.report.progress_increment
+        log_msg, error, warn = self.report.msg, self.report.error, self.report.warn
 
         # Grab a naive listing of enabled pages
         age = scene.world.plasma_age
@@ -196,6 +197,11 @@ class Exporter:
             default_enabled = True
             default_inited = False
 
+        def is_implicit_default(page: str):
+            if not default_enabled:
+                return False
+            return not page
+
         # Now we loop through the objects with some considerations:
         #     - The default page may or may not be defined. If it is, it can be disabled. If not, it
         #       can only ever be enabled.
@@ -203,20 +209,58 @@ class Exporter:
         #       to export a useless file.
         #     - Any arbitrary page can be disabled, so check our frozenset.
         #     - Also, someone might have specified an invalid page, so keep track of that.
-        error = explosions.UndefinedPageError()
-        for obj in scene.objects:
-            if obj.plasma_object.enabled:
-                page = obj.plasma_object.page
-                if not page and not default_inited:
-                    self.mgr.create_page(self.age_name, "Default", 0)
-                    default_inited = True
+        log_msg("\nCollecting objects for export...")
+        page_error = defaultdict(list)
+        with self.report.indent():
+            for obj in scene.objects:
+                if obj.plasma_object.enabled:
+                    page = obj.plasma_object.page
+                    if not page and not default_inited:
+                        self.mgr.create_page(self.age_name, "Default", 0)
+                        default_inited = True
 
-                if (default_enabled and not page) or (page in pages_enabled):
-                    self._objects.append(obj)
-                elif page not in all_pages or page in external_pages:
-                    error.add(page, obj.name)
-            inc_progress()
-        error.raise_if_error()
+                    # As part of this, ensure that the parent object is exported and prefer that
+                    # the entire object tree goes to the same page.
+                    has_parent = obj.parent is not None
+                    parent_name = obj.parent.name if obj.parent is not None else "<NO PARENT>"
+                    parent_page = obj.parent.plasma_object.page if obj.parent is not None else page
+
+                    if page and page not in all_pages or page in external_pages:
+                        # The object is in a page that doesn't exist or is marked external.
+                        # This check is a little bit extra in that pages that don't exist
+                        # should be disallowed by the RNA binding, but it could happen if the
+                        # page is deleted after an object is assigned to it.
+                        page_error[page].append(obj.name)
+                    elif has_parent and not obj.plasma_object.is_tree_enabled:
+                        # It's probably best to ignore a child object whose parent won't be
+                        # exported due to its being disabled.
+                        warn(f"Ignoring '{obj.name}' because its parent '{parent_name}' is not being exported")
+                    elif has_parent and not (parent_page in pages_enabled or is_implicit_default(parent_page)):
+                        # Same as above, except the parent object's page is disabled.
+                        warn(
+                            f"Ignoring '{obj.name}' because its parent '{parent_name}' "
+                            f"is in a disabled page ({parent_page or 'Default'})"
+                        )
+                    elif page in pages_enabled or is_implicit_default(page):
+                        # Having a child object in a different page than its parent object is,
+                        # strictly speaking, not a fatal error, but it could lead to unexpected
+                        # results. So, surface a visible error in this case, but don't stop
+                        # the export process.
+                        if has_parent and page != parent_page:
+                            error(
+                                f"'{obj.name}' is not in the same page as its parent '{parent_name}' "
+                                f"({parent_page or 'Default'})"
+                            )
+                        self._objects.append(obj)
+                    else:
+                        # Successful object ignore
+                        pass
+                inc_progress()
+
+        if page_error:
+            obj_names = "\n".join((f"    '{obj}': {page}" for page, objs in page_error.items() for obj in objs))
+            error_str = f"The following objects are in invalid pages:\n{obj_names}"
+            raise explosions.ExportError(error_str)
 
     def _check_sanity(self):
         self.report.progress_advance()
@@ -264,9 +308,14 @@ class Exporter:
                 parent_ci = self._export_coordinate_interface(None, parent)
                 parent_ci.addChild(so.key)
             else:
-                self.report.warn("You have parented Plasma Object '{}' to '{}', which has not been marked for export. \
-                                 The object may not appear in the correct location or animate properly.".format(
-                                    bo.name, parent.name))
+                # This should no longer happen - turning off a a parent object should supress
+                # all of its children. But, I'm leaving the log message in case that situation
+                # ever changes OR something slips through.
+                self.report.warn(
+                    f"You have parented Plasma Object '{bo.name}' to '{parent.name}', "
+                    "which has not been marked for export. The object may not appear in "
+                    "the correct location or animate properly."
+                )
 
     def _export_coordinate_interface(self, so, bl):
         """Ensures that the SceneObject has a CoordinateInterface"""
