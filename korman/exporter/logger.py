@@ -199,7 +199,7 @@ class ExportProgressLogger(_ExportLogger):
         self._time_start_step = 0
 
     def __exit__(self, type, value, traceback):
-        if value is not None:
+        if value is not None and not isinstance(value, NonfatalExportError):
             export_time = time.perf_counter() - self._time_start_overall
             with self._print_condition:
                 self._progress_print_step(done=(self._step_progress == self._step_max), error=True)
@@ -374,7 +374,7 @@ class ExportVerboseLogger(_ExportLogger):
         super().__init__(True, age_path)
 
     def __exit__(self, type, value, traceback):
-        if value is not None:
+        if value is not None and not isinstance(value, NonfatalExportError):
             export_time = time.perf_counter() - self._time_start_overall
             self.msg("\nAborted after {:.2f}s", export_time)
             self.msg("Error: {}", value)
