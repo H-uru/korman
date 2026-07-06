@@ -885,6 +885,17 @@ class AnimationConverter:
                     else:
                         yield default_values[i]
 
+        def safe_tangent(frame_num, value, handles, *, name="(unspecified)"):
+            # I have received reports of degenerate handles causing ZeroDivideError. These reports
+            # are rare, indicating that degenerate handles are rare. So, to prevent errors, just
+            # return zero and warn. If the results of this are insufficient, we can write a better
+            # mitigation later. That would probably involve doing something like having the
+            # previous and next keyframe available and doing an average of their tangents.
+            if abs(frame_num - handles[0]) < 1e-9:
+                self._exporter().report.warn(f"Degenerate {name} handle on frame {frame_num}")
+                return 0.0
+            return (value - handles[1]) / (frame_num - handles[0]) / fps / (2 * pi)
+
         # Does this really need to be a set?
         bez_chans = set()
 
@@ -904,8 +915,8 @@ class AnimationConverter:
 
             for i, fkey in ((i, fkey) for i, fkey in fkeys.items() if fkey.interpolation == "BEZIER"):
                 value = keyframe.values_raw[i]
-                keyframe.in_tans[i] = -(value - fkey.handle_left[1])  / (frame_num - fkey.handle_left[0])  / fps / (2 * pi)
-                keyframe.out_tans[i] = (value - fkey.handle_right[1]) / (frame_num - fkey.handle_right[0]) / fps / (2 * pi)
+                keyframe.in_tans[i] = -safe_tangent(frame_num, value, fkey.handle_left, name="left")
+                keyframe.out_tans[i] = safe_tangent(frame_num, value, fkey.handle_right, name="right")
                 bez_chans.add(i)
             keyframes[frame_num] = keyframe
 
