@@ -82,6 +82,21 @@ class PlasmaObject(bpy.types.PropertyGroup):
         return False
 
     @property
+    def is_tree_enabled(self):
+        """
+        Is the "Plasma Object" checkbox enabled on this object and all of its parents?
+        This should be the preferred way to detect if an object is likely to be exported, instead of
+        querying the enabled UI property. This way if a parent object is disabled, the entire tree
+        will be squelched.
+        """
+        bo = self.id_data
+        while bo is not None:
+            if not bo.plasma_object.enabled:
+                return False
+            bo = bo.parent
+        return True
+
+    @property
     def subworld(self):
         bo = self.id_data
         while bo is not None:

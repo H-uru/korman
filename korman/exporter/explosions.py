@@ -72,25 +72,6 @@ class TooManyVerticesError(ExportError):
         super(ExportError, self).__init__(msg)
 
 
-class UndefinedPageError(ExportError):
-    mistakes = {}
-
-    def __init__(self):
-        super(ExportError, self).__init__("You have objects in invalid pages!")
-
-    def add(self, page, obj):
-        if page not in self.mistakes:
-            self.mistakes[page] = [obj,]
-        else:
-            self.mistakes[page].append(obj)
-
-    def raise_if_error(self):
-        if self.mistakes:
-            # Better give them some idea of what happened...
-            print(repr(self.mistakes))
-            raise self
-
-
 class UnsupportedTextureError(ExportError):
     def __init__(self, texture, material):
         super(ExportError, self).__init__("Cannot export texture '{}' on material '{}' -- unsupported type '{}'".format(texture.name, material.name, texture.type))

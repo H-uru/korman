@@ -803,8 +803,8 @@ class MaterialConverter:
             # least a SceneObject and CoordInterface so that we can touch it...
             # NOTE: that harvest_actor makes sure everyone alread knows we're going to have a CI
             if isinstance(viewpt.data, bpy.types.Camera):
-                if not viewpt.plasma_object.enabled:
-                    raise ExportError(f"DynamicCamMap '{texture.name} wants to use the camera '{viewpt.name}', but it is not a Plasma Object!")
+                if not self._exporter().is_enabled(viewpt):
+                    raise ExportError(f"DynamicCamMap '{texture.name} wants to use the camera '{viewpt.name}', but it isn't being exported!")
                 pl_env.camera = self._mgr.find_create_key(plCameraModifier, bl=viewpt)
             else:
                 pl_env.rootNode = self._mgr.find_create_key(plSceneObject, bl=viewpt)

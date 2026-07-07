@@ -1081,7 +1081,7 @@ class PlasmaGameGuiRadioGroupModifier(_GameGuiMixin, PlasmaModifierProperties):
         ctrl.setFlag(pfGUIRadioGroupCtrl.kAllowNoSelection, self.allow_no_selection)
         active_cbs = (
             i for i in self.iter_checkbox_mods(bpy.context)
-            if i.id_data.plasma_object.enabled
+            if exporter.is_enabled(i.id_data)
         )
         for i, cb_mod in enumerate(active_cbs):
             exporter.report.msg(f"Found checkbox '{cb_mod.id_data.name}'")

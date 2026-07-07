@@ -289,7 +289,7 @@ class LightBaker:
                 for obj in source:
                     if obj.plasma_object.has_animation_data:
                         continue
-                    if rtl_mod.rt_lights and obj.plasma_object.enabled:
+                    if rtl_mod.rt_lights and obj.plasma_object.is_tree_enabled:
                         continue
                     dest.objects.link(obj)
                     shouldibake = True
