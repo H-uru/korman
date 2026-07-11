@@ -15,8 +15,10 @@
 
 from __future__ import annotations
 
+import bpy
 from bpy.props import *
 
+from contextlib import contextmanager
 from typing import *
 import warnings
 
@@ -91,45 +93,48 @@ def bounds(physics_attr: Optional[str] = None, store_on_collider: bool = True, *
     )
 
 def upgrade_bounds(bl, bounds_attr: str) -> None:
-    # Only perform this process if the property has a value. Otherwise, we'll
-    # wind up blowing away the collision modifier's settings with nonsense.
-    if not bl.is_property_set(bounds_attr):
-        return
+    cls = bl.__class__
+
+    @contextmanager
+    def revert_property():
+        # Unregister the new/correct proxy bounds property (with getter/setter) and re-register
+        # the property without the proxy functions to get the old value. Reregister the new property
+        # again and set it.
+        prop_func, prop_def = getattr(cls, bounds_attr)
+        assert prop_func is EnumProperty
+        RemoveProperty(cls, attr=bounds_attr)
+        del prop_def["attr"]
+
+        # Remove the things we don't want in a copy to prevent hosing the new property.
+        old_prop_def = dict(prop_def)
+        del old_prop_def["get"]
+        del old_prop_def["set"]
+        setattr(cls, bounds_attr, prop_func(**old_prop_def))
+
+        try:
+            yield
+        finally:
+            # Re-register new property.
+            RemoveProperty(cls, attr=bounds_attr)
+            setattr(cls, bounds_attr, prop_func(**prop_def))
 
     # Before we unregister anything, grab a copy of what the collision modifier currently thinks.
     bounds_value_curr = getattr(bl, bounds_attr)
 
-    # So, here's the deal. If someone has been playing with nodes and changed the bounds type,
-    # Blender will think the property has been set, even if they wound up with the property
-    # at the default value. I don't know that we can really trust the default in the property
-    # definition to be the same as the old default (they shouldn't be different, but let's be safe).
-    # So, let's apply rough justice. If the destination property thinks it's a triangle mesh, we
-    # don't need to blow that away - it's a very specific non default setting.
-    if bounds_value_curr == "trimesh":
-        return
-
-    # Unregister the new/correct proxy bounds property (with getter/setter) and re-register
-    # the property without the proxy functions to get the old value. Reregister the new property
-    # again and set it.
-    cls = bl.__class__
-    prop_func, prop_def = getattr(cls, bounds_attr)
-    RemoveProperty(cls, attr=bounds_attr)
-    del prop_def["attr"]
-
-    # Remove the things we don't want in a copy to prevent hosing the new property.
-    old_prop_def = dict(prop_def)
-    del old_prop_def["get"]
-    del old_prop_def["set"]
-    setattr(cls, bounds_attr, prop_func(**old_prop_def))
-    bounds_value_new = getattr(bl, bounds_attr)
-
-    # Re-register new property.
-    RemoveProperty(cls, attr=bounds_attr)
-    setattr(cls, bounds_attr, prop_func(**prop_def))
+    # We need to revert the property to the static storage version before we test if it's set.
+    # The getter/setter variant will always say it is set.
+    with revert_property():
+        # Only perform this process if the property has a value. Otherwise, we'll
+        # wind up blowing away the collision modifier's settings with nonsense.
+        if not bl.is_property_set(bounds_attr):
+            return
+        bounds_value_new = getattr(bl, bounds_attr)
 
     # Only set the property if the value different to avoid thrashing and log spam.
+    # This should be done *after* the proxy property is re-registered.
     if bounds_value_curr != bounds_value_new:
-        print(f"Stashing bounds property: [{bl.name}] ({cls.__name__}) {bounds_value_curr} -> {bounds_value_new}") # TEMP
+        obj_name = f"{bl.id_data.name}/{bl.name}" if not isinstance(bl, bpy.types.ID) else bl.name
+        print(f"Stashing bounds property: [{obj_name}] ({cls.__name__}) {bounds_value_curr} -> {bounds_value_new}")
         setattr(bl, bounds_attr, bounds_value_new)
 
 def _get_texture_animation_names(self, object_attr: str, material_attr: str, texture_attr: str) -> Sequence[Tuple[str, str, str]]:

@@ -157,15 +157,24 @@ class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaVersionedNode, bpy.ty
 
     @property
     def latest_version(self):
-        return 2
+        return 3
 
     def upgrade(self):
         # In version 1 of this node, the bounds type was stored on this node. This could
         # be overridden by whatever was in the collision modifier. Version 2 changes the
-        # bounds property to proxy to the collision modifier's bounds settings.
-        if self.version == 2:
+        # bounds property to proxy to the collision modifier's bounds settings. Unfortunately,
+        # the upgrade code was written incorrectly in Korman 0.17, so anything created in 0.16b
+        # or lower will still be version 1, and potentially goofed up. Any clickable nodes
+        # created in Korman 0.17 will be version 2. To deal with this, we'll move up to version
+        # 3 in Korman 0.18 so we have a clear-ish understanding of the state.
+        if self.version == 1:
             enum_props.upgrade_bounds(self, "bounds")
-            self.version = 2
+            # Version 2 is Korman 0.17, but the update code was flawed. Bump to version 3 where
+            # we're sort of saying, "yeah, this is good now"
+            self.version = 3
+        if self.version == 2:
+            # Version 2 was created in Korman 0.17, no changes required.
+            self.version = 3
 
 
 class PlasmaClickableRegionNode(idprops.IDPropObjectMixin, PlasmaVersionedNode, bpy.types.Node):
