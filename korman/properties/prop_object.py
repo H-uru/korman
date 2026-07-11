@@ -82,6 +82,21 @@ class PlasmaObject(bpy.types.PropertyGroup):
         return False
 
     @property
+    def is_parent_enabled(self):
+        """
+        Is the "Plasma Object" checkbox enabled on the parent of this object and all of its parents?
+        This is like ``is_tree_enabled`` below, except it answers the question of "can this object
+        actually be enabled?" not "is this object actually enabled?" If this object has no parent,
+        the property returns ``True``.
+        """
+        bo = self.id_data.parent
+        while bo is not None:
+            if not bo.plasma_object.enabled:
+                return False
+            bo = bo.parent
+        return True
+
+    @property
     def is_tree_enabled(self):
         """
         Is the "Plasma Object" checkbox enabled on this object and all of its parents?
