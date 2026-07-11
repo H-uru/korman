@@ -130,3 +130,29 @@ class PlasmaLayerAnimationPanel(TextureButtonsPanel, bpy.types.Panel):
     def draw(self, context):
         ui_anim.draw_multi_animation(self.layout, "texture", context.texture.plasma_layer,
                                      "subanimations", use_box=True)
+
+
+class PlasmaFunkyLayerPanel(TextureButtonsPanel, bpy.types.Panel):
+    bl_label = "Plasma Funky Layer"
+
+    def draw(self, context):
+        texture = context.texture
+        layer_props = texture.plasma_layer
+        layout = self.layout
+
+        layout.prop(layer_props, "funky_type")
+
+        if layer_props.funky_type == "FunkyDist":
+            col = layout.column(align=True)
+            col.prop(layer_props, "funky_dist_near_trans")
+            col.prop(layer_props, "funky_dist_near_opaq")
+            col.prop(layer_props, "funky_dist_far_opaq")
+            col.prop(layer_props, "funky_dist_far_trans")
+        elif layer_props.funky_type != "FunkyNone":
+            col = layout.column(align=True)
+            col.prop(layer_props, "funky_angle_near_trans")
+            col.prop(layer_props, "funky_angle_near_opaq")
+            col.prop(layer_props, "funky_angle_far_opaq")
+            col.prop(layer_props, "funky_angle_far_trans")
+        else:
+            pass
