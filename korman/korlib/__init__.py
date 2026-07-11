@@ -29,6 +29,28 @@ except ImportError as ex:
         msg = "Korlib C Module did not load correctly."
     print(msg, "Using PyKorlib :(", sep=' ')
 
+    def create_funky_ramp(mipmap, additive=False):
+        kLUTHeight = 16
+        kLUTWidth = 16
+
+        buf = bytearray(kLUTHeight * kLUTWidth * 4)
+
+        for i in range(kLUTHeight):
+            for j in range(kLUTWidth):
+                x = j / (kLUTWidth - 1);
+                y = i / (kLUTHeight - 1);
+
+                start = i * kLUTWidth * 4 + j * 4
+                end = start + 4
+
+                if additive:
+                    x = max(x, y)
+                    buf[start:end] = [b for b in (255, 255, 255, int(x * 255.9))]
+                else:
+                    buf[start:end] = [b for b in (255, 255, 255, int((x * y) * 255.9))]
+
+        mipmap.setRawImage(bytes(buf))
+
     def create_bump_LUT(mipmap):
         kLUTHeight = 16
         kLUTWidth = 16

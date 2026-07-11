@@ -270,6 +270,11 @@ class MaterialConverter:
                             if i+1 < curr_stencils:
                                 stencil_layer.state.miscFlags |= hsGMatState.kMiscBindNext
                             hsgmat.addLayer(stencil_layer.key)
+                    if slot.texture.plasma_layer.funky_type != "FunkyNone":
+                        funky_ramp = self._export_funky_slot(bo, bm, hsgmat, slot, idx)
+                        if funky_ramp:
+                            tex_layer.state.miscFlags |= hsGMatState.kMiscBindNext
+                            hsgmat.addLayer(funky_ramp.key)
 
         # Plasma makes several assumptions that every hsGMaterial has at least one layer. If this
         # material had no Textures, we will need to initialize a default layer
@@ -376,6 +381,90 @@ class MaterialConverter:
 
         # Wasn't that easy?
         return hsgmat.key
+
+    def _export_funky_slot(self, bo, bm, hsgmat, slot, idx) -> plLayerInterface:
+        name = f"{hsgmat.key.name}_{slot.name}_funkRamp"
+        self._report.msg(f"Exporting Plasma Funky Ramp Layer '{name}'")
+
+        with self._report.indent():
+            texture = slot.texture
+            layer_props = texture.plasma_layer
+            funky_type = layer_props.funky_type
+
+            near_trans = layer_props.funky_near_trans
+            near_opaq = layer_props.funky_near_opaq
+            far_trans = layer_props.funky_far_trans
+            far_opaq = layer_props.funky_far_opaq
+
+            if near_trans > far_trans:
+                near_trans, far_trans = far_trans, near_trans
+                near_opaq, far_opaq = far_opaq, near_opaq
+
+            if near_trans == near_opaq and far_opaq == far_trans:
+                self._exporter().report.warn(f"{slot.name} transparent and opaque funky values are the same, skipping funky blending for this layer")
+                return None
+
+            self._report.msg(f"Near Transparency: {near_trans}")
+            self._report.msg(f"Near Opacity: {near_opaq}")
+            self._report.msg(f"Far Opacity: {far_opaq}")
+            self._report.msg(f"Far Transparency: {far_trans}")
+
+            # If we're going opaque to transparent to opaque. Then we need the Additive LUT
+            additive = near_trans > near_opaq and far_opaq > far_trans
+
+            uvwXfm = hsMatrix44()
+            uvwXfm[0,0] = uvwXfm[1,1] = uvwXfm[2,2] = 0.0
+
+            if near_opaq != near_trans:
+                uvwXfm[0,2] = -1.0 / (near_trans - near_opaq)
+                uvwXfm[0,3] = uvwXfm[0,2] * -near_trans
+            else:
+                uvwXfm[0,3] = 1.0
+
+            if far_opaq != far_trans:
+                uvwXfm[1,2] = -1.0 / (far_trans - far_opaq)
+                uvwXfm[1,3] = uvwXfm[1,2] * -far_trans
+            else:
+                uvwXfm[1,3] = 1.0
+
+            ramp_layer = self._mgr.find_create_object(plLayer, name=name, bl=bo)
+
+            rampName = "FunkyRampAdd" if additive else "FunkyRampMult"
+            page = self._mgr.get_textures_page(ramp_layer.key)
+            ramp_key = self._mgr.find_key(plMipmap, loc=page, name=rampName)
+
+            if ramp_key is None:
+                funkRamp = plMipmap(rampName, 16, 16, 1, plBitmap.kUncompressed, plBitmap.kRGB8888)
+                create_funky_ramp(funkRamp, additive)
+                self._mgr.AddObject(page, funkRamp)
+                ramp_key = funkRamp.key
+
+            ramp_layer.texture = ramp_key
+            ramp_layer.ambient = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
+            ramp_layer.preshade = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+            ramp_layer.runtime = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+            ramp_layer.specular = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
+
+            ramp_layer.state.ZFlags = hsGMatState.kZNoZWrite
+            ramp_layer.state.clampFlags = hsGMatState.kClampTexture
+            ramp_layer.state.blendFlags = hsGMatState.kBlendAlpha | hsGMatState.kBlendNoTexColor | hsGMatState.kBlendAlphaMult
+
+            ramp_layer.transform = uvwXfm
+
+            if funky_type == "FunkyDist":
+                ramp_layer.UVWSrc = plLayerInterface.kUVWPosition
+                ramp_layer.state.miscFlags  |= hsGMatState.kMiscNoShadowAlpha
+            elif funky_type == "FunkyNormal":
+                ramp_layer.UVWSrc = plLayerInterface.kUVWNormal
+            elif funky_type == "FunkyUp":
+                ramp_layer.UVWSrc = plLayerInterface.kUVWNormal
+                ramp_layer.state.miscFlags |= hsGMatState.kMiscOrthoProjection
+            elif funky_type == "FunkyReflect":
+                ramp_layer.UVWSrc = plLayerInterface.kUVWReflect
+            else:
+                raise ValueError(funky_type)
+
+            return ramp_layer
 
     def export_bumpmap_slot(self, bo, bm, hsgmat, slot, idx):
         name = f"{hsgmat.key.name}_{slot.name}"
