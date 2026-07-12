@@ -233,10 +233,18 @@ class ModifierRemoveOperator(ModifierOperator, bpy.types.Operator):
             layout.label(f"    {mod.bl_label}", icon=getattr(mod, "bl_icon", "NONE"))
 
     def execute(self, context):
-        self._get_modifier(context).enabled = False
+        if self.active_modifier == -1:
+            modifiers = context.object.plasma_modifiers.modifiers
+        else:
+            modifiers = iter((self._get_modifier(context),))
+        for i in modifiers:
+            i.enabled = False
         return {"FINISHED"}
 
     def invoke(self, context, event):
+        if self.active_modifier == -1:
+            return self.execute(context)
+
         has_dependents = any(
             getattr(context.object.plasma_modifiers, i).enabled
             for i in self._get_modifier(context).get_dependents()
