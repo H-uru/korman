@@ -164,6 +164,13 @@ class AnimGroupObject(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
                                  type=bpy.types.Object,
                                  poll=idprops.poll_animated_objects)
 
+    # UI Thunk
+    def _get_name(self) -> str:
+        if self.child_anim is not None:
+            return self.child_anim.name
+        return "[No Child Specified]"
+    name = StringProperty(get=_get_name, options={"HIDDEN"})
+
     @classmethod
     def _idprop_mapping(cls):
         return {"child_anim": "object_name"}
@@ -264,12 +271,30 @@ class PlasmaAnimationGroupModifier(ActionModifier, PlasmaModifierProperties):
 
 
 class LoopMarker(bpy.types.PropertyGroup):
-    loop_name = StringProperty(name="Loop Name",
-                               description="Name of this loop")
-    loop_start = StringProperty(name="Loop Start",
-                                description="Marker name from whence the loop begins")
-    loop_end = StringProperty(name="Loop End",
-                                description="Marker name from whence the loop ends")
+    loop_name = StringProperty(options={"HIDDEN"})
+    loop_start = StringProperty(
+        name="Loop Start",
+        description="Marker name from whence the loop begins",
+        options=set()
+    )
+    loop_end = StringProperty(
+        name="Loop End",
+        description="Marker name from whence the loop ends",
+        options=set()
+    )
+
+    # Thunk for the UI - loop_name was in use from the beginning of time, unfortunately.
+    def _get_name(self) -> str:
+        return self.loop_name
+    def _set_name(self, value: str) -> None:
+        self.loop_name = value
+    name = StringProperty(
+        name="Loop Name",
+        description="Name of this loop",
+        get=_get_name,
+        set=_set_name,
+        options=set()
+    )
 
 
 class PlasmaAnimationLoopModifier(ActionModifier, PlasmaModifierProperties):

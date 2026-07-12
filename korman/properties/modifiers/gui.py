@@ -18,9 +18,6 @@ from __future__ import annotations
 import bpy
 from bpy.props import *
 
-from contextlib import ExitStack
-import itertools
-import math
 from pathlib import Path
 from typing import *
 
@@ -65,6 +62,13 @@ class ImageLibraryItem(bpy.types.PropertyGroup):
                                      description="Specifies whether this image will be stored during export.",
                                      default=True,
                                      options=set())
+
+    # UI Thunk
+    def _get_name(self) -> str:
+        if self.image is None:
+            return "[No Image Specified]"
+        return str(Path(self.image.name).with_suffix(".hsm"))
+    name = StringProperty(get=_get_name, options={"HIDDEN"})
 
 
 class PlasmaImageLibraryModifier(PlasmaModifierProperties):

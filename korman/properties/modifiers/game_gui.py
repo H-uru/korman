@@ -489,6 +489,28 @@ class GameGuiAnimation(bpy.types.PropertyGroup):
         description="Target texture",
     )
 
+    # UI Thunk
+    def _get_name(self) -> str:
+        if self.anim_type == "OBJECT":
+            return self.target_object.name if self.target_object is not None else self.id_data.name
+        elif self.anim_type == "TEXTURE":
+            # Remember: self is not actually an instance of GameGuiAnimation.
+            name_seq = list(GameGuiAnimation._iter_target_names(self))
+            return " / ".join(name_seq)
+        else:
+            raise ValueError(self.anim_type)
+    name = StringProperty(get=_get_name, options={"HIDDEN"})
+
+    def _iter_target_names(self):
+        if self.target_object is not None:
+            yield self.target_object.name
+        else:
+            yield self.id_data.name
+        if self.target_material is not None:
+            yield self.target_material.name
+        if self.target_texture is not None:
+            yield self.target_texture.name
+
 
 class GameGuiAnimationGroup(bpy.types.PropertyGroup):
     def _update_animation_name(self, context) -> None:

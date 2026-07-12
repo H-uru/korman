@@ -18,13 +18,9 @@ import bpy
 from .. import ui_list
 from ...exporter.mesh import _VERTEX_COLOR_LAYERS
 
-class BlendOntoListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        if item.blend_onto is None:
-            layout.label("[No Object Specified]", icon="ERROR")
-        else:
-            layout.label(item.blend_onto.name, icon="OBJECT_DATA")
-        layout.prop(item, "enabled", text="")
+class BlendOntoListUI(ui_list.PlasmaUIListBase, bpy.types.UIList):
+    def get_icon(self, item, icon):
+        return "OBJECT_DATA" if item.blend_onto is not None else "ERROR"
 
 
 def blend(modifier, layout, context):
@@ -48,13 +44,9 @@ def blend(modifier, layout, context):
         layout.prop(dependency_ref, "blend_onto")
 
 
-class DecalMgrListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        if item.name:
-            layout.label(item.name, icon="BRUSH_DATA")
-            layout.prop(item, "enabled", text="")
-        else:
-            layout.label("[Empty]")
+class DecalMgrListUI(ui_list.PlasmaUIListBase, bpy.types.UIList):
+    def get_icon(self, item, icon):
+        return "BRUSH_DATA" if item.name else "NONE"
 
 
 def decal_print(modifier, layout, context):
@@ -303,13 +295,9 @@ def viewfacemod(modifier, layout, context):
         col.enabled = modifier.offset
         col.prop(modifier, "offset_coord")
 
-class VisRegionListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        if item.control_region is None:
-            layout.label("[No Object Specified]", icon="ERROR")
-        else:
-            layout.label(item.control_region.name, icon="OBJECT_DATA")
-        layout.prop(item, "enabled", text="")
+class VisRegionListUI(ui_list.PlasmaUIListBase, bpy.types.UIList):
+    def get_icon(self, item, icon):
+        return "OBJECT_DATA" if item.control_region is not None else "ERROR"
 
 
 def visibility(modifier, layout, context):

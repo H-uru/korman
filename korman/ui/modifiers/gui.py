@@ -13,18 +13,16 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
-import bpy
-from pathlib import Path
+from __future__ import annotations
 
+import bpy
+
+from ...properties.modifiers import gui as gui_mods
 from . import ui_list
 
-class ImageListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        if item.image is None:
-            layout.label("[No Image Specified]", icon="ERROR")
-        else:
-            layout.label(str(Path(item.image.name).with_suffix(".hsm")), icon_value=item.image.preview.icon_id)
-            layout.prop(item, "enabled", text="")
+class ImageListUI(ui_list.PlasmaUIListBase[gui_mods.ImageLibraryItem], bpy.types.UIList):
+    def get_icon(self, item, icon):
+        return item.image.preview.icon_id if item.image is not None else "ERROR"
 
 
 def imagelibmod(modifier, layout, context):

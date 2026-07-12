@@ -36,6 +36,13 @@ class PlasmaBlendOntoObject(bpy.types.PropertyGroup):
                            default=True,
                            options=set())
 
+    # UI Thunk
+    def _get_name(self) -> str:
+        if self.blend_onto is not None:
+            return self.blend_onto.name
+        return "[No Object Specified]"
+    name = StringProperty(get=_get_name, options={"HIDDEN"})
+
 
 class PlasmaBlendMod(PlasmaModifierProperties):
     pl_id = "blend"
@@ -921,6 +928,13 @@ class VisRegion(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
                                      description="Object defining a Plasma Visibility Control",
                                      type=bpy.types.Object,
                                      poll=idprops.poll_visregion_objects)
+
+    # UI Thunk
+    def _get_name(self) -> str:
+        if self.control_region is not None:
+            return self.control_region.name
+        return "[No Object Specified]"
+    name = StringProperty(get=_get_name, options={"HIDDEN"})
 
     @classmethod
     def _idprop_mapping(cls):

@@ -14,7 +14,6 @@
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
-import functools
 from . import ui_list
 
 class SceneButtonsPanel:
@@ -27,18 +26,21 @@ class SceneButtonsPanel:
         return context.scene.render.engine == "PLASMA_GAME"
 
 
-class DecalManagerListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        layout.prop(item, "display_name", emboss=False, text="", icon="BRUSH_DATA")
+class DecalManagerListUI(ui_list.PlasmaUIListBase, bpy.types.UIList):
+    def get_icon(self, item, icon):
+        return "BRUSH_DATA"
+
+    def is_readonly(self, item) -> bool:
+        return False
+
+    @property
+    def propname(self):
+        return "display_name"
 
 
-class WetManagerListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        if item.name:
-            layout.label(item.name, icon="BRUSH_DATA")
-            layout.prop(item, "enabled", text="")
-        else:
-            layout.label("[Empty]")
+class WetManagerListUI(ui_list.PlasmaUIListBase, bpy.types.UIList):
+    def get_icon(self, item, icon: str) -> str:
+        return "BRUSH_DATA"
 
 
 class PlasmaDecalManagersPanel(SceneButtonsPanel, bpy.types.Panel):

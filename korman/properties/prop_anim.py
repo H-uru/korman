@@ -46,6 +46,17 @@ class PlasmaAnimation(bpy.types.PropertyGroup):
                 "set": _set_animation_name,
             },
         },
+        # This is a thunk for the UIList, which expects the name property to be exactly `name`,
+        # not `animation_name`. D'oh!
+        "name": {
+            "type": StringProperty,
+            "property": {
+                "name": "Animation Name",
+                "description": "Name of this (sub-)animation",
+                "get": _get_animation_name,
+                "set": _set_animation_name,
+            },
+        },
         "start": {
             "type": IntProperty,
             "property": {

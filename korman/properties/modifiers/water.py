@@ -309,11 +309,25 @@ class PlasmaWaterModifier(idprops.IDPropMixin, PlasmaModifierProperties, bpy.typ
 
 
 class PlasmaShoreObject(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
-    display_name = StringProperty(name="Display Name")
-    shore_object = PointerProperty(name="Shore Object",
-                                   description="Object that waves crash upon",
-                                   type=bpy.types.Object,
-                                   poll=idprops.poll_mesh_objects)
+    shore_object = PointerProperty(
+        name="Shore Object",
+        description="Object that waves crash upon",
+        type=bpy.types.Object,
+        poll=idprops.poll_mesh_objects
+    )
+
+    # Unused - renameable shores. Better to just show the object name.
+    display_name = StringProperty(
+        name="Display Name",
+        options={"HIDDEN"}
+    )
+
+    # UI Thunk for showing the real name.
+    def _get_name(self) -> str:
+        if self.shore_object is not None:
+            return self.shore_object.name
+        return "[Empty]"
+    name = StringProperty(get=_get_name, options={"HIDDEN"})
 
     @classmethod
     def _idprop_mapping(cls):

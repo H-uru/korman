@@ -13,8 +13,11 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import bpy
 
+from ...properties.modifiers import anim as anim_mods
 from .. import ui_list
 from .. import ui_anim
 
@@ -52,11 +55,9 @@ def animation_filter(modifier, layout, context):
     col.label("Rotation:")
     col.prop(modifier, "no_rotation", text="Filter Rotation")
 
-class GroupListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        label = item.child_anim.name if item.child_anim is not None else "[No Child Specified]"
-        icon = "ACTION" if item.child_anim is not None else "ERROR"
-        layout.label(text=label, icon=icon)
+class GroupListUI(ui_list.PlasmaUIListBase[anim_mods.AnimGroupObject], bpy.types.UIList):
+    def get_icon(self, item, icon):
+        return "ACTION" if item.child_anim is not None else "ERROR"
 
 
 def animation_group(modifier, layout, context):
@@ -70,9 +71,12 @@ def animation_group(modifier, layout, context):
         layout.prop(modifier.children[modifier.active_child_index], "child_anim", icon="ACTION")
 
 
-class LoopListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        layout.prop(item, "loop_name", emboss=False, text="", icon="PMARKER_ACT")
+class LoopListUI(ui_list.PlasmaUIListBase[anim_mods.LoopMarker], bpy.types.UIList):
+    def get_icon(self, item, icon):
+        return "PMARKER_ACT"
+
+    def is_readonly(self, item):
+        return False
 
 
 def animation_loop(modifier, layout, context):
@@ -86,6 +90,7 @@ def animation_loop(modifier, layout, context):
     ui_list.draw_modifier_list(layout, "LoopListUI", modifier, "loops",
                                "active_loop_index", name_prefix="Loop",
                                name_prop="loop_name", rows=2, maxrows=3)
+
     # Modify the loop points
     if modifier.loops:
         loop = modifier.loops[modifier.active_loop_index]

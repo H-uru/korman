@@ -13,8 +13,11 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import bpy
 
+from ...properties.modifiers import water as water_mods
 from .. import ui_list
 
 def swimregion(modifier, layout, context):
@@ -104,15 +107,15 @@ def _wavestate(modifier, layout, context):
 water_geostate = _wavestate
 water_texstate = _wavestate
 
-class ShoreListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        layout.prop(item, "display_name", emboss=False, text="", icon="MOD_WAVE")
+class ShoreListUI(ui_list.PlasmaUIListBase[water_mods.PlasmaShoreObject], bpy.types.UIList):
+    def get_icon(self, item, icon):
+        return "MOD_WAVE" if item.shore_object else "ERROR"
 
 
 def water_shore(modifier, layout, context):
     ui_list.draw_modifier_list(layout, "ShoreListUI", modifier, "shores",
                                "active_shore_index", name_prefix="Shore",
-                               name_prop="display_name", rows=2, maxrows=3)
+                               rows=2, maxrows=3)
 
     # Display the active shore
     if modifier.shores:

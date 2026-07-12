@@ -13,7 +13,58 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import bpy
+
+from typing import *
+
+_ListItemT = TypeVar("_ListItemT", bound=bpy.types.PropertyGroup)
+
+class PlasmaUIListBase(Generic[_ListItemT]):
+    def draw_item(self, context, layout, data, item: _ListItemT, icon, active_data, active_property):
+        kwargs = {}
+
+        our_icon = self.get_icon(item, icon)
+        if isinstance(our_icon, str):
+            kwargs["icon"] = our_icon
+        elif isinstance(our_icon, int):
+            kwargs["icon_value"] = our_icon
+        else:
+            raise TypeError(our_icon.__class__.__name__)
+
+        if self.is_readonly(item):
+            # If the property we're using for the name isn't "name", then sorting won't work.
+            # To allow for old property groups that stored the name in the "name" property and
+            # sanitized at draw time, pull a fallback name, if needed.
+            assert self.propname == "name"
+            layout.label(
+                getattr(item, self.propname).rstrip() or self.get_fallback_name(item),
+                **kwargs
+            )
+        else:
+            # Can't do a runtime check here because the property we're given might have a getters
+            # and setters. If someone has said it's editable and overridden the propname, then
+            # they probably really know what they're doing.
+            kwargs.update(dict(emboss=False, text=""))
+            layout.prop(item, self.propname, **kwargs)
+
+        if hasattr(item, "enabled"):
+            layout.prop(item, "enabled", text="")
+
+    def get_fallback_name(self, item: _ListItemT) -> str:
+        return "[Empty]"
+
+    def get_icon(self, item: _ListItemT, icon: int) -> Union[int, str]:
+        return icon
+
+    def is_readonly(self, item: _ListItemT) -> bool:
+        return True
+
+    @property
+    def propname(self) -> str:
+        return "name"
+
 
 def draw_list(layout, listtype, context_attr, prop_base, collection_name, index_name, **kwargs):
     """Draws a generic UI list, including add/remove buttons. Note that in order to use this,

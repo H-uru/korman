@@ -13,9 +13,11 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import bpy
 
-from .. import helpers
+from ..properties import prop_camera as cam
 from . import ui_list
 
 def _draw_alert_prop(layout, props, the_prop, cam_type, alert_cam="", min=None, max=None, **kwargs):
@@ -233,13 +235,9 @@ class PlasmaCameraViewPanel(CameraButtonsPanel, bpy.types.Panel):
         draw_camera_manipulation_props(self.layout, camera.camera_type, camera.settings)
 
 
-class TransitionListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        if item.camera is None:
-            layout.label("[Default Transition]")
-        else:
-            layout.label(item.camera.name, icon="CAMERA_DATA")
-        layout.prop(item, "enabled", text="")
+class TransitionListUI(ui_list.PlasmaUIListBase[cam.PlasmaManualTransition], bpy.types.UIList):
+    def get_icon(self, item, icon):
+        return "CAMERA_DATA" if item.camera is not None else "NONE"
 
 
 class PlasmaCameraTransitionPanel(CameraButtonsPanel, bpy.types.Panel):

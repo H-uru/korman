@@ -78,6 +78,13 @@ class PlasmaManualTransition(bpy.types.PropertyGroup):
                            default=True,
                            options=set())
 
+    # Thunk for UIList
+    def _get_name(self) -> str:
+        if self.camera is not None:
+            return self.camera.name
+        return "[Default Transition]"
+    name = StringProperty(get=_get_name, options={"HIDDEN"})
+
 
 class PlasmaCameraProperties(bpy.types.PropertyGroup):
     # Point of Attention

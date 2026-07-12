@@ -26,9 +26,16 @@ class RenderLayerButtonsPanel:
         return context.scene.render.engine == "PLASMA_GAME"
 
 
-class BakePassUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        layout.prop(item, "display_name", emboss=False, text="", icon="RENDERLAYERS")
+class BakePassUI(ui_list.PlasmaUIListBase, bpy.types.UIList):
+    def get_icon(self, item, icon):
+        return "RENDERLAYERS"
+
+    def is_readonly(self, item) -> bool:
+        return False
+
+    @property
+    def propname(self):
+        return "display_name"
 
 
 class PlasmaBakePassPanel(RenderLayerButtonsPanel, bpy.types.Panel):

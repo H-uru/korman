@@ -18,34 +18,17 @@ from typing import *
 
 import bpy.types
 
+from ...properties.modifiers.game_gui import *
 from .. import ui_list
 
-if TYPE_CHECKING:
-    from ...properties.modifiers.game_gui import *
-
-class GuiAnimListUI(bpy.types.UIList):
-    def _iter_target_names(self, item: GameGuiAnimation):
-        if item.target_object is not None:
-            yield item.target_object.name
-        else:
-            yield item.id_data.name
-        if item.target_material is not None:
-            yield item.target_material.name
-        if item.target_texture is not None:
-            yield item.target_texture.name
-
-    def draw_item(
-            self, context, layout, data, item: GameGuiAnimation, icon, active_data,
-            active_property, index=0, flt_flag=0
-    ):
+class GuiAnimListUI(ui_list.PlasmaUIListBase[GameGuiAnimation], bpy.types.UIList):
+    def get_icon(self, item, icon):
         if item.anim_type == "OBJECT":
-            name = item.target_object.name if item.target_object is not None else item.id_data.name
-            layout.label(name, icon="OBJECT_DATA")
+            return "OBJECT_DATA"
         elif item.anim_type == "TEXTURE":
-            name_seq = list(self._iter_target_names(item))
-            layout.label(" / ".join(name_seq), icon="TEXTURE")
+            return "TEXTURE"
         else:
-            raise RuntimeError()
+            raise ValueError(item.anim_type)
 
 
 def _gui_anim(name: str, group: GameGuiAnimationGroup, layout, context):

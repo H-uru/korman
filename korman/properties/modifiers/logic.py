@@ -47,6 +47,13 @@ class PlasmaVersionedNodeTree(idprops.IDPropMixin, bpy.types.PropertyGroup):
                                 description="Node Tree to export",
                                 type=bpy.types.NodeTree)
 
+    # UI Thunk
+    def _get_name(self):
+        if self.node_tree is None:
+            return "[Empty]"
+        return self.node_tree.name
+    name = StringProperty(get=_get_name, options={"HIDDEN"})
+
     @classmethod
     def _idprop_mapping(cls):
         return {"node_tree": "node_tree_name"}

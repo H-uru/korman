@@ -17,6 +17,7 @@ import bpy
 from pathlib import Path
 
 from .. import korlib
+from . import ui_list
 
 
 class AgeButtonsPanel:
@@ -172,19 +173,17 @@ class PlasmaGamePanel(AgeButtonsPanel, PlasmaGameHelper, bpy.types.Panel):
         row.menu("PlasmaGameExportMenu", icon='DOWNARROW_HLT', text="")
 
 
-class PlasmaGameListRO(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        layout.label(item.name, icon="BOOKMARKS")
-
-class PlasmaGameListRW(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        layout.prop(item, "name", text="", emboss=False, icon="BOOKMARKS")
+class PlasmaGameList(ui_list.PlasmaUIListBase, bpy.types.UIList):
+    def get_icon(self, item, icon):
+        return "BOOKMARKS"
 
 
-class PlasmaPageList(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        layout.prop(item, "name", text="", emboss=False, icon="BOOKMARKS")
-        layout.prop(item, "enabled", text="")
+class PlasmaPageList(ui_list.PlasmaUIListBase, bpy.types.UIList):
+    def get_icon(self, item, icon):
+        return "BOOKMARKS"
+
+    def is_readonly(self, item) -> bool:
+        return False
 
 
 class PlasmaAgePanel(AgeButtonsPanel, bpy.types.Panel):

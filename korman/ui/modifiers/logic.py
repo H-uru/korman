@@ -17,20 +17,12 @@ from __future__ import annotations
 
 import bpy
 
-from typing import *
-
-if TYPE_CHECKING:
-    from ...properties.modifiers.logic import *
-
+from ...properties.modifiers.logic import *
 from .. import ui_list
 
-class LogicListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        if item.node_tree:
-            # Using layout.prop on the pointer prevents clicking on the item O.o
-            layout.label(item.node_tree.name, icon="NODETREE")
-        else:
-            layout.label("[Empty]")
+class LogicListUI(ui_list.PlasmaUIListBase[PlasmaVersionedNodeTree], bpy.types.UIList):
+    def get_icon(self, item, icon):
+        return "NODETREE" if item.node_tree is not None else "NONE"
 
 
 def advanced_logic(modifier, layout, context):

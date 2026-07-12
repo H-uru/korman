@@ -17,9 +17,9 @@ import bpy
 
 from . import ui_list
 
-class AnimListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        layout.label(item.animation_name, icon="ANIM")
+class AnimListUI(ui_list.PlasmaUIListBase, bpy.types.UIList):
+    def get_icon(self, item, icon):
+        return "ANIM"
 
 
 def draw_multi_animation(layout, context_attr, prop_base, anims_collection_name, *, use_box=False, **kwargs):

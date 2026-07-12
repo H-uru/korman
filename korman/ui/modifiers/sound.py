@@ -55,13 +55,12 @@ def _draw_fade_ui(modifier, layout, label):
     layout.prop(modifier, "fade_type", text="")
     layout.prop(modifier, "length")
 
-class SoundListUI(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
-        if item.sound:
-            layout.prop(item, "name", emboss=False, icon="SOUND", text="")
-            layout.prop(item, "enabled", text="")
-        else:
-            layout.label("[Empty]")
+class SoundListUI(ui_list.PlasmaUIListBase, bpy.types.UIList):
+    def get_icon(self, item, icon):
+        return "SOUND" if item.sound is not None else "NONE"
+
+    def is_readonly(self, item) -> bool:
+        return item.sound is None
 
 
 def soundemit(modifier, layout, context):
