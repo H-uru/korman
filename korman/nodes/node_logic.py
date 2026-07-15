@@ -692,6 +692,109 @@ class PlasmaSDLValueMapNode(PlasmaNodeBase, bpy.types.Node):
             yield (i.input_value, i.output_value)
 
 
+
+class SDLMatchValue(bpy.types.PropertyGroup):
+    value = IntProperty(
+        name="SDL Value",
+        description="",
+        default=1,
+        options=set()
+    )
+
+
+class PlasmaSDLValueTriggerNode(PlasmaNodeBase, bpy.types.Node):
+    bl_category = "LOGIC"
+    bl_idname = "PlasmaSDLValueTriggerNode"
+    bl_label = "SDL Value Trigger"
+    bl_width_default = 170
+
+    input_sockets: dict[str, dict[str, Any]] = {
+        "input_variable": {
+            "text": "Triggered by SDL",
+            "type": "PlasmaSDLTriggererSocket",
+        },
+    }
+
+    output_sockets: dict[str, dict[str, Any]] = {
+        "satisfies_true": {
+            "text": "Trigger on Match",
+            "type": "PlasmaConditionSocket",
+            "valid_link_nodes": {"PlasmaResponderNode", "PlasmaBasicResponderNode"},
+        },
+        "satisfies_false": {
+            "text": "Trigger on Mismatch",
+            "type": "PlasmaConditionSocket",
+            "valid_link_nodes": {"PlasmaResponderNode", "PlasmaBasicResponderNode"},
+        }
+    }
+
+    states = CollectionProperty(type=SDLMatchValue)
+    ffwd_init = BoolProperty(
+        name="F-Fwd on Init",
+        description="Fast-forward the appropriate Responder when the Age loads",
+        default=True,
+        options=set()
+    )
+    ffwd_true = BoolProperty(
+        name="F-Fwd on Match",
+        description="Fast-forward the Responder attached to the match socket",
+        options=set()
+    )
+    ffwd_false = BoolProperty(
+        name="F-Fwd on Mismatch",
+        description="Fast-forward the Responder attached to the mismatch socket",
+        options=set()
+    )
+    ffwd_vm = BoolProperty(
+        name="F-Fwd on VM",
+        description="Fast-forward the appropriate Responder when the SDL variable is changed in the Vault Manager",
+        default=True,
+        options=set()
+    )
+
+    def init(self, context):
+        self.states.add()
+
+    def draw_buttons(self, context, layout: bpy.types.UILayout):
+        draw_node_list(
+            self,
+            layout,
+            "states",
+            self._draw_state,
+            footer="Add New State"
+        )
+        layout.prop(self, "ffwd_init")
+        layout.prop(self, "ffwd_true")
+        layout.prop(self, "ffwd_false")
+        layout.prop(self, "ffwd_vm")
+
+    def _draw_state(self, state, layout: bpy.types.UILayout):
+        layout.alert = any((state.value == i.value for i in self.states if i != state))
+        layout.prop(state, "value")
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        input_variable = self.find_input("input_variable")
+        if input_variable is None:
+            self.raise_error("Must be linked to an input SDL variable")
+
+        pfm = self._find_create_object(plPythonFileMod, exporter, so=so)
+        pfm.filename = "xAgeSDLIntStartStopResp"
+        self._add_py_parameter(pfm, 1, plPythonParameter.kString, input_variable.variable_name)
+        for i in self.find_outputs("satisfies_true"):
+            self._add_py_parameter(pfm, 2, plPythonParameter.kResponder, i.get_key(exporter, so))
+        self._add_py_parameter(pfm, 3, plPythonParameter.kString, ",".join((str(i.value) for i in self.states)))
+        self._add_py_parameter(pfm, 4, plPythonParameter.kBoolean, self.ffwd_true)
+        for i in self.find_outputs("satisfies_false"):
+            self._add_py_parameter(pfm, 5, plPythonParameter.kResponder, i.get_key(exporter, so))
+        self._add_py_parameter(pfm, 6, plPythonParameter.kBoolean, self.ffwd_false)
+        self._add_py_parameter(pfm, 8, plPythonParameter.kBoolean, self.ffwd_init)
+        self._add_py_parameter(pfm, 9, plPythonParameter.kBoolean, self.ffwd_vm)
+
+    @property
+    def export_once(self):
+        return True
+
+
 class PlasmaSDLVariableNode(PlasmaNodeBase, bpy.types.Node):
     bl_category = "LOGIC"
     bl_idname = "PlasmaSDLVariableNode"
