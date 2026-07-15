@@ -216,7 +216,7 @@ class ExportManager:
     @property
     def _encryption(self):
         if self.mgr.getVer() == pvEoa:
-            return plEncryptedStream.kEncAes
+            return plEncryptedStream.kEncAES
         else:
             return plEncryptedStream.kEncXtea
 
