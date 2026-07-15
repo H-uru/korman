@@ -453,7 +453,7 @@ class PlasmaLinkEventNode(PlasmaNodeBase, bpy.types.Node):
         "satisfies": {
             "text": "Satisfies",
             "type": "PlasmaConditionSocket",
-            "valid_link_sockets": {"PlasmaConditionSocket", "PlasmaPythonFileNodeSocket"},
+            "valid_link_nodes": {"PlasmaResponderNode", "PlasmaBasicResponderNode"},
         },
     }
 
@@ -468,9 +468,6 @@ class PlasmaLinkEventNode(PlasmaNodeBase, bpy.types.Node):
         layout.prop(self, "trigger_direction")
         layout.prop(self, "trigger_at")
 
-    def get_key(self, exporter: Exporter, so) -> plKey[plLogicModifier]:
-        return self._find_create_key(plLogicModifier, exporter, so=so)
-
     def export(self, exporter: Exporter, bo, so) -> None:
         combo = (self.trigger_for, self.trigger_on, self.trigger_direction)
         if combo == ("Me", "Spawn", "Out"):
@@ -478,23 +475,17 @@ class PlasmaLinkEventNode(PlasmaNodeBase, bpy.types.Node):
 
         # There is no class in the engine that will fire when someone links in. There are messages,
         # though, and they all get to Python in one way or another. So, to fire an event on link
-        # or spawn, we're going to use a helper script xLinkEventTrigger. It will send a notification
-        # to a kMultiTrigger LogicMod with a plActivatorActivatorConditionalObject. LMs forward
-        # all plNotifyMsgs to their conditions, and plAACO activates on any state==1.0 plNotifyMsg,
-        # assuming that the LogicMod is not already marked as triggered and all of the other conditions
-        # say that they're in a valid state. Once that LogicMod fires, anything we want can be fired
-        # off, like other PFMs or Responders. A potential optimization here is to avoid creation
-        # of the plAACO/plLM thunk if we only have responders attached.
-        activator = self._find_create_object(plActivatorActivatorConditionalObject, exporter, so=so)
-        logicmod = self._find_create_object(plLogicModifier, exporter, so=so)
-        logicmod.addCondition(activator.key)
-        logicmod.notify = self.generate_notify_msg(exporter, so, "satisfies")
-        logicmod.setLogicFlag(plLogicModifier.kMultiTrigger, True)
-        logicmod.setLogicFlag(plLogicModifier.kLocalElement, True)
-
+        # or spawn, we're going to use a helper script xLinkEventTrigger. I originally wrote this
+        # to trigger a plLogicModifier with a plActivatorActivatorConditionalObject attached to
+        # forward the trigger to another arbitrary plLogicMod. Unfortunately, plAACO does not
+        # forward notification details to the downstream LogicMod, so if you wanted to run a
+        # responder that targets an avatar somewhere in that tree, you're sunk. I could modify
+        # the engine, but that becomes non-trivial due to TPotS being closed source. So, I've
+        # changed this to only accept Responders.
         pfm = self._find_create_object(plPythonFileMod, exporter, so=so)
         pfm.filename = "xLinkEventTrigger"
-        self._add_py_parameter(pfm, 1, plPythonParameter.kResponder, logicmod.key)
+        for i in self.find_outputs("satisfies"):
+            self._add_py_parameter(pfm, 1, plPythonParameter.kResponder, i.get_key(exporter, so))
         self._add_py_parameter(pfm, 100, plPythonParameter.kString, f"{self.trigger_on} {self.trigger_direction}")
         self._add_py_parameter(pfm, 101, plPythonParameter.kString, self.trigger_for)
         self._add_py_parameter(pfm, 102, plPythonParameter.kString, self.trigger_at)
