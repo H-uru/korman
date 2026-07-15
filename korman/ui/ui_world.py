@@ -135,7 +135,7 @@ class PlasmaGamePanel(AgeButtonsPanel, PlasmaGameHelper, bpy.types.Panel):
 
         row = layout.row()
         # Remember: game storage moved to addon preferences!
-        row.template_list("PlasmaGameListRO", "games", prefs, "games", games,
+        row.template_list("PlasmaGameList", "games", prefs, "games", games,
                           "active_game_index", rows=2)
         row.operator("ui.korman_open_prefs", icon="PREFERENCES", text="")
 
