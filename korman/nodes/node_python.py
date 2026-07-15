@@ -31,6 +31,9 @@ from .node_deprecated import PlasmaDeprecatedNode, PlasmaVersionedNode
 from .. import idprops
 from ..plasma_attributes import get_attributes_from_str
 
+if TYPE_CHECKING:
+    from ..exporter import Exporter
+
 _single_user_attribs = {
     "ptAttribBoolean", "ptAttribInt", "ptAttribFloat", "ptAttribString", "ptAttribDropDownList",
     "ptAttribSceneobject", "ptAttribDynamicMap", "ptAttribGUIDialog", "ptAttribExcludeRegion",
@@ -335,7 +338,7 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
                     self._export_key_attrib(exporter, bo, so, pfm, i, socket)
                 pfm.addParameter(param)
 
-    def _export_ancillary_sceneobject(self, exporter, bo, so: plSceneObject) -> None:
+    def _export_ancillary_sceneobject(self, exporter: Exporter, bo, so: plSceneObject) -> None:
         # Danger: Special case evil ahoy...
         # If the key is an object that represents a lamp, we have to assume that the reason it's
         # being passed to Python is so it can be turned on/off at will. That means it's technically

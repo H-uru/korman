@@ -44,6 +44,7 @@ _pool_types = {
     plFactory.kClusterGroup,
 }
 
+_InterfaceT = TypeVar("_InterfaceT", bound=plObjInterface)
 
 class ExportManager:
     """Friendly resource-managing helper class."""
@@ -219,8 +220,11 @@ class ExportManager:
         else:
             return plEncryptedStream.kEncXtea
 
-    def find_interfaces(self, pClass, so : plSceneObject) -> Iterable[plObjInterface]:
-        assert issubclass(pClass, plObjInterface)
+    def find_interfaces(self, pClass: Type[_InterfaceT], so: plSceneObject) -> Iterable[_InterfaceT]:
+        if not issubclass(pClass, plObjInterface):
+            # This is not a TypeError because they technically passed in a class object, which
+            # is the correct type. The value of `pClass` must be a subclass object of plObjInterface.
+            raise ValueError(pClass.__name__)
 
         for i in (i.object for i in so.interfaces):
             if isinstance(i, pClass):
