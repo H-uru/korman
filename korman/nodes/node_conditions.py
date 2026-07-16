@@ -404,6 +404,97 @@ class PlasmaFacingTargetSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
         return (not self.is_linked and not self.is_output)
 
 
+class PlasmaLinkEventNode(PlasmaNodeBase, bpy.types.Node):
+    bl_category = "CONDITIONS"
+    bl_idname = "PlasmaLinkEventNode"
+    bl_label = "Link Event"
+    bl_width_default = 320
+
+    trigger_for = EnumProperty(
+        name="Trigger For",
+        items=[
+            ("Me", "Local Player", "Trigger only for the local player"),
+            ("NPCs", "NPCs", "Trigger for NPCs (eg quabs)"),
+            ("Player Avatars", "Player Avatars", "Trigger for player controlled avatars"),
+            ("Everyone", "Everyone", "Trigger for all avatars"),
+        ],
+        default="Me",
+        options=set()
+    )
+    trigger_on = EnumProperty(
+        name="Trigger On",
+        items=[
+            ("Spawn", "Avatar Spawns", "Trigger when an avatar spawns"),
+            ("Link", "Avatar Links", "Trigger when an avatar links"),
+        ],
+        default="Spawn",
+        options=set()
+    )
+    trigger_direction = EnumProperty(
+        name="Trigger Direction",
+        items=[
+            ("In", "In", "Trigger when the avatar links/spawns into the Age"),
+            ("Out", "Out", "Trigger when the avatar links/spawns out of the Age"),
+        ],
+        default="In",
+        options=set()
+    )
+    trigger_at = EnumProperty(
+        name="Trigger At",
+        items=[
+            ("Start", "Event Start", "Trigger when the interesting event begins"),
+            ("End", "Event End", "Trigger when the interesting event ends"),
+        ],
+        default="Start",
+        options=set()
+    )
+
+    output_sockets: dict[str, dict[str, Any]] = {
+        "satisfies": {
+            "text": "Satisfies",
+            "type": "PlasmaConditionSocket",
+            "valid_link_nodes": {"PlasmaResponderNode", "PlasmaBasicResponderNode"},
+        },
+    }
+
+    def draw_buttons(self, context, layout):
+        combo = (self.trigger_for, self.trigger_on, self.trigger_direction)
+
+        layout.alert = combo == ("Me", "Spawn", "Out")
+        layout.prop(self, "trigger_for")
+        layout.alert = False
+
+        layout.prop(self, "trigger_on")
+        layout.prop(self, "trigger_direction")
+        layout.prop(self, "trigger_at")
+
+    def export(self, exporter: Exporter, bo, so) -> None:
+        combo = (self.trigger_for, self.trigger_on, self.trigger_direction)
+        if combo == ("Me", "Spawn", "Out"):
+            self.raise_error("Cannot trigger when the local player spawns out")
+
+        # There is no class in the engine that will fire when someone links in. There are messages,
+        # though, and they all get to Python in one way or another. So, to fire an event on link
+        # or spawn, we're going to use a helper script xLinkEventTrigger. I originally wrote this
+        # to trigger a plLogicModifier with a plActivatorActivatorConditionalObject attached to
+        # forward the trigger to another arbitrary plLogicMod. Unfortunately, plAACO does not
+        # forward notification details to the downstream LogicMod, so if you wanted to run a
+        # responder that targets an avatar somewhere in that tree, you're sunk. I could modify
+        # the engine, but that becomes non-trivial due to TPotS being closed source. So, I've
+        # changed this to only accept Responders.
+        pfm = self._find_create_object(plPythonFileMod, exporter, so=so)
+        pfm.filename = "xLinkEventTrigger"
+        for i in self.find_outputs("satisfies"):
+            self._add_py_parameter(pfm, 1, plPythonParameter.kResponder, i.get_key(exporter, so))
+        self._add_py_parameter(pfm, 100, plPythonParameter.kString, f"{self.trigger_on} {self.trigger_direction}")
+        self._add_py_parameter(pfm, 101, plPythonParameter.kString, self.trigger_for)
+        self._add_py_parameter(pfm, 102, plPythonParameter.kString, self.trigger_at)
+
+    @property
+    def export_once(self):
+        return True
+
+
 class PlasmaVolumeReportNode(PlasmaNodeBase, bpy.types.Node):
     bl_category = "CONDITIONS"
     bl_idname = "PlasmaVolumeReportNode"

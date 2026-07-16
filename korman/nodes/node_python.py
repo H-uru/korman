@@ -329,14 +329,15 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
             if isinstance(value, str) or not isinstance(value, Iterable):
                 value = (value,)
             for i in value:
-                param = plPythonParameter()
-                param.id = socket.attribute_id
-                param.valueType = _attrib2param[socket.attribute_type]
-                param.value = i
+                self._add_py_parameter(
+                    pfm,
+                    socket.attribute_id,
+                    _attrib2param[socket.attribute_type],
+                    i
+                )
 
                 if not socket.is_simple_value:
                     self._export_key_attrib(exporter, bo, so, pfm, i, socket)
-                pfm.addParameter(param)
 
     def _export_ancillary_sceneobject(self, exporter: Exporter, bo, so: plSceneObject) -> None:
         # Danger: Special case evil ahoy...
