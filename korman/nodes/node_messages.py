@@ -1043,25 +1043,26 @@ class PlasmaTimerCallbackMsgNode(PlasmaMessageWithCallbacksNode, bpy.types.Node)
 class PlasmaTriggerMultiStageMsgNode(PlasmaMessageNode, bpy.types.Node):
     bl_category = "MSG"
     bl_idname = "PlasmaTriggerMultiStageMsgNode"
-    bl_label = "Trigger MultiStage"
+    bl_label = "Trigger"
 
     output_sockets: dict[str, dict[str, Any]] = {
         "satisfies": {
             "text": "Trigger",
             "type": "PlasmaConditionSocket",
-            "valid_link_nodes": "PlasmaMultiStageBehaviorNode",
-            "valid_link_sockets": "PlasmaConditionSocket",
             "link_limit": 1,
         }
     }
 
     def convert_message(self, exporter, so):
-        # Yeah, this is not a REAL Plasma message, but the Korman way is to try to hide these little
-        # low-level notifications behind higher level abstractions, so here you go. A notify message
-        # that only targets plMultiStageBehMod. You're welcome!
+        # This node was designed to target only MultiStageBehaviors. In Plasma, to trigger an MSB,
+        # you send a collision notify from a Responder. If a collision event is not present in a
+        # plNotifyMsg, then the receivers are blown away and rewritten to be whoever triggered the
+        # Responder last. That means an MSB trigger "message" is really a generic "trigger some
+        # logic" message as well. So, use the generic code here. I've also relaxed the MSB linkage
+        # requirement so some of the new SDL change nodes can be triggered from here.
         msg = self.generate_notify_msg(exporter, so, "satisfies")
 
-        # The MultiStageBehMod needs to receive the avatar key that whatdonetriggeredit. We don't know
+        # A MultiStageBehMod needs to receive the avatar key that whatdonetriggeredit. We don't know
         # this information at export-time, but plResponderModifier::IContinueSending will interpret
         # a collision event as "ohey, let's add the avatar key for MSBs" - nice.
         msg.addEvent(proCollisionEventData())

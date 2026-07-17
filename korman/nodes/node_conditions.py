@@ -490,6 +490,72 @@ class PlasmaLinkEventNode(PlasmaNodeBase, bpy.types.Node):
         self._add_py_parameter(pfm, 101, plPythonParameter.kString, self.trigger_for)
         self._add_py_parameter(pfm, 102, plPythonParameter.kString, self.trigger_at)
 
+
+class PlasmaSDLBoolConditionNode(PlasmaNodeBase, bpy.types.Node):
+    bl_category = "CONDITIONS"
+    bl_idname = "PlasmaSDLBoolConditionNode"
+    bl_label = "SDL Boolean Condition"
+
+    input_sockets: dict[str, dict[str, Any]] = {
+        "condition": {
+            "text": "Condition",
+            "type": "PlasmaConditionSocket",
+        },
+        "variable": {
+            "text": "Depends on SDL",
+            "type": "PlasmaSDLTriggererSocket",
+        },
+    }
+
+    output_sockets: dict[str, dict[str, Any]] = {
+        "satisfies_true": {
+            "text": "Trigger on True",
+            "type": "PlasmaConditionSocket",
+            "valid_link_nodes": {"PlasmaResponderNode", "PlasmaBasicResponderNode"}
+        },
+        "satisfies_false": {
+            "text": "Trigger on False",
+            "type": "PlasmaConditionSocket",
+            "valid_link_nodes": {"PlasmaResponderNode", "PlasmaBasicResponderNode"},
+        }
+    }
+
+    ffwd_init = BoolProperty(
+        name="F-Fwd on Init",
+        description="Fast-forward the matching Responder when the Age loads",
+        default=True,
+        options=set()
+    )
+
+    def draw_buttons(self, context, layout: bpy.types.UILayout):
+        layout.prop(self, "ffwd_init")
+
+    def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
+        condition_node = self.find_input("condition")
+        variable_node = self.find_input("variable")
+        if condition_node is None:
+            self.raise_error("Must be linked to a condition")
+        if variable_node is None:
+            self.raise_error("Must be linked to an SDL variable")
+
+        # xAgeSDLBoolCondResp only handles one SDL value per modifier. We're exposing two
+        # node sockets as a convenience to match the behavior of the xAgeSDLBoolRespond node.
+        # This means we'll potentially be producing two PFMs here.
+        resp_socket_names = ("satisfies_false", "satisfies_true")
+        for i, resp_node_iter in enumerate((self.find_outputs(i) for i in resp_socket_names)):
+            resp_nodes = tuple(resp_node_iter)
+            if not resp_nodes:
+                continue
+
+            pfm = self._find_create_object(plPythonFileMod, exporter, so=so, suffix=str(i))
+            pfm.filename = "xAgeSDLBoolCondResp"
+            self._add_py_parameter(pfm, 1, plPythonParameter.kActivator, condition_node.get_key(exporter, so))
+            self._add_py_parameter(pfm, 2, plPythonParameter.kString, variable_node.variable_name)
+            for resp_node in resp_nodes:
+                self._add_py_parameter(pfm, 3, plPythonParameter.kResponder, resp_node.get_key(exporter, so))
+            self._add_py_parameter(pfm, 4, plPythonParameter.kBoolean, i == 1)
+            self._add_py_parameter(pfm, 5, plPythonParameter.kBoolean, self.ffwd_init)
+
     @property
     def export_once(self):
         return True

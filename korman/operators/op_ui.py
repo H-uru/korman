@@ -49,7 +49,8 @@ class CollectionAddOperator(UIOperator, bpy.types.Operator):
                                options=set())
 
     def execute(self, context):
-        props = getattr(context, self.context).path_resolve(self.group_path)
+        id_data = context.path_resolve(self.context) if "." in self.context else getattr(context, self.context)
+        props = id_data.path_resolve(self.group_path)
         collection = getattr(props, self.collection_prop)
         idx = len(collection)
         collection.add()
@@ -82,7 +83,8 @@ class CollectionRemoveOperator(UIOperator, bpy.types.Operator):
                                options=set())
 
     def execute(self, context):
-        props = getattr(context, self.context).path_resolve(self.group_path)
+        id_data = context.path_resolve(self.context) if "." in self.context else getattr(context, self.context)
+        props = id_data.path_resolve(self.group_path)
         collection = getattr(props, self.collection_prop)
         if self.index_prop:
             index = getattr(props, self.index_prop)
