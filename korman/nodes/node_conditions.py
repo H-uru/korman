@@ -75,15 +75,30 @@ class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaVersionedNode, bpy.ty
         layout.prop(self, "clickable_object", icon="MESH_DATA")
         layout.prop(self, "bounds")
 
-    def export(self, exporter, parent_bo, parent_so):
+    def export(self, exporter: Exporter, parent_bo: bpy.types.Object, parent_so: plSceneObject):
         clickable_bo, clickable_so = self._get_objects(exporter, parent_so)
         if clickable_bo is None:
             clickable_bo = parent_bo
 
+        # It doesn't make sense to have the same object be used in multiple clickables.
+        # This can lead to surprising results. For example, if you have multiple logic modifiers
+        # on a single clickable object, any of them being disabled will cause the hotspot to
+        # vanish for all of them. The SceneInputInterface code assumes that there's only one
+        # LogicMod per InterfaceInfo, and MOUL's PhysX LOS probes bail if any LogicMod is disabled.
+        exporter.claim_object(self, clickable_bo, "clickable")
+
+        # In PlasmaMAX, the InterfaceInfoModifier isn't created until late in the export process.
+        # It's basically supposed to be a list of any LogicMod keys that might cause the cursor
+        # to change from the typical "null" cursor. They do this by collecting the receivers of
+        # any PickingDetectors and any LogicMods attached to each SceneObject. The justification
+        # for this is that any single SceneObject can have multiple LogicMods attached. That's
+        # true in theory, but in practice having multiple LogicMods that interact with the cursor
+        # won't work due to how the LOS probe is filtered.
         interface = self._find_create_object(plInterfaceInfoModifier, exporter, bl=clickable_bo, so=clickable_so)
         logicmod = self._find_create_key(plLogicModifier, exporter, bl=clickable_bo, so=clickable_so)
         interface.addIntfKey(logicmod)
-        # Matches data seen in Cyan's PRPs...
+        # Matches data seen in Cyan's PRPs... See above explanation. This could probably be removed
+        # but leaving it in for now.
         interface.addIntfKey(logicmod)
         logicmod = logicmod.object
 
