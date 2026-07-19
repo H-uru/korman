@@ -25,6 +25,7 @@ from .. import enum_props
 from .node_core import *
 from .node_deprecated import PlasmaVersionedNode
 from .. import idprops
+from ..ui.ui_list import draw_node_list
 
 class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaVersionedNode, bpy.types.Node):
     bl_category = "CONDITIONS"
@@ -55,6 +56,10 @@ class PlasmaClickableNode(idprops.IDPropObjectMixin, PlasmaVersionedNode, bpy.ty
         "facing": {
             "text": "Avatar Facing Target",
             "type": "PlasmaFacingTargetSocket",
+        },
+        "sdl_hotspot": {
+            "text": "Hotspot SDL",
+            "type": "PlasmaClickableSDLSocket",
         },
         "message": {
             "text": "Message",
@@ -574,6 +579,94 @@ class PlasmaSDLBoolConditionNode(PlasmaNodeBase, bpy.types.Node):
     @property
     def export_once(self):
         return True
+
+
+
+class ClickableSDLValue(bpy.types.PropertyGroup):
+    value = IntProperty(
+        name="SDL Value",
+        description="Enable the clickable when the SDL Variable is set to this",
+        default=1,
+        options=set()
+    )
+
+
+class PlasmaClickableSDLNode(PlasmaNodeBase, bpy.types.Node):
+    bl_category = "CONDITIONS"
+    bl_idname = "PlasmaClickableSDLNode"
+    bl_label = "SDL Hotspot"
+    bl_width_default = 170
+
+    input_sockets: dict[str, dict[str, Any]] = {
+        "variable": {
+            "text": "Dependends on SDL",
+            "type": "PlasmaSDLTriggererSocket",
+        },
+    }
+
+    output_sockets: dict[str, dict[str, Any]] = {
+        "satisfies": {
+            "text": "Satisfies",
+            "type": "PlasmaClickableSDLSocket",
+        }
+    }
+
+    states = CollectionProperty(type=ClickableSDLValue)
+
+    def init(self, context):
+        self.states.add()
+
+    def draw_buttons(self, context, layout: bpy.types.UILayout):
+        draw_node_list(
+            self,
+            layout,
+            "states",
+            self._draw_state,
+            header="Enable Clickable On",
+            footer="Add New State"
+        )
+
+    def _draw_state(self, state, layout: bpy.types.UILayout):
+        layout.alert = any((state.value == i.value for i in self.states if i != state))
+        layout.prop(state, "value")
+
+    def export(self, exporter: Exporter, bo, so: plSceneObject):
+        # If the artist has removed all of the state values from the node, don't export anything.
+        # This will (hopefully) be the least surprising option in this case. Remember: Blender
+        # property collections don't handle implicit truthiness correctly.
+        if not bool(self.states):
+            exporter.report.warn("No 'enabled' states specified for clickable, assuming always enabled")
+            return
+
+        # This node may be exported multiple times if the node tree is reused in multiple
+        # Advanced Logic modifiers. Each time this node is re-exported, the PFM we generate
+        # is attached to the new host SceneObject. If the clickable node in the reused tree
+        # suddenly exposes a new LogicMod, we'll slurp that new LogicMod in as an activator.
+        # The "surprise" here is that this PFM will be attached to the host SceneObject,
+        # not the SceneObject referenced as the clickable object like the rest of the
+        # clickable logic objects. Whatever.
+        pfm = self._find_create_object(plPythonFileMod, exporter, so=so)
+        if not pfm.filename:
+            variable_node = self.find_input("variable")
+            if variable_node is None:
+                self.raise_error("SDL Variable must be linked!")
+
+            pfm.filename = "xAgeSDLIntActEnabler"
+            self._add_py_parameter(pfm, 1, plPythonParameter.kString, variable_node.variable_name)
+            # Skipping ID 2 becuase these are the LogicMod keys - cluster them at the end.
+            self._add_py_parameter(
+                pfm, 3, plPythonParameter.kString, ",".join(frozenset((str(i.value) for i in self.states)))
+            )
+
+        extant_keys = frozenset((i.value for i in pfm.parameters if i.id == 2))
+        for clickable_node in self.find_outputs("satisfies"):
+            logic_key = clickable_node.get_key(exporter, so)
+            if logic_key not in extant_keys:
+                self._add_py_parameter(pfm, 2, plPythonParameter.kActivator, logic_key)
+
+
+class PlasmaClickableSDLSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
+    bl_color = (0.58, 0.65, 0.42, 1.0)
 
 
 class PlasmaVolumeReportNode(PlasmaNodeBase, bpy.types.Node):
