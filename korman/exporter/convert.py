@@ -13,6 +13,8 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import bpy
 
 from collections import defaultdict
@@ -70,6 +72,7 @@ class Exporter:
         self.actors = set()
         self.want_node_trees = defaultdict(set)
         self.exported_nodes = {}
+        self._claims: dict[str, dict[str, bpy.types.bpy_struct]] = defaultdict(dict)
 
     def run(self):
         log = logger.ExportVerboseLogger if self._op.verbose else logger.ExportProgressLogger
@@ -170,6 +173,62 @@ class Exporter:
     def _bake_static_lighting(self):
         if self._op.lighting_method != "skip":
             self.oven.bake_static_lighting(self._objects)
+
+    def claim_object(
+        self,
+        claimant: bpy.types.bpy_struct,
+        bl: bpy.types.Object,
+        claim_type: str,
+        *,
+        err: str = "",
+        strict: bool = True
+    ) -> Optional[bpy.types.bpy_struct]:
+        """
+        This is a way to assign that a certain property group or object has claimed a Blender object
+        for a specific purpose and that object cannot be reused for that purpose. Claims are scoped
+        by ``claim_type``, so the same object can still be claimed for other, unrelated purposes without
+        conflict.
+
+        If the object is already claimed under this ``claim_type`` by someone else, we will either raise
+        an ``ExportError`` (if ``strict``) or hand back the existing claimant so the caller can decide what to
+        do (if not ``strict``). By default, a generic error message is used, but you can supply your own
+        via ``err`` - it's passed through ``str.format()`` with ``object_name``, ``claim_type``,
+        ``owner_name``, and ``claimant_name`` available for substitution, where ``owner_name`` and
+        ``claimant_name`` are slash-joined paths identifying the existing/new claimant.
+        """
+        def iter_name_parts(obj: bpy.types.bpy_struct):
+            if not isinstance(obj, bpy.types.ID):
+                yield obj.id_data.name
+
+            name = getattr(obj, "name", None)
+            if name:
+                yield name
+
+        claim = self._claims.get(bl.name)
+        if claim is None:
+            self._claims[bl.name][claim_type] = claimant
+            return None
+
+        prev_claimant = claim.get(claim_type)
+        if prev_claimant is not None and prev_claimant != claimant:
+            if strict:
+                if not err:
+                    err = (
+                        "'{object_name}' has already been claimed as a(n) {claim_type} by "
+                        "'{owner_name}'. '{claimant_name}' cannot claim it again."
+                    )
+                raise explosions.ExportError(
+                    err.format(
+                        object_name=bl.name,
+                        owner_name="/".join(iter_name_parts(prev_claimant)),
+                        claimant_name="/".join(iter_name_parts(claimant)),
+                        claim_type=claim_type
+                    )
+                )
+            return prev_claimant
+
+        claim[claim_type] = claimant
+        return None
 
     def _collect_objects(self):
         scene = bpy.context.scene

@@ -344,13 +344,18 @@ class PlasmaNodeBase:
 
     def _update_init_sockets(self, defs, sockets):
         # Create any missing sockets and spawn any required empties.
+        insert_at = 0
         for alias, options in defs.items():
             working_sockets = [(i, socket) for i, socket in enumerate(sockets) if socket.alias == alias]
             num_sockets = options.get("min_sockets", 1)
             num_used = sum((1 for i, socket in working_sockets if socket.is_linked))
             if not working_sockets:
                 for _ in range(num_sockets):
-                    self._spawn_socket(alias, options, sockets)
+                    new_socket_id = len(sockets)
+                    new_socket = self._spawn_socket(alias, options, sockets)
+                    if new_socket_id != insert_at:
+                        sockets.move(new_socket_id, insert_at)
+                    insert_at += 1
             else:
                 last_socket_id = working_sockets[-1][0]
                 if options.get("spawn_empty", False):
