@@ -473,18 +473,18 @@ class GameGuiAnimation(bpy.types.PropertyGroup):
         options=set()
     )
     target_object: bpy.types.Object = idprops.triprop_object(
-        "target_object", "target_material", "target_texure",
+        "target_object", "target_material", "target_tetxure",
         name="Object",
         description="Target object",
         poll=_poll_target_object,
     )
     target_material: bpy.types.Material = idprops.triprop_material(
-        "target_object", "target_material", "target_texure",
+        "target_object", "target_material", "target_tetxure",
         name="Material",
         description="Target material",
     )
     target_texture: bpy.types.Texture = idprops.triprop_texture(
-        "target_object", "target_material", "target_texure",
+        "target_object", "target_material", "target_tetxure",
         name="Texture",
         description="Target texture",
     )
