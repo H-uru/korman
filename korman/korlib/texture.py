@@ -186,13 +186,13 @@ class GLTexture:
         # Some operations, like alpha testing, don't care about the fact that OpenGL flips
         # the images in memory. Give an opportunity to bail here...
         if fast:
-            return self._image_data
-        else:
-            buf = bytearray(self._image_data)
-
+            return buf
 
         if self._image_inverted:
             buf = self._invert_image(eWidth, eHeight, buf)
+
+        # Ensure we are mutable from here on.
+        buf = bytearray(buf)
 
         # If this is a detail map, then we need to bake that per-level here.
         if self._texkey is not None and self._texkey.is_detail_map:
@@ -206,8 +206,9 @@ class GLTexture:
 
         # Do we need to calculate the alpha component?
         if calc_alpha:
-            for i in range(0, size, 4):
+            for i in range(0, len(buf), 4):
                 buf[i+3] = int(sum(buf[i:i+3]) / 3)
+
         return bytes(buf)
 
     def _get_detail_alpha(self, level, dropoff_start, dropoff_stop, detail_max, detail_min):
