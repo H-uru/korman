@@ -54,14 +54,32 @@ _DEFAULT_LANGUAGE_ID = 1
 
 
 class ImageLibraryItem(bpy.types.PropertyGroup):
-    image = bpy.props.PointerProperty(name="Image Item",
-                                      description="Image stored for export.",
-                                      type=bpy.types.Image,
-                                      options=set())
-    enabled = bpy.props.BoolProperty(name="Enabled",
-                                     description="Specifies whether this image will be stored during export.",
-                                     default=True,
-                                     options=set())
+    image = PointerProperty(
+        name="Image Item",
+        description="Image stored for export.",
+        type=bpy.types.Image,
+        options=set()
+    )
+    enabled = BoolProperty(
+        name="Enabled",
+        description="Specifies whether this image will be stored during export.",
+        default=True,
+        options=set()
+    )
+
+    compress = BoolProperty(
+        name="Compress",
+        description="Allow using lossy compression on disk",
+        default=True,
+        options=set()
+    )
+    quality = IntProperty(
+        name="Quality",
+        description="Compression quality",
+        min=0, max=100, default=70,
+        subtype="PERCENTAGE",
+        options=set()
+    )
 
     # UI Thunk
     def _get_name(self) -> str:
@@ -88,7 +106,14 @@ class PlasmaImageLibraryModifier(PlasmaModifierProperties):
 
             for item in self.images:
                 if item.image and item.enabled:
-                    exporter.mesh.material.export_prepared_image(owner=ilmod, image=item.image, allowed_formats={"JPG", "PNG"}, extension="hsm")
+                    allowed_formats = {"JPG"} if item.compress else {"BMP", "PNG"}
+                    exporter.mesh.material.export_prepared_image(
+                        owner=ilmod,
+                        image=item.image,
+                        allowed_formats=allowed_formats,
+                        jpeg_quality=item.quality,
+                        extension="hsm"
+                    )
 
 
 class TranslationItem:
@@ -440,8 +465,14 @@ class PlasmaLinkingBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
             user_images = (i for i in (self.book_cover_image, self.link_panel_image, self.stamp_image)
                            if i is not None)
             for image in user_images:
-                exporter.mesh.material.export_prepared_image(owner=ilmod, image=image,
-                                                             allowed_formats={"JPG", "PNG"}, extension="hsm")
+                # Cyan always uses JPEGs in their Ages for this, so just force everything
+                # to a 70% JPEG to match. If the artist doesn't like it, they can wire
+                # up something better themselves.
+                exporter.mesh.material.export_prepared_image(
+                    owner=ilmod, image=image,
+                    allowed_formats={"JPG"},
+                    extension="hsm"
+                )
 
     def harvest_actors(self):
         if self.seek_point is not None:
