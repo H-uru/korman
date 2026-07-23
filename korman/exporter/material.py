@@ -34,6 +34,7 @@ from ..korlib import *
 from . import utils
 
 if TYPE_CHECKING:
+    from .convert import Exporter
     from .manager import ExportManager
 
 _MAX_STENCILS = 6
@@ -58,12 +59,13 @@ class _Texture:
             if image is None:
                 image = texture.image
             self.calc_alpha = getattr(texture, "use_calculate_alpha", False)
-            self.mipmap = texture.use_mipmap
+            self.mipmap = kwargs.get("mipmap", texture.use_mipmap)
         else:
             self.layer = kwargs.get("layer")
             self.calc_alpha = False
             self.mipmap = kwargs.get("mipmap", False)
 
+        plasma_image = image.plasma_image
         if kwargs.get("is_detail_map", False):
             self.is_detail_map = True
             self.mipmap = True
@@ -84,7 +86,7 @@ class _Texture:
             else:
                 self.alpha_type = kwargs.get("alpha_type", TextureAlpha.opaque)
             self.allowed_formats = kwargs.get("allowed_formats",
-                                              {"DDS"} if self.mipmap else {"PNG", "JPG"})
+                                              {"DDS"} if plasma_image.allow_dds else {"PNG", "JPG"})
             self.is_cube_map = kwargs.get("is_cube_map", False)
 
         # Basic format sanity
@@ -93,7 +95,7 @@ class _Texture:
 
         if len(self.allowed_formats) == 1:
             self.auto_ext = next(iter(self.allowed_formats)).lower()
-        elif self.mipmap:
+        elif "DDS" in self.allowed_formats:
             self.auto_ext = "dds"
         else:
             self.auto_ext = "hsm"
@@ -102,6 +104,8 @@ class _Texture:
         self.image = image
         self.tag = kwargs.get("tag", None)
         self.name = kwargs.get("name", image.name)
+        self.dxt_quality = kwargs.get("dxt_quality", plMipmap.kBlockQualityHigh)
+        self.jpeg_quality = kwargs.get("jpeg_quality", 70)
 
     def __eq__(self, other):
         if not isinstance(other, _Texture):
@@ -138,10 +142,14 @@ class _Texture:
             self.alpha_type = other.alpha_type
         if other.mipmap:
             self.mipmap = True
+        if self.dxt_quality < other.dxt_quality:
+            self.dxt_quality = other.dxt_quality
+        if self.jpeg_quality < other.jpeg_quality:
+            self.jpeg_quality = other.jpeg_quality
 
 
 class MaterialConverter:
-    def __init__(self, exporter):
+    def __init__(self, exporter: Exporter):
         self._obj2mat = defaultdict(dict)
         self._obj2layer = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
         self._bump_mats = {}
@@ -297,8 +305,10 @@ class MaterialConverter:
             layer.ambient = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
             layer.preshade = hsColorRGBA(0.0, 0.0, 0.0, 1.0)
             layer.runtime = hsColorRGBA(1.0, 1.0, 1.0, 1.0)
-            self.export_prepared_image(name=image_name, image=image, alpha_type=image_alpha,
-                                       owner=layer, allowed_formats={"DDS"})
+            self.export_prepared_image(
+                name=image_name, image=image, alpha_type=image_alpha,
+                owner=layer, allowed_formats={"DDS"}, mipmap=True
+            )
             material = self._mgr.add_object(hsGMaterial, bl=bo, name=name)
             material.addLayer(layer.key)
             return material, layer
@@ -918,6 +928,8 @@ class MaterialConverter:
             dtm.visHeight = int(layer_props.dynatext_resolution)
             layer.texture = dtm.key
         else:
+            plasma_image = texture.image.plasma_image
+
             detail_blend = TEX_DETAIL_ALPHA
             if layer_props.is_detail_map and mipmap:
                 if slot.blend_type == "ADD":
@@ -929,7 +941,17 @@ class MaterialConverter:
             if layer_props.is_detail_map and not state.blendFlags & hsGMatState.kBlendMask:
                 state.blendFlags |= hsGMatState.kBlendDetail
 
-            allowed_formats = {"DDS"} if mipmap else {"PNG", "BMP"}
+            if not layer_props.is_detail_map and not plasma_image.allow_dds:
+                allowed_formats = {"BMP", "PNG"}
+                if mipmap:
+                    self._report.warn(
+                        f"Image '{texture.image.name}' does not allow DXT compression, so "
+                        f"mipmapping will be forced OFF for texture '{texture.name}'"
+                    )
+                    mipmap = False
+            else:
+                allowed_formats = {"DDS"}
+
             self.export_prepared_image(texture=texture, owner=layer,
                                        alpha_type=alpha_type, force_calc_alpha=slot.use_stencil,
                                        is_detail_map=layer_props.is_detail_map,
@@ -1072,6 +1094,10 @@ class MaterialConverter:
                              same name to coexist in the cache
            - is_cube_map: (optional) indicates the provided image contains six cube faces
                                      that must be split into six separate images for Plasma
+           - dxt_quality: (optional) the minimum DXT compression quality that should be used
+                                     for this image, defaults to kBlockQualityHigh
+           - jpeg_quality: (optional) the minimum JPEG compression quality that should be used
+                                      for this image, defaults to 70
         """
         owner = kwargs.pop("owner", None)
         key = _Texture(**kwargs)
@@ -1107,25 +1133,31 @@ class MaterialConverter:
 
                     # Now we try to use the pile of hints we were given to figure out what format to use
                     allowed_formats = key.allowed_formats
-                    if key.mipmap:
+                    if "DDS" in allowed_formats:
                         compression = plBitmap.kDirectXCompression
                     elif "PNG" in allowed_formats and self._mgr.getVer() == pvMoul:
                         compression = plBitmap.kPNGCompression
-                    elif "DDS" in allowed_formats:
-                        compression = plBitmap.kDirectXCompression
                     elif "JPG" in allowed_formats:
                         compression = plBitmap.kJPEGCompression
                     elif "BMP" in allowed_formats:
                         compression = plBitmap.kUncompressed
                     else:
-                        raise RuntimeError(allowed_formats)
+                        raise ValueError(allowed_formats)
                     dxt = plBitmap.kDXT5 if key.alpha_type == TextureAlpha.full else plBitmap.kDXT1
 
+                    # The DXT and JPEG quality numbers don't really mean the same thing.
+                    if compression == plBitmap.kDirectXCompression:
+                        quality = key.dxt_quality
+                    elif compression == plBitmap.kJPEGCompression:
+                        quality = key.jpeg_quality
+                    else:
+                        quality = None
+
                     # Mayhaps we have a cached version of this that has already been exported
-                    cached_image = texcache.get_from_texture(key, compression)
+                    cached_image = texcache.get_from_texture(key, compression, quality)
 
                     if cached_image is None:
-                        numLevels, width, height, data = self._finalize_cache(texcache, key, image, name, compression, dxt)
+                        numLevels, width, height, data = self._finalize_cache(texcache, key, image, name, compression, dxt, quality)
                         self._finalize_bitmap(key, owners, name, numLevels, width, height, compression, dxt, data)
                     else:
                         width, height = cached_image.export_size
@@ -1138,7 +1170,7 @@ class MaterialConverter:
                             self._finalize_bitmap(key, owners, name, numLevels, width, height, compression, dxt, data)
                         except RuntimeError:
                             self._report.warn("Cached image is corrupted! Recaching image...")
-                            numLevels, width, height, data = self._finalize_cache(texcache, key, image, name, compression, dxt)
+                            numLevels, width, height, data = self._finalize_cache(texcache, key, image, name, compression, dxt, quality)
                             self._finalize_bitmap(key, owners, name, numLevels, width, height, compression, dxt, data)
 
                 inc_progress()
@@ -1170,6 +1202,12 @@ class MaterialConverter:
                             for i in range(numLevels):
                                 mipmap.setLevel(i, face_data[i])
                             setattr(texture, face_name, mipmap)
+                    elif compression == plBitmap.kJPEGCompression and len(data) == 3:
+                        assert numLevels == 1
+                        mipmap.setRawImage(data[0][0])
+                        mipmap.setImageJPEG(data[1][0])
+                        mipmap.setAlphaJPEG(data[2][0])
+                        texture = mipmap
                     else:
                         assert len(data) == 1
                         for i in range(numLevels):
@@ -1191,15 +1229,15 @@ class MaterialConverter:
                 else:
                     raise NotImplementedError(owner.ClassName())
 
-    def _finalize_cache(self, texcache, key, image, name, compression, dxt):
+    def _finalize_cache(self, texcache, key, image, name, compression, dxt, quality):
         if key.is_cube_map:
-            numLevels, width, height, data = self._finalize_cube_map(key, image, name, compression, dxt)
+            numLevels, width, height, data = self._finalize_cube_map(key, image, name, compression, dxt, quality)
         else:
-            numLevels, width, height, data = self._finalize_single_image(key, image, name, compression, dxt)
-        texcache.add_texture(key, numLevels, (width, height), compression, data)
+            numLevels, width, height, data = self._finalize_single_image(key, image, name, compression, dxt, quality)
+        texcache.add_texture(key, numLevels, (width, height), compression, quality, data)
         return numLevels, width, height, data
 
-    def _finalize_cube_map(self, key, image, name, compression, dxt):
+    def _finalize_cube_map(self, key, image, name, compression, dxt, quality):
         oWidth, oHeight = image.size
         if oWidth == 0 and oHeight == 0:
             raise ExportError(f"Image '{image.name}' could not be loaded.")
@@ -1251,27 +1289,64 @@ class MaterialConverter:
             glimage.image_data = fWidth, fHeight, face_images[i]
             eWidth, eHeight = glimage.size_pot
             name = face_name[:-4].upper()
-            if compression == plBitmap.kDirectXCompression:
+            if compression == plBitmap.kDirectXCompression and key.mipmap:
                 numLevels = glimage.num_levels
-                self._report.msg("Generating mip levels for cube face '{}'", name)
-
-                # If we're compressing this mofo, we'll need a temporary mipmap to do that here...
-                mipmap = plMipmap(name=name, width=eWidth, height=eHeight, numLevels=numLevels,
-                                  compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
+                self._report.msg(f"Generating mip levels for cube face '{name}'")
             else:
                 numLevels = 1
-                self._report.msg("Compressing single level for cube face '{}'", name)
+                self._report.msg(f"Compressing single level for cube face '{name}'")
 
-            face_images[i] = [None] * numLevels
-            for j in range(numLevels):
-                level_data = glimage.get_level_data(j, key.calc_alpha, report=self._report)
-                if compression == plBitmap.kDirectXCompression:
-                    mipmap.CompressImage(j, level_data)
-                    level_data = mipmap.getLevel(j)
-                face_images[i][j] = level_data
+            # Assumption: There will never be a JPEG compressed cube map - jpeg compression
+            # uses multiple images to smuggle the cached JPEG data through. That's the
+            # same trick we use to smuggle cube faces through the cache, so it's mutually
+            # exclusive.
+            assert compression != plBitmap.kJPEGCompression, "Cubemaps cannot be JPEG compressed"
+            # Take the first image from this - we're building our own smuggle list.
+            face_images[i] = self._finalize_generic_image(
+                key, glimage, eWidth, eHeight, compression, dxt, quality, numLevels
+            )[0]
         return numLevels, eWidth, eHeight, face_images
 
-    def _finalize_single_image(self, key, image, name, compression, dxt):
+    def _finalize_generic_image(
+        self,
+        key: _Texture,
+        glimage: GLTexture,
+        width: int,
+        height: int,
+        compression: int,
+        dxt: int,
+        quality: int,
+        numLevels: int
+    ) -> List[List[bytes]]:
+        # The most common case is allocating for DXT, so this is fine to be unconditional.
+        mipmap = plMipmap(
+            name="TEMP", width=width, height=height, numLevels=numLevels,
+            compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt
+        )
+        data = []
+        for i in range(numLevels):
+            level_data = glimage.get_level_data(i, key.calc_alpha, report=self._report)
+            if compression == plBitmap.kDirectXCompression:
+                mipmap.CompressImage(i, level_data, quality)
+                if not data:
+                    data.append([])
+                data[0].append(mipmap.getLevel(i))
+            elif compression == plBitmap.kJPEGCompression:
+                assert numLevels == 1
+                mipmap.setRawImage(level_data)
+                mipmap.CompressJPEG(quality)
+                data.extend([
+                    [level_data],
+                    [mipmap.jpegImage],
+                    [mipmap.jpegAlpha]
+                ])
+            else:
+                if not data:
+                    data.append([])
+                data[0].append(level_data)
+        return data
+
+    def _finalize_single_image(self, key, image, name, compression, dxt, quality):
         oWidth, oHeight = image.size
         if oWidth == 0 and oHeight == 0:
             raise ExportError("Image '{}' could not be loaded.".format(image.name))
@@ -1282,28 +1357,17 @@ class MaterialConverter:
         # Grab the image data from OpenGL and stuff it into the plBitmap
         with GLTexture(key, bgra=bgra) as glimage:
             eWidth, eHeight = glimage.size_pot
-            if compression == plBitmap.kDirectXCompression:
+            if compression == plBitmap.kDirectXCompression and key.mipmap:
                 numLevels = glimage.num_levels
                 self._report.msg("Generating mip levels")
-
-                # If this is a DXT-compressed mipmap, we need to use a temporary mipmap
-                # to do the compression. We'll then steal the data from it.
-                mipmap = plMipmap(name=name, width=eWidth, height=eHeight, numLevels=numLevels,
-                                  compType=compression, format=plBitmap.kRGB8888, dxtLevel=dxt)
             else:
                 numLevels = 1
                 self._report.msg("Compressing single level")
 
-            # Hold the uncompressed level data for now. We may have to make multiple copies of
-            # this mipmap for per-page textures :(
-            data = [None] * numLevels
-            for i in range(numLevels):
-                level_data = glimage.get_level_data(i, key.calc_alpha, report=self._report)
-                if compression == plBitmap.kDirectXCompression:
-                    mipmap.CompressImage(i, level_data)
-                    level_data = mipmap.getLevel(i)
-                data[i] = level_data
-        return numLevels, eWidth, eHeight, [data,]
+            data = self._finalize_generic_image(
+                key, glimage, eWidth, eHeight, compression, dxt, quality, numLevels
+            )
+        return numLevels, eWidth, eHeight, data
 
     def get_materials(self, bo: bpy.types.Object, bm: Optional[bpy.types.Material] = None) -> Iterator[plKey[hsGMaterial]]:
         material_dict = self._obj2mat.get(bo, {})

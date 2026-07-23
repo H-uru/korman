@@ -422,15 +422,28 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
 
     deprecated_properties = {"render_layers"}
 
-    quality = EnumProperty(name="Quality",
-                           description="Resolution of lightmap",
-                           items=[
-                                  ("128", "128px", "128x128 pixels"),
-                                  ("256", "256px", "256x256 pixels"),
-                                  ("512", "512px", "512x512 pixels"),
-                                  ("1024", "1024px", "1024x1024 pixels"),
-                                  ("2048", "2048px", "2048x2048 pixels"),
-                            ])
+    quality = EnumProperty(
+        name="Quality",
+        description="Resolution of lightmap",
+        items=[
+            ("128", "128px", "128x128 pixels"),
+            ("256", "256px", "256x256 pixels"),
+            ("512", "512px", "512x512 pixels"),
+            ("1024", "1024px", "1024x1024 pixels"),
+            ("2048", "2048px", "2048x2048 pixels"),
+        ],
+        options=set()
+    )
+    compression_strategy = EnumProperty(
+        name="Compression",
+        description="",
+        items=[
+            ("AUTO", "[Auto]", "Let Korman decide whether the lightmap should be compressed in video memory"),
+            ("LOSSLESS", "Lossless", "Never compress the lightmap in video memory"),
+            ("LOSSY", "Lossy", "Always compress the lightmap in video memory"),
+        ],
+        options=set()
+    )
 
     bake_type = EnumProperty(name="Bake To",
                              description="Destination for baked lighting data",
@@ -500,6 +513,19 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
         if uvw_src is None:
             raise ExportError("'{}': Lightmap UV Texture '{}' seems to be missing. Did you delete it?", bo.name, uvtex_name)
 
+        # Some Ages use "excessive" lightmaps - stuff that's 1024x1024 and the object in
+        # question is just not that big. So, by default, let's DXT compress anything 256x256
+        # or larger. That way, the VRAM impact is less dramatic for large lightmaps.
+        # If the compression sucks enough, the artist can manually turn off the compression.
+        if self.compression_strategy == "AUTO" and max(lightmap_im.size) >= 256:
+            allowed_formats = {"DDS"}
+        elif self.compression_strategy in {"AUTO", "LOSSLESS"}:
+            allowed_formats = {"BMP", "PNG"}
+        elif self.compression_strategy == "LOSSY":
+            allowed_formats = {"DDS"}
+        else:
+            raise ValueError(self.compression_strategy)
+
         for matKey in materials:
             layer = exporter.mgr.add_object(plLayer, name="{}_LIGHTMAPGEN".format(matKey.name), so=so)
             layer.UVWSrc = uvw_src
@@ -520,11 +546,20 @@ class PlasmaLightMapGen(idprops.IDPropMixin, PlasmaModifierProperties, PlasmaMod
             mat.compFlags |= hsGMaterial.kCompIsLightMapped
             mat.addPiggyBack(layer.key)
 
-            # Mmm... cheating
-            mat_mgr.export_prepared_image(owner=layer, image=lightmap_im,
-                                          allowed_formats={"PNG", "JPG"},
-                                          extension="hsm",
-                                          ephemeral=True)
+            # Pass the image basically as is to the texture code and let it figure out
+            # what in the world do to with this. Since this is a lightmap, if they've asked
+            # for it to be DXT compressed, we're going to request no mipmapping and ultra
+            # quality processing. Mipmapped LMs are nonsense, and we want the ultra processing
+            # to help keep gradients as smooth as possible.
+            # TODO: We should probably try to cache these images - kBlockQualityUltra is slow.
+            mat_mgr.export_prepared_image(
+                owner=layer, image=lightmap_im,
+                allowed_formats=allowed_formats,
+                extension="hsm",
+                ephemeral=True,
+                mipmap=False,
+                dxt_quality=plMipmap.kBlockQualityUltra,
+            )
 
     @classmethod
     def _idprop_mapping(cls):
