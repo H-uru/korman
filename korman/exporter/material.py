@@ -34,6 +34,7 @@ from ..korlib import *
 from . import utils
 
 if TYPE_CHECKING:
+    from .convert import Exporter
     from .manager import ExportManager
 
 _MAX_STENCILS = 6
@@ -141,7 +142,7 @@ class _Texture:
 
 
 class MaterialConverter:
-    def __init__(self, exporter):
+    def __init__(self, exporter: Exporter):
         self._obj2mat = defaultdict(dict)
         self._obj2layer = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
         self._bump_mats = {}
