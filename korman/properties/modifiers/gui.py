@@ -147,7 +147,7 @@ class PlasmaJournalTranslation(TranslationItem, bpy.types.PropertyGroup):
 
 class TranslationMixin:
     def export_localization(self, exporter):
-        translations = [i for i in self.translations if i.text is not None]
+        translations = [i for i in self.translations if i.text]
         if not translations:
             exporter.report.error(f"'{self.id_data.name}': '{self.bl_label}' No content translations available. The localization will not be exported.")
             return
