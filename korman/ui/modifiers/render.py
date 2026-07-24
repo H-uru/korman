@@ -228,6 +228,12 @@ def lightmap(modifier, layout, context):
     col = layout.column()
     col.active = is_texture
     col.prop(modifier, "quality")
+
+    # The rows would be smooshed together if we don't bail out of the previous column.
+    col = layout.column()
+    col.active = is_texture
+    col.prop(modifier, "compression_strategy")
+
     layout.prop_search(modifier, "bake_pass_name", pl_scene, "bake_passes", icon="RENDERLAYERS")
     layout.prop(modifier, "lights")
     col = layout.column()

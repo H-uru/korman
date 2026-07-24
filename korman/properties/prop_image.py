@@ -24,3 +24,10 @@ class PlasmaImage(bpy.types.PropertyGroup):
                                           ("rebuild", "Refresh Image Cache", "Forces this image to be recached on the next export.")],
                                    default="use",
                                    options=set())
+
+    allow_dds = BoolProperty(
+        name="Compress",
+        description="Allow lossy compression in video memory",
+        default=True,
+        options=set()
+    )

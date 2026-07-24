@@ -28,9 +28,20 @@ class ImageListUI(ui_list.PlasmaUIListBase[gui_mods.ImageLibraryItem], bpy.types
 def imagelibmod(modifier, layout, context):
     ui_list.draw_modifier_list(layout, "ImageListUI", modifier, "images", "active_image_index", rows=3, maxrows=6)
 
-    if modifier.images:
-        row = layout.row(align=True)
-        row.template_ID(modifier.images[modifier.active_image_index], "image", open="image.open")
+    try:
+        image = modifier.images[modifier.active_image_index]
+    except:
+        pass
+    else:
+        col = layout.column()
+        row = col.row(align=True)
+        row.template_ID(image, "image", open="image.open")
+
+        row = col.row(align=True)
+        row.prop(image, "compress", text="")
+        row = row.row(align=True)
+        row.active = image.compress
+        row.prop(image, "quality", text="Compression Quality")
 
 def journalbookmod(modifier, layout, context):
     layout.prop_menu_enum(modifier, "versions")

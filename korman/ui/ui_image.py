@@ -23,3 +23,4 @@ class PlasmaImageEditorHeader(bpy.types.Header):
         if image is not None:
             settings = image.plasma_image
             layout.prop(settings, "texcache_method", text="")
+            layout.prop(settings, "allow_dds", text="Compress", icon="PACKAGE")

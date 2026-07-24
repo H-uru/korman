@@ -48,6 +48,7 @@ class _EntryBits(enum.IntEnum):
     last_export = 6
     image_count = 7
     tag_string = 8
+    quality = 9
 
 
 class _CachedImage:
@@ -63,6 +64,7 @@ class _CachedImage:
         self.modify_time = None
         self.image_count = 1
         self.tag = None
+        self.quality = None
 
     def __str__(self):
         return self.name
@@ -75,7 +77,7 @@ class ImageCache:
         self._read_stream = hsFileStream()
         self._stream_handles = 0
 
-    def add_texture(self, texture, num_levels, export_size, compression, images):
+    def add_texture(self, texture, num_levels, export_size, compression, quality, images):
         image, tag = texture.image, texture.tag
         image_name = str(texture)
         key = (image_name, tag, compression)
@@ -96,6 +98,7 @@ class ImageCache:
         image.image_data = images
         image.image_count = len(images)
         image.tag = tag
+        image.quality = quality
         self._images[key] = image
 
     def _compact(self):
@@ -116,7 +119,7 @@ class ImageCache:
         if self._stream_handles == 0:
             self._read_stream.close()
 
-    def get_from_texture(self, texture, compression):
+    def get_from_texture(self, texture, compression, quality):
         bl_image, tag = texture.image, texture.tag
 
         # If the texture is ephemeral (eg a lightmap) or has been marked "rebuild" or "skip"
@@ -135,6 +138,12 @@ class ImageCache:
         # ensure the texture key generally matches up with our copy of this image.
         # if not, a recache will likely be triggered implicitly.
         if tuple(bl_image.size) != cached_image.source_size:
+            return None
+
+        # quality must be an exact match.
+        # not using this as part of the image key to avoid accumulating different
+        # version of the same image that differ only by a few points of compression.
+        if cached_image.quality != quality:
             return None
 
         # if the image is on the disk, we can check the its modify time for changes
@@ -274,6 +283,8 @@ class ImageCache:
         if flags[_EntryBits.tag_string]:
             # tags should not contain user data, so we will use a latin_1 backed string
             image.tag = stream.readSafeStr()
+        if flags[_EntryBits.quality]:
+            image.quality = stream.readByte()
 
         # do we need to check for duplicate images?
         self._images[(image.name, image.tag, image.compression)] = image
@@ -354,6 +365,7 @@ class ImageCache:
         flags[_EntryBits.last_export] = True
         flags[_EntryBits.image_count] = True
         flags[_EntryBits.tag_string] = image.tag is not None
+        flags[_EntryBits.quality] = image.quality is not None
 
         stream.write(_ENTRY_MAGICK)
         flags.write(stream)
@@ -369,3 +381,5 @@ class ImageCache:
         stream.writeInt(image.image_count)
         if image.tag is not None:
             stream.writeSafeStr(image.tag)
+        if image.quality is not None:
+            stream.writeByte(image.quality)
