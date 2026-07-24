@@ -92,7 +92,8 @@ class CollectionRemoveOperator(UIOperator, bpy.types.Operator):
             index = self.manual_index
         if len(collection) > index:
             collection.remove(index)
-            setattr(props, self.index_prop, index - 1)
+            if self.index_prop:
+                setattr(props, self.index_prop, index - 1)
             return {"FINISHED"}
         else:
             return {"CANCELLED"}
