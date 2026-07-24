@@ -304,9 +304,9 @@ class ExportManager:
             age_info = bpy.context.scene.world.plasma_age
             page_info = next((i for i in age_info.pages if i.name == page_name), None)
             if page_info is None:
-                error = explosions.UndefinedPageError()
-                error.add(page_name, requestor_name)
-                error.raise_if_error()
+                raise explosions.ExportError(
+                    f"'{requestor_name}' is in an invalid page '{page_name}'"
+                )
             location = self.create_page(age_name, page_name, page_info.seq_suffix)
         else:
             # This is a default page that wasn't exported... for some reason...
