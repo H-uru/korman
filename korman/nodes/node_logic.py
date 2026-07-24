@@ -254,7 +254,11 @@ class PlasmaExcludeRegionNode(idprops.IDPropObjectMixin, PlasmaNodeBase, bpy.typ
         return self._find_create_key(plExcludeRegionModifier, exporter, bl=self.region_object)
 
     def harvest_actors(self):
-        return (i.safepoint.name for i in self.find_input_sockets("safe_points") if i.safepoint is not None)
+        return (
+            i.safepoint_object.name
+            for i in self.find_input_sockets("safe_point")
+            if i.safepoint_object is not None
+        )
 
     def export(self, exporter, bo, parent_so):
         excludergn = self.get_key(exporter, parent_so).object
