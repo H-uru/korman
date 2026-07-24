@@ -630,7 +630,9 @@ class PlasmaSoundEmitter(PlasmaModifierProperties):
 
     def _add_child_animation(self, exporter, group, bo: bpy.types.Object, temporary=False):
         if temporary:
-            child = exporter.exit_stack.enter_context(TemporaryCollectionItem(group.children))
+            child = exporter.exit_stack.enter_context(
+                TemporaryCollectionItem(group.children, "unique_id")
+            )
         else:
             child = group.children.add()
         child.child_anim = bo

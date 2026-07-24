@@ -158,11 +158,19 @@ class PlasmaAnimationModifier(ActionModifier, PlasmaModifierProperties):
 
 
 class AnimGroupObject(idprops.IDPropObjectMixin, bpy.types.PropertyGroup):
-    enabled = BoolProperty(name="Enabled", default=True)
-    child_anim = PointerProperty(name="Child Animation",
-                                 description="Object whose action is a child animation",
-                                 type=bpy.types.Object,
-                                 poll=idprops.poll_animated_objects)
+    unique_id = StringProperty(
+        options={"HIDDEN", "SKIP_SAVE"}
+    )
+    enabled = BoolProperty(
+        name="Enabled",
+        default=True
+    )
+    child_anim = PointerProperty(
+        name="Child Animation",
+        description="Object whose action is a child animation",
+        type=bpy.types.Object,
+        poll=idprops.poll_animated_objects
+    )
 
     # UI Thunk
     def _get_name(self) -> str:

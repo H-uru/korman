@@ -72,15 +72,26 @@ def run_once(f):
     return wrapper
 
 @contextmanager
-def TemporaryCollectionItem(collection):
+def TemporaryCollectionItem(collection, idprop_name: str):
     item = collection.add()
-    # Blender may recreate the `item` instance as the collection grows and shrink...
-    # Assign it a unique name so we know which item to delete later on.
-    name = item.name = str(uuid4())
+    assert not item.is_property_readonly(idprop_name)
+
+    # Blender may recreate the `item` instance as the collection grows and shrink, which means we
+    # cannot do a simple identity check or use `as_pointer()`. So, we're going to assign a unique
+    # identifier to a property on the item and use that to look it up later.
+    unique_id = str(uuid4())
+    setattr(item, idprop_name, unique_id)
     try:
         yield item
     finally:
-        index = collection.find(name)
+        item_iter = (
+            idx for idx, curr_item in enumerate(collection)
+            if getattr(curr_item, idprop_name) == unique_id
+        )
+        index = next(item_iter, None)
+        if index is None:
+            raise LookupError(unique_id)
+
         collection.remove(index)
 
 class TemporaryObject:
