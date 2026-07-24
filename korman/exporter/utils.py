@@ -173,11 +173,11 @@ def create_box_region(
         verts = [bm.verts.new(i) for i in vert_src]
 
         new_face = bm.faces.new
-        new_face((verts[0], verts[1], verts[3], verts[2])) # X+
+        new_face((verts[2], verts[3], verts[1], verts[0])) # X+
         new_face((verts[4], verts[5], verts[7], verts[6])) # X-
         new_face((verts[0], verts[1], verts[5], verts[4])) # Y+
-        new_face((verts[2], verts[3], verts[7], verts[6])) # Y-
-        new_face((verts[0], verts[2], verts[6], verts[4])) # Z+
+        new_face((verts[6], verts[7], verts[3], verts[2])) # Y-
+        new_face((verts[4], verts[6], verts[2], verts[0])) # Z+
         new_face((verts[1], verts[3], verts[7], verts[5])) # Z-
     return region_object.release()
 
