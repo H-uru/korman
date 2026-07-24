@@ -13,10 +13,14 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Korman.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
 
 import bpy
 from bpy.props import *
+
 import functools
+from typing import *
+
 from PyHSPlasma import *
 
 from .base import PlasmaModifierProperties, PlasmaModifierLogicWiz, PlasmaModifierUpgradable
@@ -25,6 +29,9 @@ from ...exporter import utils
 from ...exporter.explosions import ExportError
 from .gui import languages, PlasmaJournalTranslation, TranslationMixin
 from ... import idprops
+
+if TYPE_CHECKING:
+    from ...exporter import Exporter
 
 class PlasmaBlendOntoObject(bpy.types.PropertyGroup):
     blend_onto = PointerProperty(name="Blend Onto",
@@ -988,10 +995,14 @@ class PlasmaVisibilitySet(PlasmaModifierProperties):
                                  type=VisRegion)
     active_region_index = IntProperty(options={"HIDDEN"})
 
-    def post_export(self, exporter, bo, so):
+    def post_export(self, exporter: Exporter, bo, so):
         # Currently, this modifier is valid for meshes and lamps
         if bo.type == "MESH":
-            diface = exporter.mgr.find_create_object(plDrawInterface, bl=bo, so=so)
+            diface = exporter.mgr.find_object(plDrawInterface, bl=bo, so=so)
+            if diface is None:
+                exporter.report.warn(f"Not adding non-drawable object '{bo.name}' to any control regions")
+                return
+
             addRegion = diface.addRegion
         elif bo.type == "LAMP":
             light = exporter.light.get_light_key(bo, bo.data, so)
