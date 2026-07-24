@@ -255,7 +255,7 @@ class PlasmaGameGuiColorSchemeModifier(_GameGuiMixin, PlasmaModifierProperties):
             getattr(self.id_data.plasma_modifiers, i.pl_id)
             for i in _GameGuiMixin.__subclasses__()
         )
-        scheme_targets: List[_GameGuiMixin] = [i for i in scheme_targets if i.wants_colorscheme]
+        scheme_targets: List[_GameGuiMixin] = [i for i in scheme_targets if i.enabled and i.wants_colorscheme]
 
         if not scheme_targets:
             exporter.report.warn("This modifier has no effect because no GUI modifiers want a color scheme!")
