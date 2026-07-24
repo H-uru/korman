@@ -996,13 +996,11 @@ class PlasmaGameGuiInputBoxModifier(_GameGuiMixin, PlasmaModifierProperties):
 
     def sanity_check(self, exporter: Exporter):
         if self.scroll_control is not None:
-            value_controls = list(
-                self.scroll_control.plasma_modifiers.gui_value.iterate_value_modifiers()
-            )
-            num_value_controls = len(value_controls)
+            value_modifiers = list(self.iter_scroll_ctrl_modifiers())
+            num_value_controls = len(value_modifiers)
             if num_value_controls != 1:
                 raise ExportError(
-                    f"'{self.id_data.name}': Scroll control '{self.id_data.name}' is invalid. "
+                    f"'{self.id_data.name}': Scroll control '{self.scroll_control.name}' is invalid. "
                     f"Expected exactly 1 value control, found {num_value_controls}."
                 )
 
@@ -1019,10 +1017,17 @@ class PlasmaGameGuiInputBoxModifier(_GameGuiMixin, PlasmaModifierProperties):
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject) -> None:
         ctrl = self.get_control(exporter)
         if isinstance(ctrl, pfGUIMultiLineEditCtrl) and self.scroll_control is not None:
-            ctrl.scrollCtrl = next(
-                self.scroll_control.plasma_modifiers.gui_value.iterate_value_modifiers(),
-                None
-            )
+            value_modifier = next(self.iter_scroll_ctrl_modifiers(), None)
+            if value_modifier is not None:
+                ctrl.scrollCtrl = value_modifier.get_control(exporter).key
+
+    def iter_scroll_ctrl_modifiers(self) -> Iterator[_GameGuiMixin]:
+        if self.scroll_control is None:
+            return
+        value_modifier = self.scroll_control.plasma_modifiers.gui_value
+        if not value_modifier.enabled:
+            return
+        yield from value_modifier.iterate_value_modifiers()
 
     @property
     def requires_dyntext(self):
