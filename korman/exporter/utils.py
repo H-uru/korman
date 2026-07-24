@@ -48,8 +48,8 @@ def color_to_argb(color, alpha=1.0):
     return (
         int(alpha   * 255) << 24 |
         int(color.r * 255) << 16 |
-        int(color.b * 255) <<  8 |
-        int(color.g * 255)
+        int(color.g * 255) <<  8 |
+        int(color.b * 255)
     ) & 0xFFFFFFFF
 
 def matrix44(blmat):
