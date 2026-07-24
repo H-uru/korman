@@ -869,7 +869,7 @@ class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.typ
             attrib = attrib.attribute_type
             if attrib == "ptAttribDynamicMap" and self._is_dyntext(value):
                 return True
-            elif attrib == "ptAttribMaterialAnimation" and not self._is_dyntext:
+            elif attrib == "ptAttribMaterialAnimation" and not self._is_dyntext(value):
                 return True
             return False
 
