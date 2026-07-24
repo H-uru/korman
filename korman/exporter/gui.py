@@ -120,10 +120,16 @@ class GuiConverter:
         with ExitStack() as stack:
             stack.enter_context(self.generate_camera_render_settings(scene))
 
+            # In order to "scale" the GUI, we could push the camera backwards using the GUI
+            # objects' bounding box normals or inflate the bounding box. That's all tricky
+            # math, though. Instead, what we'll do is fake it by adjusting the FOV we were given
+            # such that what Blender says is a camera fit will work at the desired scale.
+            scaled_fov = fov if scale == 1.0 else 2.0 * math.atan(math.tan(fov / 2.0) * scale)
+
             # Create a TEMPORARY camera object so we can use a certain Blender API.
             camera = stack.enter_context(utils.temporary_camera_object(scene, "GUICameraTemplate"))
             camera.matrix_world = mat.to_4x4()
-            camera.data.angle = fov
+            camera.data.angle = scaled_fov
             camera.data.lens_unit = "FOV"
 
             # Get all of the bounding points and make sure they all fit inside the camera's view frame.
@@ -139,35 +145,6 @@ class GuiConverter:
                 list(itertools.chain.from_iterable(bound_boxes))
             )
 
-            # This generates a list of 6 faces per bounding box, which we then flatten out and pass
-            # into the BVHTree constructor. This is to calculate the distance from the camera to the
-            # "entire GUI" - which we can then use to apply the scale given to us.
-            if scale != 1.0:
-                bvh = mathutils.bvhtree.BVHTree.FromPolygons(
-                    bound_boxes,
-                    list(itertools.chain.from_iterable(
-                        [(i + 0, i + 1, i + 5, i + 4),
-                         (i + 1, i + 2, i + 5, i + 6),
-                         (i + 3, i + 2, i + 6, i + 7),
-                         (i + 0, i + 1, i + 2, i + 3),
-                         (i + 0, i + 3, i + 7, i + 4),
-                         (i + 4, i + 5, i + 6, i + 7),
-                        ] for i in range(0, len(bound_boxes), 8)
-                    ))
-                )
-                loc, normal, index, distance = bvh.find_nearest(co)
-
-                # Sometimes, Blender gives us back a zero length normal.
-                # This (obviously) causes the scale calculation to fail.
-                # Debounce that.
-                if normal.length_squared == 0.0:
-                    normal = loc - co
-                    normal.normalize()
-                    assert normal.length_squared != 0.0
-
-                co += normal * distance * (scale - 1.0)
-
-            # ...
             mat.resize_4x4()
             mat.translation = co
             return mat
