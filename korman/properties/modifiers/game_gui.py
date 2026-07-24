@@ -414,7 +414,6 @@ class PlasmaGameGuiControlModifier(_GameGuiMixin, PlasmaModifierProperties):
     def export(self, exporter: Exporter, bo: bpy.types.Object, so: plSceneObject):
         ctrl_mods = list(self.iterate_control_modifiers())
         if not ctrl_mods:
-            exporter.report.msg(str(list(self.iterate_control_subclasses())))
             exporter.report.warn("This modifier has no effect because no GUI control modifiers are present!")
         for ctrl_mod in ctrl_mods:
             ctrl_obj = ctrl_mod.get_control(exporter)
