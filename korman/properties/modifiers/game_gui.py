@@ -118,7 +118,8 @@ class _GameGuiMixin:
         # Game GUI modifiers must be attached to objects in a GUI page, ONLY
         page_name: str = self.id_data.plasma_object.page
         our_page: Optional[PlasmaPage] = next(
-            (i for i in age.pages if i.name == page_name)
+            (i for i in age.pages if i.name == page_name),
+            None
         )
         if our_page is None or our_page.page_type != "gui":
             raise ExportError(f"'{self.id_data.name}': {self.bl_label} Modifier must be in a GUI page!")
