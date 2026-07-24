@@ -135,7 +135,7 @@ class PlasmaGamePanel(AgeButtonsPanel, PlasmaGameHelper, bpy.types.Panel):
 
         row = layout.row()
         # Remember: game storage moved to addon preferences!
-        row.template_list("PlasmaGameList", "games", prefs, "games", games,
+        row.template_list("PlasmaGameListRO", "games", prefs, "games", games,
                           "active_game_index", rows=2)
         row.operator("ui.korman_open_prefs", icon="PREFERENCES", text="")
 
@@ -173,9 +173,17 @@ class PlasmaGamePanel(AgeButtonsPanel, PlasmaGameHelper, bpy.types.Panel):
         row.menu("PlasmaGameExportMenu", icon='DOWNARROW_HLT', text="")
 
 
-class PlasmaGameList(ui_list.PlasmaUIListBase, bpy.types.UIList):
+class PlasmaGameListRO(ui_list.PlasmaUIListBase, bpy.types.UIList):
     def get_icon(self, item, icon):
         return "BOOKMARKS"
+
+
+class PlasmaGameListRW(ui_list.PlasmaUIListBase, bpy.types.UIList):
+    def get_icon(self, item, icon):
+        return "BOOKMARKS"
+
+    def is_readonly(self, item):
+        return False
 
 
 class PlasmaPageList(ui_list.PlasmaUIListBase, bpy.types.UIList):
