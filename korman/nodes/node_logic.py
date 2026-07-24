@@ -567,6 +567,10 @@ class PlasmaSDLIntTrigger(PlasmaNodeBase, bpy.types.Node):
         self._add_py_parameter(pfm, 4, plPythonParameter.kBoolean, self.ffwd_init)
         self._add_py_parameter(pfm, 5, plPythonParameter.kBoolean, self.ffwd_vm)
 
+    @property
+    def export_once(self):
+        return True
+
     def _iter_items(self, resp_node: PlasmaNodeBase) -> Iterator[Tuple[int, int]]:
         num_states = self.count_num_resp_states(resp_node)
         if self.behavior == "FIRE_STATE":

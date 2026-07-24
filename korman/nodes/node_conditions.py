@@ -510,6 +510,10 @@ class PlasmaLinkEventNode(PlasmaNodeBase, bpy.types.Node):
         self._add_py_parameter(pfm, 101, plPythonParameter.kString, self.trigger_for)
         self._add_py_parameter(pfm, 102, plPythonParameter.kString, self.trigger_at)
 
+    @property
+    def export_once(self):
+        return True
+
 
 class PlasmaSDLBoolConditionNode(PlasmaNodeBase, bpy.types.Node):
     bl_category = "CONDITIONS"
