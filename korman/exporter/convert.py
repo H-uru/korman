@@ -284,7 +284,7 @@ class Exporter:
                     parent_name = obj.parent.name if obj.parent is not None else "<NO PARENT>"
                     parent_page = obj.parent.plasma_object.page if obj.parent is not None else page
 
-                    if page and page not in all_pages or page in external_pages:
+                    if page and (page not in all_pages or page in external_pages):
                         # The object is in a page that doesn't exist or is marked external.
                         # This check is a little bit extra in that pages that don't exist
                         # should be disallowed by the RNA binding, but it could happen if the
