@@ -240,6 +240,10 @@ class ImageCache:
 
 
     def _read_index(self, index_pos, stream):
+        # Ensure that the position is actually in the stream - if the export dies during the
+        # texture cache write, we might hit a stale sentienel value that's out of range.
+        assert index_pos < stream.size
+
         stream.seek(index_pos)
         assert stream.read(4) == _INDEX_MAGICK
 
