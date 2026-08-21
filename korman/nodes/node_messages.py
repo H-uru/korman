@@ -48,6 +48,13 @@ class PlasmaMessageNode(PlasmaNodeBase):
         },
     }
 
+    def get_key(self, exporter: Exporter, so: plSceneObject) -> Optional[plKey[plResponderModifier]]:
+        # This is a thunk to get the sender's key. It should thunk all the way up the tree
+        # until it hits the owning Responder.
+        sender_node = self.find_input("sender")
+        if sender_node is not None:
+            return sender_node.get_key(exporter, so)
+
     @property
     def has_callbacks(self):
         """This message does not have callbacks that can be waited on by a Responder"""

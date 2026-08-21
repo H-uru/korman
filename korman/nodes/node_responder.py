@@ -528,6 +528,11 @@ class PlasmaResponderStateNode(PlasmaVersionedNode, bpy.types.Node):
             node = self
         return sorted(node.find_outputs("msgs"), key=lambda x: bool(x.has_callbacks and x.has_linked_callbacks))
 
+    def get_key(self, exporter: Exporter, so: plSceneObject) -> Optional[plKey[plResponderModifier]]:
+        resp_node = self.find_input("resp")
+        if resp_node is not None:
+            return resp_node.get_key(exporter, so)
+
     @property
     def has_notify(self):
         def check_for_notify(node):
