@@ -212,6 +212,8 @@ if(korman_BUILD_OGGVORBIS)
     korman_add_external_project(libvorbis
         GIT_REPOSITORY "https://github.com/xiph/vorbis.git"
         GIT_TAG e3c9861ff096d52378e131ff8c334552e09cdffa # No official release in 5 years
+        # We can only do shallow checkouts if the above is a branch or tag.
+        GIT_SHALLOW FALSE
         CMAKE_CACHE_ARGS
             -DBUILD_SHARED_LIBS:BOOL=OFF
     )
