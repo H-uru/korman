@@ -127,6 +127,9 @@ def poll_camera_objects(self, value):
 def poll_drawable_objects(self, value):
     return value.type == "MESH" and any(value.data.materials)
 
+def poll_dynamic_objects(self, value):
+    return value.plasma_modifiers.collision.enabled and value.plasma_modifiers.collision.dynamic
+
 def poll_empty_objects(self, value):
     return value.type == "EMPTY"
 
