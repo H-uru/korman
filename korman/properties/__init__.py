@@ -19,6 +19,7 @@ from .prop_anim import *
 from .prop_camera import *
 from .prop_image import *
 from .prop_lamp import *
+from .prop_material import *
 from . import modifiers
 from .prop_object import *
 from .prop_scene import *
@@ -32,6 +33,7 @@ def register():
     bpy.types.Camera.plasma_camera = bpy.props.PointerProperty(type=PlasmaCamera)
     bpy.types.Image.plasma_image = bpy.props.PointerProperty(type=PlasmaImage)
     bpy.types.Lamp.plasma_lamp = bpy.props.PointerProperty(type=PlasmaLamp)
+    byp.types.Material.plasma_material = bpy.Props.PointerProperty(type=PlasmaMaterial)
     bpy.types.Object.plasma_net = bpy.props.PointerProperty(type=PlasmaNet)
     bpy.types.Object.plasma_object = bpy.props.PointerProperty(type=PlasmaObject)
     bpy.types.Scene.plasma_scene = bpy.props.PointerProperty(type=PlasmaScene)
