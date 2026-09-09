@@ -351,8 +351,11 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
 
     def _export_key_attrib(self, exporter, bo, so: plSceneObject, pfm: plPythonFileMod, key: plKey, socket) -> None:
         if key is None:
-            exporter.report.warn("Attribute '{}' didn't return a key and therefore will be unavailable to Python",
-                                 self.id_data.name, socket.links[0].name)
+            exporter.report.warn(
+                f"'{self.id_data.name}' Node '{socket.links[0].from_node.name}' "
+                "didn't return a key and therefore will be unavailable for use in "
+                f"Python File Node '{self.name}' attribute ID:{socket.attribute_id}"
+            )
             return
 
         key_type = _attrib_key_types[socket.attribute_type]
