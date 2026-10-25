@@ -50,10 +50,14 @@ class PlasmaMessageNode(PlasmaNodeBase):
 
     def get_key(self, exporter: Exporter, so: plSceneObject) -> Optional[plKey[plResponderModifier]]:
         # This is a thunk to get the sender's key. It should thunk all the way up the tree
-        # until it hits the owning Responder.
+        # until it hits the owning Responder. Note that we can't simply recursively call
+        # this because some messages do actually export keys (OneShotMsg).
         sender_node = self.find_input("sender")
-        if sender_node is not None:
-            return sender_node.get_key(exporter, so)
+        while sender_node is not None:
+            sender_key: plKey = sender_node.get_key(exporter, so)
+            if sender_key.type == plFactory.kResponderModifier:
+                return sender_key
+            sender_node = sender_node.find_input("sender")
 
     @property
     def has_callbacks(self):
