@@ -38,6 +38,7 @@ class PlasmaNodeBase:
     def generate_notify_msg(self, exporter: Exporter, so: plSceneObject, socket_id: str, idname: Optional[str] = None) -> plNotifyMsg:
         notify = plNotifyMsg()
         notify.BCastFlags = (plMessage.kNetPropagate | plMessage.kLocalPropagate)
+        notify.state = 1.0
         for i in self.find_outputs(socket_id, idname):
             key = i.get_key(exporter, so)
             if key is None:
