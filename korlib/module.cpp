@@ -22,6 +22,7 @@
 #define KORLIB_API_VERSION 2
 
 static PyMethodDef korlib_Methods[] = {
+    { _pycs("create_funky_ramp"), (PyCFunction)create_funky_ramp, METH_VARARGS, NULL },
     { _pycs("create_bump_LUT"), (PyCFunction)create_bump_LUT, METH_VARARGS, NULL },
     { _pycs("inspect_vorbisfile"), (PyCFunction)inspect_vorbisfile, METH_VARARGS, NULL },
     { _pycs("scale_image"), (PyCFunction)scale_image, METH_KEYWORDS | METH_VARARGS, NULL },

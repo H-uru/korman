@@ -15,6 +15,7 @@
 
 import bpy
 from bpy.props import *
+import math
 
 from .. import idprops
 from .prop_anim import PlasmaAnimationCollection
@@ -101,6 +102,85 @@ class PlasmaLayer(bpy.types.PropertyGroup):
                                        options=set())
 
     subanimations = PointerProperty(type=PlasmaAnimationCollection)
+
+    funky_type = EnumProperty(name="Funky Blending Type",
+                              description="Type of special funky layer blending",
+                              items=[("FunkyNone", "None", "No funky layer blending"),
+                                     ("FunkyDist", "Distance", "Distance-based funky layer blending"),
+                                     ("FunkyNormal", "Normal", "Normal angle-based funky layer blending"),
+                                     ("FunkyReflect", "Reflect", "Reflection angle-based funky layer blending"),
+                                     ("FunkyUp", "Up", "Upwards angle-based funky layer blending")],
+                              default="FunkyNone")
+
+    funky_dist_near_trans = FloatProperty(name="Near Transparent",
+                                          description="Nearest distance at which the layer is fully transparent",
+                                          min=0.0, default=0.0, subtype="DISTANCE", unit="LENGTH")
+    funky_dist_near_opaq = FloatProperty(name="Near Opaque",
+                                         description="Nearest distance at which the layer is fully opaque",
+                                         min=0.0, default=0.0, subtype="DISTANCE", unit="LENGTH")
+    funky_dist_far_opaq = FloatProperty(name="Far Opaque",
+                                        description="Farthest distance at which the layer is fully opaque",
+                                        min=0.0, default=15.0, subtype="DISTANCE", unit="LENGTH")
+    funky_dist_far_trans = FloatProperty(name="Far Transparent",
+                                         description="Farthest distance at which the layer is fully transparent",
+                                         min=0.0, default=20.0, subtype="DISTANCE", unit="LENGTH")
+
+    funky_angle_near_trans = FloatProperty(name="Near Transparent",
+                                           description="Nearest angle at which the layer is fully transparent",
+                                           min=0.0, max=math.radians(180.0), precision=0, default=0.0,
+                                           subtype="ANGLE")
+    funky_angle_near_opaq = FloatProperty(name="Near Opaque",
+                                          description="Nearest angle at which the layer is fully opaque",
+                                          min=0.0, max=math.radians(180.0), precision=0, default=0.0,
+                                          subtype="ANGLE")
+    funky_angle_far_opaq = FloatProperty(name="Far Opaque",
+                                          description="Farthest angle at which the layer is fully opaque",
+                                          min=0.0, max=math.radians(180.0), precision=0, default=0.0,
+                                          subtype="ANGLE")
+    funky_angle_far_trans = FloatProperty(name="Far Transparent",
+                                           description="Farthest angle at which the layer is fully transparent",
+                                           min=0.0, max=math.radians(180.0), precision=0, default=0.0,
+                                           subtype="ANGLE")
+
+    @property
+    def funky_near_trans(self):
+        """Returns the nearest value at which the layer is fully transparent."""
+        if self.funky_type == "FunkyNone":
+            return 0.0
+        elif self.funky_type == "FunkyDist":
+            return self.funky_dist_near_trans
+        else:
+            return math.cos(self.funky_angle_near_trans)
+
+    @property
+    def funky_near_opaq(self):
+        """Returns the nearest value at which the layer is fully opaque."""
+        if self.funky_type == "FunkyNone":
+            return 0.0
+        elif self.funky_type == "FunkyDist":
+            return self.funky_dist_near_opaq
+        else:
+            return math.cos(self.funky_angle_near_opaq)
+
+    @property
+    def funky_far_opaq(self):
+        """Returns the farthest value at which the layer is fully opaque."""
+        if self.funky_type == "FunkyNone":
+            return 0.0
+        elif self.funky_type == "FunkyDist":
+            return self.funky_dist_far_opaq
+        else:
+            return math.cos(self.funky_angle_far_opaq)
+
+    @property
+    def funky_far_trans(self):
+        """Returns the farthest value at which the layer is fully transparent."""
+        if self.funky_type == "FunkyNone":
+            return 0.0
+        elif self.funky_type == "FunkyDist":
+            return self.funky_dist_far_trans
+        else:
+            return math.cos(self.funky_angle_far_trans)
 
     @classmethod
     def register(cls):
