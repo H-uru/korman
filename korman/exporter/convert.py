@@ -283,6 +283,8 @@ class Exporter:
                     has_parent = obj.parent is not None
                     parent_name = obj.parent.name if obj.parent is not None else "<NO PARENT>"
                     parent_page = obj.parent.plasma_object.page if obj.parent is not None else page
+                    is_my_page_enabled = page in pages_enabled or is_implicit_default(page)
+                    is_parent_page_enabled = parent_page in pages_enabled or is_implicit_default(parent_page)
 
                     if page and (page not in all_pages or page in external_pages):
                         # The object is in a page that doesn't exist or is marked external.
@@ -290,17 +292,17 @@ class Exporter:
                         # should be disallowed by the RNA binding, but it could happen if the
                         # page is deleted after an object is assigned to it.
                         page_error[page].append(obj.name)
-                    elif has_parent and not obj.plasma_object.is_tree_enabled:
+                    elif is_my_page_enabled and has_parent and not obj.plasma_object.is_tree_enabled:
                         # It's probably best to ignore a child object whose parent won't be
                         # exported due to its being disabled.
                         warn(f"Ignoring '{obj.name}' because its parent '{parent_name}' is not being exported")
-                    elif has_parent and not (parent_page in pages_enabled or is_implicit_default(parent_page)):
+                    elif is_my_page_enabled and has_parent and not is_parent_page_enabled:
                         # Same as above, except the parent object's page is disabled.
                         warn(
                             f"Ignoring '{obj.name}' because its parent '{parent_name}' "
                             f"is in a disabled page ({parent_page or 'Default'})"
                         )
-                    elif page in pages_enabled or is_implicit_default(page):
+                    elif is_my_page_enabled:
                         # Having a child object in a different page than its parent object is,
                         # strictly speaking, not a fatal error, but it could lead to unexpected
                         # results. So, surface a visible error in this case, but don't stop
