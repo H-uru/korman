@@ -17,61 +17,64 @@ class NonfatalExportError(Exception):
     def __init__(self, *args, **kwargs):
         assert args
         if len(args) > 1:
-            super(Exception, self).__init__(args[0].format(*args[1:], **kwargs))
+            super().__init__(args[0].format(*args[1:], **kwargs))
         else:
-            super(Exception, self).__init__(args[0])
+            super().__init__(args[0])
 
 
 class ExportError(Exception):
     def __init__(self, *args, **kwargs):
         if not args:
-            super(Exception, self).__init__("Undefined Export Error")
+            super().__init__("Undefined Export Error")
         elif len(args) > 1:
-            super(Exception, self).__init__(args[0].format(*args[1:], **kwargs))
+            super().__init__(args[0].format(*args[1:], **kwargs))
         else:
-            super(Exception, self).__init__(args[0])
+            super().__init__(args[0])
 
 
 class BlendNotSupported(ExportError):
     def __init__(self, progression, axis):
-        super(ExportError, self).__init__("Alpha Blend not supported: {}, {}", progression, axis)
+        super().__init__(f"Alpha Blend not supported: {progression}, {axis}")
 
 
 class BlenderOptionNotSupportedError(ExportError):
     def __init__(self, opt):
-        super(ExportError, self).__init__("Unsupported Blender Option: '{}'".format(opt))
+        super().__init__(f"Unsupported Blender Option: '{opt}'")
 
 
 class ExportAssertionError(ExportError):
     def __init__(self):
-        super(ExportError, self).__init__("Assertion failed")
+        super().__init__("Assertion failed")
 
 
 class PlasmaLaunchError(ExportError):
     def __init__(self, *args, **kwargs):
         if not args:
-            super(Exception, self).__init__("Failed to start Plasma")
-        elif len(args) > 1:
-            super(Exception, self).__init__(args[0].format(*args[1:], **kwargs))
+            super().__init__("Failed to start Plasma")
         else:
-            super(Exception, self).__init__(args[0])
+            super().__init__(*args, **kwargs)
 
 
 class TooManyUVChannelsError(ExportError):
     def __init__(self, obj, mat, numUVTexs, maxUVTexCount=8):
-        msg = "There are too many UV Textures on the material '{}' associated with object '{}'. You can have at most {} (there are {})".format(
-           mat.name, obj.name, maxUVTexCount, numUVTexs)
-        super(ExportError, self).__init__(msg)
+        super().__init__(
+            f"There are too many UV Textures on the material '{mat.name}' "
+            f"associated with object '{obj.name}'. You can have at most {maxUVTexCount} "
+            f"(there are {numUVTexs})"
+        )
 
 
 class TooManyVerticesError(ExportError):
     def __init__(self, mesh, matname, vertcount):
-        msg = "There are too many vertices ({}) on the mesh data '{}' associated with material '{}'".format(
-           vertcount, mesh, matname
+        super().__init__(
+            f"There are too many vertices ({vertcount}) on the mesh data "
+            f"'{mesh}' associated with material '{matname}'"
         )
-        super(ExportError, self).__init__(msg)
 
 
 class UnsupportedTextureError(ExportError):
     def __init__(self, texture, material):
-        super(ExportError, self).__init__("Cannot export texture '{}' on material '{}' -- unsupported type '{}'".format(texture.name, material.name, texture.type))
+        super().__init__(
+            f"Cannot export texture '{texture.name}' on material "
+            f"'{material.name}' -- unsupported type '{texture.type}'"
+        )
