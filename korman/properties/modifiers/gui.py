@@ -245,8 +245,10 @@ class PlasmaJournalBookModifier(PlasmaModifierProperties, PlasmaModifierLogicWiz
         version = exporter.mgr.getVer()
         if version not in our_versions:
             # We aren't needed here
-            exporter.report.port("Object '{}' has a JournalMod not enabled for export to the selected engine.  Skipping.",
-                                 bo.name, version)
+            exporter.report.port(
+                f"Object '{bo.name}' has a JournalMod not enabled for export to the selected "
+                "engine. Skipping."
+            )
             return
 
         # Generate the clickable region if it was not provided

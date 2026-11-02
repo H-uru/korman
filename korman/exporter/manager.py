@@ -266,7 +266,7 @@ class ExportManager:
                     # potentially cause URU to crash. I'm uncertain though, so we'll just warn
                     # for now.
                     if issubclass(pClass, plSingleModifier):
-                        self._exporter().report.warn("Adding SingleModifier '{}' (type: '{}'') to another SceneObject '{}'",
+                        self._exporter().report.warn("Adding SingleModifier '{}' (type: '{}') to another SceneObject '{}'",
                                                      key.name, pClass.__name__[2:], so.key.name)
                     so.addModifier(key)
         return key

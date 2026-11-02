@@ -292,7 +292,7 @@ class LightConverter:
                         self._report.msg(f"[{lamp.type}] PermaProj '{obj.name}'")
                         permaProjs.append(pl_light)
                     else:
-                        self._report.msg(f"[{lamp.type}] PermaLight '{obj.name}'", lamp.type, obj.name)
+                        self._report.msg(f"[{lamp.type}] PermaLight '{obj.name}'")
                         permaLights.append(pl_light)
 
         if len(permaLights) > 8:

@@ -346,7 +346,7 @@ class PlasmaPythonFileNode(PlasmaVersionedNode, bpy.types.Node):
         # an animated lamp.
         if not bool(bo.users_group):
             for light in exporter.mgr.find_interfaces(plLightInfo, so):
-                exporter.report.msg(f"Marking RT light '{so.key.name}' as animated due to usage in a Python File node", so.key.name)
+                exporter.report.msg(f"Marking RT light '{so.key.name}' as animated due to usage in a Python File node")
                 light.setProperty(plLightInfo.kLPMovable, True)
 
     def _export_key_attrib(self, exporter, bo, so: plSceneObject, pfm: plPythonFileMod, key: plKey, socket) -> None:

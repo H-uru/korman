@@ -258,7 +258,7 @@ class PlasmaAnimationGroupModifier(ActionModifier, PlasmaModifierProperties):
             child_bo = i.child_anim
             if child_bo is None:
                 msg = "Animation Group '{}' specifies an invalid object. Ignoring..."
-                exporter.report.warn(msg, self.key_name, ident=2)
+                exporter.report.warn(msg, self.key_name)
                 continue
             if not child_bo.plasma_object.has_animation_data:
                 msg = "Animation Group '{}' specifies an object '{}' with no valid animation data. Ignoring..."
