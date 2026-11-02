@@ -950,17 +950,18 @@ class PlasmaAttribTextureNode(idprops.IDPropMixin, PlasmaAttribNodeBase, bpy.typ
         elif attrib == "ptAttribMaterialList":
             yield from filter(lambda x: x and not isinstance(x.object, plLayerAnimationBase), bottom_layers)
         elif attrib == "ptAttribMaterial":
-            # Only return the first key; warn about others.
-            result_gen = filter(lambda x: x and not isinstance(x.object, plLayerAnimationBase), bottom_layers)
-            result = next(result_gen, None)
-            remainder = sum((1 for i in result))
-            if remainder > 1:
-                exporter.report.warn("'{}.{}': Expected a single layer, but mapped to {}. Make the settings more specific.",
-                                     self.id_data.name, self.path_from_id(), remainder + 1)
-            if result is not None:
-                yield result
+            result = [i for i in bottom_layers if i and not isinstance(i.object, plLayerAnimationBase)]
+            num_results = len(result)
+            if num_results > 1:
+                exporter.report.warn(
+                    f"'{self.id_data.name}.{self.path_from_id()}': "
+                    f"Expected a single layer, but mapped to {num_results}. "
+                    "Make the settings more specific."
+                )
+            if result:
+                yield result[0]
         else:
-            raise RuntimeError(attrib)
+            raise ValueError(attrib)
 
     @classmethod
     def _idprop_mapping(cls):
