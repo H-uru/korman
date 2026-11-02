@@ -69,8 +69,9 @@ class PlasmaSittingBehaviorNode(PlasmaNodeBase, bpy.types.Node):
         for flag in self.approach:
             sitmod.miscFlags |= getattr(plSittingModifier, flag)
         for i in self.find_outputs("satisfies"):
-            if i is not None:
-                sitmod.addNotifyKey(i.get_key(exporter, so))
+            key = i.get_key(exporter, so)
+            if key is not None:
+                sitmod.addNotifyKey(key)
             else:
                 exporter.report.warn(f"'{i.bl_idname}' Node '{i.name}' doesn't expose a key. It won't be triggered by '{self.name}'!")
 
