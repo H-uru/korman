@@ -37,9 +37,10 @@ class PlasmaSoftVolumeOutputNode(PlasmaTreeOutputNodeBase, bpy.types.Node):
 
     def get_key(self, exporter, so):
         svNode = self.find_input("input")
-        if svNode is not None:
-            return svNode.get_key(exporter, so)
-        return None
+        if svNode is None:
+            self.raise_error("Must be connected to a soft volume node")
+
+        return svNode.get_key(exporter, so)
 
 
 class PlasmaSoftVolumeNodeSocket(PlasmaNodeSocketBase, bpy.types.NodeSocket):
