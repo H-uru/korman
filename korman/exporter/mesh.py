@@ -328,8 +328,14 @@ class MeshConverter(_MeshManager):
                 return is_alpha_blended(layer.underLay.object)
             return False
 
+        # Objects with alpha vertex paint must have alpha blending set on their layers
+        if self._check_vtx_alpha(mesh, material_idx):
+            for layer in hsgmatKey.object.layers:
+                layer.object.state.blendFlags |= hsGMatState.kBlendAlpha
+
         base_layer = hsgmatKey.object.layers[0].object
-        if is_alpha_blended(base_layer) or self._check_vtx_alpha(mesh, material_idx):
+
+        if is_alpha_blended(base_layer):
             geospan.props |= plGeometrySpan.kRequiresBlending
         if self._check_vtx_nonpreshaded(bo, mesh, material_idx, bm):
             geospan.props |= plGeometrySpan.kLiteVtxNonPreshaded
