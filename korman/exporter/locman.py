@@ -54,6 +54,26 @@ _DUMB_CHARACTERS = [
         "smart double quote (probably copypasta'd from Microsoft Word)",
         re.compile("[\u201C\u201D\u201E\u201F\u2E42]"), '"'
     ),
+    _DumbCharacter(
+        "horizontal ellipsis",
+        re.compile("\u2026"), "..."
+    ),
+    _DumbCharacter(
+        "en dash",
+        re.compile("\u2013"), "-"
+    ),
+    _DumbCharacter(
+        "em dash",
+        re.compile("\u2014"), "--"
+    ),
+    _DumbCharacter(
+        "no-break space and narrow no-break space",
+        re.compile("[\u00A0\u202F]"), " "
+    ),
+    _DumbCharacter(
+        "invisible character (zero-width space, BOM, or soft hyphen)",
+        re.compile("[\u200B\uFEFF\u00AD]"), ""
+    ),
 ]
 
 
