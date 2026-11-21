@@ -19,12 +19,13 @@
 
 #define NOMINMAX
 
-#include <cstdint>
 #include <Python.h>
-#include <utility>
+
+// ============================================================================
 
 #define _pycs(x) const_cast<char*>(x)
-#define arrsize(a) (sizeof(a) / sizeof((a)[0]))
+
+// ============================================================================
 
 class PyObjectRef {
     PyObject* m_object;
@@ -33,9 +34,9 @@ public:
     PyObjectRef() : m_object() { }
     PyObjectRef(PyObject* o) : m_object(o) { }
     PyObjectRef(const PyObjectRef& copy) = delete;
-    PyObjectRef(PyObjectRef&& move) {
+    PyObjectRef(PyObjectRef&& move) noexcept {
         m_object = move.m_object;
-        move.m_object = NULL;
+        move.m_object = nullptr;
     }
 
     ~PyObjectRef() { Py_XDECREF(m_object); }
@@ -48,9 +49,9 @@ public:
         return *this;
     }
 
-    PyObjectRef& operator =(PyObjectRef&& move) {
+    PyObjectRef& operator =(PyObjectRef&& move) noexcept {
         m_object = move.m_object;
-        move.m_object = NULL;
+        move.m_object = nullptr;
         return *this;
     }
 

@@ -33,6 +33,10 @@ set(korlib_SOURCES
 )
 
 Python3_add_library(_korlib MODULE ${korlib_HEADERS} ${korlib_SOURCES})
+set_property(TARGET _korlib PROPERTY
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
 target_link_libraries(_korlib
     PRIVATE
         HSPlasma

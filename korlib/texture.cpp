@@ -17,6 +17,7 @@
 #include "texture.h"
 #include "PyHSPlasma_private.h"
 
+// Needed for OpenGL header on Windows :(
 #ifdef _WIN32
 #   define WIN32_LEAN_AND_MEAN
 #   define NOMINMAX
@@ -24,7 +25,10 @@
 #endif // _WIN32
 
 #include <cmath>
+#include <iterator>
+
 #include <GL/gl.h>
+
 #include <PRP/Surface/plMipmap.h>
 
 #define TEXTARGET_TEXTURE_2D 0
@@ -68,7 +72,7 @@ static inline bool _get_float(PyObject* source, const char* attr, float& result)
         PyObjectRef pyfloat = PyObject_GetAttrString(source, attr);
         if (pyfloat) {
             result = (float)PyFloat_AsDouble(pyfloat);
-            return PyErr_Occurred() == NULL;
+            return PyErr_Occurred() == nullptr;
         }
     }
     return false;
@@ -109,7 +113,7 @@ static void _scale_image(const uint8_t* srcBuf, const size_t srcW, const size_t 
                                    static_cast<ssize_t>(srcH - 1));
 
         float weightsY[16];
-        for (ssize_t i = srcY_start; i <= srcY_end && i - srcY_start < arrsize(weightsY); ++i)
+        for (ssize_t i = srcY_start; i <= srcY_end && i - srcY_start < std::size(weightsY); ++i)
             weightsY[i - srcY_start] = 1.f - std::abs((i - srcY) / filterH);
 
         for (size_t dstX = 0; dstX < dstW; ++dstX) {
@@ -120,14 +124,14 @@ static void _scale_image(const uint8_t* srcBuf, const size_t srcW, const size_t 
                                         static_cast<ssize_t>(srcW - 1));
 
             float weightsX[16];
-            for (ssize_t i = srcX_start; i <= srcX_end && i - srcX_start < arrsize(weightsX); ++i)
+            for (ssize_t i = srcX_start; i <= srcX_end && i - srcX_start < std::size(weightsX); ++i)
                 weightsX[i - srcX_start] = 1.f - std::abs((i - srcX) / filterW);
 
             float accum_color[] = { 0.f, 0.f, 0.f, 0.f };
             float weight_total = 0.f;
             for (size_t i = srcY_start; i <= srcY_end; ++i) {
                 float weightY;
-                if (i - srcY_start < arrsize(weightsY))
+                if (i - srcY_start < std::size(weightsY))
                     weightY = weightsY[i - srcY_start];
                 else
                     weightY = 1.f - std::abs((i - srcY) / filterH);
@@ -138,7 +142,7 @@ static void _scale_image(const uint8_t* srcBuf, const size_t srcW, const size_t 
                 size_t srcIdx = ((i * srcRowspan) + (srcX_start * sizeof(uint32_t)));
                 for (size_t j = srcX_start; j <= srcX_end; ++j, srcIdx += sizeof(uint32_t)) {
                     float weightX;
-                    if (j - srcX_start < arrsize(weightsX))
+                    if (j - srcX_start < std::size(weightsX))
                         weightX = weightsX[j - srcX_start];
                     else
                         weightX = 1.f - std::abs((j - srcX) / filterW);
@@ -167,22 +171,22 @@ static void _scale_image(const uint8_t* srcBuf, const size_t srcW, const size_t 
 
 PyObject* scale_image(PyObject*, PyObject* args, PyObject* kwargs) {
     static char* kwlist[] = { _pycs("buf"), _pycs("srcW"), _pycs("srcH"),
-                              _pycs("dstW"), _pycs("dstH"), NULL };
+                              _pycs("dstW"), _pycs("dstH"), nullptr };
     const uint8_t* srcBuf;
     int srcBufSz;
     uint32_t srcW, srcH, dstW, dstH;
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "y#IIII", kwlist, &srcBuf, &srcBufSz, &srcW, &srcH, &dstW, &dstH)) {
         PyErr_SetString(PyExc_TypeError, "scale_image expects a bytes object, int, int, int int");
-        return NULL;
+        return nullptr;
     }
 
     int expectedBufSz = srcW * srcH * sizeof(uint32_t);
     if (srcBufSz != expectedBufSz) {
         PyErr_Format(PyExc_ValueError, "buf size (%i bytes) incorrect (expected: %i bytes)", srcBufSz, expectedBufSz);
-        return NULL;
+        return nullptr;
     }
 
-    PyObject* dst = PyBytes_FromStringAndSize(NULL, dstW * dstH * sizeof(uint32_t));
+    PyObject* dst = PyBytes_FromStringAndSize(nullptr, dstW * dstH * sizeof(uint32_t));
     uint8_t* dstBuf = reinterpret_cast<uint8_t*>(PyBytes_AS_STRING(dst));
     _scale_image(srcBuf, srcW, srcH, dstBuf, dstW, dstH);
     return dst;
@@ -230,9 +234,9 @@ static void pyGLTexture_dealloc(pyGLTexture* self) {
 
 static PyObject* pyGLTexture_new(PyTypeObject* type, PyObject* args, PyObject* kwds) {
     pyGLTexture* self = (pyGLTexture*)type->tp_alloc(type, 0);
-    self->m_blenderImage = NULL;
-    self->m_textureKey = NULL;
-    self->m_imageData = NULL;
+    self->m_blenderImage = nullptr;
+    self->m_textureKey = nullptr;
+    self->m_imageData = nullptr;
     self->m_width = 0;
     self->m_height = 0;
     self->m_bgra = false;
@@ -241,7 +245,7 @@ static PyObject* pyGLTexture_new(PyTypeObject* type, PyObject* args, PyObject* k
 }
 
 static int pyGLTexture___init__(pyGLTexture* self, PyObject* args, PyObject* kwds) {
-    static char* kwlist[] = { _pycs("texkey"), _pycs("image"), _pycs("bgra"), _pycs("fast"), NULL };
+    static char* kwlist[] = { _pycs("texkey"), _pycs("image"), _pycs("bgra"), _pycs("fast"), nullptr };
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OObb", kwlist, &self->m_textureKey, &self->m_blenderImage,
                                      &self->m_bgra, &self->m_imageInverted)) {
         PyErr_SetString(PyExc_TypeError, "expected a korman.exporter.material._Texture or a bpy.types.Image");
@@ -279,7 +283,7 @@ static PyObject* pyGLTexture__enter__(pyGLTexture* self) {
     // Now we should have a GLuint...
     if (!PyLong_Check(bindcode)) {
         PyErr_SetString(PyExc_TypeError, "Image bindcode isn't a long?");
-        return NULL;
+        return nullptr;
     }
 
     GLint prevImage;
@@ -289,18 +293,18 @@ static PyObject* pyGLTexture__enter__(pyGLTexture* self) {
 
     // Load image into GL
     if (ownit) {
-        PyObjectRef new_bind = PyObject_CallMethod(self->m_blenderImage, "gl_load", NULL);
+        PyObjectRef new_bind = PyObject_CallMethod(self->m_blenderImage, "gl_load", nullptr);
         if (!new_bind)
-            return NULL;
+            return nullptr;
 
         if (!PyLong_Check(new_bind)) {
             PyErr_SetString(PyExc_TypeError, "gl_load() did not return a long");
-            return NULL;
+            return nullptr;
         }
         ssize_t result = PyLong_AsSize_t(new_bind);
         if (result != GL_NO_ERROR) {
             PyErr_Format(PyExc_RuntimeError, "gl_load() error: %d", result);
-            return NULL;
+            return nullptr;
         }
         bindcode = PyObject_GetAttrString(self->m_blenderImage, "bindcode");
         if (PySequence_Check(bindcode)) {
@@ -309,7 +313,7 @@ static PyObject* pyGLTexture__enter__(pyGLTexture* self) {
         // Now we should have a GLuint...
         if (!PyLong_Check(bindcode)) {
             PyErr_SetString(PyExc_TypeError, "Image bindcode isn't a long?");
-            return NULL;
+            return nullptr;
         }
         image_bindcode = PyLong_AsUnsignedLong(bindcode);
     }
@@ -324,7 +328,7 @@ static PyObject* pyGLTexture__enter__(pyGLTexture* self) {
     glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &self->m_height);
 
     size_t bufsz = self->m_width * self->m_height * sizeof(uint32_t);
-    self->m_imageData = PyBytes_FromStringAndSize(NULL, bufsz);
+    self->m_imageData = PyBytes_FromStringAndSize(nullptr, bufsz);
     char* imbuf = PyBytes_AS_STRING(self->m_imageData);
     GLint fmt = self->m_bgra ? GL_BGRA_EXT : GL_RGBA;
     glGetTexImage(GL_TEXTURE_2D, 0, fmt, GL_UNSIGNED_BYTE, reinterpret_cast<GLvoid*>(imbuf));
@@ -337,7 +341,7 @@ static PyObject* pyGLTexture__enter__(pyGLTexture* self) {
     if (changedState)
         glBindTexture(GL_TEXTURE_2D, prevImage);
     if (ownit)
-        PyObjectRef result = PyObject_CallMethod(self->m_blenderImage, "gl_free", NULL);
+        PyObjectRef result = PyObject_CallMethod(self->m_blenderImage, "gl_free", nullptr);
 
     Py_INCREF(self);
     return (PyObject*)self;
@@ -415,7 +419,7 @@ static int _generate_detail_map(pyGLTexture* self, uint8_t* buf, size_t bufsz, G
 
 static PyObject* pyGLTexture_get_level_data(pyGLTexture* self, PyObject* args, PyObject* kwargs) {
     static char* kwlist[] = { _pycs("level"), _pycs("calc_alpha"), _pycs("report"),
-                              _pycs("indent"), _pycs("fast"), NULL };
+                              _pycs("indent"), _pycs("fast"), nullptr };
     GLint level = 0;
     bool calc_alpha = false;
     PyObject* report = nullptr;
@@ -423,7 +427,7 @@ static PyObject* pyGLTexture_get_level_data(pyGLTexture* self, PyObject* args, P
     bool fast = false;
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|ibOib", kwlist, &level, &calc_alpha, &report, &indent, &fast)) {
         PyErr_SetString(PyExc_TypeError, "get_level_data expects an optional int, bool, obejct, int, bool");
-        return NULL;
+        return nullptr;
     }
 
     // We only ever want to return POT images for use in Plasma
@@ -445,7 +449,7 @@ static PyObject* pyGLTexture_get_level_data(pyGLTexture* self, PyObject* args, P
         Py_INCREF(self->m_imageData);
         data = self->m_imageData;
     } else {
-        data = PyBytes_FromStringAndSize(NULL, bufsz);
+        data = PyBytes_FromStringAndSize(nullptr, bufsz);
         uint8_t* dstBuf = reinterpret_cast<uint8_t*>(PyBytes_AsString(data)); // AS_STRING :(
         uint8_t* srcBuf = reinterpret_cast<uint8_t*>(PyBytes_AsString(self->m_imageData));
         _scale_image(srcBuf, self->m_width, self->m_height, dstBuf, eWidth, eHeight);
@@ -466,7 +470,7 @@ static PyObject* pyGLTexture_get_level_data(pyGLTexture* self, PyObject* args, P
             if (_generate_detail_map(self, buf, bufsz, level) != 0) {
                 PyErr_SetString(PyExc_RuntimeError, "error while baking detail map");
                 Py_DECREF(data);
-                return NULL;
+                return nullptr;
             }
         }
     }
@@ -482,11 +486,11 @@ static PyObject* pyGLTexture_get_level_data(pyGLTexture* self, PyObject* args, P
 }
 
 static PyMethodDef pyGLTexture_Methods[] = {
-    { _pycs("__enter__"), (PyCFunction)pyGLTexture__enter__, METH_NOARGS, NULL },
-    { _pycs("__exit__"), (PyCFunction)pyGLTexture__exit__, METH_VARARGS, NULL },
+    { _pycs("__enter__"), (PyCFunction)pyGLTexture__enter__, METH_NOARGS, nullptr },
+    { _pycs("__exit__"), (PyCFunction)pyGLTexture__exit__, METH_VARARGS, nullptr },
 
-    { _pycs("get_level_data"), (PyCFunction)pyGLTexture_get_level_data, METH_KEYWORDS | METH_VARARGS, NULL },
-    { NULL, NULL, 0, NULL }
+    { _pycs("get_level_data"), (PyCFunction)pyGLTexture_get_level_data, METH_KEYWORDS | METH_VARARGS, nullptr },
+    { nullptr, nullptr, 0, nullptr }
 };
 
 static PyObject* pyGLTexture_get_has_alpha(pyGLTexture* self, void*) {
@@ -542,12 +546,12 @@ static PyObject* pyGLTexture_get_size_pot(pyGLTexture* self, void*) {
 }
 
 static PyGetSetDef pyGLTexture_GetSet[] = {
-    { _pycs("has_alpha"), (getter)pyGLTexture_get_has_alpha, NULL, NULL, NULL },
-    { _pycs("image_data"), (getter)pyGLTexture_get_image_data, (setter)pyGLTexture_set_image_data, NULL, NULL },
-    { _pycs("num_levels"), (getter)pyGLTexture_get_num_levels, NULL, NULL, NULL },
-    { _pycs("size_npot"), (getter)pyGLTexture_get_size_npot, NULL, NULL, NULL },
-    { _pycs("size_pot"), (getter)pyGLTexture_get_size_pot, NULL, NULL, NULL },
-    { NULL, NULL, NULL, NULL, NULL }
+    { _pycs("has_alpha"), (getter)pyGLTexture_get_has_alpha, nullptr, nullptr, nullptr },
+    { _pycs("image_data"), (getter)pyGLTexture_get_image_data, (setter)pyGLTexture_set_image_data, nullptr, nullptr },
+    { _pycs("num_levels"), (getter)pyGLTexture_get_num_levels, nullptr, nullptr, nullptr },
+    { _pycs("size_npot"), (getter)pyGLTexture_get_size_npot, nullptr, nullptr, nullptr },
+    { _pycs("size_pot"), (getter)pyGLTexture_get_size_pot, nullptr, nullptr, nullptr },
+    { nullptr, nullptr, nullptr, nullptr, nullptr }
 };
 
 static PyType_Slot pyGLTexture_Slots[] {
@@ -557,7 +561,7 @@ static PyType_Slot pyGLTexture_Slots[] {
     { Py_tp_init, (void*)pyGLTexture___init__ },
     { Py_tp_methods, (void*)pyGLTexture_Methods },
     { Py_tp_new, (void*)pyGLTexture_new, },
-    { 0, NULL },
+    { 0, nullptr },
 };
 
 PyObject* Init_pyGLTexture_Type() {
