@@ -219,7 +219,13 @@ static void pyGLTexture_dealloc(pyGLTexture* self) {
     Py_CLEAR(self->m_textureKey);
     Py_CLEAR(self->m_blenderImage);
     Py_CLEAR(self->m_imageData);
-    Py_TYPE(self)->tp_free((PyObject*)self);
+
+    PyTypeObject* tp = Py_TYPE(self);
+    tp->tp_free((PyObject*)self);
+
+#if PY_VERSION_HEX >= 0x03080000
+    Py_DECREF(tp);
+#endif
 }
 
 static PyObject* pyGLTexture_new(PyTypeObject* type, PyObject* args, PyObject* kwds) {
@@ -544,68 +550,23 @@ static PyGetSetDef pyGLTexture_GetSet[] = {
     { NULL, NULL, NULL, NULL, NULL }
 };
 
-PyTypeObject pyGLTexture_Type = {
-    PyVarObject_HEAD_INIT(NULL, 0)
-    "_korlib.GLTexture",                /* tp_name */
-    sizeof(pyGLTexture),                /* tp_basicsize */
-    0,                                  /* tp_itemsize */
-
-    (destructor)pyGLTexture_dealloc,    /* tp_dealloc */
-    NULL,                               /* tp_print */
-    NULL,                               /* tp_getattr */
-    NULL,                               /* tp_setattr */
-    NULL,                               /* tp_compare */
-    NULL,                               /* tp_repr */
-    NULL,                               /* tp_as_number */
-    NULL,                               /* tp_as_sequence */
-    NULL,                               /* tp_as_mapping */
-    NULL,                               /* tp_hash */
-    NULL,                               /* tp_call */
-    NULL,                               /* tp_str */
-    NULL,                               /* tp_getattro */
-    NULL,                               /* tp_setattro */
-    NULL,                               /* tp_as_buffer */
-
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* tp_flags */
-    "GLTexture",                              /* tp_doc */
-
-    NULL,                               /* tp_traverse */
-    NULL,                               /* tp_clear */
-    NULL,                               /* tp_richcompare */
-    0,                                  /* tp_weaklistoffset */
-    NULL,                               /* tp_iter */
-    NULL,                               /* tp_iternext */
-
-    pyGLTexture_Methods,                /* tp_methods */
-    NULL,                               /* tp_members */
-    pyGLTexture_GetSet,                 /* tp_getset */
-    NULL,                               /* tp_base */
-    NULL,                               /* tp_dict */
-    NULL,                               /* tp_descr_get */
-    NULL,                               /* tp_descr_set */
-    0,                                  /* tp_dictoffset */
-
-    (initproc)pyGLTexture___init__,     /* tp_init */
-    NULL,                               /* tp_alloc */
-    pyGLTexture_new,                    /* tp_new */
-    NULL,                               /* tp_free */
-    NULL,                               /* tp_is_gc */
-
-    NULL,                               /* tp_bases */
-    NULL,                               /* tp_mro */
-    NULL,                               /* tp_cache */
-    NULL,                               /* tp_subclasses */
-    NULL,                               /* tp_weaklist */
-
-    NULL,                               /* tp_del */
-    0,                                  /* tp_version_tag */
-    NULL,                               /* tp_finalize */
+static PyType_Slot pyGLTexture_Slots[] {
+    { Py_tp_doc, _pycs("GLTexture") },
+    { Py_tp_dealloc, (void*)pyGLTexture_dealloc },
+    { Py_tp_getset, (void*)pyGLTexture_GetSet },
+    { Py_tp_init, (void*)pyGLTexture___init__ },
+    { Py_tp_methods, (void*)pyGLTexture_Methods },
+    { Py_tp_new, (void*)pyGLTexture_new, },
+    { 0, NULL },
 };
 
 PyObject* Init_pyGLTexture_Type() {
-    if (PyType_Ready(&pyGLTexture_Type) < 0)
-        return NULL;
-
-    Py_INCREF(&pyGLTexture_Type);
-    return (PyObject*)&pyGLTexture_Type;
+    PyType_Spec spec{
+        "_korlib.GLTexture",
+        sizeof(pyGLTexture),
+        0,
+        Py_TPFLAGS_DEFAULT,
+        pyGLTexture_Slots
+    };
+    return PyType_FromSpec(&spec);
 }
