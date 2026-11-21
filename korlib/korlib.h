@@ -50,6 +50,7 @@ public:
     }
 
     PyObjectRef& operator =(PyObjectRef&& move) noexcept {
+        Py_XDECREF(m_object);
         m_object = move.m_object;
         move.m_object = nullptr;
         return *this;
