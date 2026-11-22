@@ -18,6 +18,7 @@ from .ui_camera import *
 from .ui_image import *
 from .ui_lamp import *
 from .ui_list import *
+from .ui_material import *
 from .ui_menus import *
 from .ui_modifiers import *
 from .ui_object import *
