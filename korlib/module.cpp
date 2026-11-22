@@ -22,12 +22,12 @@
 #define KORLIB_API_VERSION 2
 
 static PyMethodDef korlib_Methods[] = {
-    { _pycs("create_funky_ramp"), (PyCFunction)create_funky_ramp, METH_VARARGS, NULL },
-    { _pycs("create_bump_LUT"), (PyCFunction)create_bump_LUT, METH_VARARGS, NULL },
-    { _pycs("inspect_vorbisfile"), (PyCFunction)inspect_vorbisfile, METH_VARARGS, NULL },
-    { _pycs("scale_image"), (PyCFunction)scale_image, METH_KEYWORDS | METH_VARARGS, NULL },
+    { _pycs("create_funky_ramp"), (PyCFunction)create_funky_ramp, METH_VARARGS, nullptr },
+    { _pycs("create_bump_LUT"), (PyCFunction)create_bump_LUT, METH_VARARGS, nullptr },
+    { _pycs("inspect_vorbisfile"), (PyCFunction)inspect_vorbisfile, METH_VARARGS, nullptr },
+    { _pycs("scale_image"), (PyCFunction)scale_image, METH_KEYWORDS | METH_VARARGS, nullptr },
 
-    { NULL, NULL, 0, NULL },
+    { nullptr, nullptr, 0, nullptr },
 };
 
 static PyModuleDef korlib_Module = {
@@ -36,10 +36,10 @@ static PyModuleDef korlib_Module = {
     "C++ korlib implementation",/* m_doc */
     0,                          /* m_size */
     korlib_Methods,             /* m_methods */
-    NULL,                       /* m_reload */
-    NULL,                       /* m_traverse */
-    NULL,                       /* m_clear */
-    NULL,                       /* m_free */
+    nullptr,                    /* m_reload */
+    nullptr,                    /* m_traverse */
+    nullptr,                    /* m_clear */
+    nullptr,                    /* m_free */
 };
 
 extern "C" {

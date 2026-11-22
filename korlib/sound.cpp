@@ -62,7 +62,7 @@ static long _tell_stream(void* datasource) {
 static ov_callbacks s_callbacks = {
     (size_t(*)(void *, size_t, size_t, void *))_read_stream,
     (int (*)(void *, ogg_int64_t, int))_seek_stream,
-    (int (*)(void *))NULL,
+    (int (*)(void *))nullptr,
     (long (*)(void *))_tell_stream,
 };
 
@@ -71,16 +71,16 @@ PyObject* inspect_vorbisfile(PyObject*, PyObject* args) {
     pyWAVHeader* header;
     if (!PyArg_ParseTuple(args, "OO", &stream, &header)) {
         PyErr_SetString(PyExc_TypeError, "inspect_vorbisfile expects an hsStream, plWAVHeader");
-        return NULL;
+        return nullptr;
     }
 
     // The OGG file may actually be in Blender's memory, so we will use hsStream. Therefore,
     // we must tell vorbisfile how to do this.
     OggVorbis_File vorbis;
-    int result = ov_open_callbacks(stream->fThis, &vorbis, NULL, 0, s_callbacks);
+    int result = ov_open_callbacks(stream->fThis, &vorbis, nullptr, 0, s_callbacks);
     if (result < 0) {
         PyErr_Format(PyExc_RuntimeError, "vorbisfile ov_open_callbacks: %d", result);
-        return NULL;
+        return nullptr;
     }
 
     header->fThis->setFormatTag(plWAVHeader::kPCMFormatTag);

@@ -35,13 +35,13 @@ PyObject* create_funky_ramp(PyObject*, PyObject* args) {
     bool additive = false;
     if (!PyArg_ParseTuple(args, "O|b", &pymipmap, &additive)) {
         PyErr_SetString(PyExc_TypeError, "create_funky_ramp expects a plMipmap and an optional boolean");
-        return NULL;
+        return nullptr;
     }
 
     plMipmap* texture = plMipmap::Convert(pymipmap->fThis, false);
     if (!texture) {
         PyErr_SetString(PyExc_TypeError, "create_funky_ramp expects a plMipmap");
-        return NULL;
+        return nullptr;
     }
 
     texture->Create(kLUTWidth, kLUTHeight, 1, plBitmap::kUncompressed, plBitmap::kRGB8888);
@@ -75,13 +75,13 @@ PyObject* create_bump_LUT(PyObject*, PyObject* args) {
     pyMipmap* pymipmap;
     if (!PyArg_ParseTuple(args, "O", &pymipmap)) {
         PyErr_SetString(PyExc_TypeError, "create_bump_LUT expects a plMipmap");
-        return NULL;
+        return nullptr;
     }
 
     plMipmap* texture = plMipmap::Convert(pymipmap->fThis, false);
     if (!texture) {
         PyErr_SetString(PyExc_TypeError, "create_bump_LUT expects a plMipmap");
-        return NULL;
+        return nullptr;
     }
 
     texture->Create(kLUTWidth, kLUTHeight, 1, plBitmap::kUncompressed, plBitmap::kRGB8888);
