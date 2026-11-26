@@ -99,5 +99,5 @@ PyObject* inspect_vorbisfile(PyObject*, PyObject* args) {
 
     // We got the plWAVHeader from Python because we don't link against PyHSPlasma, only libHSPlasma
     // Therefore, we only need to return the size.
-    return PyLong_FromSsize_t(size);
+    return PyLong_FromLongLong(size);
 }
