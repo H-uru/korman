@@ -15,10 +15,11 @@
  */
 
 #include "sound.h"
-#include "PyHSPlasma_private.h"
 
+#include "PyHSPlasma.h"
 #include <PRP/Audio/plSoundBuffer.h>
 #include <Stream/hsStream.h>
+
 #include <vorbis/vorbisfile.h>
 
 static const int BITS_PER_SAMPLE = 16;
@@ -69,10 +70,8 @@ static ov_callbacks s_callbacks = {
 PyObject* inspect_vorbisfile(PyObject*, PyObject* args) {
     pyStream* stream;
     pyWAVHeader* header;
-    if (!PyArg_ParseTuple(args, "OO", &stream, &header)) {
-        PyErr_SetString(PyExc_TypeError, "inspect_vorbisfile expects an hsStream, plWAVHeader");
+    if (!PyArg_ParseTuple(args, "O!O!", pyStream_Type, &stream, pyWAVHeader_Type, &header))
         return nullptr;
-    }
 
     // The OGG file may actually be in Blender's memory, so we will use hsStream. Therefore,
     // we must tell vorbisfile how to do this.

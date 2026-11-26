@@ -14,27 +14,6 @@
  * along with Korman.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _PYHSPLASMA_PRIVATE_H
-#define _PYHSPLASMA_PRIVATE_H
-
-#include "korlib.h"
-
-typedef struct {
-    PyObject_HEAD
-    class plMipmap* fThis;
-    bool fPyOwned;
-} pyMipmap;
-
-typedef struct {
-    PyObject_HEAD
-    class hsStream* fThis;
-    bool fPyOwned;
-} pyStream;
-
-typedef struct {
-    PyObject_HEAD
-    class plWAVHeader* fThis;
-    bool fPyOwned;
-} pyWAVHeader;
-
-#endif
+PY_WRAP_PLASMA(Mipmap, plMipmap)
+PY_WRAP_PLASMA(Stream, hsStream)
+PY_WRAP_PLASMA(WAVHeader, plWAVHeader)

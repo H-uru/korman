@@ -43,6 +43,12 @@ public:
 
     operator PyObject*() const { return m_object; }
 
+    PyObject* release() {
+        PyObject* o = m_object;
+        m_object = nullptr;
+        return o;
+    }
+
     PyObjectRef& operator =(PyObject* rhs) {
         Py_XDECREF(m_object);
         m_object = rhs;

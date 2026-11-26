@@ -14,6 +14,8 @@
  * along with Korman.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "PyHSPlasma.h"
+
 #include "bumpmap.h"
 #include "sound.h"
 #include "texture.h"
@@ -30,6 +32,10 @@ static PyMethodDef korlib_Methods[] = {
     { nullptr, nullptr, 0, nullptr },
 };
 
+static void korlib_free(void*) {
+    DeInit_PyHSPlasma_Types();
+}
+
 static PyModuleDef korlib_Module = {
     PyModuleDef_HEAD_INIT,      /* m_base */
     "_korlib",                  /* m_name */
@@ -39,12 +45,15 @@ static PyModuleDef korlib_Module = {
     nullptr,                    /* m_reload */
     nullptr,                    /* m_traverse */
     nullptr,                    /* m_clear */
-    nullptr,                    /* m_free */
+    korlib_free,                /* m_free */
 };
 
 extern "C" {
 
 PyMODINIT_FUNC PyInit__korlib() {
+    if (!Init_PyHSPlasma_Types())
+        return nullptr;
+
     PyObject* module = PyModule_Create(&korlib_Module);
 
     // Module classes...

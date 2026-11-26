@@ -15,7 +15,6 @@
  */
 
 #include "texture.h"
-#include "PyHSPlasma_private.h"
 
 // Needed for OpenGL header on Windows :(
 #ifdef _WIN32
@@ -28,8 +27,6 @@
 #include <iterator>
 
 #include <GL/gl.h>
-
-#include <PRP/Surface/plMipmap.h>
 
 #define TEXTARGET_TEXTURE_2D 0
 

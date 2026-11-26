@@ -20,7 +20,8 @@ find_package(Vorbis REQUIRED)
 set(korlib_HEADERS
     bumpmap.h
     korlib.h
-    PyHSPlasma_private.h
+    PyHSPlasma.inl
+    PyHSPlasma.h
     sound.h
     texture.h
 )
@@ -28,6 +29,7 @@ set(korlib_HEADERS
 set(korlib_SOURCES
     bumpmap.cpp
     module.cpp
+    PyHSPlasma.cpp
     sound.cpp
     texture.cpp
 )
