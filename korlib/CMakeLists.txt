@@ -18,16 +18,15 @@ find_package(string_theory REQUIRED)
 find_package(Vorbis REQUIRED)
 
 set(korlib_HEADERS
-    bumpmap.h
     korlib.h
-    PyHSPlasma_private.h
-    sound.h
-    texture.h
+    PyHSPlasma.inl
+    PyHSPlasma.h
 )
 
 set(korlib_SOURCES
     bumpmap.cpp
     module.cpp
+    PyHSPlasma.cpp
     sound.cpp
     texture.cpp
 )

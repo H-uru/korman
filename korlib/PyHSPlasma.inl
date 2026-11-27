@@ -14,13 +14,6 @@
  * along with Korman.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _KORLIB_TEXTURE_H
-#define _KORLIB_TEXTURE_H
-
-#include "korlib.h"
-
-PyObject* scale_image(PyObject*, PyObject*, PyObject*);
-
-PyObject* Init_pyGLTexture_Type();
-
-#endif // _KORLIB_TEXTURE_H
+PY_WRAP_PLASMA(Mipmap, plMipmap)
+PY_WRAP_PLASMA(Stream, hsStream)
+PY_WRAP_PLASMA(WAVHeader, plWAVHeader)

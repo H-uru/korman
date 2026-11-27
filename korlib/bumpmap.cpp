@@ -14,10 +14,12 @@
  * along with Korman.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "bumpmap.h"
-#include "PyHSPlasma_private.h"
+#include "korlib.h"
 
+#include "PyHSPlasma.h"
 #include <PRP/Surface/plMipmap.h>
+
+// ===============================================================================================
 
 static uint32_t MakeUInt32Color(float r, float g, float b, float a) {
     return  (uint32_t(a * 255.9f) << 24) |
@@ -26,25 +28,19 @@ static uint32_t MakeUInt32Color(float r, float g, float b, float a) {
             (uint32_t(b * 255.9f) << 0);
 }
 
-PyObject* create_funky_ramp(PyObject*, PyObject* args) {
+// ===============================================================================================
+
+static PyObject* create_funky_ramp(PyObject*, PyObject* args) {
     static const int kLUTHeight = 16;
     static const int kLUTWidth = 16;
     static const int kBufSz = kLUTWidth * kLUTHeight * sizeof(uint32_t);
 
-    pyMipmap* pymipmap;
+    pyMipmap* texture;
     bool additive = false;
-    if (!PyArg_ParseTuple(args, "O|b", &pymipmap, &additive)) {
-        PyErr_SetString(PyExc_TypeError, "create_funky_ramp expects a plMipmap and an optional boolean");
+    if (!PyArg_ParseTuple(args, "O!|b", pyMipmap_Type, &texture, &additive))
         return nullptr;
-    }
 
-    plMipmap* texture = plMipmap::Convert(pymipmap->fThis, false);
-    if (!texture) {
-        PyErr_SetString(PyExc_TypeError, "create_funky_ramp expects a plMipmap");
-        return nullptr;
-    }
-
-    texture->Create(kLUTWidth, kLUTHeight, 1, plBitmap::kUncompressed, plBitmap::kRGB8888);
+    texture->fThis->Create(kLUTWidth, kLUTHeight, 1, plBitmap::kUncompressed, plBitmap::kRGB8888);
 
     uint8_t data[kBufSz];
     uint32_t* pix = (uint32_t*)data;
@@ -62,29 +58,21 @@ PyObject* create_funky_ramp(PyObject*, PyObject* args) {
         }
     }
 
-    texture->setImageData(data, kBufSz);
+    texture->fThis->setImageData(data, kBufSz);
 
     Py_RETURN_NONE;
 }
 
-PyObject* create_bump_LUT(PyObject*, PyObject* args) {
+static PyObject* create_bump_LUT(PyObject*, PyObject* args) {
     static const int kLUTHeight = 16;
     static const int kLUTWidth = 16;
     static const int kBufSz = kLUTWidth * kLUTHeight * sizeof(uint32_t);
 
-    pyMipmap* pymipmap;
-    if (!PyArg_ParseTuple(args, "O", &pymipmap)) {
-        PyErr_SetString(PyExc_TypeError, "create_bump_LUT expects a plMipmap");
+    pyMipmap* texture;
+    if (!PyArg_ParseTuple(args, "O!", pyMipmap_Type, &texture))
         return nullptr;
-    }
 
-    plMipmap* texture = plMipmap::Convert(pymipmap->fThis, false);
-    if (!texture) {
-        PyErr_SetString(PyExc_TypeError, "create_bump_LUT expects a plMipmap");
-        return nullptr;
-    }
-
-    texture->Create(kLUTWidth, kLUTHeight, 1, plBitmap::kUncompressed, plBitmap::kRGB8888);
+    texture->fThis->Create(kLUTWidth, kLUTHeight, 1, plBitmap::kUncompressed, plBitmap::kRGB8888);
 
     int delH = (kLUTHeight - 1) / 5;
     int startH = delH / 2 + 1;
@@ -141,7 +129,12 @@ PyObject* create_bump_LUT(PyObject*, PyObject* args) {
         }
     }
 
-    texture->setImageData(data, kBufSz);
+    texture->fThis->setImageData(data, kBufSz);
 
     Py_RETURN_NONE;
 }
+
+// ===============================================================================================
+
+KORLIB_FUNCTION_VARARGS(create_bump_LUT)
+KORLIB_FUNCTION_VARARGS(create_funky_ramp)
