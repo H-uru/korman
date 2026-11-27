@@ -27,6 +27,38 @@
 
 // ============================================================================
 
+namespace _detail {
+    class KorlibFunction {
+    public:
+        KorlibFunction(const char* name, PyCFunction func, int flags, const char* doc = nullptr);
+        KorlibFunction(const KorlibFunction&) = delete;
+        KorlibFunction(KorlibFunction&&) = delete;
+    };
+
+    class KorlibType {
+    public:
+        KorlibType(const char* name, PyType_Spec* spec);
+        KorlibType(const KorlibType&) = delete;
+        KorlibType(KorlibType&&) = delete;
+    };
+};
+
+#define _KORLIB_FUNCTION(x, flags)                                            \
+    namespace {                                                               \
+        _detail::KorlibFunction py##x##_FuncInit(#x, (PyCFunction)x, flags);  \
+    }
+
+#define KORLIB_FUNCTION_NOARGS(x) _KORLIB_FUNCTION(x, METH_NOARGS)
+#define KORLIB_FUNCTION_VARARGS(x) _KORLIB_FUNCTION(x, METH_VARARGS)
+#define KORLIB_FUNCTION_KWARGS(x) _KORLIB_FUNCTION(x, METH_VARARGS | METH_KEYWORDS)
+
+#define KORLIB_TYPE(x)                                                        \
+    namespace {                                                               \
+        _detail::KorlibType py##x##_TypeInit(#x, &py##x##_Spec);              \
+    }
+
+// ============================================================================
+
 class PyObjectRef {
     PyObject* m_object;
 

@@ -18,12 +18,9 @@ find_package(string_theory REQUIRED)
 find_package(Vorbis REQUIRED)
 
 set(korlib_HEADERS
-    bumpmap.h
     korlib.h
     PyHSPlasma.inl
     PyHSPlasma.h
-    sound.h
-    texture.h
 )
 
 set(korlib_SOURCES

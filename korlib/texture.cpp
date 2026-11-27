@@ -14,7 +14,7 @@
  * along with Korman.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "texture.h"
+#include "korlib.h"
 
 // Needed for OpenGL header on Windows :(
 #ifdef _WIN32
@@ -166,7 +166,7 @@ static void _scale_image(const uint8_t* srcBuf, const size_t srcW, const size_t 
 
 // ===============================================================================================
 
-PyObject* scale_image(PyObject*, PyObject* args, PyObject* kwargs) {
+static PyObject* scale_image(PyObject*, PyObject* args, PyObject* kwargs) {
     static char* kwlist[] = { _pycs("buf"), _pycs("srcW"), _pycs("srcH"),
                               _pycs("dstW"), _pycs("dstH"), nullptr };
     const uint8_t* srcBuf;
@@ -542,6 +542,8 @@ static PyObject* pyGLTexture_get_size_pot(pyGLTexture* self, void*) {
     return Py_BuildValue("ii", width, height);
 }
 
+// ===============================================================================================
+
 static PyGetSetDef pyGLTexture_GetSet[] = {
     { _pycs("has_alpha"), (getter)pyGLTexture_get_has_alpha, nullptr, nullptr, nullptr },
     { _pycs("image_data"), (getter)pyGLTexture_get_image_data, (setter)pyGLTexture_set_image_data, nullptr, nullptr },
@@ -561,13 +563,15 @@ static PyType_Slot pyGLTexture_Slots[] {
     { 0, nullptr },
 };
 
-PyObject* Init_pyGLTexture_Type() {
-    PyType_Spec spec{
-        "_korlib.GLTexture",
-        sizeof(pyGLTexture),
-        0,
-        Py_TPFLAGS_DEFAULT,
-        pyGLTexture_Slots
-    };
-    return PyType_FromSpec(&spec);
-}
+static PyType_Spec pyGLTexture_Spec = {
+    "_korlib.GLTexture",
+    sizeof(pyGLTexture),
+    0,
+    Py_TPFLAGS_DEFAULT,
+    pyGLTexture_Slots
+};
+
+// ===============================================================================================
+
+KORLIB_FUNCTION_KWARGS(scale_image)
+KORLIB_TYPE(GLTexture)

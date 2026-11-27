@@ -14,13 +14,15 @@
  * along with Korman.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "sound.h"
+#include "korlib.h"
 
 #include "PyHSPlasma.h"
 #include <PRP/Audio/plSoundBuffer.h>
 #include <Stream/hsStream.h>
 
 #include <vorbis/vorbisfile.h>
+
+// ===============================================================================================
 
 static const int BITS_PER_SAMPLE = 16;
 
@@ -67,7 +69,7 @@ static ov_callbacks s_callbacks = {
     (long (*)(void *))_tell_stream,
 };
 
-PyObject* inspect_vorbisfile(PyObject*, PyObject* args) {
+static PyObject* inspect_vorbisfile(PyObject*, PyObject* args) {
     pyStream* stream;
     pyWAVHeader* header;
     if (!PyArg_ParseTuple(args, "O!O!", pyStream_Type, &stream, pyWAVHeader_Type, &header))
@@ -101,3 +103,7 @@ PyObject* inspect_vorbisfile(PyObject*, PyObject* args) {
     // Therefore, we only need to return the size.
     return PyLong_FromLongLong(size);
 }
+
+// ===============================================================================================
+
+KORLIB_FUNCTION_VARARGS(inspect_vorbisfile)

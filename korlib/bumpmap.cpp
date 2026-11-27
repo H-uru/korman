@@ -14,10 +14,12 @@
  * along with Korman.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "bumpmap.h"
+#include "korlib.h"
 
 #include "PyHSPlasma.h"
 #include <PRP/Surface/plMipmap.h>
+
+// ===============================================================================================
 
 static uint32_t MakeUInt32Color(float r, float g, float b, float a) {
     return  (uint32_t(a * 255.9f) << 24) |
@@ -26,7 +28,9 @@ static uint32_t MakeUInt32Color(float r, float g, float b, float a) {
             (uint32_t(b * 255.9f) << 0);
 }
 
-PyObject* create_funky_ramp(PyObject*, PyObject* args) {
+// ===============================================================================================
+
+static PyObject* create_funky_ramp(PyObject*, PyObject* args) {
     static const int kLUTHeight = 16;
     static const int kLUTWidth = 16;
     static const int kBufSz = kLUTWidth * kLUTHeight * sizeof(uint32_t);
@@ -59,7 +63,7 @@ PyObject* create_funky_ramp(PyObject*, PyObject* args) {
     Py_RETURN_NONE;
 }
 
-PyObject* create_bump_LUT(PyObject*, PyObject* args) {
+static PyObject* create_bump_LUT(PyObject*, PyObject* args) {
     static const int kLUTHeight = 16;
     static const int kLUTWidth = 16;
     static const int kBufSz = kLUTWidth * kLUTHeight * sizeof(uint32_t);
@@ -129,3 +133,8 @@ PyObject* create_bump_LUT(PyObject*, PyObject* args) {
 
     Py_RETURN_NONE;
 }
+
+// ===============================================================================================
+
+KORLIB_FUNCTION_VARARGS(create_bump_LUT)
+KORLIB_FUNCTION_VARARGS(create_funky_ramp)
